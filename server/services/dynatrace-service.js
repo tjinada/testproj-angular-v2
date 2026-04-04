@@ -48,7 +48,6 @@ function getEnvConfig(environment = 'NON-PROD') {
   if (!config || !config.url || !config.token) {
     throw new Error(`Invalid or missing Dynatrace configuration for environment: ${environment}`);
   }
-  // Strip trailing slash if present
   config.url = config.url.replace(/\/+$/, '');
   return config;
 }
@@ -59,6 +58,7 @@ function getEnvConfig(environment = 'NON-PROD') {
 async function executeQuery(config, query) {
   const executeUrl = `${config.url}/query:execute`;
   console.log(`[Dynatrace] POST ${executeUrl}`);
+  console.log(`[Dynatrace] Query:\n${query}`);
 
   const response = await axios.post(
     executeUrl,

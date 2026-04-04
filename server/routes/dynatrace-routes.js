@@ -20,6 +20,11 @@ router.post('/:traceId', async (req, res) => {
   } catch (error) {
     console.error(`[Dynatrace] Error fetching trace ${traceId}:`, error.message);
 
+    // Log the full Dynatrace error response for debugging
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+
     const status = error.response?.status || 500;
     const message = error.response?.data?.error?.message || error.message;
 
