@@ -1,0 +1,15 @@
+<div class="search-container">
+  <input
+    type="text"
+    [(ngModel)]="traceId"
+    placeholder="Enter a trace ID to search..."
+    class="search-input"
+    (keyup.enter)="onSearch()"
+  />
+  <button
+    class="search-button"
+    (click)="onSearch()"
+    [disabled]="!traceId.trim()">
+    Search
+  </button>
+</div>
