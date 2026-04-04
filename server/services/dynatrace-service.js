@@ -21,6 +21,7 @@ const MAX_POLL_ATTEMPTS = 60;
 
 /**
  * Builds the full DQL query for fetching spans by trace ID.
+ * Uses the complex query (Option A) with entity attribute resolution.
  */
 function buildDqlQuery(traceId, timeframe) {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
@@ -40,12 +41,15 @@ function buildDqlQuery(traceId, timeframe) {
 
 /**
  * Returns the Dynatrace config for the given environment.
+ * Strips trailing slashes from URL to prevent double-path issues.
  */
 function getEnvConfig(environment = 'NON-PROD') {
   const config = ENV_CONFIG[environment.toUpperCase()];
   if (!config || !config.url || !config.token) {
     throw new Error(`Invalid or missing Dynatrace configuration for environment: ${environment}`);
   }
+  // Strip trailing slash if present
+  config.url = config.url.replace(/\/+$/, '');
   return config;
 }
 
@@ -53,8 +57,11 @@ function getEnvConfig(environment = 'NON-PROD') {
  * Step 1: Execute the DQL query. Returns a requestToken.
  */
 async function executeQuery(config, query) {
+  const executeUrl = `${config.url}/query:execute`;
+  console.log(`[Dynatrace] POST ${executeUrl}`);
+
   const response = await axios.post(
-    `${config.url}/query:execute`,
+    executeUrl,
     {
       query,
       defaultTimeframeStart: null,
@@ -79,9 +86,13 @@ async function executeQuery(config, query) {
  * Step 2: Poll for results until state is no longer RUNNING.
  */
 async function pollForResults(config, requestToken) {
+  const pollUrl = `${config.url}/query:poll`;
+
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+    console.log(`[Dynatrace] GET ${pollUrl} (attempt ${attempt + 1})`);
+
     const response = await axios.get(
-      `${config.url}/query:poll`,
+      pollUrl,
       {
         params: { 'request-token': requestToken },
         headers: {
