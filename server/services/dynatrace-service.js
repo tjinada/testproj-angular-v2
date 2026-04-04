@@ -21,22 +21,30 @@ const MAX_POLL_ATTEMPTS = 60;
 
 /**
  * Builds the full DQL query for fetching spans by trace ID.
- * Uses the complex query (Option A) with entity attribute resolution.
+ * Matches the exact working Postman query format with \n line separators.
  */
 function buildDqlQuery(traceId, timeframe) {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
     : 'from: -120m';
 
-  return `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000
-| filter in(trace.id, {toUid("${traceId}")})
-| construct fields
-| fieldsAdd span.source = if((isNotNull(dt.agent.module.id)) or matchesValue(telemetry.exporter.name, "odin") or matchesValue(telemetry.sdk.name, "oneagent") or matchesValue(dt.openpipeline.source, "oneagent"), "OneAgent", else: "OpenTelemetry")
-| fieldsAdd icon = entityAttr(dt.entity.service, "icon")
-| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")
-| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")
-| fieldsAdd dt.entity.process_group.entity.name = entityAttr(dt.entity.process_group, "entity.name")
-| fieldsAdd dt.entity.process_group_instance.entity.name = entityAttr(dt.entity.process_group_instance, "entity.name")`;
+  // Build query as a single string with \n separators to match Postman format
+  const parts = [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000`,
+    `| filter in(trace.id, {toUid("${traceId}")})`,
+    `| limit 1000`,
+    `// construct fields`,
+    `| fieldsAdd span.source = if((isNotNull(dt.agent.module.id)) or matchesValue(telemetry.exporter.name, "odin") or matchesValue(telemetry.sdk.name, "oneagent") or matchesValue(dt.openpipeline.source, "oneagent"), "OneAgent", else: "OpenTelemetry")`,
+    `// construct fields`,
+    `| fieldsAdd icon = entityAttr(dt.entity.service, "icon")`,
+    `// add entity lookups`,
+    `| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")`,
+    `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`,
+    `| fieldsAdd dt.entity.process_group.entity.name = entityAttr(dt.entity.process_group, "entity.name")`,
+    `| fieldsAdd dt.entity.process_group_instance.entity.name = entityAttr(dt.entity.process_group_instance, "entity.name")`
+  ];
+
+  return parts.join('\n');
 }
 
 /**
