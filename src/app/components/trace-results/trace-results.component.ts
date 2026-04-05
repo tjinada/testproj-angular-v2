@@ -21,9 +21,7 @@ export class TraceResultsComponent {
   get errorSummary(): ErrorSummary | null {
     if (!this.spans || this.spans.length === 0) return null;
 
-    const failingSpan = this.spans.find(s => s['request.status_code'] === 'Failure')
-      || this.spans.find(s => s['span.status_code'] === 'error');
-
+    const failingSpan = this.findRootCauseSpan();
     if (!failingSpan) return null;
 
     const httpStatus = failingSpan['http.response.status_code'] || '';
@@ -34,7 +32,7 @@ export class TraceResultsComponent {
       environment: this.environment,
       httpStatus,
       httpStatusText: this.getHttpStatusText(httpStatus),
-      errorPath: this.buildErrorPath(failingSpan),
+      errorPath: this.buildErrorPropagationPath(),
       errorMessage: this.extractErrorMessage(failingSpan),
       stackTrace: failingSpan['code.call_stack'] || '',
       timestamp: this.formatTimestamp(failingSpan['start_time'])
@@ -65,13 +63,79 @@ export class TraceResultsComponent {
     return `${(nanos / 1_000_000_000).toFixed(1)}s`;
   }
 
-  private buildErrorPath(span: SpanRecord): string {
-    const service = span['dt.entity.service.entity.name'] || span['dt.service.name'] || '';
-    const codeNs = span['code.namespace'] || '';
-    const codeFn = span['code.function'] || '';
-    if (codeNs && codeFn) return `${service} (${codeNs}.${codeFn})`;
-    if (span['url.path']) return `${service} (${span['url.path']})`;
-    return service;
+  /**
+   * Finds the root cause span — the deepest error span in the call chain.
+   * Error spans whose span.id is not the parent of any other error span
+   * are leaf errors, meaning the error originated there (not propagated).
+   */
+  private findRootCauseSpan(): SpanRecord | null {
+    const errorSpans = this.spans.filter(
+      s => s['request.status_code'] === 'Failure' || s['span.status_code'] === 'error'
+    );
+
+    if (errorSpans.length === 0) return null;
+    if (errorSpans.length === 1) return errorSpans[0];
+
+    // Find leaf errors: error spans that are NOT the parent of another error span
+    const errorParentIds = new Set(
+      errorSpans.map(s => s['span.parent_id']).filter(Boolean)
+    );
+
+    const leafErrors = errorSpans.filter(s => !errorParentIds.has(s['span.id']));
+
+    // If we found leaf errors, pick the one with the latest start_time
+    // (in case of multiple independent failures, show the most recent)
+    if (leafErrors.length > 0) {
+      return leafErrors.sort(
+        (a, b) => new Date(b['start_time']).getTime() - new Date(a['start_time']).getTime()
+      )[0];
+    }
+
+    // Fallback: return the first error span
+    return errorSpans[0];
+  }
+
+  /**
+   * Builds the error propagation path from root cause back to the entry point.
+   * Walks up the span parent chain from the root cause span to show how the
+   * error propagated through services.
+   */
+  private buildErrorPropagationPath(): string {
+    const rootCause = this.findRootCauseSpan();
+    if (!rootCause) return '';
+
+    // Build a lookup map: span.id -> span
+    const spanMap = new Map<string, SpanRecord>();
+    this.spans.forEach(s => spanMap.set(s['span.id'], s));
+
+    // Walk up the parent chain from root cause to entry point
+    const pathParts: string[] = [];
+    let current: SpanRecord | undefined = rootCause;
+    const visited = new Set<string>();
+
+    while (current && !visited.has(current['span.id'])) {
+      visited.add(current['span.id']);
+
+      const service = current['dt.entity.service.entity.name'] || current['dt.service.name'] || '';
+      // Only add if it's a different service than the last one added (avoid duplicates)
+      if (service && (pathParts.length === 0 || pathParts[pathParts.length - 1] !== service)) {
+        pathParts.push(service);
+      }
+
+      // Move to parent
+      const parentId = current['span.parent_id'];
+      current = parentId ? spanMap.get(parentId) : undefined;
+    }
+
+    // Reverse so it reads: entry point → ... → root cause
+    pathParts.reverse();
+
+    // Append code location from root cause if available
+    const codeNs = rootCause['code.namespace'] || '';
+    const codeFn = rootCause['code.function'] || '';
+    const location = codeNs && codeFn ? ` (${codeNs}.${codeFn})` : '';
+
+    return pathParts.join(' → ') + location;
   }
 
   private extractErrorMessage(span: SpanRecord): string {
