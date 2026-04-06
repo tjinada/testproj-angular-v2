@@ -21,6 +21,7 @@ import { buildFlowGraph, FlowGraph, FlowNode, FlowEdge } from './flow-layout';
 })
 export class FlowDiagramComponent implements OnChanges {
   @Input() spans: SpanRecord[] = [];
+  @Input() rootCauseService: string | null = null;
 
   @ViewChild('svgEl', { static: false }) svgEl?: ElementRef<SVGSVGElement>;
 
@@ -52,8 +53,8 @@ export class FlowDiagramComponent implements OnChanges {
   });
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['spans']) {
-      const g = buildFlowGraph(this.spans || []);
+    if (changes['spans'] || changes['rootCauseService']) {
+      const g = buildFlowGraph(this.spans || [], this.rootCauseService);
       this.graph.set(g);
       this.selectedNodeId.set(null);
       // Defer fit so the svg has dimensions

@@ -47,6 +47,24 @@ export class TraceAnalyzer {
   }
 
   /**
+   * Returns the span id of the root cause span, if any. Useful for
+   * views that need to agree with findRootCause() without re-running
+   * the detection themselves.
+   */
+  getRootCauseSpanId(): string | null {
+    const rc = this.findRootCause();
+    return rc ? rc['span.id'] : null;
+  }
+
+  /**
+   * Returns the service name of the root cause span, if any.
+   */
+  getRootCauseServiceName(): string | null {
+    const rc = this.findRootCause();
+    return rc ? (this.getServiceName(rc) || null) : null;
+  }
+
+  /**
    * Resolves the HTTP status code that corresponds to an error on this span.
    *   1. Direct status on the span
    *   2. Match via Dynatrace's exception_id linking (span.exit_by_exception_id
@@ -319,8 +337,19 @@ export class TraceAnalyzer {
   /**
    * Appends a "failed calling: ..." step for the downstream outbound HTTP
    * call that failed, unless its URL is already shown in the chain.
+   *
+   * Skipped when the root cause is itself a proper failed server span (the
+   * chain already ends at the real culprit). Only triggers when the root
+   * cause is a client-side outbound failure with no deeper server span,
+   * i.e. the failure is literally "we called X and it died before X could
+   * respond".
    */
   private appendFailingOutboundCall(steps: ErrorPathStep[]): void {
+    const rootCause = this.findRootCause();
+    if (rootCause && rootCause['span.kind'] === 'server' && rootCause['request.is_failed'] === true) {
+      return;
+    }
+
     const urlPathsInChain = new Set(steps.map(s => s.urlPath).filter(Boolean));
 
     const candidates = this.spans

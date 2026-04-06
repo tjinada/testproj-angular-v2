@@ -11,6 +11,7 @@ export interface FlowNode {
   width: number;
   height: number;
   isFailed: boolean;
+  isRootCause: boolean;    // true for the node identified as the root cause
   isExternal: boolean;     // true for synthetic upstream/downstream nodes
   spanCount: number;
   endpoints: string[];
@@ -76,8 +77,14 @@ function isSpanFailed(span: SpanRecord): boolean {
  * - Downstream synthetic nodes: from server.address on client spans
  * - Upstream synthetic nodes: from process_group name on root/server spans
  *   when it differs from the span's own service
+ *
+ * If rootCauseService is supplied, the matching real node will be flagged
+ * with isRootCause: true so the view can highlight it distinctly.
  */
-export function buildFlowGraph(spans: SpanRecord[]): FlowGraph {
+export function buildFlowGraph(
+  spans: SpanRecord[],
+  rootCauseService: string | null = null
+): FlowGraph {
   if (!spans || spans.length === 0) {
     return { nodes: [], edges: [], width: 0, height: 0 };
   }
@@ -115,6 +122,7 @@ export function buildFlowGraph(spans: SpanRecord[]): FlowGraph {
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
       isFailed: grp.some(isSpanFailed),
+      isRootCause: rootCauseService !== null && name === rootCauseService,
       isExternal: false,
       spanCount: grp.length,
       endpoints,
@@ -184,6 +192,7 @@ export function buildFlowGraph(spans: SpanRecord[]): FlowGraph {
         width: NODE_WIDTH,
         height: NODE_HEIGHT,
         isFailed: false,
+        isRootCause: false,
         isExternal: true,
         spanCount: 0,
         endpoints: [],

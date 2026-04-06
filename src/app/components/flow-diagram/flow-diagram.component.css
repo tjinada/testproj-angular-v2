@@ -119,6 +119,33 @@
   stroke-width: 2.75;
 }
 
+/* Root cause — thicker border, slightly darker red fill, darker stroke */
+.flow-node-root-cause .flow-node-rect {
+  fill: #fee2e2;
+  stroke: #b91c1c;
+  stroke-width: 3;
+}
+
+.flow-node-root-cause.flow-node-selected .flow-node-rect {
+  stroke: #991b1b;
+  stroke-width: 3.5;
+}
+
+/* Root cause badge (pill above the node) */
+.flow-node-badge rect {
+  fill: #b91c1c;
+  stroke: none;
+}
+
+.flow-node-badge text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
 /* External (synthetic) nodes — dashed border */
 .flow-node-external .flow-node-rect {
   fill: #fafafa;

@@ -22,6 +22,7 @@ export class TraceResultsComponent implements OnChanges {
 
   errorSummary: ErrorSummary | null = null;
   callFlowSpans: CallFlowSpan[] = [];
+  rootCauseService: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['spans']) {
@@ -39,6 +40,7 @@ export class TraceResultsComponent implements OnChanges {
     if (!this.spans || this.spans.length === 0) {
       this.errorSummary = null;
       this.callFlowSpans = [];
+      this.rootCauseService = null;
       return;
     }
 
@@ -46,6 +48,7 @@ export class TraceResultsComponent implements OnChanges {
     const rootCause = analyzer.findRootCause();
 
     this.callFlowSpans = analyzer.buildCallFlow();
+    this.rootCauseService = analyzer.getRootCauseServiceName();
 
     if (!rootCause) {
       this.errorSummary = null;

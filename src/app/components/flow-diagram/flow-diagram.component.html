@@ -55,6 +55,7 @@
             class="flow-node"
             [class.flow-node-failed]="node.isFailed"
             [class.flow-node-external]="node.isExternal"
+            [class.flow-node-root-cause]="node.isRootCause"
             [class.flow-node-selected]="selectedNodeId() === node.id"
             [attr.transform]="'translate(' + (node.x - node.width/2) + ',' + (node.y - node.height/2) + ')'"
             (click)="onNodeClick(node, $event)"
@@ -65,6 +66,11 @@
               [attr.height]="node.height"
               rx="6" ry="6"
             />
+            <!-- Root cause badge -->
+            <g *ngIf="node.isRootCause" class="flow-node-badge">
+              <rect x="8" y="-9" width="86" height="18" rx="9" ry="9" />
+              <text x="51" y="3" text-anchor="middle">ROOT CAUSE</text>
+            </g>
             <text class="flow-node-label" [attr.x]="node.width/2" y="28" text-anchor="middle">
               {{ truncate(node.label, 26) }}
             </text>
@@ -90,6 +96,10 @@
         <button class="flow-details-close" (click)="closeDetails()">&times;</button>
       </div>
       <div class="flow-details-body">
+        <div class="flow-details-row" *ngIf="node.isRootCause">
+          <span class="flow-details-label">Root Cause</span>
+          <span class="flow-details-value flow-details-value-failed">Yes</span>
+        </div>
         <div class="flow-details-row" *ngIf="node.isExternal">
           <span class="flow-details-label">Type</span>
           <span class="flow-details-value">External system</span>
