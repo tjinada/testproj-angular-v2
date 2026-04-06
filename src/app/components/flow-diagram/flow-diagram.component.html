@@ -1,0 +1,120 @@
+<div class="flow-diagram-wrapper" *ngIf="graph().nodes.length > 0">
+
+  <!-- Toolbar -->
+  <div class="flow-toolbar">
+    <span class="flow-title">Component Flow</span>
+    <div class="flow-controls">
+      <button class="flow-btn" (click)="zoomIn()" title="Zoom in">+</button>
+      <button class="flow-btn" (click)="zoomOut()" title="Zoom out">&minus;</button>
+      <button class="flow-btn" (click)="fitToScreen()" title="Fit to screen">Fit</button>
+      <button class="flow-btn" (click)="resetView()" title="Reset view">Reset</button>
+      <span class="flow-zoom-label">{{ (k() * 100) | number:'1.0-0' }}%</span>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="flow-canvas-container">
+    <svg
+      #svgEl
+      class="flow-canvas"
+      (mousedown)="onMouseDown($event)"
+      (mousemove)="onMouseMove($event)"
+      (mouseup)="onMouseUp()"
+      (mouseleave)="onMouseLeave()"
+      (wheel)="onWheel($event)"
+    >
+      <defs>
+        <marker id="fd-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af" />
+        </marker>
+        <marker id="fd-arrow-failed" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#e24b4a" />
+        </marker>
+      </defs>
+
+      <g [attr.transform]="transform()">
+
+        <!-- Edges -->
+        <g class="flow-edges">
+          <path
+            *ngFor="let edge of graph().edges; trackBy: trackEdge"
+            [attr.d]="edgePath(edge)"
+            class="flow-edge"
+            [class.flow-edge-failed]="edge.isFailed"
+            [attr.marker-end]="edge.isFailed ? 'url(#fd-arrow-failed)' : 'url(#fd-arrow)'"
+            fill="none"
+          />
+        </g>
+
+        <!-- Nodes -->
+        <g class="flow-nodes">
+          <g
+            *ngFor="let node of graph().nodes; trackBy: trackNode"
+            class="flow-node"
+            [class.flow-node-failed]="node.isFailed"
+            [class.flow-node-external]="node.isExternal"
+            [class.flow-node-selected]="selectedNodeId() === node.id"
+            [attr.transform]="'translate(' + (node.x - node.width/2) + ',' + (node.y - node.height/2) + ')'"
+            (click)="onNodeClick(node, $event)"
+          >
+            <rect
+              class="flow-node-rect"
+              [attr.width]="node.width"
+              [attr.height]="node.height"
+              rx="6" ry="6"
+            />
+            <text class="flow-node-label" [attr.x]="node.width/2" y="28" text-anchor="middle">
+              {{ truncate(node.label, 26) }}
+            </text>
+            <text class="flow-node-host" [attr.x]="node.width/2" y="48" text-anchor="middle"
+                  *ngIf="node.hostname">
+              {{ truncate(node.hostname, 32) }}
+            </text>
+            <text class="flow-node-sub" [attr.x]="node.width/2" y="70" text-anchor="middle">
+              {{ node.sublabel }}
+              <ng-container *ngIf="!node.isExternal && node.endpoints.length > 0">
+                · {{ node.endpoints.length }} endpoint{{ node.endpoints.length === 1 ? '' : 's' }}
+              </ng-container>
+            </text>
+          </g>
+        </g>
+      </g>
+    </svg>
+
+    <!-- Details panel -->
+    <div class="flow-details" *ngIf="selectedNode() as node">
+      <div class="flow-details-header">
+        <span class="flow-details-title">{{ node.label }}</span>
+        <button class="flow-details-close" (click)="closeDetails()">&times;</button>
+      </div>
+      <div class="flow-details-body">
+        <div class="flow-details-row" *ngIf="node.isExternal">
+          <span class="flow-details-label">Type</span>
+          <span class="flow-details-value">External system</span>
+        </div>
+        <div class="flow-details-row">
+          <span class="flow-details-label">Status</span>
+          <span class="flow-details-value" [class.flow-details-value-failed]="node.isFailed">
+            {{ node.isFailed ? 'Failed' : 'OK' }}
+          </span>
+        </div>
+        <div class="flow-details-row" *ngIf="node.fullHostname">
+          <span class="flow-details-label">Host</span>
+          <span class="flow-details-value">{{ node.fullHostname }}</span>
+        </div>
+        <div class="flow-details-row" *ngIf="!node.isExternal">
+          <span class="flow-details-label">Spans</span>
+          <span class="flow-details-value">{{ node.spanCount }}</span>
+        </div>
+        <div class="flow-details-row" *ngIf="node.endpoints.length > 0">
+          <span class="flow-details-label">Endpoints</span>
+          <ul class="flow-details-endpoints">
+            <li *ngFor="let ep of node.endpoints">{{ ep }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

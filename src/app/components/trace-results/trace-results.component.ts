@@ -2,11 +2,12 @@ import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpanRecord, ErrorSummary, CallFlowSpan } from '../../models/trace.model';
 import { TraceAnalyzer } from '../../services/trace-analyzer';
+import { FlowDiagramComponent } from '../flow-diagram/flow-diagram.component';
 
 @Component({
   selector: 'app-trace-results',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FlowDiagramComponent],
   templateUrl: './trace-results.component.html',
   styleUrls: ['./trace-results.component.css']
 })
