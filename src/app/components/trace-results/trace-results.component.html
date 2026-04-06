@@ -53,9 +53,22 @@
       </div>
 
       <!-- Error Path -->
-      <div class="section" *ngIf="errorSummary.errorPath">
+      <div class="section" *ngIf="errorSummary.errorPath.length > 0">
         <span class="field-label">Error Path</span>
-        <div class="error-path-box">{{ errorSummary.errorPath }}</div>
+        <div class="error-path-box">
+          <div *ngFor="let step of errorSummary.errorPath; let i = index; let last = last" class="error-path-step">
+            <span class="path-indent" *ngIf="i > 0">
+              <span *ngIf="!step.isFailedCall">↓</span>
+              <span *ngIf="step.isFailedCall" class="failed-call-prefix">failed calling:</span>
+            </span>
+            <span class="path-service" [class.path-service-failed]="step.isFailedCall">
+              <ng-container *ngIf="!step.isFailedCall">{{ step.service }}</ng-container>
+              <ng-container *ngIf="step.isFailedCall">{{ step.serverAddress }}</ng-container>
+            </span>
+            <span class="path-url" *ngIf="step.urlPath">({{ step.urlPath }})</span>
+            <span class="path-status" *ngIf="step.isFailedCall && step.httpStatus">[{{ step.httpStatus }}]</span>
+          </div>
+        </div>
       </div>
 
       <!-- Error Message -->

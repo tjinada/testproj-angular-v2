@@ -5,29 +5,41 @@ export interface SpanRecord {
   'span.parent_id': string | null;
   'span.name': string;
   'span.kind': string;
-  'span.status_code': string;
-  'span.source': string;
+  'span.status_code'?: string;
+  'span.source'?: string;
   'start_time': string;
   'end_time': string;
-  'duration': number;
-  'endpoint.name': string;
-  'dt.entity.service': string;
-  'dt.service.name': string;
-  'dt.entity.service.entity.name': string;
-  'dt.entity.host.entity.name': string;
-  'dt.entity.process_group.entity.name': string;
-  'dt.entity.process_group_instance.entity.name': string;
-  'request.status_code': string;
-  'http.response.status_code': string;
-  'code.call_stack': string | null;
-  'span.events': SpanEvent[] | null;
-  'url.path': string;
-  'url.full': string;
-  'server.address': string;
-  'server.port': string;
-  'code.function': string;
-  'code.namespace': string;
-  'icon': { primaryIconType: string; secondaryIconType: string | null } | null;
+  'duration': string | number;
+  'endpoint.name'?: string;
+  'dt.entity.service'?: string;
+  'dt.service.name'?: string;
+  'dt.entity.service.entity.name'?: string;
+  'dt.entity.host.entity.name'?: string;
+  'dt.entity.process_group.entity.name'?: string;
+  'dt.entity.process_group_instance.entity.name'?: string;
+  'request.is_failed'?: boolean;
+  'request.is_root_span'?: boolean;
+  'dt.failure_detection.verdict'?: string;
+  'dt.failure_detection.results'?: Array<{
+    verdict: string;
+    reason: string;
+    exception_id: string[];
+  }>;
+  'http.response.status_code'?: string;
+  'http.request.method'?: string;
+  'code.call_stack'?: string | null;
+  'code.function'?: string;
+  'code.namespace'?: string;
+  'span.events'?: SpanEvent[] | null;
+  'span.is_exit_by_exception'?: boolean;
+  'span.exit_by_exception_id'?: string;
+  'url.path'?: string;
+  'url.full'?: string;
+  'server.address'?: string;
+  'server.port'?: string;
+  'host.name'?: string;
+  'icon'?: { primaryIconType: string; secondaryIconType: string | null } | null;
+  [key: string]: unknown;
 }
 
 /** Exception event within a span */
@@ -35,15 +47,31 @@ export interface SpanEvent {
   'span_event.name': string;
   'exception.type'?: string;
   'exception.message'?: string;
+  'exception.id'?: string;
+  'exception.escaped'?: boolean;
+  'exception.is_caused_by_root'?: boolean;
+  'exception.file.full'?: string;
+  'exception.line_number'?: string;
+  'exception.stack_trace'?: string;
 }
 
 /** Dynatrace poll response structure */
 export interface DynatraceResponse {
   state: string;
+  progress?: number;
   result: {
     records: SpanRecord[];
-    types: unknown[];
+    types?: unknown[];
   };
+}
+
+/** A single step in the error propagation path */
+export interface ErrorPathStep {
+  service: string;
+  urlPath: string;
+  isFailedCall?: boolean;
+  serverAddress?: string;
+  httpStatus?: string;
 }
 
 /** Processed error summary for display */
@@ -53,7 +81,7 @@ export interface ErrorSummary {
   environment: string;
   httpStatus: string;
   httpStatusText: string;
-  errorPath: string;
+  errorPath: ErrorPathStep[];
   errorMessage: string;
   stackTrace: string;
   timestamp: string;

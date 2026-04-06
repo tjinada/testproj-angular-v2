@@ -1,4 +1,6 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 // Environment config mapping
 const ENV_CONFIG = {
@@ -18,17 +20,16 @@ const ENV_CONFIG = {
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_ATTEMPTS = 60;
+const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 
 /**
  * Builds the full DQL query for fetching spans by trace ID.
- * Matches the exact working Postman query format with \n line separators.
  */
 function buildDqlQuery(traceId, timeframe) {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
     : 'from: -120m';
 
-  // Build query as a single string with \n separators to match Postman format
   const parts = [
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000`,
     `| filter in(trace.id, {toUid("${traceId}")})`,
@@ -49,7 +50,6 @@ function buildDqlQuery(traceId, timeframe) {
 
 /**
  * Returns the Dynatrace config for the given environment.
- * Strips trailing slashes from URL to prevent double-path issues.
  */
 function getEnvConfig(environment = 'NON-PROD') {
   const config = ENV_CONFIG[environment.toUpperCase()];
@@ -66,7 +66,6 @@ function getEnvConfig(environment = 'NON-PROD') {
 async function executeQuery(config, query) {
   const executeUrl = `${config.url}/query:execute`;
   console.log(`[Dynatrace] POST ${executeUrl}`);
-  console.log(`[Dynatrace] Query:\n${query}`);
 
   const response = await axios.post(
     executeUrl,
@@ -97,8 +96,6 @@ async function pollForResults(config, requestToken) {
   const pollUrl = `${config.url}/query:poll`;
 
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
-    console.log(`[Dynatrace] GET ${pollUrl} (attempt ${attempt + 1})`);
-
     const response = await axios.get(
       pollUrl,
       {
@@ -126,9 +123,27 @@ async function pollForResults(config, requestToken) {
 }
 
 /**
- * Fetches trace data by trace ID using the 2-step execute + poll pattern.
+ * Loads the mock response from disk.
+ */
+function loadMockResponse() {
+  if (!fs.existsSync(MOCK_FILE_PATH)) {
+    throw new Error(`Mock file not found at: ${MOCK_FILE_PATH}`);
+  }
+  const content = fs.readFileSync(MOCK_FILE_PATH, 'utf8');
+  return JSON.parse(content);
+}
+
+/**
+ * Fetches trace data by trace ID.
+ * If USE_MOCK is enabled, returns the mock response.
+ * Otherwise, performs the 2-step execute + poll pattern against Dynatrace.
  */
 async function fetchTraceById(traceId, environment, timeframe) {
+  if (process.env.USE_MOCK === 'true') {
+    console.log(`[Mock] Returning mock response for trace: ${traceId}`);
+    return loadMockResponse();
+  }
+
   const config = getEnvConfig(environment);
   const query = buildDqlQuery(traceId, timeframe);
 

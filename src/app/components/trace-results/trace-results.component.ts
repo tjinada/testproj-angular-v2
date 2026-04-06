@@ -1,6 +1,7 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpanRecord, ErrorSummary, CallFlowSpan } from '../../models/trace.model';
+import { TraceAnalyzer } from '../../services/trace-analyzer';
 
 @Component({
   selector: 'app-trace-results',
@@ -9,7 +10,7 @@ import { SpanRecord, ErrorSummary, CallFlowSpan } from '../../models/trace.model
   templateUrl: './trace-results.component.html',
   styleUrls: ['./trace-results.component.css']
 })
-export class TraceResultsComponent {
+export class TraceResultsComponent implements OnChanges {
   @Input() spans: SpanRecord[] = [];
   @Input() isLoading = false;
   @Input() errorMsg = '';
@@ -18,43 +19,13 @@ export class TraceResultsComponent {
   showMessagePopup = false;
   showStackPopup = false;
 
-  get errorSummary(): ErrorSummary | null {
-    if (!this.spans || this.spans.length === 0) return null;
+  errorSummary: ErrorSummary | null = null;
+  callFlowSpans: CallFlowSpan[] = [];
 
-    const failingSpan = this.findRootCauseSpan();
-    if (!failingSpan) return null;
-
-    const httpStatus = failingSpan['http.response.status_code'] || '';
-
-    return {
-      component: failingSpan['dt.entity.service.entity.name'] || failingSpan['dt.service.name'] || 'Unknown',
-      endpoint: failingSpan['endpoint.name'] || failingSpan['span.name'] || 'Unknown',
-      environment: this.environment,
-      httpStatus,
-      httpStatusText: this.getHttpStatusText(httpStatus),
-      errorPath: this.buildErrorPropagationPath(),
-      errorMessage: this.extractErrorMessage(failingSpan),
-      stackTrace: failingSpan['code.call_stack'] || '',
-      timestamp: this.formatTimestamp(failingSpan['start_time'])
-    };
-  }
-
-  get callFlowSpans(): CallFlowSpan[] {
-    if (!this.spans || this.spans.length === 0) return [];
-
-    return [...this.spans]
-      .sort((a, b) => new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime())
-      .map(span => ({
-        spanId: span['span.id'],
-        parentSpanId: span['span.parent_id'],
-        serviceName: span['dt.entity.service.entity.name'] || span['dt.service.name'] || 'Unknown',
-        endpointName: span['endpoint.name'] || '',
-        httpStatus: span['http.response.status_code'] || '',
-        duration: span['duration'] || 0,
-        startTime: span['start_time'],
-        spanKind: span['span.kind'] || '',
-        isError: span['request.status_code'] === 'Failure' || span['span.status_code'] === 'error'
-      }));
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['spans']) {
+      this.analyzeTrace();
+    }
   }
 
   formatDuration(nanos: number): string {
@@ -63,93 +34,67 @@ export class TraceResultsComponent {
     return `${(nanos / 1_000_000_000).toFixed(1)}s`;
   }
 
-  /**
-   * Finds the root cause span — the deepest error span in the call chain.
-   * Error spans whose span.id is not the parent of any other error span
-   * are leaf errors, meaning the error originated there (not propagated).
-   */
-  private findRootCauseSpan(): SpanRecord | null {
-    const errorSpans = this.spans.filter(
-      s => s['request.status_code'] === 'Failure' || s['span.status_code'] === 'error'
-    );
-
-    if (errorSpans.length === 0) return null;
-    if (errorSpans.length === 1) return errorSpans[0];
-
-    // Find leaf errors: error spans that are NOT the parent of another error span
-    const errorParentIds = new Set(
-      errorSpans.map(s => s['span.parent_id']).filter(Boolean)
-    );
-
-    const leafErrors = errorSpans.filter(s => !errorParentIds.has(s['span.id']));
-
-    // If we found leaf errors, pick the one with the latest start_time
-    // (in case of multiple independent failures, show the most recent)
-    if (leafErrors.length > 0) {
-      return leafErrors.sort(
-        (a, b) => new Date(b['start_time']).getTime() - new Date(a['start_time']).getTime()
-      )[0];
+  private analyzeTrace(): void {
+    if (!this.spans || this.spans.length === 0) {
+      this.errorSummary = null;
+      this.callFlowSpans = [];
+      return;
     }
 
-    // Fallback: return the first error span
-    return errorSpans[0];
-  }
+    const analyzer = new TraceAnalyzer(this.spans);
+    const rootCause = analyzer.findRootCause();
 
-  /**
-   * Builds the error propagation path from root cause back to the entry point.
-   * Walks up the span parent chain from the root cause span to show how the
-   * error propagated through services.
-   */
-  private buildErrorPropagationPath(): string {
-    const rootCause = this.findRootCauseSpan();
-    if (!rootCause) return '';
+    this.callFlowSpans = analyzer.buildCallFlow();
 
-    // Build a lookup map: span.id -> span
-    const spanMap = new Map<string, SpanRecord>();
-    this.spans.forEach(s => spanMap.set(s['span.id'], s));
-
-    // Walk up the parent chain from root cause to entry point
-    const pathParts: string[] = [];
-    let current: SpanRecord | undefined = rootCause;
-    const visited = new Set<string>();
-
-    while (current && !visited.has(current['span.id'])) {
-      visited.add(current['span.id']);
-
-      const service = current['dt.entity.service.entity.name'] || current['dt.service.name'] || '';
-      // Only add if it's a different service than the last one added (avoid duplicates)
-      if (service && (pathParts.length === 0 || pathParts[pathParts.length - 1] !== service)) {
-        pathParts.push(service);
-      }
-
-      // Move to parent
-      const parentId = current['span.parent_id'];
-      current = parentId ? spanMap.get(parentId) : undefined;
+    if (!rootCause) {
+      this.errorSummary = null;
+      return;
     }
 
-    // Reverse so it reads: entry point → ... → root cause
-    pathParts.reverse();
-
-    // Append code location from root cause if available
-    const codeNs = rootCause['code.namespace'] || '';
-    const codeFn = rootCause['code.function'] || '';
-    const location = codeNs && codeFn ? ` (${codeNs}.${codeFn})` : '';
-
-    return pathParts.join(' → ') + location;
+    const httpStatus = analyzer.findHttpStatus(rootCause);
+    this.errorSummary = {
+      component: rootCause['dt.entity.service.entity.name'] || rootCause['dt.service.name'] || 'Unknown',
+      endpoint: rootCause['endpoint.name'] || rootCause['span.name'] || 'Unknown',
+      environment: analyzer.deriveEnvironment(this.environment),
+      httpStatus,
+      httpStatusText: this.getHttpStatusText(httpStatus),
+      errorPath: analyzer.buildErrorPath(),
+      errorMessage: this.extractErrorMessage(rootCause),
+      stackTrace: this.extractStackTrace(rootCause),
+      timestamp: this.formatTimestamp(rootCause['start_time'])
+    };
   }
 
   private extractErrorMessage(span: SpanRecord): string {
     const events = span['span.events'];
     if (events && events.length > 0) {
-      const exception = events.find(e => e['span_event.name'] === 'exception');
+      const rootException = events.find(
+        e => e['span_event.name'] === 'exception' && e['exception.is_caused_by_root']
+      );
+      const exception = rootException || events.find(e => e['span_event.name'] === 'exception');
+
       if (exception) {
         const type = exception['exception.type'] || '';
         const msg = exception['exception.message'] || '';
-        return type ? `${type}: ${msg}` : msg;
+        if (type && msg) return `${type}: ${msg}`;
+        return type || msg || '';
       }
     }
+
     const stack = span['code.call_stack'];
     if (stack) return stack.split('\n')[0];
+    return '';
+  }
+
+  private extractStackTrace(span: SpanRecord): string {
+    if (span['code.call_stack']) return span['code.call_stack'];
+
+    const events = span['span.events'];
+    if (events && events.length > 0) {
+      const withStack = events.find(e => e['exception.stack_trace']);
+      if (withStack) return withStack['exception.stack_trace'] || '';
+    }
+
     return '';
   }
 
