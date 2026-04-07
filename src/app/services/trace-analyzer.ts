@@ -77,7 +77,7 @@ export class TraceAnalyzer {
     const root = this.findRootSpan();
     if (!root) return false;
 
-    const status = root['http.response.status_code'];
+    const status = String(root['http.response.status_code'] ?? '');
     if (!status) return false;
     if (!status.startsWith('2')) return false;
 
@@ -229,7 +229,7 @@ export class TraceAnalyzer {
     if (span['dt.failure_detection.verdict'] === 'failure') return true;
 
     if (span['span.kind'] === 'server') {
-      const status = span['http.response.status_code'];
+      const status = String(span['http.response.status_code'] ?? '');
       if (status && (status.startsWith('4') || status.startsWith('5'))) {
         return true;
       }
