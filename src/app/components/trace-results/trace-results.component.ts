@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SpanRecord, ErrorSummary, CallFlowSpan } from '../../models/trace.model';
+import { SpanRecord, ErrorSummary, SuccessSummary, CallFlowSpan } from '../../models/trace.model';
 import { TraceAnalyzer } from '../../services/trace-analyzer';
 import { FlowDiagramComponent } from '../flow-diagram/flow-diagram.component';
 
@@ -21,6 +21,7 @@ export class TraceResultsComponent implements OnChanges {
   showStackPopup = false;
 
   errorSummary: ErrorSummary | null = null;
+  successSummary: SuccessSummary | null = null;
   callFlowSpans: CallFlowSpan[] = [];
   rootCauseService: string | null = null;
 
@@ -39,15 +40,26 @@ export class TraceResultsComponent implements OnChanges {
   private analyzeTrace(): void {
     if (!this.spans || this.spans.length === 0) {
       this.errorSummary = null;
+      this.successSummary = null;
       this.callFlowSpans = [];
       this.rootCauseService = null;
       return;
     }
 
     const analyzer = new TraceAnalyzer(this.spans);
-    const rootCause = analyzer.findRootCause();
-
     this.callFlowSpans = analyzer.buildCallFlow();
+
+    // Successful trace: build a success summary, no root cause, no error card.
+    if (analyzer.isTraceSuccessful()) {
+      this.successSummary = this.buildSuccessSummary(analyzer);
+      this.errorSummary = null;
+      this.rootCauseService = null;
+      return;
+    }
+
+    // Failed trace: build error summary and root cause.
+    this.successSummary = null;
+    const rootCause = analyzer.findRootCause();
     this.rootCauseService = analyzer.getRootCauseServiceName();
 
     if (!rootCause) {
@@ -66,6 +78,25 @@ export class TraceResultsComponent implements OnChanges {
       errorMessage: this.extractErrorMessage(rootCause),
       stackTrace: this.extractStackTrace(rootCause),
       timestamp: this.formatTimestamp(rootCause['start_time'])
+    };
+  }
+
+  private buildSuccessSummary(analyzer: TraceAnalyzer): SuccessSummary {
+    const root = analyzer.findRootSpan();
+    const component =
+      (root && (root['dt.entity.service.entity.name'] || root['dt.service.name'])) || 'Unknown';
+    const endpoint = (root && (root['endpoint.name'] || root['span.name'])) || 'Unknown';
+    const httpStatus = (root && root['http.response.status_code']) || '200';
+    const durationNanos = root ? Number(root['duration']) || 0 : 0;
+
+    return {
+      component,
+      endpoint,
+      environment: analyzer.deriveEnvironment(this.environment),
+      httpStatus,
+      duration: this.formatDuration(durationNanos),
+      spanCount: this.spans.length,
+      timestamp: root ? this.formatTimestamp(root['start_time']) : ''
     };
   }
 

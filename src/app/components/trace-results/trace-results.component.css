@@ -102,6 +102,16 @@
   font-weight: 500;
 }
 
+.status-badge-success {
+  display: inline-block;
+  font-size: 13px;
+  padding: 3px 14px;
+  border-radius: 6px;
+  background: #E7F6EC;
+  color: #2F7D4B;
+  font-weight: 500;
+}
+
 /* Error path */
 .error-path-box {
   padding: 10px 14px;

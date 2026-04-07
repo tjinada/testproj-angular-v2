@@ -47,6 +47,45 @@ export class TraceAnalyzer {
   }
 
   /**
+   * Returns the root span of the trace, if one is identifiable.
+   * Prefers a span explicitly flagged with request.is_root_span === true,
+   * then falls back to a server-kind span with no in-trace parent.
+   */
+  findRootSpan(): SpanRecord | null {
+    const flagged = this.spans.find(s => s['request.is_root_span'] === true);
+    if (flagged) return flagged;
+
+    const serverEntry = this.spans.find(s => {
+      if (s['span.kind'] !== 'server') return false;
+      const parentId = s['span.parent_id'];
+      if (!parentId) return true;
+      return !this.spanMap.has(parentId);
+    });
+    return serverEntry || null;
+  }
+
+  /**
+   * Returns true when the trace as a whole succeeded from the user's
+   * perspective. Uses the root span's HTTP status and Dynatrace verdict:
+   *   - http.response.status_code is 2xx, AND
+   *   - request.is_failed is not explicitly true
+   *
+   * A trace with handled internal exceptions (span.status_code: error on
+   * some inner span but 2xx on the root) is still considered successful.
+   */
+  isTraceSuccessful(): boolean {
+    const root = this.findRootSpan();
+    if (!root) return false;
+
+    const status = root['http.response.status_code'];
+    if (!status) return false;
+    if (!status.startsWith('2')) return false;
+
+    if (root['request.is_failed'] === true) return false;
+    return true;
+  }
+
+  /**
    * Returns the span id of the root cause span, if any. Useful for
    * views that need to agree with findRootCause() without re-running
    * the detection themselves.
@@ -179,9 +218,23 @@ export class TraceAnalyzer {
   }
 
   private isErrorSpan(span: SpanRecord): boolean {
-    return span['request.is_failed'] === true
-      || span['dt.failure_detection.verdict'] === 'failure'
-      || span['span.status_code'] === 'error';
+    // A span is only considered failed when Dynatrace officially flags the
+    // request as failed, or the HTTP response on a server-kind span is 4xx/5xx.
+    // Note: we intentionally do NOT treat span.status_code === 'error' as a
+    // failure by itself, because that field flags "an exception was observed"
+    // which is commonly set even for handled exceptions where the request
+    // itself returned 200. Trusting it leads to false positives all over
+    // traces that the user experienced as successful.
+    if (span['request.is_failed'] === true) return true;
+    if (span['dt.failure_detection.verdict'] === 'failure') return true;
+
+    if (span['span.kind'] === 'server') {
+      const status = span['http.response.status_code'];
+      if (status && (status.startsWith('4') || status.startsWith('5'))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private hasRootCauseException(span: SpanRecord): boolean {

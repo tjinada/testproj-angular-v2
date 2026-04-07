@@ -87,6 +87,17 @@ export interface ErrorSummary {
   timestamp: string;
 }
 
+/** Processed success summary for display (trace succeeded overall) */
+export interface SuccessSummary {
+  component: string;       // root service name
+  endpoint: string;        // root endpoint.name
+  environment: string;
+  httpStatus: string;       // e.g. "200"
+  duration: string;         // formatted duration string (e.g. "4.27s")
+  spanCount: number;
+  timestamp: string;
+}
+
 /** Processed span for call flow display */
 export interface CallFlowSpan {
   spanId: string;
