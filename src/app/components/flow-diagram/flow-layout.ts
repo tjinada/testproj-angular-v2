@@ -1,4 +1,5 @@
 import { SpanRecord } from '../../models/trace.model';
+import { isSpanFailed } from '../../services/trace-analyzer';
 
 /** A node in the flow diagram (real service or synthetic external system) */
 export interface FlowNode {
@@ -60,16 +61,10 @@ function firstSegment(host: string): string {
   return firstDot === -1 ? noPort : noPort.substring(0, firstDot);
 }
 
-/** A span is considered failed based on Dynatrace markers or exception events. */
-function isSpanFailed(span: SpanRecord): boolean {
-  if (span['request.is_failed'] === true) return true;
-  if (span['span.status_code'] === 'ERROR') return true;
-  const verdict = span['dt.failure_detection.verdict'];
-  if (verdict && verdict !== 'OK') return true;
-  const events = span['span.events'];
-  if (events && events.some(e => e['span_event.name'] === 'exception')) return true;
-  return false;
-}
+// isSpanFailed is imported from trace-analyzer to keep a single source of
+// truth. Previously this file had its own copy with bugs (verdict !== 'OK'
+// instead of === 'failure', plus trusting span.status_code and exception
+// events) which lit up the diagram red on traces that succeeded.
 
 /**
  * Build a service-level flow graph from raw spans.
@@ -105,8 +100,17 @@ export function buildFlowGraph(
   const nodeById = new Map<string, FlowNode>();
 
   for (const [name, grp] of realGroups.entries()) {
+    // Only count endpoints from server-kind spans — client/internal spans
+    // surface things like outbound HTTP calls, DB connection lifecycle
+    // events, and Java method-level traces, none of which are "endpoints"
+    // in any meaningful sense.
     const endpoints = Array.from(
-      new Set(grp.map(s => s['endpoint.name'] || s['span.name']).filter(Boolean) as string[])
+      new Set(
+        grp
+          .filter(s => s['span.kind'] === 'server')
+          .map(s => s['endpoint.name'] || s['span.name'])
+          .filter(Boolean) as string[]
+      )
     );
     // Pick a host name from any span in the group
     const hostFull = (grp.find(s => s['dt.entity.host.entity.name'])?.[

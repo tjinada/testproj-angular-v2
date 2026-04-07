@@ -1,6 +1,34 @@
 import { SpanRecord, ErrorPathStep, CallFlowSpan } from '../models/trace.model';
 
 /**
+ * Standalone failure predicate. Exported so other modules (e.g. the flow
+ * diagram layout) share the exact same definition of "failed" rather than
+ * keeping their own copies that drift out of sync.
+ *
+ * A span is considered failed when ALL of these are true:
+ *   - request.is_failed === true, OR
+ *   - dt.failure_detection.verdict === 'failure', OR
+ *   - server-kind span with a 4xx/5xx http.response.status_code
+ *
+ * Notably we do NOT trust span.status_code === 'error' or the presence of
+ * exception events on their own — those fire for handled exceptions where
+ * the request itself returned 200, and using them led to entire diagrams
+ * lighting up red on traces that succeeded from the user's perspective.
+ */
+export function isSpanFailed(span: SpanRecord): boolean {
+  if (span['request.is_failed'] === true) return true;
+  if (span['dt.failure_detection.verdict'] === 'failure') return true;
+
+  if (span['span.kind'] === 'server') {
+    const status = String(span['http.response.status_code'] ?? '');
+    if (status && (status.startsWith('4') || status.startsWith('5'))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Stateful analyzer for a single Dynatrace trace.
  *
  * Encapsulates all the logic for extracting meaningful information from a
@@ -48,20 +76,47 @@ export class TraceAnalyzer {
 
   /**
    * Returns the root span of the trace, if one is identifiable.
-   * Prefers a span explicitly flagged with request.is_root_span === true,
-   * then falls back to a server-kind span with no in-trace parent.
+   *
+   * Detection priority (deterministic regardless of input record order):
+   *   1. server-kind span with request.is_root_span === true and no in-trace parent
+   *   2. server-kind span with request.is_root_span === true (any)
+   *   3. server-kind span with no in-trace parent
+   *   4. any span with request.is_root_span === true (last resort)
+   * Within each tier, ties are broken by earliest start_time.
    */
   findRootSpan(): SpanRecord | null {
-    const flagged = this.spans.find(s => s['request.is_root_span'] === true);
-    if (flagged) return flagged;
+    const byStartTime = (a: SpanRecord, b: SpanRecord) =>
+      new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime();
 
-    const serverEntry = this.spans.find(s => {
-      if (s['span.kind'] !== 'server') return false;
+    const hasNoInTraceParent = (s: SpanRecord) => {
       const parentId = s['span.parent_id'];
       if (!parentId) return true;
       return !this.spanMap.has(parentId);
-    });
-    return serverEntry || null;
+    };
+
+    const tier1 = this.spans.filter(s =>
+      s['span.kind'] === 'server'
+      && s['request.is_root_span'] === true
+      && hasNoInTraceParent(s)
+    );
+    if (tier1.length > 0) return tier1.sort(byStartTime)[0];
+
+    const tier2 = this.spans.filter(s =>
+      s['span.kind'] === 'server'
+      && s['request.is_root_span'] === true
+    );
+    if (tier2.length > 0) return tier2.sort(byStartTime)[0];
+
+    const tier3 = this.spans.filter(s =>
+      s['span.kind'] === 'server'
+      && hasNoInTraceParent(s)
+    );
+    if (tier3.length > 0) return tier3.sort(byStartTime)[0];
+
+    const tier4 = this.spans.filter(s => s['request.is_root_span'] === true);
+    if (tier4.length > 0) return tier4.sort(byStartTime)[0];
+
+    return null;
   }
 
   /**
@@ -184,18 +239,25 @@ export class TraceAnalyzer {
   }
 
   /**
-   * Derives the environment by collecting unique server hostnames from all
-   * spans, stripping common domain suffixes.
+   * Derives the environment from the root span's host. We intentionally
+   * use a single value (rather than aggregating server.address across all
+   * spans) because traces typically touch dozens of internal hostnames
+   * — AWS internals, fraud services, lambdas, message queues — and listing
+   * them all turns the Environment field into a wall of noise. The root
+   * span's host is the user-facing hostname, which is what "environment"
+   * actually means here.
    */
   deriveEnvironment(fallback: string): string {
-    const addresses = new Set<string>();
-    this.spans.forEach(span => {
-      const addr = span['server.address'];
-      if (addr) addresses.add(this.cleanHostname(addr));
-    });
-
-    if (addresses.size === 0) return fallback;
-    return Array.from(addresses).join(', ');
+    const root = this.findRootSpan();
+    if (root) {
+      const candidate =
+        (root['http.request.header.host'] as string) ||
+        (root['server.address'] as string) ||
+        (root['host.name'] as string) ||
+        '';
+      if (candidate) return this.cleanHostname(candidate);
+    }
+    return fallback;
   }
 
   /**
@@ -218,23 +280,7 @@ export class TraceAnalyzer {
   }
 
   private isErrorSpan(span: SpanRecord): boolean {
-    // A span is only considered failed when Dynatrace officially flags the
-    // request as failed, or the HTTP response on a server-kind span is 4xx/5xx.
-    // Note: we intentionally do NOT treat span.status_code === 'error' as a
-    // failure by itself, because that field flags "an exception was observed"
-    // which is commonly set even for handled exceptions where the request
-    // itself returned 200. Trusting it leads to false positives all over
-    // traces that the user experienced as successful.
-    if (span['request.is_failed'] === true) return true;
-    if (span['dt.failure_detection.verdict'] === 'failure') return true;
-
-    if (span['span.kind'] === 'server') {
-      const status = String(span['http.response.status_code'] ?? '');
-      if (status && (status.startsWith('4') || status.startsWith('5'))) {
-        return true;
-      }
-    }
-    return false;
+    return isSpanFailed(span);
   }
 
   private hasRootCauseException(span: SpanRecord): boolean {
