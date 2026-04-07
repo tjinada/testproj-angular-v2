@@ -364,15 +364,8 @@ export function findConnectedNodeIds(
   spans: SpanRecord[],
   startNodeId: string
 ): Set<string> {
-  console.group(`[highlight] findConnectedNodeIds("${startNodeId}")`);
-  console.log('total spans:', spans?.length || 0);
-
   const result = new Set<string>([startNodeId]);
-  if (!spans || spans.length === 0) {
-    console.warn('[highlight] no spans, returning just the start node');
-    console.groupEnd();
-    return result;
-  }
+  if (!spans || spans.length === 0) return result;
 
   // Build span lookup tables once
   const spanById = new Map<string, SpanRecord>();
@@ -386,8 +379,6 @@ export function findConnectedNodeIds(
       else childrenByParent.set(pid, [s]);
     }
   }
-  console.log('built spanById:', spanById.size, 'entries');
-  console.log('built childrenByParent:', childrenByParent.size, 'entries');
 
   const isServer = (s: SpanRecord) => s['span.kind'] === 'server';
 
@@ -397,7 +388,6 @@ export function findConnectedNodeIds(
 
   if (startNodeId.startsWith('db:')) {
     const dbNamespace = startNodeId.substring(3);
-    console.log('[highlight] start type: DB node, namespace=', dbNamespace);
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
       if (String(s['db.namespace'] ?? '') !== dbNamespace) continue;
@@ -413,7 +403,6 @@ export function findConnectedNodeIds(
     }
   } else if (startNodeId.startsWith('ext:')) {
     const host = startNodeId.substring(4);
-    console.log('[highlight] start type: external node, host=', host);
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
       if (s['db.namespace']) continue;
@@ -429,32 +418,12 @@ export function findConnectedNodeIds(
       }
     }
   } else {
-    console.log('[highlight] start type: real service node, name=', startNodeId);
-    // Sanity-check: how many server spans match by service name?
-    const matchedByServiceName = spans.filter(s =>
-      isServer(s) && getServiceName(s) === startNodeId
-    );
-    console.log('[highlight] matching server spans by service name:', matchedByServiceName.length);
-    if (matchedByServiceName.length === 0) {
-      // Show what service names we DO see for server spans, in case there's
-      // a label mismatch (e.g. graph uses one form, spans use another)
-      const allServerServiceNames = new Set(
-        spans.filter(isServer).map(s => getServiceName(s))
-      );
-      console.warn(
-        '[highlight] NO server spans matched! Available server-span service names:',
-        Array.from(allServerServiceNames)
-      );
-    }
-    for (const s of matchedByServiceName) {
+    for (const s of spans) {
+      if (!isServer(s)) continue;
+      if (getServiceName(s) !== startNodeId) continue;
       visitedSpanIds.add(s['span.id']);
       frontier.push(s);
     }
-  }
-
-  console.log('[highlight] starting frontier size:', frontier.length);
-  if (frontier.length === 0) {
-    console.warn('[highlight] frontier is empty — nothing to walk, fading will not happen');
   }
 
   // --- BFS over server spans in both directions ---
@@ -463,18 +432,8 @@ export function findConnectedNodeIds(
     iterations++;
     const current = frontier.shift()!;
     const currentSvc = getServiceName(current);
-    console.log(
-      `[highlight] iter ${iterations}: visiting span`,
-      current['span.id'].substring(0, 8),
-      'service=', currentSvc
-    );
 
-    const downServers = collectDownstreamServerSpans(current, childrenByParent);
-    if (downServers.length > 0) {
-      console.log(`  ↓ found ${downServers.length} downstream server span(s):`,
-        downServers.map(d => `${getServiceName(d)} (${d['span.id'].substring(0, 8)})`)
-      );
-    }
+    const downServers = collectDownstreamServerSpans(current, childrenByParent, currentSvc);
     for (const ds of downServers) {
       const svc = getServiceName(ds);
       if (svc) result.add(svc);
@@ -485,10 +444,9 @@ export function findConnectedNodeIds(
       collectExternalNeighborIds(ds, childrenByParent).forEach(id => result.add(id));
     }
 
-    const upServer = walkUpToServerSpanFromParent(current, spanById);
+    const upServer = walkUpToServerSpanFromParent(current, spanById, currentSvc);
     if (upServer) {
       const upSvc = getServiceName(upServer);
-      console.log(`  ↑ found upstream server span:`, upSvc, `(${upServer['span.id'].substring(0, 8)})`);
       if (upSvc) result.add(upSvc);
       if (!visitedSpanIds.has(upServer['span.id'])) {
         visitedSpanIds.add(upServer['span.id']);
@@ -497,27 +455,26 @@ export function findConnectedNodeIds(
     }
 
     const externals = collectExternalNeighborIds(current, childrenByParent);
-    if (externals.length > 0) {
-      console.log(`  → external/db neighbors:`, externals);
-      externals.forEach(id => result.add(id));
-    }
+    externals.forEach(id => result.add(id));
   }
 
-  console.log('[highlight] BFS done after', iterations, 'iterations');
-  console.log('[highlight] final highlighted set:', Array.from(result));
-  console.groupEnd();
+  console.log(
+    `[highlight] "${startNodeId}" → ${result.size} nodes after ${iterations} iterations:`,
+    Array.from(result)
+  );
   return result;
 }
 
 /**
  * Walks DOWN from a server span, descending through non-server children
- * (client/internal), and returns every server span found at the boundaries.
- * The walk stops at each server span (it doesn't recurse into them — that's
- * the BFS caller's job).
+ * AND through server-span children that belong to the same service (which
+ * are nested servlet/filter layers, not real service boundaries). Returns
+ * every server span found that belongs to a DIFFERENT service.
  */
 function collectDownstreamServerSpans(
   start: SpanRecord,
-  childrenByParent: Map<string, SpanRecord[]>
+  childrenByParent: Map<string, SpanRecord[]>,
+  startServiceName: string
 ): SpanRecord[] {
   const found: SpanRecord[] = [];
   const stack: SpanRecord[] = [];
@@ -527,8 +484,15 @@ function collectDownstreamServerSpans(
   while (stack.length > 0) {
     const node = stack.pop()!;
     if (node['span.kind'] === 'server') {
-      found.push(node);
-      // Don't descend further — the BFS caller will handle this server span
+      const svc = getServiceName(node);
+      if (svc !== startServiceName) {
+        // Real service boundary — stop and return this one to the caller
+        found.push(node);
+        continue;
+      }
+      // Same service: nested framework layer, treat as transparent
+      const grandChildren = childrenByParent.get(node['span.id']) || [];
+      stack.push(...grandChildren);
       continue;
     }
     // Non-server: keep descending through its children
@@ -563,11 +527,13 @@ function walkUpToServerSpan(
 
 /**
  * Walks UP from a SERVER span's parent chain until it hits the next server
- * span. Skips the starting server span itself — we want the next one above.
+ * span belonging to a DIFFERENT service. Server spans of the same service
+ * are nested framework layers and are treated as transparent.
  */
 function walkUpToServerSpanFromParent(
   start: SpanRecord,
-  spanById: Map<string, SpanRecord>
+  spanById: Map<string, SpanRecord>,
+  startServiceName: string
 ): SpanRecord | null {
   const pid = start['span.parent_id'];
   if (!pid) return null;
@@ -576,7 +542,11 @@ function walkUpToServerSpanFromParent(
   while (current) {
     if (visited.has(current['span.id'])) return null;
     visited.add(current['span.id']);
-    if (current['span.kind'] === 'server') return current;
+    if (current['span.kind'] === 'server') {
+      const svc = getServiceName(current);
+      if (svc !== startServiceName) return current;
+      // Same service: skip and keep walking up
+    }
     const nextPid = current['span.parent_id'];
     if (!nextPid) return null;
     current = spanById.get(nextPid);
