@@ -342,23 +342,24 @@ export function buildFlowGraph(
 }
 
 /**
- * Computes the set of node IDs "connected" to a starting node via a
- * server-span-to-server-span walk.
+ * Computes the set of node IDs "connected" to a starting node using
+ * strictly-up and strictly-down walks through the span tree.
  *
- * The rule: two services are directly connected if there is a span chain
- * between them where every intermediate span is non-server (client or
- * internal). The walk hops from one server span, down or up through any
- * number of non-server spans, until it reaches the next server span.
- * That next server span's service is added to the set, and the walk
- * continues from there.
+ * The rule:
+ *   - Walking UP from a clicked span only collects ancestors (parents,
+ *     grandparents, ...) up to the trace root. We do NOT then walk back
+ *     down from those ancestors — their other children are not on the
+ *     call path that involves the clicked node.
+ *   - Walking DOWN from a clicked span collects the entire subtree
+ *     beneath it (children, grandchildren, ...). External/DB synthetic
+ *     nodes encountered during the downward walk are also included.
  *
- * For external/DB nodes (which have no real spans), the starting frontier
- * is built from the client spans that target them — i.e. "highlight every
- * service that calls this external" — and the walk proceeds from those
- * services' server spans normally.
+ * The clicked node sits at the boundary between the two directions.
  *
- * Returns a set of node IDs (matching FlowNode.id) including the starting
- * node itself.
+ * For real service nodes, the "clicked spans" are all spans belonging
+ * to that service. For external/DB nodes, the "clicked spans" are the
+ * client spans that target the external/DB — we walk strictly up from
+ * those (downward is empty because externals are leaves).
  */
 export function findConnectedNodeIds(
   spans: SpanRecord[],
@@ -380,217 +381,128 @@ export function findConnectedNodeIds(
     }
   }
 
-  const isServer = (s: SpanRecord) => s['span.kind'] === 'server';
-
-  // --- Determine the starting set of server spans ---
-  const frontier: SpanRecord[] = [];
-  const visitedSpanIds = new Set<string>();
+  // --- Determine the starting set of spans for the click ---
+  // For real services: every span in the service.
+  // For DB/external: every client span targeting that DB/host. These spans
+  // become the upward-walk seeds; downward walks are empty for externals
+  // because the click target itself has no real spans of its own.
+  const startSpans: SpanRecord[] = [];
+  let downwardEnabled = true;
 
   if (startNodeId.startsWith('db:')) {
     const dbNamespace = startNodeId.substring(3);
+    downwardEnabled = false;
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
       if (String(s['db.namespace'] ?? '') !== dbNamespace) continue;
-      const ancestorServer = walkUpToServerSpan(s, spanById);
-      if (ancestorServer) {
-        const svc = getServiceName(ancestorServer);
-        if (svc) result.add(svc);
-        if (!visitedSpanIds.has(ancestorServer['span.id'])) {
-          visitedSpanIds.add(ancestorServer['span.id']);
-          frontier.push(ancestorServer);
-        }
-      }
+      startSpans.push(s);
     }
   } else if (startNodeId.startsWith('ext:')) {
     const host = startNodeId.substring(4);
+    downwardEnabled = false;
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
       if (s['db.namespace']) continue;
       if (String(s['server.address'] ?? '') !== host) continue;
-      const ancestorServer = walkUpToServerSpan(s, spanById);
-      if (ancestorServer) {
-        const svc = getServiceName(ancestorServer);
-        if (svc) result.add(svc);
-        if (!visitedSpanIds.has(ancestorServer['span.id'])) {
-          visitedSpanIds.add(ancestorServer['span.id']);
-          frontier.push(ancestorServer);
-        }
-      }
+      startSpans.push(s);
     }
   } else {
     for (const s of spans) {
-      if (!isServer(s)) continue;
-      if (getServiceName(s) !== startNodeId) continue;
-      visitedSpanIds.add(s['span.id']);
-      frontier.push(s);
+      if (getServiceName(s) === startNodeId) {
+        startSpans.push(s);
+      }
     }
   }
 
-  // --- BFS over server spans in both directions ---
-  let iterations = 0;
-  while (frontier.length > 0) {
-    iterations++;
-    const current = frontier.shift()!;
-    const currentSvc = getServiceName(current);
+  // --- Strictly-UP walk from each start span ---
+  // Collect every service name encountered along the parent chain. We do
+  // NOT collect external/DB neighbors of ancestors — those are siblings,
+  // not on the path. We do NOT walk back downward from any ancestor.
+  for (const startSpan of startSpans) {
+    const pid = startSpan['span.parent_id'];
+    if (!pid) continue;
+    walkStrictlyUp(spanById.get(pid), spanById, result);
+  }
 
-    const downServers = collectDownstreamServerSpans(current, childrenByParent, currentSvc);
-    for (const ds of downServers) {
-      const svc = getServiceName(ds);
-      if (svc) result.add(svc);
-      if (!visitedSpanIds.has(ds['span.id'])) {
-        visitedSpanIds.add(ds['span.id']);
-        frontier.push(ds);
-      }
-      collectExternalNeighborIds(ds, childrenByParent).forEach(id => result.add(id));
+  // --- Strictly-DOWN walk from each start span ---
+  // Collect every service name in the entire subtree below the start span,
+  // plus any external/DB synthetic nodes encountered.
+  if (downwardEnabled) {
+    for (const startSpan of startSpans) {
+      walkStrictlyDown(startSpan, childrenByParent, result);
     }
-
-    const upServer = walkUpToServerSpanFromParent(current, spanById, currentSvc);
-    if (upServer) {
-      const upSvc = getServiceName(upServer);
-      if (upSvc) result.add(upSvc);
-      if (!visitedSpanIds.has(upServer['span.id'])) {
-        visitedSpanIds.add(upServer['span.id']);
-        frontier.push(upServer);
-      }
-    }
-
-    const externals = collectExternalNeighborIds(current, childrenByParent);
-    externals.forEach(id => result.add(id));
   }
 
   console.log(
-    `[highlight] "${startNodeId}" → ${result.size} nodes after ${iterations} iterations:`,
+    `[highlight] "${startNodeId}" → ${result.size} nodes:`,
     Array.from(result)
   );
   return result;
 }
 
 /**
- * Walks DOWN from a server span, descending through non-server children
- * AND through server-span children that belong to the same service (which
- * are nested servlet/filter layers, not real service boundaries). Returns
- * every server span found that belongs to a DIFFERENT service.
+ * Walks strictly UP via parent_id, adding every service name encountered
+ * to the result set. Stops at the trace root or at a span we've already
+ * seen (cycle protection). Never branches sideways or downward.
  */
-function collectDownstreamServerSpans(
-  start: SpanRecord,
-  childrenByParent: Map<string, SpanRecord[]>,
-  startServiceName: string
-): SpanRecord[] {
-  const found: SpanRecord[] = [];
-  const stack: SpanRecord[] = [];
-  const initialChildren = childrenByParent.get(start['span.id']) || [];
-  stack.push(...initialChildren);
-
-  while (stack.length > 0) {
-    const node = stack.pop()!;
-    if (node['span.kind'] === 'server') {
-      const svc = getServiceName(node);
-      if (svc !== startServiceName) {
-        // Real service boundary — stop and return this one to the caller
-        found.push(node);
-        continue;
-      }
-      // Same service: nested framework layer, treat as transparent
-      const grandChildren = childrenByParent.get(node['span.id']) || [];
-      stack.push(...grandChildren);
-      continue;
-    }
-    // Non-server: keep descending through its children
-    const grandChildren = childrenByParent.get(node['span.id']) || [];
-    stack.push(...grandChildren);
-  }
-  return found;
-}
-
-/**
- * Walks UP from a non-server span via parent_id until it hits a server span.
- * Returns null if it walks off the top of the trace without finding one.
- */
-function walkUpToServerSpan(
-  start: SpanRecord,
-  spanById: Map<string, SpanRecord>
-): SpanRecord | null {
-  let current: SpanRecord | undefined = start;
+function walkStrictlyUp(
+  start: SpanRecord | undefined,
+  spanById: Map<string, SpanRecord>,
+  result: Set<string>
+): void {
+  let current = start;
   const visited = new Set<string>();
   while (current) {
-    if (visited.has(current['span.id'])) return null;
+    if (visited.has(current['span.id'])) return;
     visited.add(current['span.id']);
-    if (current['span.kind'] === 'server' && current !== start) {
-      return current;
-    }
+    const svc = getServiceName(current);
+    if (svc) result.add(svc);
     const pid = current['span.parent_id'];
-    if (!pid) return current['span.kind'] === 'server' && current !== start ? current : null;
+    if (!pid) return;
     current = spanById.get(pid);
   }
-  return null;
 }
 
 /**
- * Walks UP from a SERVER span's parent chain until it hits the next server
- * span belonging to a DIFFERENT service. Server spans of the same service
- * are nested framework layers and are treated as transparent.
+ * Walks strictly DOWN through the entire descendant subtree of `start`,
+ * adding every service name and every external/DB synthetic node ID
+ * encountered to the result set. The clicked span itself contributes its
+ * own service (already in the result, but harmless to re-add).
  */
-function walkUpToServerSpanFromParent(
+function walkStrictlyDown(
   start: SpanRecord,
-  spanById: Map<string, SpanRecord>,
-  startServiceName: string
-): SpanRecord | null {
-  const pid = start['span.parent_id'];
-  if (!pid) return null;
-  let current = spanById.get(pid);
+  childrenByParent: Map<string, SpanRecord[]>,
+  result: Set<string>
+): void {
+  const stack: SpanRecord[] = [start];
   const visited = new Set<string>();
-  while (current) {
-    if (visited.has(current['span.id'])) return null;
-    visited.add(current['span.id']);
-    if (current['span.kind'] === 'server') {
-      const svc = getServiceName(current);
-      if (svc !== startServiceName) return current;
-      // Same service: skip and keep walking up
-    }
-    const nextPid = current['span.parent_id'];
-    if (!nextPid) return null;
-    current = spanById.get(nextPid);
-  }
-  return null;
-}
-
-/**
- * For a given server span, returns the IDs of any external/DB synthetic
- * nodes that are directly attached to it via client-span children. These
- * should also be highlighted because they are part of "what this service
- * touches".
- */
-function collectExternalNeighborIds(
-  serverSpan: SpanRecord,
-  childrenByParent: Map<string, SpanRecord[]>
-): string[] {
-  const ids: string[] = [];
-  const stack = [...(childrenByParent.get(serverSpan['span.id']) || [])];
   while (stack.length > 0) {
-    const s = stack.pop()!;
-    if (s['span.kind'] === 'server') {
-      // Don't traverse into other services
-      continue;
-    }
-    if (s['span.kind'] === 'client') {
-      const dbNs = s['db.namespace'];
+    const node = stack.pop()!;
+    if (visited.has(node['span.id'])) continue;
+    visited.add(node['span.id']);
+
+    const svc = getServiceName(node);
+    if (svc) result.add(svc);
+
+    // If this is a client span hitting an external/DB, add the synthetic id
+    if (node['span.kind'] === 'client') {
+      const dbNs = node['db.namespace'];
       if (dbNs) {
-        ids.push(`db:${String(dbNs)}`);
+        result.add(`db:${String(dbNs)}`);
       } else {
-        const host = s['server.address'] as string | undefined;
+        const host = node['server.address'] as string | undefined;
         if (host) {
-          // Only count if it's a real external (no instrumented child server span)
-          const hasInstrumentedChild = (childrenByParent.get(s['span.id']) || [])
+          // Only an external if no instrumented child server span exists
+          const hasInstrumentedChild = (childrenByParent.get(node['span.id']) || [])
             .some(c => c['span.kind'] === 'server');
           if (!hasInstrumentedChild) {
-            ids.push(`ext:${host}`);
+            result.add(`ext:${host}`);
           }
         }
       }
     }
-    // Continue descending through internal/client wrappers
-    const grandChildren = childrenByParent.get(s['span.id']) || [];
-    stack.push(...grandChildren);
+
+    const children = childrenByParent.get(node['span.id']) || [];
+    for (const c of children) stack.push(c);
   }
-  return ids;
 }
