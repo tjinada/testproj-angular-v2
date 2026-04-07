@@ -340,3 +340,244 @@ export function buildFlowGraph(
 
   return { nodes, edges, width: totalWidth, height: totalHeight };
 }
+
+/**
+ * Computes the set of node IDs "connected" to a starting node via a
+ * server-span-to-server-span walk.
+ *
+ * The rule: two services are directly connected if there is a span chain
+ * between them where every intermediate span is non-server (client or
+ * internal). The walk hops from one server span, down or up through any
+ * number of non-server spans, until it reaches the next server span.
+ * That next server span's service is added to the set, and the walk
+ * continues from there.
+ *
+ * For external/DB nodes (which have no real spans), the starting frontier
+ * is built from the client spans that target them — i.e. "highlight every
+ * service that calls this external" — and the walk proceeds from those
+ * services' server spans normally.
+ *
+ * Returns a set of node IDs (matching FlowNode.id) including the starting
+ * node itself.
+ */
+export function findConnectedNodeIds(
+  spans: SpanRecord[],
+  startNodeId: string
+): Set<string> {
+  const result = new Set<string>([startNodeId]);
+  if (!spans || spans.length === 0) return result;
+
+  // Build span lookup tables once
+  const spanById = new Map<string, SpanRecord>();
+  const childrenByParent = new Map<string, SpanRecord[]>();
+  for (const s of spans) {
+    spanById.set(s['span.id'], s);
+    const pid = s['span.parent_id'];
+    if (pid) {
+      const list = childrenByParent.get(pid);
+      if (list) list.push(s);
+      else childrenByParent.set(pid, [s]);
+    }
+  }
+
+  const isServer = (s: SpanRecord) => s['span.kind'] === 'server';
+
+  // --- Determine the starting set of server spans ---
+  // Frontier = server spans we'll walk outward from. Visited = server span
+  // ids we've already processed (to avoid revisiting in cycles).
+  const frontier: SpanRecord[] = [];
+  const visitedSpanIds = new Set<string>();
+
+  if (startNodeId.startsWith('db:')) {
+    const dbNamespace = startNodeId.substring(3);
+    // Every client span hitting this DB — walk up from each to find the
+    // calling server span, which becomes the start of the BFS.
+    for (const s of spans) {
+      if (s['span.kind'] !== 'client') continue;
+      if (String(s['db.namespace'] ?? '') !== dbNamespace) continue;
+      const ancestorServer = walkUpToServerSpan(s, spanById);
+      if (ancestorServer) {
+        const svc = getServiceName(ancestorServer);
+        if (svc) result.add(svc);
+        if (!visitedSpanIds.has(ancestorServer['span.id'])) {
+          visitedSpanIds.add(ancestorServer['span.id']);
+          frontier.push(ancestorServer);
+        }
+      }
+    }
+  } else if (startNodeId.startsWith('ext:')) {
+    const host = startNodeId.substring(4);
+    for (const s of spans) {
+      if (s['span.kind'] !== 'client') continue;
+      if (s['db.namespace']) continue; // skip DB-flavored client spans
+      if (String(s['server.address'] ?? '') !== host) continue;
+      const ancestorServer = walkUpToServerSpan(s, spanById);
+      if (ancestorServer) {
+        const svc = getServiceName(ancestorServer);
+        if (svc) result.add(svc);
+        if (!visitedSpanIds.has(ancestorServer['span.id'])) {
+          visitedSpanIds.add(ancestorServer['span.id']);
+          frontier.push(ancestorServer);
+        }
+      }
+    }
+  } else {
+    // Real service node — starting frontier is all server spans in this service
+    for (const s of spans) {
+      if (!isServer(s)) continue;
+      if (getServiceName(s) !== startNodeId) continue;
+      visitedSpanIds.add(s['span.id']);
+      frontier.push(s);
+    }
+  }
+
+  // --- BFS over server spans in both directions ---
+  while (frontier.length > 0) {
+    const current = frontier.shift()!;
+
+    // Walk DOWN through non-server descendants until we hit server spans
+    const downServers = collectDownstreamServerSpans(current, childrenByParent);
+    for (const ds of downServers) {
+      const svc = getServiceName(ds);
+      if (svc) result.add(svc);
+      if (!visitedSpanIds.has(ds['span.id'])) {
+        visitedSpanIds.add(ds['span.id']);
+        frontier.push(ds);
+      }
+      // Also flag any DB / external client-span children of these server spans
+      collectExternalNeighborIds(ds, childrenByParent).forEach(id => result.add(id));
+    }
+
+    // Walk UP through non-server ancestors until we hit a server span
+    const upServer = walkUpToServerSpanFromParent(current, spanById);
+    if (upServer) {
+      const svc = getServiceName(upServer);
+      if (svc) result.add(svc);
+      if (!visitedSpanIds.has(upServer['span.id'])) {
+        visitedSpanIds.add(upServer['span.id']);
+        frontier.push(upServer);
+      }
+    }
+
+    // Also flag external/DB neighbors directly attached to the current span
+    collectExternalNeighborIds(current, childrenByParent).forEach(id => result.add(id));
+  }
+
+  return result;
+}
+
+/**
+ * Walks DOWN from a server span, descending through non-server children
+ * (client/internal), and returns every server span found at the boundaries.
+ * The walk stops at each server span (it doesn't recurse into them — that's
+ * the BFS caller's job).
+ */
+function collectDownstreamServerSpans(
+  start: SpanRecord,
+  childrenByParent: Map<string, SpanRecord[]>
+): SpanRecord[] {
+  const found: SpanRecord[] = [];
+  const stack: SpanRecord[] = [];
+  const initialChildren = childrenByParent.get(start['span.id']) || [];
+  stack.push(...initialChildren);
+
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node['span.kind'] === 'server') {
+      found.push(node);
+      // Don't descend further — the BFS caller will handle this server span
+      continue;
+    }
+    // Non-server: keep descending through its children
+    const grandChildren = childrenByParent.get(node['span.id']) || [];
+    stack.push(...grandChildren);
+  }
+  return found;
+}
+
+/**
+ * Walks UP from a non-server span via parent_id until it hits a server span.
+ * Returns null if it walks off the top of the trace without finding one.
+ */
+function walkUpToServerSpan(
+  start: SpanRecord,
+  spanById: Map<string, SpanRecord>
+): SpanRecord | null {
+  let current: SpanRecord | undefined = start;
+  const visited = new Set<string>();
+  while (current) {
+    if (visited.has(current['span.id'])) return null;
+    visited.add(current['span.id']);
+    if (current['span.kind'] === 'server' && current !== start) {
+      return current;
+    }
+    const pid = current['span.parent_id'];
+    if (!pid) return current['span.kind'] === 'server' && current !== start ? current : null;
+    current = spanById.get(pid);
+  }
+  return null;
+}
+
+/**
+ * Walks UP from a SERVER span's parent chain until it hits the next server
+ * span. Skips the starting server span itself — we want the next one above.
+ */
+function walkUpToServerSpanFromParent(
+  start: SpanRecord,
+  spanById: Map<string, SpanRecord>
+): SpanRecord | null {
+  const pid = start['span.parent_id'];
+  if (!pid) return null;
+  let current = spanById.get(pid);
+  const visited = new Set<string>();
+  while (current) {
+    if (visited.has(current['span.id'])) return null;
+    visited.add(current['span.id']);
+    if (current['span.kind'] === 'server') return current;
+    const nextPid = current['span.parent_id'];
+    if (!nextPid) return null;
+    current = spanById.get(nextPid);
+  }
+  return null;
+}
+
+/**
+ * For a given server span, returns the IDs of any external/DB synthetic
+ * nodes that are directly attached to it via client-span children. These
+ * should also be highlighted because they are part of "what this service
+ * touches".
+ */
+function collectExternalNeighborIds(
+  serverSpan: SpanRecord,
+  childrenByParent: Map<string, SpanRecord[]>
+): string[] {
+  const ids: string[] = [];
+  const stack = [...(childrenByParent.get(serverSpan['span.id']) || [])];
+  while (stack.length > 0) {
+    const s = stack.pop()!;
+    if (s['span.kind'] === 'server') {
+      // Don't traverse into other services
+      continue;
+    }
+    if (s['span.kind'] === 'client') {
+      const dbNs = s['db.namespace'];
+      if (dbNs) {
+        ids.push(`db:${String(dbNs)}`);
+      } else {
+        const host = s['server.address'] as string | undefined;
+        if (host) {
+          // Only count if it's a real external (no instrumented child server span)
+          const hasInstrumentedChild = (childrenByParent.get(s['span.id']) || [])
+            .some(c => c['span.kind'] === 'server');
+          if (!hasInstrumentedChild) {
+            ids.push(`ext:${host}`);
+          }
+        }
+      }
+    }
+    // Continue descending through internal/client wrappers
+    const grandChildren = childrenByParent.get(s['span.id']) || [];
+    stack.push(...grandChildren);
+  }
+  return ids;
+}
