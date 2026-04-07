@@ -14,6 +14,7 @@ export interface FlowNode {
   isFailed: boolean;
   isRootCause: boolean;    // true for the node identified as the root cause
   isExternal: boolean;     // true for synthetic upstream/downstream nodes
+  isDb: boolean;           // true for synthetic database nodes (subset of external)
   spanCount: number;
   endpoints: string[];
   spans: SpanRecord[];     // spans grouped into this node (empty for synthetic)
@@ -59,6 +60,11 @@ function firstSegment(host: string): string {
   const noPort = host.split(':')[0];
   const firstDot = noPort.indexOf('.');
   return firstDot === -1 ? noPort : noPort.substring(0, firstDot);
+}
+
+/** Returns true if a span represents a database call (db.namespace is set). */
+function isDbSpan(span: SpanRecord): boolean {
+  return !!(span['db.namespace'] as string | undefined);
 }
 
 // isSpanFailed is imported from trace-analyzer to keep a single source of
@@ -128,6 +134,7 @@ export function buildFlowGraph(
       isFailed: grp.some(isSpanFailed),
       isRootCause: rootCauseService !== null && name === rootCauseService,
       isExternal: false,
+      isDb: false,
       spanCount: grp.length,
       endpoints,
       spans: grp,
@@ -167,10 +174,51 @@ export function buildFlowGraph(
     addEdge(parentService, childService, isSpanFailed(s));
   }
 
+  // --- Build DB synthetic nodes from client spans with db.namespace ---
+  // Must run BEFORE the HTTP external pass so we don't double-create a node
+  // for the same DB span (once as a DB node, once as an HTTP external by
+  // server.address).
+  for (const s of spans) {
+    if (s['span.kind'] !== 'client') continue;
+    if (!isDbSpan(s)) continue;
+
+    const dbNamespace = String(s['db.namespace']);
+    const dbHost = (s['server.address'] as string) || '';
+    const nodeId = `db:${dbNamespace}`;
+
+    let node = nodeById.get(nodeId);
+    if (!node) {
+      node = {
+        id: nodeId,
+        label: dbNamespace,
+        hostname: dbHost,
+        sublabel: 'database',
+        x: 0,
+        y: 0,
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT,
+        isFailed: false,
+        isRootCause: false,
+        isExternal: true,
+        isDb: true,
+        spanCount: 0,
+        endpoints: [],
+        spans: [],
+        fullHostname: dbHost
+      };
+      nodes.push(node);
+      nodeById.set(nodeId, node);
+    }
+
+    const callerService = getServiceName(s);
+    addEdge(callerService, nodeId, isSpanFailed(s));
+  }
+
   // --- Build DOWNSTREAM synthetic nodes from client-kind spans ---
   const downstreamNodeIds = new Set<string>();
   for (const s of spans) {
     if (s['span.kind'] !== 'client') continue;
+    if (isDbSpan(s)) continue; // already handled by the DB pass above
     const host = (s['server.address'] as string) || '';
     if (!host) continue;
 
@@ -198,6 +246,7 @@ export function buildFlowGraph(
         isFailed: false,
         isRootCause: false,
         isExternal: true,
+        isDb: false,
         spanCount: 0,
         endpoints: [],
         spans: [],

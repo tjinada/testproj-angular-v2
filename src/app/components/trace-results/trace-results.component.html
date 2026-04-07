@@ -139,28 +139,6 @@
     </div>
   </div>
 
-  <!-- Call Flow Card -->
-  <div class="card" *ngIf="callFlowSpans.length > 0" style="margin-top: 16px;">
-    <div class="card-header-simple">
-      <span class="header-title">Call Flow</span>
-      <span class="span-count">{{ callFlowSpans.length }} spans</span>
-    </div>
-    <div class="call-flow-container">
-      <div class="call-flow">
-        <ng-container *ngFor="let span of callFlowSpans; let last = last">
-          <div class="flow-node" [class.flow-node-error]="span.isError">
-            <div class="flow-node-name">{{ span.endpointName || span.serviceName }}</div>
-            <div class="flow-node-detail">{{ span.httpStatus }} · {{ formatDuration(span.duration) }}</div>
-          </div>
-          <svg *ngIf="!last" class="flow-arrow" width="32" height="16" viewBox="0 0 32 16">
-            <line x1="0" y1="8" x2="24" y2="8" stroke="#9ca3af" stroke-width="1.5"/>
-            <polygon points="24,4 32,8 24,12" fill="#9ca3af"/>
-          </svg>
-        </ng-container>
-      </div>
-    </div>
-  </div>
-
   <!-- Component Flow Diagram -->
   <app-flow-diagram [spans]="spans" [rootCauseService]="rootCauseService"></app-flow-diagram>
 </div>

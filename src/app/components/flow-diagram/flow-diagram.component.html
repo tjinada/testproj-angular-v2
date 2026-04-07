@@ -1,4 +1,4 @@
-<div class="flow-diagram-wrapper" *ngIf="graph().nodes.length > 0">
+<div class="flow-diagram-wrapper" *ngIf="graph().nodes.length > 0" [class.flow-fullscreen]="isFullscreen()">
 
   <!-- Toolbar -->
   <div class="flow-toolbar">
@@ -8,6 +8,10 @@
       <button class="flow-btn" (click)="zoomOut()" title="Zoom out">&minus;</button>
       <button class="flow-btn" (click)="fitToScreen()" title="Fit to screen">Fit</button>
       <button class="flow-btn" (click)="resetView()" title="Reset view">Reset</button>
+      <button class="flow-btn" (click)="toggleFullscreen()"
+              [title]="isFullscreen() ? 'Exit fullscreen (ESC)' : 'Fullscreen'">
+        {{ isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen' }}
+      </button>
       <span class="flow-zoom-label">{{ (k() * 100) | number:'1.0-0' }}%</span>
     </div>
   </div>
@@ -55,6 +59,7 @@
             class="flow-node"
             [class.flow-node-failed]="node.isFailed"
             [class.flow-node-external]="node.isExternal"
+            [class.flow-node-db]="node.isDb"
             [class.flow-node-root-cause]="node.isRootCause"
             [class.flow-node-selected]="selectedNodeId() === node.id"
             [attr.transform]="'translate(' + (node.x - node.width/2) + ',' + (node.y - node.height/2) + ')'"
@@ -90,7 +95,9 @@
     </svg>
 
     <!-- Details panel -->
-    <div class="flow-details" *ngIf="selectedNode() as node">
+    <div class="flow-details"
+         *ngIf="selectedNode() as node"
+         [class.flow-details-wide]="!node.isExternal">
       <div class="flow-details-header">
         <span class="flow-details-title">{{ node.label }}</span>
         <button class="flow-details-close" (click)="closeDetails()">&times;</button>
@@ -100,7 +107,11 @@
           <span class="flow-details-label">Root Cause</span>
           <span class="flow-details-value flow-details-value-failed">Yes</span>
         </div>
-        <div class="flow-details-row" *ngIf="node.isExternal">
+        <div class="flow-details-row" *ngIf="node.isDb">
+          <span class="flow-details-label">Type</span>
+          <span class="flow-details-value">Database</span>
+        </div>
+        <div class="flow-details-row" *ngIf="node.isExternal && !node.isDb">
           <span class="flow-details-label">Type</span>
           <span class="flow-details-value">External system</span>
         </div>
@@ -123,6 +134,29 @@
           <ul class="flow-details-endpoints">
             <li *ngFor="let ep of node.endpoints">{{ ep }}</li>
           </ul>
+        </div>
+
+        <!-- Span timeline (real services only) -->
+        <div class="flow-details-row" *ngIf="nodeTimeline().length > 0">
+          <span class="flow-details-label">Span Timeline</span>
+          <div class="flow-timeline">
+            <div
+              *ngFor="let entry of nodeTimeline(); trackBy: trackTimeline"
+              class="flow-timeline-row"
+              [class.flow-timeline-row-failed]="entry.isFailed"
+            >
+              <span class="flow-timeline-kind" [attr.data-kind]="entry.kind">
+                {{ entry.kind }}
+              </span>
+              <span class="flow-timeline-name" [title]="entry.name">{{ entry.name }}</span>
+              <span class="flow-timeline-meta">
+                <span *ngIf="entry.status" class="flow-timeline-status">{{ entry.status }}</span>
+                <span *ngIf="entry.durationNanos" class="flow-timeline-duration">
+                  {{ formatDuration(entry.durationNanos) }}
+                </span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,23 @@
   margin-top: 16px;
 }
 
+/* Fullscreen overlay — wrapper takes over the entire viewport */
+.flow-diagram-wrapper.flow-fullscreen {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-diagram-wrapper.flow-fullscreen .flow-canvas-container {
+  flex: 1;
+  height: auto;
+}
+
 /* Toolbar */
 .flow-toolbar {
   display: flex;
@@ -171,6 +188,22 @@
   stroke-dasharray: 6 4;
 }
 
+/* DB nodes — dashed border with a slight blue tint to distinguish from
+   plain external systems */
+.flow-node-db .flow-node-rect {
+  fill: #f0f9ff;
+  stroke: #60a5fa;
+}
+
+.flow-node-db:hover .flow-node-rect {
+  stroke: #2563eb;
+}
+
+.flow-node-db.flow-node-selected .flow-node-rect {
+  fill: #dbeafe;
+  stroke: #2563eb;
+}
+
 .flow-node-label {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
@@ -223,6 +256,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Wider variant when showing a service node with a span timeline */
+.flow-details.flow-details-wide {
+  width: 440px;
 }
 
 .flow-details-header {
@@ -296,4 +334,101 @@
 .flow-details-endpoints li {
   margin-bottom: 2px;
   word-break: break-all;
+}
+
+/* Span timeline inside the details panel */
+.flow-timeline {
+  margin-top: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fafafa;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.flow-timeline-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11px;
+}
+
+.flow-timeline-row:last-child {
+  border-bottom: none;
+}
+
+.flow-timeline-row-failed {
+  background: #fef2f2;
+}
+
+.flow-timeline-kind {
+  display: inline-block;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.flow-timeline-kind[data-kind="server"] {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.flow-timeline-kind[data-kind="client"] {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.flow-timeline-kind[data-kind="internal"] {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.flow-timeline-kind[data-kind="producer"],
+.flow-timeline-kind[data-kind="consumer"] {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.flow-timeline-name {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-timeline-row-failed .flow-timeline-name {
+  color: #991b1b;
+}
+
+.flow-timeline-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.flow-timeline-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.flow-timeline-row-failed .flow-timeline-status {
+  color: #b91c1c;
+}
+
+.flow-timeline-duration {
+  font-size: 10px;
+  color: #9ca3af;
 }

@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SpanRecord, ErrorSummary, SuccessSummary, CallFlowSpan } from '../../models/trace.model';
+import { SpanRecord, ErrorSummary, SuccessSummary } from '../../models/trace.model';
 import { TraceAnalyzer } from '../../services/trace-analyzer';
 import { FlowDiagramComponent } from '../flow-diagram/flow-diagram.component';
 
@@ -16,13 +16,13 @@ export class TraceResultsComponent implements OnChanges {
   @Input() isLoading = false;
   @Input() errorMsg = '';
   @Input() environment = 'NON-PROD';
+  @Input() envHostnamePatterns: string[] = [];
 
   showMessagePopup = false;
   showStackPopup = false;
 
   errorSummary: ErrorSummary | null = null;
   successSummary: SuccessSummary | null = null;
-  callFlowSpans: CallFlowSpan[] = [];
   rootCauseService: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -41,13 +41,11 @@ export class TraceResultsComponent implements OnChanges {
     if (!this.spans || this.spans.length === 0) {
       this.errorSummary = null;
       this.successSummary = null;
-      this.callFlowSpans = [];
       this.rootCauseService = null;
       return;
     }
 
-    const analyzer = new TraceAnalyzer(this.spans);
-    this.callFlowSpans = analyzer.buildCallFlow();
+    const analyzer = new TraceAnalyzer(this.spans, this.envHostnamePatterns);
 
     // Successful trace: build a success summary, no root cause, no error card.
     if (analyzer.isTraceSuccessful()) {

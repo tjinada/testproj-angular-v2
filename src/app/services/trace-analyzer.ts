@@ -5,7 +5,7 @@ import { SpanRecord, ErrorPathStep, CallFlowSpan } from '../models/trace.model';
  * diagram layout) share the exact same definition of "failed" rather than
  * keeping their own copies that drift out of sync.
  *
- * A span is considered failed when ALL of these are true:
+ * A span is considered failed when ANY of these are true:
  *   - request.is_failed === true, OR
  *   - dt.failure_detection.verdict === 'failure', OR
  *   - server-kind span with a 4xx/5xx http.response.status_code
@@ -38,7 +38,10 @@ export function isSpanFailed(span: SpanRecord): boolean {
 export class TraceAnalyzer {
   private readonly spanMap: Map<string, SpanRecord>;
 
-  constructor(private readonly spans: SpanRecord[]) {
+  constructor(
+    private readonly spans: SpanRecord[],
+    private readonly envHostnamePatterns: string[] = []
+  ) {
     this.spanMap = new Map();
     spans.forEach(s => this.spanMap.set(s['span.id'], s));
   }
@@ -221,6 +224,8 @@ export class TraceAnalyzer {
 
   /**
    * Builds a flat, time-sorted list of spans for the call flow display.
+   * Currently unused by the UI (the Call Flow card was removed) but kept
+   * available for potential future use.
    */
   buildCallFlow(): CallFlowSpan[] {
     return [...this.spans]
@@ -239,25 +244,47 @@ export class TraceAnalyzer {
   }
 
   /**
-   * Derives the environment from the root span's host. We intentionally
-   * use a single value (rather than aggregating server.address across all
-   * spans) because traces typically touch dozens of internal hostnames
-   * — AWS internals, fraud services, lambdas, message queues — and listing
-   * them all turns the Environment field into a wall of noise. The root
-   * span's host is the user-facing hostname, which is what "environment"
-   * actually means here.
+   * Derives the environment from the root span's host plus any other
+   * server.address values matching the configured allow-list patterns.
+   * The root host is always included so we never lose visibility into
+   * the user-facing environment, even if its hostname doesn't happen
+   * to match a pattern.
+   *
+   * Patterns use simple glob syntax: '*' matches any sequence of characters.
+   * Examples:
+   *   '*.dev.bmo.com'   matches 'foo.dev.bmo.com'
+   *   'cgsg-*'          matches 'cgsg-in-sit1'
+   *   'api*-sit*'       matches 'api2-sit1'
    */
   deriveEnvironment(fallback: string): string {
+    const hosts = new Set<string>();
+
+    // Always include root host
     const root = this.findRootSpan();
     if (root) {
-      const candidate =
+      const rootHost =
         (root['http.request.header.host'] as string) ||
         (root['server.address'] as string) ||
         (root['host.name'] as string) ||
         '';
-      if (candidate) return this.cleanHostname(candidate);
+      if (rootHost) hosts.add(this.cleanHostname(rootHost));
     }
-    return fallback;
+
+    // Add any other span hostname matching the patterns
+    if (this.envHostnamePatterns.length > 0) {
+      const matchers = this.envHostnamePatterns.map(p => this.globToRegExp(p));
+      for (const span of this.spans) {
+        const addr = span['server.address'] as string | undefined;
+        if (!addr) continue;
+        const cleaned = this.cleanHostname(addr);
+        if (matchers.some(re => re.test(cleaned) || re.test(addr))) {
+          hosts.add(cleaned);
+        }
+      }
+    }
+
+    if (hosts.size === 0) return fallback;
+    return Array.from(hosts).sort().join(', ');
   }
 
   /**
@@ -289,6 +316,16 @@ export class TraceAnalyzer {
     return events.some(e =>
       e['span_event.name'] === 'exception' && e['exception.is_caused_by_root'] === true
     );
+  }
+
+  /**
+   * Converts a simple glob pattern (with '*' wildcards) into an anchored
+   * RegExp. All other regex metacharacters are escaped.
+   */
+  private globToRegExp(glob: string): RegExp {
+    const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, m => '\\' + m);
+    const regexBody = escaped.replace(/\*/g, '.*');
+    return new RegExp('^' + regexBody + '$', 'i');
   }
 
   // ------------------------------------------------------------------

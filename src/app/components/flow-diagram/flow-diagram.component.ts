@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  HostListener,
   Input,
   OnChanges,
   SimpleChanges,
@@ -11,6 +12,17 @@ import {
 import { CommonModule } from '@angular/common';
 import { SpanRecord } from '../../models/trace.model';
 import { buildFlowGraph, FlowGraph, FlowNode, FlowEdge } from './flow-layout';
+import { isSpanFailed } from '../../services/trace-analyzer';
+
+/** A row in the per-node span timeline. */
+export interface TimelineEntry {
+  spanId: string;
+  kind: string;        // server | client | internal | producer | consumer | ...
+  name: string;        // endpoint.name or span.name
+  status: string;      // http status, or '' if none
+  durationNanos: number;
+  isFailed: boolean;
+}
 
 @Component({
   selector: 'app-flow-diagram',
@@ -31,6 +43,7 @@ export class FlowDiagramComponent implements OnChanges {
   ty = signal(0);
   k = signal(1);
   selectedNodeId = signal<string | null>(null);
+  isFullscreen = signal(false);
 
   // Pan state (not in signals — purely transient interaction state)
   private isPanning = false;
@@ -50,6 +63,28 @@ export class FlowDiagramComponent implements OnChanges {
     const id = this.selectedNodeId();
     if (!id) return null;
     return this.graph().nodes.find(n => n.id === id) || null;
+  });
+
+  /**
+   * Timeline rows for the currently selected node, sorted by start_time.
+   * Returns an empty array for external nodes (no underlying spans) or
+   * when nothing is selected.
+   */
+  nodeTimeline = computed<TimelineEntry[]>(() => {
+    const node = this.selectedNode();
+    if (!node || node.isExternal || !node.spans?.length) return [];
+    return [...node.spans]
+      .sort((a, b) =>
+        new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
+      )
+      .map(s => ({
+        spanId: s['span.id'],
+        kind: s['span.kind'] || 'unknown',
+        name: s['endpoint.name'] || s['span.name'] || '(unnamed)',
+        status: String(s['http.response.status_code'] ?? ''),
+        durationNanos: Number(s['duration']) || 0,
+        isFailed: isSpanFailed(s)
+      }));
   });
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -76,6 +111,23 @@ export class FlowDiagramComponent implements OnChanges {
     this.tx.set(0);
     this.ty.set(0);
     this.k.set(1);
+  }
+
+  // --- Fullscreen ---------------------------------------------------------
+
+  toggleFullscreen(): void {
+    this.isFullscreen.update(v => !v);
+    // After the layout settles in the new container size, refit so the
+    // diagram makes use of the available space.
+    setTimeout(() => this.fitToScreen(), 0);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.isFullscreen()) {
+      this.isFullscreen.set(false);
+      setTimeout(() => this.fitToScreen(), 0);
+    }
   }
 
   fitToScreen(): void {
@@ -200,6 +252,15 @@ export class FlowDiagramComponent implements OnChanges {
     if (!text) return '';
     return text.length > max ? text.substring(0, max - 1) + '…' : text;
   }
+
+  formatDuration(nanos: number): string {
+    if (!nanos) return '';
+    if (nanos < 1_000_000) return `${Math.round(nanos / 1000)}µs`;
+    if (nanos < 1_000_000_000) return `${Math.round(nanos / 1_000_000)}ms`;
+    return `${(nanos / 1_000_000_000).toFixed(2)}s`;
+  }
+
+  trackTimeline = (_: number, t: TimelineEntry) => t.spanId;
 
   trackNode = (_: number, n: FlowNode) => n.id;
   trackEdge = (_: number, e: FlowEdge) => e.id;

@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { SearchComponent } from './components/search/search.component';
 import { TraceResultsComponent } from './components/trace-results/trace-results.component';
 import { DynatraceService } from './services/dynatrace.service';
+import { ConfigService } from './services/config.service';
 import { SpanRecord } from './models/trace.model';
 
 @Component({
@@ -16,7 +17,8 @@ import { SpanRecord } from './models/trace.model';
         [spans]="spans"
         [isLoading]="isLoading"
         [errorMsg]="errorMsg"
-        [environment]="environment">
+        [environment]="environment"
+        [envHostnamePatterns]="envHostnamePatterns">
       </app-trace-results>
     </div>
   `,
@@ -34,13 +36,22 @@ import { SpanRecord } from './models/trace.model';
     }
   `]
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   spans: SpanRecord[] = [];
   isLoading = false;
   errorMsg = '';
   environment = 'NON-PROD';
+  envHostnamePatterns: string[] = [];
 
-  constructor(private dynatraceService: DynatraceService) {}
+  constructor(
+    private dynatraceService: DynatraceService,
+    private configService: ConfigService
+  ) {}
+
+  async ngOnInit(): Promise<void> {
+    await this.configService.load();
+    this.envHostnamePatterns = this.configService.getEnvHostnamePatterns();
+  }
 
   onSearch(traceId: string): void {
     this.isLoading = true;
