@@ -87,6 +87,50 @@ export class FlowDiagramComponent implements OnChanges {
       }));
   });
 
+  /**
+   * Set of node IDs that are "connected" to the currently selected node:
+   * the selected node itself plus everything reachable from it via edges
+   * in either direction (full bidirectional reachable subgraph).
+   *
+   * Returns null when nothing is selected, which the template uses to
+   * mean "no fading at all".
+   */
+  highlightedNodeIds = computed<Set<string> | null>(() => {
+    const id = this.selectedNodeId();
+    if (!id) return null;
+
+    const g = this.graph();
+    const reachable = new Set<string>([id]);
+    const queue: string[] = [id];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const edge of g.edges) {
+        if (edge.sourceId === current && !reachable.has(edge.targetId)) {
+          reachable.add(edge.targetId);
+          queue.push(edge.targetId);
+        }
+        if (edge.targetId === current && !reachable.has(edge.sourceId)) {
+          reachable.add(edge.sourceId);
+          queue.push(edge.sourceId);
+        }
+      }
+    }
+    return reachable;
+  });
+
+  isNodeFaded(nodeId: string): boolean {
+    const set = this.highlightedNodeIds();
+    if (!set) return false;
+    return !set.has(nodeId);
+  }
+
+  isEdgeFaded(edge: FlowEdge): boolean {
+    const set = this.highlightedNodeIds();
+    if (!set) return false;
+    return !(set.has(edge.sourceId) && set.has(edge.targetId));
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['spans'] || changes['rootCauseService']) {
       const g = buildFlowGraph(this.spans || [], this.rootCauseService);

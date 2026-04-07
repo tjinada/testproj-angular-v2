@@ -95,12 +95,22 @@
 .flow-edge {
   stroke: #9ca3af;
   stroke-width: 1.75;
-  transition: stroke 0.15s;
+  transition: stroke 0.15s, opacity 0.2s;
 }
 
 .flow-edge-failed {
   stroke: #e24b4a;
   stroke-width: 2.25;
+}
+
+/* Faded state for nodes/edges not connected to the selected node.
+   Applied via the [class.flow-faded] binding when a node is selected. */
+.flow-node {
+  transition: opacity 0.2s;
+}
+
+.flow-faded {
+  opacity: 0.18;
 }
 
 /* Nodes */

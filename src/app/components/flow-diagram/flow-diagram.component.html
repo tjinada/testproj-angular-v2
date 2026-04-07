@@ -47,6 +47,7 @@
             [attr.d]="edgePath(edge)"
             class="flow-edge"
             [class.flow-edge-failed]="edge.isFailed"
+            [class.flow-faded]="isEdgeFaded(edge)"
             [attr.marker-end]="edge.isFailed ? 'url(#fd-arrow-failed)' : 'url(#fd-arrow)'"
             fill="none"
           />
@@ -62,6 +63,7 @@
             [class.flow-node-db]="node.isDb"
             [class.flow-node-root-cause]="node.isRootCause"
             [class.flow-node-selected]="selectedNodeId() === node.id"
+            [class.flow-faded]="isNodeFaded(node.id)"
             [attr.transform]="'translate(' + (node.x - node.width/2) + ',' + (node.y - node.height/2) + ')'"
             (click)="onNodeClick(node, $event)"
           >
