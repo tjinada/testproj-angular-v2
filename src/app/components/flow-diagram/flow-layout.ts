@@ -364,8 +364,15 @@ export function findConnectedNodeIds(
   spans: SpanRecord[],
   startNodeId: string
 ): Set<string> {
+  console.group(`[highlight] findConnectedNodeIds("${startNodeId}")`);
+  console.log('total spans:', spans?.length || 0);
+
   const result = new Set<string>([startNodeId]);
-  if (!spans || spans.length === 0) return result;
+  if (!spans || spans.length === 0) {
+    console.warn('[highlight] no spans, returning just the start node');
+    console.groupEnd();
+    return result;
+  }
 
   // Build span lookup tables once
   const spanById = new Map<string, SpanRecord>();
@@ -379,19 +386,18 @@ export function findConnectedNodeIds(
       else childrenByParent.set(pid, [s]);
     }
   }
+  console.log('built spanById:', spanById.size, 'entries');
+  console.log('built childrenByParent:', childrenByParent.size, 'entries');
 
   const isServer = (s: SpanRecord) => s['span.kind'] === 'server';
 
   // --- Determine the starting set of server spans ---
-  // Frontier = server spans we'll walk outward from. Visited = server span
-  // ids we've already processed (to avoid revisiting in cycles).
   const frontier: SpanRecord[] = [];
   const visitedSpanIds = new Set<string>();
 
   if (startNodeId.startsWith('db:')) {
     const dbNamespace = startNodeId.substring(3);
-    // Every client span hitting this DB — walk up from each to find the
-    // calling server span, which becomes the start of the BFS.
+    console.log('[highlight] start type: DB node, namespace=', dbNamespace);
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
       if (String(s['db.namespace'] ?? '') !== dbNamespace) continue;
@@ -407,9 +413,10 @@ export function findConnectedNodeIds(
     }
   } else if (startNodeId.startsWith('ext:')) {
     const host = startNodeId.substring(4);
+    console.log('[highlight] start type: external node, host=', host);
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
-      if (s['db.namespace']) continue; // skip DB-flavored client spans
+      if (s['db.namespace']) continue;
       if (String(s['server.address'] ?? '') !== host) continue;
       const ancestorServer = walkUpToServerSpan(s, spanById);
       if (ancestorServer) {
@@ -422,21 +429,52 @@ export function findConnectedNodeIds(
       }
     }
   } else {
-    // Real service node — starting frontier is all server spans in this service
-    for (const s of spans) {
-      if (!isServer(s)) continue;
-      if (getServiceName(s) !== startNodeId) continue;
+    console.log('[highlight] start type: real service node, name=', startNodeId);
+    // Sanity-check: how many server spans match by service name?
+    const matchedByServiceName = spans.filter(s =>
+      isServer(s) && getServiceName(s) === startNodeId
+    );
+    console.log('[highlight] matching server spans by service name:', matchedByServiceName.length);
+    if (matchedByServiceName.length === 0) {
+      // Show what service names we DO see for server spans, in case there's
+      // a label mismatch (e.g. graph uses one form, spans use another)
+      const allServerServiceNames = new Set(
+        spans.filter(isServer).map(s => getServiceName(s))
+      );
+      console.warn(
+        '[highlight] NO server spans matched! Available server-span service names:',
+        Array.from(allServerServiceNames)
+      );
+    }
+    for (const s of matchedByServiceName) {
       visitedSpanIds.add(s['span.id']);
       frontier.push(s);
     }
   }
 
-  // --- BFS over server spans in both directions ---
-  while (frontier.length > 0) {
-    const current = frontier.shift()!;
+  console.log('[highlight] starting frontier size:', frontier.length);
+  if (frontier.length === 0) {
+    console.warn('[highlight] frontier is empty — nothing to walk, fading will not happen');
+  }
 
-    // Walk DOWN through non-server descendants until we hit server spans
+  // --- BFS over server spans in both directions ---
+  let iterations = 0;
+  while (frontier.length > 0) {
+    iterations++;
+    const current = frontier.shift()!;
+    const currentSvc = getServiceName(current);
+    console.log(
+      `[highlight] iter ${iterations}: visiting span`,
+      current['span.id'].substring(0, 8),
+      'service=', currentSvc
+    );
+
     const downServers = collectDownstreamServerSpans(current, childrenByParent);
+    if (downServers.length > 0) {
+      console.log(`  ↓ found ${downServers.length} downstream server span(s):`,
+        downServers.map(d => `${getServiceName(d)} (${d['span.id'].substring(0, 8)})`)
+      );
+    }
     for (const ds of downServers) {
       const svc = getServiceName(ds);
       if (svc) result.add(svc);
@@ -444,25 +482,30 @@ export function findConnectedNodeIds(
         visitedSpanIds.add(ds['span.id']);
         frontier.push(ds);
       }
-      // Also flag any DB / external client-span children of these server spans
       collectExternalNeighborIds(ds, childrenByParent).forEach(id => result.add(id));
     }
 
-    // Walk UP through non-server ancestors until we hit a server span
     const upServer = walkUpToServerSpanFromParent(current, spanById);
     if (upServer) {
-      const svc = getServiceName(upServer);
-      if (svc) result.add(svc);
+      const upSvc = getServiceName(upServer);
+      console.log(`  ↑ found upstream server span:`, upSvc, `(${upServer['span.id'].substring(0, 8)})`);
+      if (upSvc) result.add(upSvc);
       if (!visitedSpanIds.has(upServer['span.id'])) {
         visitedSpanIds.add(upServer['span.id']);
         frontier.push(upServer);
       }
     }
 
-    // Also flag external/DB neighbors directly attached to the current span
-    collectExternalNeighborIds(current, childrenByParent).forEach(id => result.add(id));
+    const externals = collectExternalNeighborIds(current, childrenByParent);
+    if (externals.length > 0) {
+      console.log(`  → external/db neighbors:`, externals);
+      externals.forEach(id => result.add(id));
+    }
   }
 
+  console.log('[highlight] BFS done after', iterations, 'iterations');
+  console.log('[highlight] final highlighted set:', Array.from(result));
+  console.groupEnd();
   return result;
 }
 

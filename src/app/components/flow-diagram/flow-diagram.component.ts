@@ -106,7 +106,8 @@ export class FlowDiagramComponent implements OnChanges {
   isNodeFaded(nodeId: string): boolean {
     const set = this.highlightedNodeIds();
     if (!set) return false;
-    return !set.has(nodeId);
+    const faded = !set.has(nodeId);
+    return faded;
   }
 
   isEdgeFaded(edge: FlowEdge): boolean {
@@ -250,7 +251,9 @@ export class FlowDiagramComponent implements OnChanges {
   onNodeClick(node: FlowNode, event: MouseEvent): void {
     event.stopPropagation();
     const current = this.selectedNodeId();
-    this.selectedNodeId.set(current === node.id ? null : node.id);
+    const newSelection = current === node.id ? null : node.id;
+    console.log('[highlight] node clicked:', node.id, '→ selection becomes:', newSelection);
+    this.selectedNodeId.set(newSelection);
   }
 
   closeDetails(): void {
