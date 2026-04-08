@@ -1,3 +1,6 @@
+/** Search mode: by trace ID directly, or by request ID (which is then resolved to a trace ID) */
+export type SearchMode = 'trace' | 'request';
+
 /** Raw span record from Dynatrace poll response */
 export interface SpanRecord {
   'trace.id': string;

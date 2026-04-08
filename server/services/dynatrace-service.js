@@ -23,6 +23,19 @@ const MAX_POLL_ATTEMPTS = 60;
 const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 
 /**
+ * Builds the lookup DQL query for resolving a request ID to a trace ID.
+ * Uses the same default timeframe as the trace fetch query.
+ */
+function buildRequestIdLookupQuery(requestId) {
+  return [
+    `fetch spans, from: -120m, samplingRatio: 1, scanLimitGBytes: 500`,
+    `| filter matchesValue(\`http.request.header.x-request-id\`, "${requestId}")`,
+    `| fields trace.id`,
+    `| limit 1`
+  ].join('\n');
+}
+
+/**
  * Builds the full DQL query for fetching spans by trace ID.
  */
 function buildDqlQuery(traceId, timeframe) {
@@ -134,6 +147,37 @@ function loadMockResponse() {
 }
 
 /**
+ * Resolves a request ID to a trace ID by querying Dynatrace spans.
+ * Returns the trace ID string, or null if no matching span was found.
+ */
+async function findTraceIdByRequestId(requestId, environment) {
+  if (process.env.USE_MOCK === 'true') {
+    console.log(`[Mock] Returning mock trace ID for request ID: ${requestId}`);
+    const mock = loadMockResponse();
+    const firstRecord = mock.result?.records?.[0];
+    return firstRecord?.['trace.id'] || null;
+  }
+
+  const config = getEnvConfig(environment);
+  const query = buildRequestIdLookupQuery(requestId);
+
+  console.log(`[Dynatrace] Looking up trace ID for request ID: ${requestId} in ${environment}`);
+  const requestToken = await executeQuery(config, query);
+
+  console.log(`[Dynatrace] Polling for lookup results (token: ${requestToken.substring(0, 10)}...)`);
+  const result = await pollForResults(config, requestToken);
+
+  const records = result.result?.records || [];
+  console.log(`[Dynatrace] Lookup returned ${records.length} record(s)`);
+
+  if (records.length === 0) {
+    return null;
+  }
+
+  return records[0]['trace.id'] || null;
+}
+
+/**
  * Fetches trace data by trace ID.
  * If USE_MOCK is enabled, returns the mock response.
  * Otherwise, performs the 2-step execute + poll pattern against Dynatrace.
@@ -157,4 +201,4 @@ async function fetchTraceById(traceId, environment, timeframe) {
   return result;
 }
 
-module.exports = { fetchTraceById };
+module.exports = { fetchTraceById, findTraceIdByRequestId };

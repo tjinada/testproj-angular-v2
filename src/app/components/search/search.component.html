@@ -1,15 +1,31 @@
 <div class="search-container">
+  <div class="search-mode-toggle">
+    <button
+      type="button"
+      class="mode-btn"
+      [class.active]="mode === 'trace'"
+      (click)="setMode('trace')">
+      Trace ID
+    </button>
+    <button
+      type="button"
+      class="mode-btn"
+      [class.active]="mode === 'request'"
+      (click)="setMode('request')">
+      Request ID
+    </button>
+  </div>
   <input
     type="text"
-    [(ngModel)]="traceId"
-    placeholder="Enter a trace ID to search..."
+    [(ngModel)]="inputValue"
+    [placeholder]="placeholder"
     class="search-input"
     (keyup.enter)="onSearch()"
   />
   <button
     class="search-button"
     (click)="onSearch()"
-    [disabled]="!traceId.trim()">
+    [disabled]="!inputValue.trim()">
     Search
   </button>
 </div>

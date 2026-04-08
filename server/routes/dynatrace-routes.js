@@ -3,6 +3,39 @@ const router = express.Router();
 const dynatraceService = require('../services/dynatrace-service');
 
 /**
+ * POST /api/traces/lookup-by-request-id
+ * Resolves a request ID to a trace ID via Dynatrace span lookup.
+ */
+router.post('/lookup-by-request-id', async (req, res) => {
+  const { requestId, environment = 'NON-PROD' } = req.body;
+
+  if (!requestId) {
+    return res.status(400).json({ error: 'Request ID is required' });
+  }
+
+  try {
+    const traceId = await dynatraceService.findTraceIdByRequestId(requestId, environment);
+
+    if (!traceId) {
+      return res.status(404).json({ error: 'No trace found for that request ID in the last 120 minutes' });
+    }
+
+    res.json({ traceId, requestId });
+  } catch (error) {
+    console.error(`[Dynatrace] Error looking up request ID ${requestId}:`, error.message);
+
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
  * POST /api/traces/:traceId
  * Fetches trace spans from Dynatrace for a given trace ID.
  */

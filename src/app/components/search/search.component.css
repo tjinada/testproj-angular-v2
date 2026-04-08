@@ -44,3 +44,36 @@
   background: #9ca3af;
   cursor: not-allowed;
 }
+
+.search-mode-toggle {
+  display: inline-flex;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  height: 38px;
+}
+
+.mode-btn {
+  height: 38px;
+  padding: 0 14px;
+  background: #fff;
+  color: #374151;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-right: 1px solid #d1d5db;
+}
+
+.mode-btn:last-child {
+  border-right: none;
+}
+
+.mode-btn:hover {
+  background: #f3f4f6;
+}
+
+.mode-btn.active {
+  background: #1B4F72;
+  color: #fff;
+}
