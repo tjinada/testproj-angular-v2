@@ -24,11 +24,15 @@ const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 
 /**
  * Builds the lookup DQL query for resolving a request ID to a trace ID.
- * Uses the same default timeframe as the trace fetch query.
+ * Accepts an optional timeframe; falls back to the same default as the trace fetch query.
  */
-function buildRequestIdLookupQuery(requestId) {
+function buildRequestIdLookupQuery(requestId, timeframe) {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
   return [
-    `fetch spans, from: -120m, samplingRatio: 1, scanLimitGBytes: 500`,
+    `fetch spans, ${timeframeClause}, samplingRatio: 1, scanLimitGBytes: 500`,
     `| filter matchesValue(\`http.request.header.x-request-id\`, "${requestId}")`,
     `| fields trace.id`,
     `| limit 1`
@@ -150,7 +154,7 @@ function loadMockResponse() {
  * Resolves a request ID to a trace ID by querying Dynatrace spans.
  * Returns the trace ID string, or null if no matching span was found.
  */
-async function findTraceIdByRequestId(requestId, environment) {
+async function findTraceIdByRequestId(requestId, environment, timeframe) {
   if (process.env.USE_MOCK === 'true') {
     console.log(`[Mock] Returning mock trace ID for request ID: ${requestId}`);
     const mock = loadMockResponse();
@@ -159,7 +163,7 @@ async function findTraceIdByRequestId(requestId, environment) {
   }
 
   const config = getEnvConfig(environment);
-  const query = buildRequestIdLookupQuery(requestId);
+  const query = buildRequestIdLookupQuery(requestId, timeframe);
 
   console.log(`[Dynatrace] Looking up trace ID for request ID: ${requestId} in ${environment}`);
   const requestToken = await executeQuery(config, query);

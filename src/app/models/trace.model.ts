@@ -1,6 +1,22 @@
 /** Search mode: by trace ID directly, or by request ID (which is then resolved to a trace ID) */
 export type SearchMode = 'trace' | 'request';
 
+/** A preset time window option for search queries */
+export interface TimeWindow {
+  /** Unique identifier (e.g. '2h', '1d') */
+  id: string;
+  /** Display label (e.g. 'Last 2 hours') */
+  label: string;
+  /** Duration in milliseconds */
+  durationMs: number;
+}
+
+/** Absolute timeframe passed to the backend */
+export interface Timeframe {
+  from: string;
+  to: string;
+}
+
 /** Raw span record from Dynatrace poll response */
 export interface SpanRecord {
   'trace.id': string;

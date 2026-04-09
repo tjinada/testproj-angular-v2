@@ -1,6 +1,7 @@
 .search-container {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
   padding: 14px 20px;
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -8,20 +9,66 @@
   margin-bottom: 20px;
 }
 
+.search-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.search-bar {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.search-bar:focus-within {
+  border-color: #1B4F72;
+  box-shadow: 0 0 0 2px rgba(27, 79, 114, 0.15);
+}
+
+.search-select {
+  height: 100%;
+  padding: 0 28px 0 12px;
+  background: #f9fafb;
+  color: #374151;
+  border: none;
+  border-right: 1px solid #d1d5db;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3e%3cpath fill='%236b7280' d='M6 8.5L1.5 4h9z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.search-select:hover {
+  background-color: #f3f4f6;
+}
+
+.search-select-right {
+  border-right: none;
+  border-left: 1px solid #d1d5db;
+}
+
 .search-input {
   flex: 1;
-  height: 38px;
+  min-width: 0;
+  height: 100%;
   padding: 0 12px;
   font-family: monospace;
   font-size: 13px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: none;
   outline: none;
-}
-
-.search-input:focus {
-  border-color: #1B4F72;
-  box-shadow: 0 0 0 2px rgba(27, 79, 114, 0.15);
+  background: #fff;
 }
 
 .search-button {
@@ -45,35 +92,24 @@
   cursor: not-allowed;
 }
 
-.search-mode-toggle {
-  display: inline-flex;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  overflow: hidden;
-  height: 38px;
+.search-help {
+  border-top: 1px solid #f3f4f6;
+  padding-top: 10px;
 }
 
-.mode-btn {
-  height: 38px;
-  padding: 0 14px;
-  background: #fff;
-  color: #374151;
-  border: none;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border-right: 1px solid #d1d5db;
+.search-help-text,
+.search-help-tip {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
 }
 
-.mode-btn:last-child {
-  border-right: none;
+.search-help-tip {
+  margin-top: 4px;
 }
 
-.mode-btn:hover {
-  background: #f3f4f6;
-}
-
-.mode-btn.active {
-  background: #1B4F72;
-  color: #fff;
+.search-help-tip strong {
+  color: #1B4F72;
+  font-weight: 600;
 }

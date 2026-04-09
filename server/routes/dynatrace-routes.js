@@ -7,17 +7,17 @@ const dynatraceService = require('../services/dynatrace-service');
  * Resolves a request ID to a trace ID via Dynatrace span lookup.
  */
 router.post('/lookup-by-request-id', async (req, res) => {
-  const { requestId, environment = 'NON-PROD' } = req.body;
+  const { requestId, environment = 'NON-PROD', timeframe } = req.body;
 
   if (!requestId) {
     return res.status(400).json({ error: 'Request ID is required' });
   }
 
   try {
-    const traceId = await dynatraceService.findTraceIdByRequestId(requestId, environment);
+    const traceId = await dynatraceService.findTraceIdByRequestId(requestId, environment, timeframe);
 
     if (!traceId) {
-      return res.status(404).json({ error: 'No trace found for that request ID in the last 120 minutes' });
+      return res.status(404).json({ error: 'No trace found for that request ID in the selected time window' });
     }
 
     res.json({ traceId, requestId });

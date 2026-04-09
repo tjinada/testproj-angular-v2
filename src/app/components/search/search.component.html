@@ -1,31 +1,44 @@
 <div class="search-container">
-  <div class="search-mode-toggle">
+  <div class="search-row">
+    <div class="search-bar">
+      <select
+        class="search-select search-select-left"
+        [(ngModel)]="selectedMode"
+        (ngModelChange)="onModeChange()"
+        aria-label="Search field">
+        <option *ngFor="let field of fields" [ngValue]="field.mode">{{ field.label }}</option>
+      </select>
+
+      <input
+        type="text"
+        [(ngModel)]="inputValue"
+        [placeholder]="placeholder"
+        class="search-input"
+        (keyup.enter)="onSearch()"
+      />
+
+      <select
+        class="search-select search-select-right"
+        [(ngModel)]="selectedWindowId"
+        aria-label="Time window">
+        <option *ngFor="let window of timeWindows" [ngValue]="window.id">{{ window.label }}</option>
+      </select>
+    </div>
+
     <button
-      type="button"
-      class="mode-btn"
-      [class.active]="mode === 'trace'"
-      (click)="setMode('trace')">
-      Trace ID
-    </button>
-    <button
-      type="button"
-      class="mode-btn"
-      [class.active]="mode === 'request'"
-      (click)="setMode('request')">
-      Request ID
+      class="search-button"
+      (click)="onSearch()"
+      [disabled]="!inputValue.trim()">
+      Search
     </button>
   </div>
-  <input
-    type="text"
-    [(ngModel)]="inputValue"
-    [placeholder]="placeholder"
-    class="search-input"
-    (keyup.enter)="onSearch()"
-  />
-  <button
-    class="search-button"
-    (click)="onSearch()"
-    [disabled]="!inputValue.trim()">
-    Search
-  </button>
+
+  <div class="search-help">
+    <p class="search-help-text">
+      Pick a search type, choose a time window, enter your ID, and hit Search.
+    </p>
+    <p class="search-help-tip">
+      <strong>Tip:</strong> New traces take about 5 minutes to appear in Dynatrace. If your search returns nothing, wait a moment and try again.
+    </p>
+  </div>
 </div>

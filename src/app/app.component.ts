@@ -4,7 +4,7 @@ import { SearchComponent, SearchEvent } from './components/search/search.compone
 import { TraceResultsComponent } from './components/trace-results/trace-results.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService } from './services/config.service';
-import { SpanRecord } from './models/trace.model';
+import { SpanRecord, Timeframe } from './models/trace.model';
 
 @Component({
   selector: 'app-root',
@@ -81,16 +81,16 @@ export class AppComponent implements OnInit {
     this.resolvedFromRequestId = null;
 
     if (event.mode === 'trace') {
-      this.fetchTrace(event.value);
+      this.fetchTrace(event.value, event.timeframe);
       return;
     }
 
     // Request ID mode: resolve to trace ID first, then fetch the trace
     const requestId = event.value;
-    this.dynatraceService.lookupTraceIdByRequestId(requestId, this.environment).subscribe({
+    this.dynatraceService.lookupTraceIdByRequestId(requestId, this.environment, event.timeframe).subscribe({
       next: (response) => {
         this.resolvedFromRequestId = { traceId: response.traceId, requestId: response.requestId };
-        this.fetchTrace(response.traceId);
+        this.fetchTrace(response.traceId, event.timeframe);
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to look up request ID. Please try again.';
@@ -99,8 +99,8 @@ export class AppComponent implements OnInit {
     });
   }
 
-  private fetchTrace(traceId: string): void {
-    this.dynatraceService.fetchTrace(traceId, this.environment).subscribe({
+  private fetchTrace(traceId: string, timeframe: Timeframe): void {
+    this.dynatraceService.fetchTrace(traceId, this.environment, timeframe).subscribe({
       next: (response) => {
         this.spans = response.result?.records || [];
         if (this.spans.length === 0) {
