@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SearchComponent, SearchEvent } from './components/search/search.component';
@@ -135,7 +135,8 @@ export class AppComponent implements OnInit {
 
   constructor(
     private dynatraceService: DynatraceService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -146,6 +147,9 @@ export class AppComponent implements OnInit {
     const nonProd = this.environments.find(e => !e.isProd);
     this.environment = nonProd ? nonProd.id : (this.environments[0]?.id || 'NON-PROD');
     this.configLoaded = true;
+    // Force a change detection pass — without this, the env-row may not
+    // render until a user interaction triggers CD (zone.js timing issue).
+    this.cdr.detectChanges();
   }
 
   isProd(): boolean {
