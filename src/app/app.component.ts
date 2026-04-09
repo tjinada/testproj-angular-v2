@@ -15,7 +15,7 @@ import { SpanRecord, Timeframe } from './models/trace.model';
     <div class="app-container">
       <h1 class="app-title">TESTPROJ Error Analyzer</h1>
 
-      <div class="env-row" [class.env-row-prod]="isProd()">
+      <div *ngIf="configLoaded" class="env-row" [class.env-row-prod]="isProd()">
         <label for="env-select" class="env-label">Environment:</label>
         <select
           id="env-select"
@@ -131,6 +131,7 @@ export class AppComponent implements OnInit {
   environments: EnvironmentOption[] = [];
   envHostnamePatterns: string[] = [];
   resolvedFromRequestId: { traceId: string; requestId: string } | null = null;
+  configLoaded = false;
 
   constructor(
     private dynatraceService: DynatraceService,
@@ -144,6 +145,7 @@ export class AppComponent implements OnInit {
     // Always default to Non-Prod every session, regardless of what's available.
     const nonProd = this.environments.find(e => !e.isProd);
     this.environment = nonProd ? nonProd.id : (this.environments[0]?.id || 'NON-PROD');
+    this.configLoaded = true;
   }
 
   isProd(): boolean {
