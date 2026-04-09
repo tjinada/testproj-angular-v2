@@ -13,7 +13,17 @@ router.get('/', (req, res) => {
     .map(p => p.trim())
     .filter(Boolean);
 
-  res.json({ envHostnamePatterns });
+  // Available environments. Non-Prod is always exposed; Prod is gated by
+  // DYNATRACE_PROD_ENABLED so it can be hidden in restricted deployments.
+  const environments = [
+    { id: 'NON-PROD', label: 'Non-Prod', isProd: false }
+  ];
+
+  if (process.env.DYNATRACE_PROD_ENABLED === 'true') {
+    environments.push({ id: 'PROD', label: 'Prod', isProd: true });
+  }
+
+  res.json({ envHostnamePatterns, environments });
 });
 
 module.exports = router;
