@@ -353,7 +353,7 @@
 
 .flow-drawer-columns {
   display: flex;
-  gap: 16px;
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
@@ -361,22 +361,28 @@
 .flow-drawer-col {
   flex: 1;
   min-width: 0;
+  padding: 0 16px;
 }
 
 .flow-drawer-col-main {
   flex: 1;
+  border-right: 1px solid #e5e7eb;
+  padding-left: 0;
 }
 
 .flow-drawer-col-detail {
   flex: 1;
+  padding-right: 0;
 }
 
-/* Metadata row */
+/* Metadata grid */
 .flow-drawer-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
   margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .flow-drawer-meta-item {
@@ -406,7 +412,7 @@
 }
 
 /* ============================================================
-   ENDPOINT FLOW (upstream breadcrumb)
+   ENDPOINT FLOW (upstream breadcrumb — single scrollable row)
    ============================================================ */
 .flow-endpoint-flow {
   display: flex;
@@ -420,6 +426,22 @@
   font-size: 11px;
   overflow-x: auto;
   flex-shrink: 0;
+  position: relative;
+  /* Scroll fade hint on the right edge */
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+}
+
+/* Remove the fade mask once user has scrolled to the end */
+.flow-endpoint-flow.flow-endpoint-flow-scrolled-end {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+/* Also remove mask if content fits without scrolling */
+.flow-endpoint-flow:not(.flow-endpoint-flow-overflows) {
+  mask-image: none;
+  -webkit-mask-image: none;
 }
 
 .flow-endpoint-flow-step {
@@ -538,8 +560,16 @@
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
   user-select: none;
+  background: transparent;
+  transition: background 0.1s;
+}
+
+.flow-section-header:hover {
+  background: #f3f4f6;
 }
 
 .flow-section-header:hover .flow-drawer-section-label {

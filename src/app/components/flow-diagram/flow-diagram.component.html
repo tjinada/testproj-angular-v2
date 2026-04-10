@@ -130,7 +130,11 @@
       <div class="flow-drawer-body">
 
         <!-- Endpoint flow (upstream chain from root to selected) -->
-        <div class="flow-endpoint-flow" *ngIf="endpointFlow().length > 1">
+        <div class="flow-endpoint-flow" *ngIf="endpointFlow().length > 1"
+             #flowBarEl
+             [class.flow-endpoint-flow-overflows]="flowBarOverflows()"
+             [class.flow-endpoint-flow-scrolled-end]="flowBarScrolledEnd()"
+             (scroll)="onFlowBarScroll()">
           <ng-container *ngFor="let step of endpointFlow(); let last = last">
             <div class="flow-endpoint-flow-step"
                  [class.flow-endpoint-flow-step-current]="last"

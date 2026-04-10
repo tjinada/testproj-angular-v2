@@ -50,6 +50,11 @@ export class FlowDiagramComponent implements OnChanges {
   @Input() rootCauseService: string | null = null;
 
   @ViewChild('svgEl', { static: false }) svgEl?: ElementRef<SVGSVGElement>;
+  @ViewChild('flowBarEl', { static: false }) flowBarEl?: ElementRef<HTMLDivElement>;
+
+  // Flow bar scroll state
+  flowBarOverflows = signal(false);
+  flowBarScrolledEnd = signal(false);
 
   // View state (signals)
   graph = signal<FlowGraph>({ nodes: [], edges: [], width: 0, height: 0 });
@@ -474,10 +479,28 @@ export class FlowDiagramComponent implements OnChanges {
     this.selectedNodeId.set(current === node.id ? null : node.id);
     // Reset expanded sections when switching nodes
     this.expandedSections.set(new Set());
+    // Check flow bar overflow after DOM updates
+    queueMicrotask(() => this.checkFlowBarOverflow());
   }
 
   closeDetails(): void {
     this.selectedNodeId.set(null);
+  }
+
+  // --- Flow bar scroll detection ------------------------------------------
+
+  checkFlowBarOverflow(): void {
+    const el = this.flowBarEl?.nativeElement;
+    if (!el) { this.flowBarOverflows.set(false); return; }
+    const overflows = el.scrollWidth > el.clientWidth + 2;
+    this.flowBarOverflows.set(overflows);
+    this.flowBarScrolledEnd.set(!overflows || el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+  }
+
+  onFlowBarScroll(): void {
+    const el = this.flowBarEl?.nativeElement;
+    if (!el) return;
+    this.flowBarScrolledEnd.set(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
   }
 
   // --- Edge geometry ------------------------------------------------------
