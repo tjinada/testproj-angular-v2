@@ -160,10 +160,6 @@
               <span class="flow-drawer-meta-label">WAS Server</span>
               <span class="flow-drawer-meta-value">{{ node.websphereServer }}</span>
             </div>
-            <div class="flow-drawer-meta-item" *ngIf="!node.isExternal">
-              <span class="flow-drawer-meta-label">Spans</span>
-              <span class="flow-drawer-meta-value">{{ node.spanCount }}</span>
-            </div>
             <div class="flow-drawer-meta-item" *ngIf="nodeEndpoints().length > 0">
               <span class="flow-drawer-meta-label">Endpoints</span>
               <div class="flow-drawer-endpoints">

@@ -383,6 +383,7 @@
   margin-bottom: 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid #f1f5f9;
+  overflow: hidden;
 }
 
 .flow-drawer-meta-item {
@@ -427,21 +428,26 @@
   overflow-x: auto;
   flex-shrink: 0;
   position: relative;
-  /* Scroll fade hint on the right edge */
-  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+  /* Thin visible scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
-/* Remove the fade mask once user has scrolled to the end */
-.flow-endpoint-flow.flow-endpoint-flow-scrolled-end {
-  mask-image: none;
-  -webkit-mask-image: none;
+.flow-endpoint-flow::-webkit-scrollbar {
+  height: 4px;
 }
 
-/* Also remove mask if content fits without scrolling */
-.flow-endpoint-flow:not(.flow-endpoint-flow-overflows) {
-  mask-image: none;
-  -webkit-mask-image: none;
+.flow-endpoint-flow::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.flow-endpoint-flow::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.flow-endpoint-flow::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 .flow-endpoint-flow-step {
@@ -496,6 +502,7 @@
   font-size: 13px;
   color: #111827;
   font-weight: 500;
+  word-break: break-word;
 }
 
 .flow-drawer-endpoint-path {
@@ -503,6 +510,7 @@
   color: #6b7280;
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 /* Section labels */
