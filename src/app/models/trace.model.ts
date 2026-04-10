@@ -57,6 +57,12 @@ export interface SpanRecord {
   'server.address'?: string;
   'server.port'?: string;
   'host.name'?: string;
+  'k8s.container.name'?: string;
+  'websphere.server.name'?: string;
+  'websphere.cluster.name'?: string;
+  'otel.scope.name'?: string;
+  'cloud.provider'?: string;
+  'faas.name'?: string;
   'icon'?: { primaryIconType: string; secondaryIconType: string | null } | null;
   [key: string]: unknown;
 }

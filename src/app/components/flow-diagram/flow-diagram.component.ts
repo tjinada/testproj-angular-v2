@@ -10,7 +10,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SpanRecord } from '../../models/trace.model';
+import { SpanRecord, SpanEvent } from '../../models/trace.model';
 import { buildFlowGraph, findConnectedNodeIds, FlowGraph, FlowNode, FlowEdge } from './flow-layout';
 import { isSpanFailed } from '../../services/trace-analyzer';
 
@@ -22,6 +22,20 @@ export interface TimelineEntry {
   status: string;      // http status, or '' if none
   durationNanos: number;
   isFailed: boolean;
+}
+
+/** Extracted error detail for a single failing span. */
+export interface FailingSpanDetail {
+  spanId: string;
+  endpointName: string;
+  httpMethod: string;
+  httpStatus: string;
+  urlPath: string;
+  urlFull: string;       // only populated for POST spans
+  serverAddress: string;
+  exceptionType: string;
+  exceptionMessage: string;
+  stackTrace: string;
 }
 
 @Component({
@@ -102,6 +116,62 @@ export class FlowDiagramComponent implements OnChanges {
     if (!id) return null;
     return findConnectedNodeIds(this.spans || [], id);
   });
+
+  /**
+   * Error details for all failing spans in the currently selected node.
+   * Immediately visible on click — no expand needed.
+   */
+  nodeFailingSpans = computed<FailingSpanDetail[]>(() => {
+    const node = this.selectedNode();
+    if (!node || node.isExternal || !node.spans?.length) return [];
+    return node.spans
+      .filter(isSpanFailed)
+      .sort((a, b) =>
+        new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
+      )
+      .map(s => {
+        // Extract exception info from span.events
+        const events = s['span.events'] || [];
+        const exEvent = events.find(
+          (e: SpanEvent) => e['span_event.name'] === 'exception'
+        );
+        const exType = exEvent?.['exception.type'] || '';
+        const exMessage = exEvent?.['exception.message'] || '';
+        // Stack trace: code.call_stack or exception.stack_trace from event
+        const stackTrace = (s['code.call_stack'] as string) ||
+          exEvent?.['exception.stack_trace'] || '';
+        const method = (s['http.request.method'] as string) || '';
+        return {
+          spanId: s['span.id'],
+          endpointName: s['endpoint.name'] || s['span.name'] || '(unnamed)',
+          httpMethod: method,
+          httpStatus: String(s['http.response.status_code'] ?? ''),
+          urlPath: (s['url.path'] as string) || '',
+          urlFull: method.toUpperCase() === 'POST'
+            ? (s['url.full'] as string) || '' : '',
+          serverAddress: (s['server.address'] as string) || '',
+          exceptionType: exType,
+          exceptionMessage: exMessage,
+          stackTrace
+        };
+      });
+  });
+
+  /** Tracks which collapsible sections are expanded in the details panel. */
+  expandedSections = signal<Set<string>>(new Set());
+
+  toggleSection(sectionId: string): void {
+    this.expandedSections.update(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  }
+
+  isSectionExpanded(sectionId: string): boolean {
+    return this.expandedSections().has(sectionId);
+  }
 
   isNodeFaded(nodeId: string): boolean {
     const set = this.highlightedNodeIds();
@@ -251,6 +321,8 @@ export class FlowDiagramComponent implements OnChanges {
     event.stopPropagation();
     const current = this.selectedNodeId();
     this.selectedNodeId.set(current === node.id ? null : node.id);
+    // Reset expanded sections when switching nodes
+    this.expandedSections.set(new Set());
   }
 
   closeDetails(): void {
@@ -289,6 +361,7 @@ export class FlowDiagramComponent implements OnChanges {
   }
 
   trackTimeline = (_: number, t: TimelineEntry) => t.spanId;
+  trackFailingSpan = (_: number, f: FailingSpanDetail) => f.spanId;
 
   trackNode = (_: number, n: FlowNode) => n.id;
   trackEdge = (_: number, e: FlowEdge) => e.id;

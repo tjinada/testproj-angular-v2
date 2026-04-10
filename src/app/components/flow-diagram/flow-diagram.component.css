@@ -103,8 +103,7 @@
   stroke-width: 2.25;
 }
 
-/* Faded state for nodes/edges not connected to the selected node.
-   Applied via the [class.flow-faded] binding when a node is selected. */
+/* Faded state for nodes/edges not connected to the selected node. */
 .flow-node {
   transition: opacity 0.2s;
 }
@@ -159,18 +158,78 @@
 }
 
 /* Root cause badge (pill above the node) */
-.flow-node-badge rect {
+.flow-badge-rootcause rect {
   fill: #b91c1c;
   stroke: none;
 }
 
-.flow-node-badge text {
+.flow-badge-rootcause text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 9px;
   font-weight: 700;
   fill: #ffffff;
   letter-spacing: 0.5px;
   pointer-events: none;
+}
+
+/* Lambda badge (orange/amber pill inside node top-right) */
+.flow-badge-lambda rect {
+  fill: #d97706;
+  stroke: none;
+}
+
+.flow-badge-lambda text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* Lambda node tint */
+.flow-node-lambda .flow-node-rect {
+  fill: #fffbeb;
+  stroke: #d97706;
+}
+
+.flow-node-lambda:hover .flow-node-rect {
+  stroke: #b45309;
+}
+
+.flow-node-lambda.flow-node-selected .flow-node-rect {
+  fill: #fef3c7;
+  stroke: #b45309;
+}
+
+/* WebSphere badge (blue pill inside node top-right) */
+.flow-badge-websphere rect {
+  fill: #1d4ed8;
+  stroke: none;
+}
+
+.flow-badge-websphere text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* WebSphere node tint */
+.flow-node-websphere .flow-node-rect {
+  fill: #eff6ff;
+  stroke: #3b82f6;
+}
+
+.flow-node-websphere:hover .flow-node-rect {
+  stroke: #1d4ed8;
+}
+
+.flow-node-websphere.flow-node-selected .flow-node-rect {
+  fill: #dbeafe;
+  stroke: #1d4ed8;
 }
 
 /* External (synthetic) nodes — dashed border */
@@ -198,8 +257,7 @@
   stroke-dasharray: 6 4;
 }
 
-/* DB nodes — dashed border with a slight blue tint to distinguish from
-   plain external systems */
+/* DB nodes — dashed border with a slight blue tint */
 .flow-node-db .flow-node-rect {
   fill: #f0f9ff;
   stroke: #60a5fa;
@@ -252,7 +310,9 @@
   font-style: italic;
 }
 
-/* Details panel */
+/* ============================================================
+   DETAILS PANEL
+   ============================================================ */
 .flow-details {
   position: absolute;
   top: 12px;
@@ -268,9 +328,9 @@
   overflow: hidden;
 }
 
-/* Wider variant when showing a service node with a span timeline */
+/* Wider variant for service nodes (520px for error details + stack traces) */
 .flow-details.flow-details-wide {
-  width: 440px;
+  width: 520px;
 }
 
 .flow-details-header {
@@ -280,6 +340,7 @@
   padding: 10px 12px;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
+  flex-shrink: 0;
 }
 
 .flow-details-title {
@@ -316,6 +377,10 @@
   margin-bottom: 10px;
 }
 
+.flow-details-section {
+  margin-bottom: 10px;
+}
+
 .flow-details-label {
   font-size: 11px;
   text-transform: uppercase;
@@ -327,6 +392,7 @@
 .flow-details-value {
   font-size: 13px;
   color: #111827;
+  word-break: break-all;
 }
 
 .flow-details-value-failed {
@@ -334,6 +400,199 @@
   font-weight: 600;
 }
 
+/* Inline badges row */
+.flow-details-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.flow-badge-inline {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.flow-badge-inline.flow-badge-failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.flow-badge-inline-lambda {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.flow-badge-inline-websphere {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.flow-badge-inline-db {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.flow-badge-inline-ext {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Collapsible section headers */
+.flow-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.flow-section-header:hover .flow-details-label {
+  color: #111827;
+}
+
+.flow-section-toggle {
+  font-size: 11px;
+  color: #6b7280;
+  width: 12px;
+  text-align: center;
+}
+
+.flow-section-body {
+  margin-top: 4px;
+}
+
+/* ============================================================
+   ERROR CARDS (immediately visible for failed nodes)
+   ============================================================ */
+.flow-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.flow-error-card {
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  background: #fef2f2;
+  overflow: hidden;
+}
+
+.flow-error-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #fee2e2;
+  border-bottom: 1px solid #fecaca;
+}
+
+.flow-error-method {
+  font-size: 10px;
+  font-weight: 700;
+  color: #991b1b;
+  background: #fecaca;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.flow-error-status {
+  font-size: 10px;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.flow-error-endpoint {
+  font-size: 11px;
+  font-weight: 600;
+  color: #991b1b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-error-card-body {
+  padding: 6px 8px;
+}
+
+.flow-error-field {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+
+.flow-error-field-label {
+  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.flow-error-field-value {
+  color: #111827;
+  word-break: break-all;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+}
+
+.flow-error-exception-type {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.flow-error-message {
+  margin-top: 4px;
+  padding: 4px 6px;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #991b1b;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   STACK TRACE (collapsible)
+   ============================================================ */
+.flow-stacktrace-block {
+  margin-bottom: 8px;
+}
+
+.flow-stacktrace-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.flow-stacktrace-pre {
+  margin: 0;
+  padding: 8px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  border-radius: 4px;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 300px;
+  white-space: pre;
+  word-break: normal;
+}
+
+/* ============================================================
+   ENDPOINTS (collapsible)
+   ============================================================ */
 .flow-details-endpoints {
   margin: 2px 0 0 0;
   padding-left: 16px;
@@ -346,9 +605,10 @@
   word-break: break-all;
 }
 
-/* Span timeline inside the details panel */
+/* ============================================================
+   SPAN TIMELINE (collapsible)
+   ============================================================ */
 .flow-timeline {
-  margin-top: 4px;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   background: #fafafa;

@@ -15,6 +15,9 @@ export interface FlowNode {
   isRootCause: boolean;    // true for the node identified as the root cause
   isExternal: boolean;     // true for synthetic upstream/downstream nodes
   isDb: boolean;           // true for synthetic database nodes (subset of external)
+  isLambda: boolean;       // true if otel.scope.name is dt.agent.nodejs.Lambda
+  isWebSphere: boolean;    // true if websphere.server.name is present
+  websphereServer: string; // websphere.server.name value (empty if not WAS)
   spanCount: number;
   endpoints: string[];
   spans: SpanRecord[];     // spans grouped into this node (empty for synthetic)
@@ -118,15 +121,52 @@ export function buildFlowGraph(
           .filter(Boolean) as string[]
       )
     );
-    // Pick a host name from any span in the group
-    const hostFull = (grp.find(s => s['dt.entity.host.entity.name'])?.[
+    // Pick a host name from any span in the group.
+    // Priority: websphere.server.name > k8s.container.name > host.name > dt.entity.host.entity.name
+    const k8sContainer = (grp.find(s => s['k8s.container.name'])?.[
+      'k8s.container.name'
+    ] as string) || '';
+    const internalHost = (grp.find(s => s['host.name'])?.[
+      'host.name'
+    ] as string) || '';
+    const entityHost = (grp.find(s => s['dt.entity.host.entity.name'])?.[
       'dt.entity.host.entity.name'
     ] as string) || '';
+
+    // WebSphere detection: if any span has websphere.server.name
+    const wasServerName = (grp.find(s => s['websphere.server.name'])?.[
+      'websphere.server.name'
+    ] as string) || '';
+    const isWebSphere = !!wasServerName;
+
+    // Lambda detection: otel.scope.name === 'dt.agent.nodejs.Lambda'
+    const isLambda = grp.some(
+      s => (s['otel.scope.name'] as string) === 'dt.agent.nodejs.Lambda'
+    );
+
+    // Determine the hostname to display on the node box.
+    // WebSphere server name takes top priority when present.
+    let hostFull: string;
+    if (isWebSphere) {
+      hostFull = wasServerName;
+    } else if (k8sContainer) {
+      hostFull = k8sContainer;
+    } else if (internalHost) {
+      hostFull = internalHost;
+    } else {
+      hostFull = entityHost;
+    }
+
+    // Sublabel override for Lambda nodes
+    const sublabel = isLambda
+      ? `lambda \u00b7 ${grp.length} span${grp.length === 1 ? '' : 's'}`
+      : `${grp.length} span${grp.length === 1 ? '' : 's'}`;
+
     const node: FlowNode = {
       id: name,
       label: name,
       hostname: firstSegment(hostFull) || hostFull,
-      sublabel: `${grp.length} span${grp.length === 1 ? '' : 's'}`,
+      sublabel,
       x: 0,
       y: 0,
       width: NODE_WIDTH,
@@ -135,6 +175,9 @@ export function buildFlowGraph(
       isRootCause: rootCauseService !== null && name === rootCauseService,
       isExternal: false,
       isDb: false,
+      isLambda,
+      isWebSphere,
+      websphereServer: wasServerName,
       spanCount: grp.length,
       endpoints,
       spans: grp,
@@ -201,6 +244,9 @@ export function buildFlowGraph(
         isRootCause: false,
         isExternal: true,
         isDb: true,
+        isLambda: false,
+        isWebSphere: false,
+        websphereServer: '',
         spanCount: 0,
         endpoints: [],
         spans: [],
@@ -247,6 +293,9 @@ export function buildFlowGraph(
         isRootCause: false,
         isExternal: true,
         isDb: false,
+        isLambda: false,
+        isWebSphere: false,
+        websphereServer: '',
         spanCount: 0,
         endpoints: [],
         spans: [],
