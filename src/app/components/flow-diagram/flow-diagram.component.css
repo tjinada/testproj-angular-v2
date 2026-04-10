@@ -205,6 +205,21 @@
   pointer-events: none;
 }
 
+/* Channels badge (top-right tab — green/teal) */
+.flow-badge-channels rect {
+  fill: #0d9488;
+  stroke: none;
+}
+
+.flow-badge-channels text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
 /* External nodes — dashed border */
 .flow-node-external .flow-node-rect {
   fill: #fafafa;
@@ -420,7 +435,7 @@
   align-items: center;
   flex-wrap: nowrap;
   gap: 4px;
-  padding: 6px 10px;
+  padding: 10px 12px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
@@ -428,6 +443,7 @@
   overflow-x: auto;
   flex-shrink: 0;
   position: relative;
+  min-height: 48px;
   /* Thin visible scrollbar */
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
@@ -550,6 +566,11 @@
 .flow-badge-inline-websphere {
   background: #dbeafe;
   color: #1e40af;
+}
+
+.flow-badge-inline-channels {
+  background: #ccfbf1;
+  color: #115e59;
 }
 
 .flow-badge-inline-db {

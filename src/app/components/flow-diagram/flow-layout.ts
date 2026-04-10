@@ -17,6 +17,7 @@ export interface FlowNode {
   isDb: boolean;           // true for synthetic database nodes (subset of external)
   isLambda: boolean;       // true if otel.scope.name is dt.agent.nodejs.Lambda
   isWebSphere: boolean;    // true if websphere.server.name is present
+  isChannels: boolean;     // true if k8s.container.name contains 'channels'
   websphereServer: string; // websphere.server.name value (empty if not WAS)
   spanCount: number;
   endpoints: string[];
@@ -155,6 +156,9 @@ export function buildFlowGraph(
       s => (s['otel.scope.name'] as string) === 'dt.agent.nodejs.Lambda'
     );
 
+    // Channels detection: k8s.container.name contains 'channels'
+    const isChannels = !!k8sContainer && k8sContainer.toLowerCase().includes('channels');
+
     // Determine the hostname to display on the node box.
     // WebSphere server name takes top priority when present.
     let hostFull: string;
@@ -188,6 +192,7 @@ export function buildFlowGraph(
       isDb: false,
       isLambda,
       isWebSphere,
+      isChannels,
       websphereServer: wasServerName,
       spanCount: grp.length,
       endpoints,
@@ -257,6 +262,7 @@ export function buildFlowGraph(
         isDb: true,
         isLambda: false,
         isWebSphere: false,
+        isChannels: false,
         websphereServer: '',
         spanCount: 0,
         endpoints: [],
@@ -306,6 +312,7 @@ export function buildFlowGraph(
         isDb: false,
         isLambda: false,
         isWebSphere: false,
+        isChannels: false,
         websphereServer: '',
         spanCount: 0,
         endpoints: [],

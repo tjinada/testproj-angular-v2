@@ -65,6 +65,7 @@
             [class.flow-node-db]="node.isDb"
             [class.flow-node-lambda]="node.isLambda"
             [class.flow-node-websphere]="node.isWebSphere"
+            [class.flow-node-channels]="node.isChannels"
             [class.flow-node-root-cause]="node.isRootCause"
             [class.flow-node-selected]="selectedNodeId() === node.id"
             [class.flow-faded]="isNodeFaded(node.id)"
@@ -91,6 +92,11 @@
             <g *ngIf="node.isWebSphere" class="flow-node-badge flow-badge-websphere">
               <rect [attr.x]="node.width - 84" y="-18" width="80" height="20" rx="3" ry="3" />
               <text [attr.x]="node.width - 44" y="-4" text-anchor="middle">WEBSPHERE</text>
+            </g>
+            <!-- Channels badge (top-right tab sticking up) -->
+            <g *ngIf="node.isChannels && !node.isWebSphere && !node.isLambda" class="flow-node-badge flow-badge-channels">
+              <rect [attr.x]="node.width - 78" y="-18" width="74" height="20" rx="3" ry="3" />
+              <text [attr.x]="node.width - 41" y="-4" text-anchor="middle">CHANNELS</text>
             </g>
             <text class="flow-node-label" [attr.x]="node.width/2" y="28" text-anchor="middle">
               {{ truncate(node.label, 26) }}
@@ -120,6 +126,7 @@
           </span>
           <span *ngIf="node.isLambda" class="flow-badge-inline flow-badge-inline-lambda">Lambda</span>
           <span *ngIf="node.isWebSphere" class="flow-badge-inline flow-badge-inline-websphere">WebSphere</span>
+          <span *ngIf="node.isChannels" class="flow-badge-inline flow-badge-inline-channels">Channels</span>
           <span *ngIf="node.isDb" class="flow-badge-inline flow-badge-inline-db">Database</span>
           <span *ngIf="node.isExternal && !node.isDb" class="flow-badge-inline flow-badge-inline-ext">External</span>
           <span *ngIf="node.isRootCause" class="flow-badge-inline flow-badge-failed">Root Cause</span>
