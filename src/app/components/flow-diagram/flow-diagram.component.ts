@@ -241,6 +241,89 @@ export class FlowDiagramComponent implements OnChanges {
     return result;
   });
 
+  /**
+   * Upstream call chain from the trace root to the selected node.
+   * Returns an ordered array of service names, e.g.:
+   *   ['Apache Web Server', 'CDBBOS-BG (/banking)', 'MoneyTransferController']
+   * The last entry is always the selected node itself.
+   * For external/DB nodes, walks up from the client spans that target them.
+   */
+  endpointFlow = computed<Array<{ service: string; path: string; isFailed: boolean }>>(() => {
+    const nodeId = this.selectedNodeId();
+    if (!nodeId || !this.spans?.length) return [];
+
+    const spanById = new Map<string, SpanRecord>();
+    for (const s of this.spans) spanById.set(s['span.id'], s);
+
+    const getService = (s: SpanRecord): string =>
+      (s['dt.entity.service.entity.name'] as string) ||
+      (s['dt.service.name'] as string) ||
+      (s['dt.entity.service'] as string) ||
+      'Unknown';
+
+    // Find starting spans for the selected node
+    let startSpans: SpanRecord[] = [];
+    if (nodeId.startsWith('db:')) {
+      const ns = nodeId.substring(3);
+      startSpans = this.spans.filter(
+        s => s['span.kind'] === 'client' && String(s['db.namespace'] ?? '') === ns
+      );
+    } else if (nodeId.startsWith('ext:')) {
+      const host = nodeId.substring(4);
+      startSpans = this.spans.filter(
+        s => s['span.kind'] === 'client' && !s['db.namespace'] &&
+             String(s['server.address'] ?? '') === host
+      );
+    } else {
+      startSpans = this.spans.filter(s => getService(s) === nodeId);
+    }
+
+    if (startSpans.length === 0) return [{ service: nodeId, path: '', isFailed: false }];
+
+    // Walk strictly up from the earliest start span to build the chain.
+    // Pick the span with the earliest start_time for a consistent path.
+    const earliest = startSpans.reduce((a, b) =>
+      new Date(a['start_time']).getTime() <= new Date(b['start_time']).getTime() ? a : b
+    );
+
+    // Walk up via parent_id, collecting service + path + status
+    const chain: Array<{ service: string; path: string; isFailed: boolean }> = [];
+    const visited = new Set<string>();
+    let current: SpanRecord | undefined = earliest;
+    while (current) {
+      if (visited.has(current['span.id'])) break;
+      visited.add(current['span.id']);
+      const svc = getService(current);
+      const addr = (current['server.address'] as string) || '';
+      const urlPath = (current['url.path'] as string) || '';
+      const path = addr && urlPath ? `${addr}${urlPath}` : urlPath || addr;
+      const failed = isSpanFailed(current);
+      // Only add if different service from the last entry
+      if (chain.length === 0 || chain[chain.length - 1].service !== svc) {
+        chain.push({ service: svc, path, isFailed: failed });
+      } else {
+        // Same service - update path/failed if this span has better info
+        const last = chain[chain.length - 1];
+        if (!last.path && path) last.path = path;
+        if (failed) last.isFailed = true;
+      }
+      const pid = current['span.parent_id'];
+      if (!pid) break;
+      current = spanById.get(pid);
+    }
+
+    // Chain is built bottom-up (selected → root), reverse it
+    chain.reverse();
+
+    // For external/DB nodes, append the synthetic node label at the end
+    if (nodeId.startsWith('db:') || nodeId.startsWith('ext:')) {
+      const node = this.graph().nodes.find(n => n.id === nodeId);
+      if (node) chain.push({ service: node.label, path: '', isFailed: false });
+    }
+
+    return chain;
+  });
+
   isNodeFaded(nodeId: string): boolean {
     const set = this.highlightedNodeIds();
     if (!set) return false;

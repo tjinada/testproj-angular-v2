@@ -129,7 +129,21 @@
 
       <div class="flow-drawer-body">
 
-        <!-- Left column: metadata + errors -->
+        <!-- Endpoint flow (upstream chain from root to selected) -->
+        <div class="flow-endpoint-flow" *ngIf="endpointFlow().length > 1">
+          <ng-container *ngFor="let step of endpointFlow(); let last = last">
+            <div class="flow-endpoint-flow-step"
+                 [class.flow-endpoint-flow-step-current]="last"
+                 [class.flow-endpoint-flow-step-failed]="step.isFailed">
+              <span class="flow-endpoint-flow-svc">{{ step.service }}</span>
+              <span *ngIf="step.path" class="flow-endpoint-flow-path">{{ step.path }}</span>
+            </div>
+            <span class="flow-endpoint-flow-arrow" *ngIf="!last">&rarr;</span>
+          </ng-container>
+        </div>
+
+        <!-- Two-column layout -->
+        <div class="flow-drawer-columns">
         <div class="flow-drawer-col flow-drawer-col-main">
 
           <!-- Metadata row -->
@@ -239,6 +253,7 @@
             </div>
           </div>
 
+        </div>
         </div>
       </div>
     </div>
