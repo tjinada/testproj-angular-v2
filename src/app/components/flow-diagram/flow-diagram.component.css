@@ -6,7 +6,7 @@
   margin-top: 16px;
 }
 
-/* Fullscreen overlay — wrapper takes over the entire viewport */
+/* Fullscreen overlay */
 .flow-diagram-wrapper.flow-fullscreen {
   position: fixed;
   inset: 0;
@@ -68,7 +68,7 @@
   text-align: right;
 }
 
-/* Canvas */
+/* Canvas container — flexbox column so drawer pushes canvas up */
 .flow-canvas-container {
   position: relative;
   width: 100%;
@@ -77,11 +77,14 @@
     radial-gradient(circle, #e5e7eb 1px, transparent 1px) 0 0 / 20px 20px,
     #fafafa;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .flow-canvas {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: block;
   cursor: grab;
   user-select: none;
@@ -103,7 +106,7 @@
   stroke-width: 2.25;
 }
 
-/* Faded state for nodes/edges not connected to the selected node. */
+/* Faded state */
 .flow-node {
   transition: opacity 0.2s;
 }
@@ -145,7 +148,7 @@
   stroke-width: 2.75;
 }
 
-/* Root cause — thicker border, slightly darker red fill, darker stroke */
+/* Root cause */
 .flow-node-root-cause .flow-node-rect {
   fill: #fee2e2;
   stroke: #b91c1c;
@@ -157,7 +160,7 @@
   stroke-width: 3.5;
 }
 
-/* Root cause badge (pill above the node) */
+/* Root cause badge (top-left pill) */
 .flow-badge-rootcause rect {
   fill: #b91c1c;
   stroke: none;
@@ -172,7 +175,7 @@
   pointer-events: none;
 }
 
-/* Lambda badge (orange/amber pill inside node top-right) */
+/* Lambda badge (top-right tab) */
 .flow-badge-lambda rect {
   fill: #d97706;
   stroke: none;
@@ -180,7 +183,7 @@
 
 .flow-badge-lambda text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   fill: #ffffff;
   letter-spacing: 0.5px;
@@ -202,7 +205,7 @@
   stroke: #b45309;
 }
 
-/* WebSphere badge (blue pill inside node top-right) */
+/* WebSphere badge (top-right tab) */
 .flow-badge-websphere rect {
   fill: #1d4ed8;
   stroke: none;
@@ -210,7 +213,7 @@
 
 .flow-badge-websphere text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   fill: #ffffff;
   letter-spacing: 0.5px;
@@ -232,7 +235,7 @@
   stroke: #1d4ed8;
 }
 
-/* External (synthetic) nodes — dashed border */
+/* External nodes — dashed border */
 .flow-node-external .flow-node-rect {
   fill: #fafafa;
   stroke: #9ca3af;
@@ -257,7 +260,7 @@
   stroke-dasharray: 6 4;
 }
 
-/* DB nodes — dashed border with a slight blue tint */
+/* DB nodes — blue tint dashed */
 .flow-node-db .flow-node-rect {
   fill: #f0f9ff;
   stroke: #60a5fa;
@@ -272,6 +275,7 @@
   stroke: #2563eb;
 }
 
+/* Node text */
 .flow-node-label {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
@@ -311,103 +315,124 @@
 }
 
 /* ============================================================
-   DETAILS PANEL
+   BOTTOM DRAWER
    ============================================================ */
-.flow-details {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 280px;
-  max-height: calc(100% - 24px);
+.flow-drawer {
+  flex-shrink: 0;
+  width: 100%;
+  max-height: 45%;
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-top: 2px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* Wider variant for service nodes (520px for error details + stack traces) */
-.flow-details.flow-details-wide {
-  width: 520px;
-}
-
-.flow-details-header {
+.flow-drawer-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 8px 16px;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
   flex-shrink: 0;
 }
 
-.flow-details-title {
+.flow-drawer-title {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   color: #111827;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.flow-details-close {
+.flow-drawer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.flow-drawer-close {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   color: #6b7280;
   padding: 0 4px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
-.flow-details-close:hover {
+.flow-drawer-close:hover {
   color: #111827;
 }
 
-.flow-details-body {
-  padding: 12px;
+/* Drawer body: two-column layout */
+.flow-drawer-body {
+  display: flex;
+  gap: 16px;
+  padding: 12px 16px;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
-.flow-details-row {
+.flow-drawer-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.flow-drawer-col-main {
+  flex: 1;
+}
+
+.flow-drawer-col-detail {
+  flex: 1;
+}
+
+/* Metadata row */
+.flow-drawer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 12px;
+}
+
+.flow-drawer-meta-item {
   display: flex;
   flex-direction: column;
-  margin-bottom: 10px;
 }
 
-.flow-details-section {
-  margin-bottom: 10px;
-}
-
-.flow-details-label {
-  font-size: 11px;
+.flow-drawer-meta-label {
+  font-size: 10px;
   text-transform: uppercase;
   color: #6b7280;
   letter-spacing: 0.04em;
-  margin-bottom: 2px;
 }
 
-.flow-details-value {
+.flow-drawer-meta-value {
   font-size: 13px;
   color: #111827;
   word-break: break-all;
 }
 
-.flow-details-value-failed {
-  color: #b91c1c;
+/* Section labels */
+.flow-drawer-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.04em;
   font-weight: 600;
 }
 
-/* Inline badges row */
-.flow-details-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 2px;
+.flow-drawer-section {
+  margin-bottom: 10px;
 }
 
+/* Inline badges */
 .flow-badge-inline {
   display: inline-block;
   font-size: 10px;
@@ -453,7 +478,7 @@
   user-select: none;
 }
 
-.flow-section-header:hover .flow-details-label {
+.flow-section-header:hover .flow-drawer-section-label {
   color: #111827;
 }
 
@@ -469,13 +494,12 @@
 }
 
 /* ============================================================
-   ERROR CARDS (immediately visible for failed nodes)
+   ERROR CARDS
    ============================================================ */
-.flow-error-list {
+.flow-drawer-errors {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .flow-error-card {
@@ -561,7 +585,7 @@
 }
 
 /* ============================================================
-   STACK TRACE (collapsible)
+   STACK TRACE
    ============================================================ */
 .flow-stacktrace-block {
   margin-bottom: 8px;
@@ -585,34 +609,19 @@
   border-radius: 4px;
   overflow-x: auto;
   overflow-y: auto;
-  max-height: 300px;
+  max-height: 250px;
   white-space: pre;
   word-break: normal;
 }
 
 /* ============================================================
-   ENDPOINTS (collapsible)
-   ============================================================ */
-.flow-details-endpoints {
-  margin: 2px 0 0 0;
-  padding-left: 16px;
-  font-size: 12px;
-  color: #374151;
-}
-
-.flow-details-endpoints li {
-  margin-bottom: 2px;
-  word-break: break-all;
-}
-
-/* ============================================================
-   SPAN TIMELINE (collapsible)
+   SPAN TIMELINE
    ============================================================ */
 .flow-timeline {
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   background: #fafafa;
-  max-height: 320px;
+  max-height: 250px;
   overflow-y: auto;
 }
 
