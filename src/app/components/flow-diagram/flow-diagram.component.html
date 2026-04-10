@@ -146,9 +146,14 @@
               <span class="flow-drawer-meta-label">Spans</span>
               <span class="flow-drawer-meta-value">{{ node.spanCount }}</span>
             </div>
-            <div class="flow-drawer-meta-item" *ngIf="node.endpoints.length > 0">
+            <div class="flow-drawer-meta-item" *ngIf="nodeEndpoints().length > 0">
               <span class="flow-drawer-meta-label">Endpoints</span>
-              <span class="flow-drawer-meta-value">{{ node.endpoints.join(', ') }}</span>
+              <div class="flow-drawer-endpoints">
+                <div *ngFor="let ep of nodeEndpoints()" class="flow-drawer-endpoint">
+                  <span class="flow-drawer-endpoint-name">{{ ep.name }}</span>
+                  <span *ngIf="ep.path" class="flow-drawer-endpoint-path">{{ ep.path }}</span>
+                </div>
+              </div>
             </div>
           </div>
 

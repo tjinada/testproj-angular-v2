@@ -91,14 +91,28 @@ export class FlowDiagramComponent implements OnChanges {
       .sort((a, b) =>
         new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
       )
-      .map(s => ({
-        spanId: s['span.id'],
-        kind: s['span.kind'] || 'unknown',
-        name: s['endpoint.name'] || s['span.name'] || '(unnamed)',
-        status: String(s['http.response.status_code'] ?? ''),
-        durationNanos: Number(s['duration']) || 0,
-        isFailed: isSpanFailed(s)
-      }));
+      .map(s => {
+        // Use server.address + url.path when endpoint name is generic
+        const GENERIC_NAMES = ['invoke', 'POST', 'GET', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+        const rawName = s['endpoint.name'] || s['span.name'] || '';
+        let name = rawName;
+        if (!rawName || GENERIC_NAMES.includes(rawName)) {
+          const addr = (s['server.address'] as string) || '';
+          const path = (s['url.path'] as string) || '';
+          if (addr && path) name = `${addr}${path}`;
+          else if (path) name = path;
+          else if (addr) name = addr;
+          else name = rawName || '(unnamed)';
+        }
+        return {
+          spanId: s['span.id'],
+          kind: s['span.kind'] || 'unknown',
+          name,
+          status: String(s['http.response.status_code'] ?? ''),
+          durationNanos: Number(s['duration']) || 0,
+          isFailed: isSpanFailed(s)
+        };
+      });
   });
 
   /**
@@ -188,6 +202,43 @@ export class FlowDiagramComponent implements OnChanges {
   /** Number of failing spans that have a stack trace available. */
   stackTraceCount = computed<number>(() => {
     return this.nodeFailingSpans().filter(f => !!f.stackTrace).length;
+  });
+
+  /**
+   * Enriched endpoint list for the drawer metadata. Shows endpoint name
+   * with server.address + url.path underneath when both are available
+   * and the endpoint name is not already the path.
+   */
+  nodeEndpoints = computed<Array<{ name: string; path: string }>>(() => {
+    const node = this.selectedNode();
+    if (!node || node.isExternal || !node.spans?.length) return [];
+    const GENERIC = new Set(['invoke', 'POST', 'GET', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']);
+    const seen = new Set<string>();
+    const result: Array<{ name: string; path: string }> = [];
+    for (const s of node.spans) {
+      if (s['span.kind'] !== 'server') continue;
+      const epName = s['endpoint.name'] || s['span.name'] || '';
+      const addr = (s['server.address'] as string) || '';
+      const urlPath = (s['url.path'] as string) || '';
+      const fullPath = addr && urlPath ? `${addr}${urlPath}` : urlPath || addr;
+      // Determine display name and secondary path
+      let name: string;
+      let path: string;
+      if (!epName || GENERIC.has(epName)) {
+        // Generic endpoint — use path as the name, no secondary
+        name = fullPath || epName || '(unnamed)';
+        path = '';
+      } else {
+        // Meaningful endpoint — show it with path underneath
+        name = epName;
+        path = fullPath;
+      }
+      const key = `${name}|${path}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({ name, path });
+    }
+    return result;
   });
 
   isNodeFaded(nodeId: string): boolean {

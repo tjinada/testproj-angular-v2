@@ -389,6 +389,32 @@
   word-break: break-all;
 }
 
+/* Enriched endpoint list in metadata */
+.flow-drawer-endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.flow-drawer-endpoint {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-drawer-endpoint-name {
+  font-size: 13px;
+  color: #111827;
+  font-weight: 500;
+}
+
+.flow-drawer-endpoint-path {
+  font-size: 10.5px;
+  color: #6b7280;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
 /* Section labels */
 .flow-drawer-section-label {
   font-size: 11px;
