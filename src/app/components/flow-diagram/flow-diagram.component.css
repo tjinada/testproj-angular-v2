@@ -290,7 +290,7 @@
 .flow-drawer {
   flex-shrink: 0;
   width: 100%;
-  max-height: 45%;
+  max-height: 55%;
   background: #ffffff;
   border-top: 2px solid #e5e7eb;
   display: flex;
@@ -411,19 +411,22 @@
 .flow-endpoint-flow {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 2px 4px;
+  flex-wrap: nowrap;
+  gap: 4px;
   padding: 6px 10px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   font-size: 11px;
+  overflow-x: auto;
+  flex-shrink: 0;
 }
 
 .flow-endpoint-flow-step {
   display: flex;
   flex-direction: column;
-  max-width: 280px;
+  max-width: 320px;
+  flex-shrink: 0;
 }
 
 .flow-endpoint-flow-svc {
