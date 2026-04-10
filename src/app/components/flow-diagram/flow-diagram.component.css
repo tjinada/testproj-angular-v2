@@ -190,21 +190,6 @@
   pointer-events: none;
 }
 
-/* Lambda node tint */
-.flow-node-lambda .flow-node-rect {
-  fill: #fffbeb;
-  stroke: #d97706;
-}
-
-.flow-node-lambda:hover .flow-node-rect {
-  stroke: #b45309;
-}
-
-.flow-node-lambda.flow-node-selected .flow-node-rect {
-  fill: #fef3c7;
-  stroke: #b45309;
-}
-
 /* WebSphere badge (top-right tab) */
 .flow-badge-websphere rect {
   fill: #1d4ed8;
@@ -218,21 +203,6 @@
   fill: #ffffff;
   letter-spacing: 0.5px;
   pointer-events: none;
-}
-
-/* WebSphere node tint */
-.flow-node-websphere .flow-node-rect {
-  fill: #eff6ff;
-  stroke: #3b82f6;
-}
-
-.flow-node-websphere:hover .flow-node-rect {
-  stroke: #1d4ed8;
-}
-
-.flow-node-websphere.flow-node-selected .flow-node-rect {
-  fill: #dbeafe;
-  stroke: #1d4ed8;
 }
 
 /* External nodes — dashed border */
