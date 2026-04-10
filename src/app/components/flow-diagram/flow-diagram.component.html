@@ -191,10 +191,10 @@
         <div class="flow-drawer-col flow-drawer-col-detail">
 
           <!-- Stack traces -->
-          <div class="flow-drawer-section" *ngIf="nodeFailingSpans().length > 0">
+          <div class="flow-drawer-section" *ngIf="stackTraceCount() > 0">
             <div class="flow-section-header" (click)="toggleSection('stacktraces')">
               <span class="flow-section-toggle">{{ isSectionExpanded('stacktraces') ? '▾' : '▸' }}</span>
-              <span class="flow-drawer-section-label">Stack Traces</span>
+              <span class="flow-drawer-section-label">Stack Traces ({{ stackTraceCount() }})</span>
             </div>
             <div class="flow-section-body" *ngIf="isSectionExpanded('stacktraces')">
               <ng-container *ngFor="let err of nodeFailingSpans(); trackBy: trackFailingSpan">

@@ -141,9 +141,21 @@ export class FlowDiagramComponent implements OnChanges {
         const stackTrace = (s['code.call_stack'] as string) ||
           exEvent?.['exception.stack_trace'] || '';
         const method = (s['http.request.method'] as string) || '';
+        // Use server.address + url.path when endpoint.name is generic
+        const GENERIC = ['invoke', 'POST', 'GET', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+        const rawEp = s['endpoint.name'] || s['span.name'] || '';
+        const addr = (s['server.address'] as string) || '';
+        const path = (s['url.path'] as string) || '';
+        let endpointName = rawEp;
+        if (!rawEp || GENERIC.includes(rawEp)) {
+          if (addr && path) endpointName = `${addr}${path}`;
+          else if (path) endpointName = path;
+          else if (addr) endpointName = addr;
+          else endpointName = rawEp || '(unnamed)';
+        }
         return {
           spanId: s['span.id'],
-          endpointName: s['endpoint.name'] || s['span.name'] || '(unnamed)',
+          endpointName,
           httpMethod: method,
           httpStatus: String(s['http.response.status_code'] ?? ''),
           urlPath: (s['url.path'] as string) || '',
@@ -172,6 +184,11 @@ export class FlowDiagramComponent implements OnChanges {
   isSectionExpanded(sectionId: string): boolean {
     return this.expandedSections().has(sectionId);
   }
+
+  /** Number of failing spans that have a stack trace available. */
+  stackTraceCount = computed<number>(() => {
+    return this.nodeFailingSpans().filter(f => !!f.stackTrace).length;
+  });
 
   isNodeFaded(nodeId: string): boolean {
     const set = this.highlightedNodeIds();

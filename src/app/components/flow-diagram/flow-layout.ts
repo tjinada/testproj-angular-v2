@@ -109,15 +109,26 @@ export function buildFlowGraph(
   const nodeById = new Map<string, FlowNode>();
 
   for (const [name, grp] of realGroups.entries()) {
-    // Only count endpoints from server-kind spans — client/internal spans
-    // surface things like outbound HTTP calls, DB connection lifecycle
-    // events, and Java method-level traces, none of which are "endpoints"
-    // in any meaningful sense.
+    // Build meaningful endpoint labels from server-kind spans.
+    // If endpoint.name is generic (invoke, POST, GET, etc.), prefer
+    // server.address + url.path which is more descriptive.
+    const GENERIC_ENDPOINTS = new Set(['invoke', 'POST', 'GET', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']);
     const endpoints = Array.from(
       new Set(
         grp
           .filter(s => s['span.kind'] === 'server')
-          .map(s => s['endpoint.name'] || s['span.name'])
+          .map(s => {
+            const epName = s['endpoint.name'] || s['span.name'] || '';
+            if (!epName || GENERIC_ENDPOINTS.has(epName)) {
+              // Fall back to server.address + url.path
+              const addr = (s['server.address'] as string) || '';
+              const path = (s['url.path'] as string) || '';
+              if (addr && path) return `${addr}${path}`;
+              if (path) return path;
+              if (addr) return addr;
+            }
+            return epName;
+          })
           .filter(Boolean) as string[]
       )
     );
