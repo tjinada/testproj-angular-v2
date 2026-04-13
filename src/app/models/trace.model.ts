@@ -1,5 +1,17 @@
-/** Search mode: by trace ID directly, or by request ID (which is then resolved to a trace ID) */
-export type SearchMode = 'trace' | 'request';
+/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), or by full URL */
+export type SearchMode = 'trace' | 'request' | 'url';
+
+/** A single trace match returned by a search (URL, hotspot, service, etc.) */
+export interface TraceMatch {
+  traceId: string;
+  startTime: string;
+  endpoint: string;
+  service: string;
+  serverAddress: string;
+  httpStatus: string;
+  isFailed: boolean;
+  duration: number;
+}
 
 /** A preset time window option for search queries */
 export interface TimeWindow {

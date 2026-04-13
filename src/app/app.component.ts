@@ -3,14 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SearchComponent, SearchEvent } from './components/search/search.component';
 import { TraceResultsComponent } from './components/trace-results/trace-results.component';
+import { TraceResultsTableComponent } from './components/trace-results-table/trace-results-table.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
-import { SpanRecord, Timeframe } from './models/trace.model';
+import { SpanRecord, Timeframe, TraceMatch } from './models/trace.model';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent],
   template: `
     <div class="app-container">
       <h1 class="app-title">TESTPROJ Error Analyzer</h1>
@@ -33,6 +34,14 @@ import { SpanRecord, Timeframe } from './models/trace.model';
         for request <code>{{ resolvedFromRequestId.requestId }}</code>
         in <strong>{{ currentEnvLabel() }}</strong>
       </div>
+
+      <app-trace-results-table
+        [results]="urlSearchResults"
+        [selectedTraceId]="selectedTraceId"
+        [limitReached]="urlSearchLimitReached"
+        (resultClick)="onUrlResultClick($event)">
+      </app-trace-results-table>
+
       <app-trace-results
         [spans]="spans"
         [isLoading]="isLoading"
@@ -133,6 +142,12 @@ export class AppComponent implements OnInit {
   resolvedFromRequestId: { traceId: string; requestId: string } | null = null;
   configLoaded = false;
 
+  // URL search state
+  urlSearchResults: TraceMatch[] = [];
+  urlSearchLimitReached = false;
+  selectedTraceId: string | null = null;
+  private lastUrlSearchTimeframe: Timeframe | null = null;
+
   constructor(
     private dynatraceService: DynatraceService,
     private configService: ConfigService,
@@ -166,9 +181,32 @@ export class AppComponent implements OnInit {
     this.errorMsg = '';
     this.spans = [];
     this.resolvedFromRequestId = null;
+    this.urlSearchResults = [];
+    this.urlSearchLimitReached = false;
+    this.selectedTraceId = null;
+    this.lastUrlSearchTimeframe = null;
 
     if (event.mode === 'trace') {
       this.fetchTrace(event.value, event.timeframe);
+      return;
+    }
+
+    if (event.mode === 'url') {
+      this.lastUrlSearchTimeframe = event.timeframe;
+      this.dynatraceService.searchByUrl(event.value, this.environment, event.timeframe).subscribe({
+        next: (response) => {
+          this.urlSearchResults = response.results || [];
+          this.urlSearchLimitReached = this.urlSearchResults.length >= 100;
+          if (this.urlSearchResults.length === 0) {
+            this.errorMsg = 'No traces found for that URL in the selected time window.';
+          }
+          this.isLoading = false;
+        },
+        error: (err) => {
+          this.errorMsg = err.error?.error || 'Failed to search by URL. Please try again.';
+          this.isLoading = false;
+        }
+      });
       return;
     }
 
@@ -184,6 +222,21 @@ export class AppComponent implements OnInit {
         this.isLoading = false;
       }
     });
+  }
+
+  /**
+   * Handles clicking a row in the trace results table. Loads the selected
+   * trace into the existing trace-results view below.
+   */
+  onUrlResultClick(result: TraceMatch): void {
+    this.selectedTraceId = result.traceId;
+    // Reuse the same timeframe that was used for the URL search so the
+    // trace fetch targets the same window the user was exploring.
+    const timeframe = this.lastUrlSearchTimeframe || {
+      from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      to: new Date().toISOString()
+    };
+    this.fetchTrace(result.traceId, timeframe);
   }
 
   private fetchTrace(traceId: string, timeframe: Timeframe): void {

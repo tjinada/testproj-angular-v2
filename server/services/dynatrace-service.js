@@ -40,6 +40,68 @@ function buildRequestIdLookupQuery(requestId, timeframe) {
 }
 
 /**
+ * Parses a user-supplied URL into a hostname and path. Accepts inputs with
+ * or without a scheme (e.g. "https://host/path", "host/path", "host//path").
+ * Returns an object with { host, path }. Either field may be an empty string
+ * if not present in the input.
+ */
+function parseUrl(url) {
+  if (!url || typeof url !== 'string') return { host: '', path: '' };
+
+  // Strip scheme if present
+  let remainder = url.trim().replace(/^https?:\/\//i, '');
+
+  // Split on the first single slash into host + path
+  // Collapse duplicate slashes between host and path (e.g. "host//path" -> "host/path")
+  const firstSlash = remainder.indexOf('/');
+  let host = '';
+  let path = '';
+  if (firstSlash === -1) {
+    host = remainder;
+  } else {
+    host = remainder.substring(0, firstSlash);
+    path = remainder.substring(firstSlash).replace(/^\/+/, '/');
+  }
+
+  return { host, path };
+}
+
+/**
+ * Builds the DQL query for searching traces by URL (hostname + path).
+ * Uses contains() on both fields so partial pastes still match. Deduplicates
+ * by trace.id via summarize, and returns the most recent 100 matches.
+ */
+function buildUrlSearchQuery(host, path, timeframe) {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  const filters = [`| filter span.kind == "server"`];
+  if (path) {
+    filters.push(`| filter contains(url.path, "${path}")`);
+  }
+  if (host) {
+    filters.push(`| filter contains(server.address, "${host}")`);
+  }
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    ...filters,
+    `| summarize {`,
+    `    startTime = takeMin(start_time),`,
+    `    endpoint = takeFirst(endpoint.name),`,
+    `    service = takeFirst(dt.service.name),`,
+    `    serverAddress = takeFirst(server.address),`,
+    `    httpStatus = takeFirst(http.response.status_code),`,
+    `    isFailed = countIf(request.is_failed == true) > 0,`,
+    `    duration = takeFirst(duration)`,
+    `  }, by: { trace.id }`,
+    `| sort startTime desc`,
+    `| limit 100`
+  ].join('\n');
+}
+
+/**
  * Builds the full DQL query for fetching spans by trace ID.
  */
 function buildDqlQuery(traceId, timeframe) {
@@ -205,4 +267,59 @@ async function fetchTraceById(traceId, environment, timeframe) {
   return result;
 }
 
-module.exports = { fetchTraceById, findTraceIdByRequestId };
+/**
+ * Searches for traces by full URL. Parses the URL into host + path and
+ * queries Dynatrace spans. Returns a deduplicated list of matches sorted
+ * by most recent first.
+ */
+async function searchTracesByUrl(url, environment, timeframe) {
+  if (process.env.USE_MOCK === 'true') {
+    console.log(`[Mock] Returning mock URL search results for: ${url}`);
+    const mock = loadMockResponse();
+    const records = mock.result?.records || [];
+    // Derive a single synthetic match from the mock for UI testing
+    const first = records[0];
+    if (!first) return [];
+    return [{
+      traceId: first['trace.id'] || '',
+      startTime: first['start_time'] || '',
+      endpoint: first['endpoint.name'] || '',
+      service: first['dt.service.name'] || '',
+      serverAddress: first['server.address'] || '',
+      httpStatus: String(first['http.response.status_code'] || ''),
+      isFailed: first['request.is_failed'] === true,
+      duration: Number(first['duration']) || 0
+    }];
+  }
+
+  const { host, path } = parseUrl(url);
+  if (!host && !path) {
+    throw new Error('Invalid URL: could not parse hostname or path');
+  }
+
+  const config = getEnvConfig(environment);
+  const query = buildUrlSearchQuery(host, path, timeframe);
+
+  console.log(`[Dynatrace] Searching traces by URL (host="${host}", path="${path}") in ${environment}`);
+  const requestToken = await executeQuery(config, query);
+
+  console.log(`[Dynatrace] Polling for URL search results (token: ${requestToken.substring(0, 10)}...)`);
+  const result = await pollForResults(config, requestToken);
+
+  const records = result.result?.records || [];
+  console.log(`[Dynatrace] URL search returned ${records.length} unique trace(s)`);
+
+  // Normalize field names from DQL output to the UrlSearchResult shape
+  return records.map(r => ({
+    traceId: r['trace.id'] || '',
+    startTime: r['startTime'] || '',
+    endpoint: r['endpoint'] || '',
+    service: r['service'] || '',
+    serverAddress: r['serverAddress'] || '',
+    httpStatus: String(r['httpStatus'] || ''),
+    isFailed: r['isFailed'] === true,
+    duration: Number(r['duration']) || 0
+  }));
+}
+
+module.exports = { fetchTraceById, findTraceIdByRequestId, searchTracesByUrl };

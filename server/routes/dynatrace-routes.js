@@ -36,6 +36,35 @@ router.post('/lookup-by-request-id', async (req, res) => {
 });
 
 /**
+ * POST /api/traces/search-by-url
+ * Searches for traces matching a full URL (hostname + path). Returns a
+ * deduplicated list of trace matches sorted by most recent first.
+ */
+router.post('/search-by-url', async (req, res) => {
+  const { url, environment = 'NON-PROD', timeframe } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  try {
+    const results = await dynatraceService.searchTracesByUrl(url, environment, timeframe);
+    res.json({ results });
+  } catch (error) {
+    console.error(`[Dynatrace] Error searching by URL ${url}:`, error.message);
+
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
  * POST /api/traces/:traceId
  * Fetches trace spans from Dynatrace for a given trace ID.
  */

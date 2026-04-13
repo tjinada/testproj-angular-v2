@@ -1,0 +1,126 @@
+.results-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.results-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.results-limit {
+  font-weight: 400;
+  color: #6b7280;
+  margin-left: 4px;
+}
+
+.results-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+.results-toggle input {
+  cursor: pointer;
+}
+
+.results-table-wrap {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.results-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.results-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #1f2937;
+}
+
+.results-row {
+  cursor: pointer;
+}
+
+.results-row:hover {
+  background: #f9fafb;
+}
+
+.results-row-failed td {
+  background: #fef2f2;
+}
+
+.results-row-failed:hover td {
+  background: #fee2e2;
+}
+
+.results-row-selected td {
+  background: #dbeafe !important;
+}
+
+.cell-truncate {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results-traceid {
+  font-family: monospace;
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.results-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 16px;
+  font-style: italic;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.status-badge-failed {
+  background: #fee2e2;
+  color: #991b1b;
+}

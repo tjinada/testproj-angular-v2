@@ -18,7 +18,8 @@ export interface SearchEvent {
 /** Field type options. Add new entries here to support additional search modes. */
 export const SEARCH_FIELDS: SearchField[] = [
   { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
-  { mode: 'request', label: 'Request ID', placeholder: 'Enter a request ID to search...' }
+  { mode: 'request', label: 'Request ID', placeholder: 'Enter a request ID to search...' },
+  { mode: 'url', label: 'URL', placeholder: 'Paste a full URL (e.g. olb-qa8.abc.com/banking/services/...)' }
 ];
 
 /** Time window presets. Add/remove entries here to change the dropdown options. */

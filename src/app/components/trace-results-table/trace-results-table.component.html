@@ -1,0 +1,52 @@
+<div *ngIf="results.length > 0" class="results-card">
+  <div class="results-header">
+    <div class="results-title">
+      Found {{ filtered().length }} of {{ results.length }} trace(s)
+      <span *ngIf="limitReached" class="results-limit">(showing most recent 100)</span>
+    </div>
+    <label class="results-toggle">
+      <input type="checkbox" [(ngModel)]="showFailuresOnly" />
+      Show failures only
+    </label>
+  </div>
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Status</th>
+          <th>Service</th>
+          <th>Endpoint</th>
+          <th>Host</th>
+          <th>Duration</th>
+          <th>Trace ID</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let r of filtered(); trackBy: trackByTraceId"
+          class="results-row"
+          [class.results-row-failed]="r.isFailed"
+          [class.results-row-selected]="r.traceId === selectedTraceId"
+          (click)="onRowClick(r)">
+          <td>{{ formatTime(r.startTime) }}</td>
+          <td>
+            <span class="status-badge" [class.status-badge-failed]="r.isFailed">
+              {{ r.httpStatus || '—' }}
+            </span>
+          </td>
+          <td class="cell-truncate" [title]="r.service">{{ r.service || '—' }}</td>
+          <td class="cell-truncate" [title]="r.endpoint">{{ r.endpoint || '—' }}</td>
+          <td class="cell-truncate" [title]="r.serverAddress">{{ r.serverAddress || '—' }}</td>
+          <td>{{ formatDuration(r.duration) }}</td>
+          <td class="results-traceid">{{ r.traceId }}</td>
+        </tr>
+        <tr *ngIf="filtered().length === 0">
+          <td colspan="7" class="results-empty">
+            No failed traces in this result set.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
