@@ -41,4 +41,47 @@
       <strong>Tip:</strong> New traces take about 5 minutes to appear in Dynatrace. If your search returns nothing, wait a moment and try again.
     </p>
   </div>
+
+  <div class="search-guide">
+    <h3 class="search-guide-title">How to search</h3>
+
+    <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
+      <summary class="search-guide-summary">Browser x-request-id search</summary>
+      <div class="search-guide-body">
+        <ol class="search-guide-steps">
+          <li>Open your browser's DevTools and go to the <strong>Network</strong> tab.</li>
+          <li>Reproduce the issue.</li>
+          <li>Click the failing network call.</li>
+          <li>Under <strong>Request Headers</strong>, copy the <code>x-request-id</code> value and paste it into the search box above.</li>
+        </ol>
+        <img src="assets/search-help/request-id.png" alt="Network tab showing x-request-id header" class="search-guide-image" />
+      </div>
+    </details>
+
+    <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
+      <summary class="search-guide-summary">URL search</summary>
+      <div class="search-guide-body">
+        <ol class="search-guide-steps">
+          <li>In the Network tab, find the affected request and copy its <strong>full URL</strong>.</li>
+          <li>Paste the URL into the search box above and hit Search.</li>
+          <li>From the results table, select the most relevant trace ID (based on your timestamp) to see the details.</li>
+        </ol>
+        <img src="assets/search-help/url-search.png" alt="Network tab showing a full URL" class="search-guide-image" />
+      </div>
+    </details>
+
+    <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
+      <summary class="search-guide-summary">RUM Session ID search</summary>
+      <div class="search-guide-body">
+        <ol class="search-guide-steps">
+          <li>In the Network tab, filter all requests by <code>bf?type=js</code>.</li>
+          <li>Click any one of the matching requests.</li>
+          <li>Go to the <strong>Payload</strong> tab and copy the string parameter next to <code>vi</code>.</li>
+          <li>Paste it into the search box above to view the user session details.</li>
+        </ol>
+        <img src="assets/search-help/session-id-1.png" alt="Network tab filtered by bf?type=js" class="search-guide-image" />
+        <img src="assets/search-help/session-id-2.png" alt="Payload tab showing the vi parameter" class="search-guide-image" />
+      </div>
+    </details>
+  </div>
 </div>

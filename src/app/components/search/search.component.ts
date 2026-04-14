@@ -17,10 +17,10 @@ export interface SearchEvent {
 
 /** Field type options. Add new entries here to support additional search modes. */
 export const SEARCH_FIELDS: SearchField[] = [
-  { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
-  { mode: 'request', label: 'Request ID', placeholder: 'Enter a request ID to search...' },
+  { mode: 'request', label: 'Browser x-request-id', placeholder: 'Paste the x-request-id from your browser network tab...' },
   { mode: 'url', label: 'URL', placeholder: 'Paste a full URL (e.g. olb-qa8.abc.com/banking/services/...)' },
-  { mode: 'session', label: 'Session ID', placeholder: 'Enter a RUM session ID (e.g. AQSNRLGUDIM...)' }
+  { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
+  { mode: 'session', label: 'RUM Session ID', placeholder: 'Enter a RUM session ID (e.g. AQSNRLGUDIM...)' }
 ];
 
 /** Time window presets. Add/remove entries here to change the dropdown options. */
@@ -50,8 +50,9 @@ export class SearchComponent {
   readonly timeWindows = TIME_WINDOWS;
 
   inputValue = '';
-  selectedMode: SearchMode = 'trace';
+  selectedMode: SearchMode = 'request';
   selectedWindowId: string = DEFAULT_WINDOW_ID;
+  hasSearched = false;
 
   @Output() search = new EventEmitter<SearchEvent>();
 
@@ -75,6 +76,7 @@ export class SearchComponent {
       to: new Date(now).toISOString()
     };
 
+    this.hasSearched = true;
     this.search.emit({ mode: this.selectedMode, value: trimmed, timeframe });
   }
 }
