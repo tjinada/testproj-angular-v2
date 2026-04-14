@@ -201,22 +201,41 @@
 
 .search-guide-thumb {
   flex: 0 0 180px;
+  position: relative;
   display: block;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   cursor: zoom-in;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.search-guide-thumb:hover {
-  transform: scale(1.02);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.search-guide-thumb img {
+.search-guide-thumb > img:not(.search-guide-preview) {
   display: block;
   width: 100%;
   height: auto;
+  border-radius: 4px;
+}
+
+.search-guide-preview {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 12px);
+  width: 720px;
+  max-width: 90vw;
+  height: auto;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  background: #fff;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 1000;
+}
+
+.search-guide-thumb:hover .search-guide-preview {
+  opacity: 1;
+  visibility: visible;
 }
