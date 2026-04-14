@@ -72,13 +72,20 @@ function parseUrl(url) {
  * exact when hostExact is true (session flow) and contains() otherwise
  * (free-form search bar flow). Deduplicates by trace.id via summarize, and
  * returns the most recent 100 matches.
+ *
+ * Note: we deliberately do NOT filter by span.kind == "server". Pasting an
+ * outbound URL (e.g. a downstream API the monitored service calls) should
+ * still find the trace, even though that URL only appears on a client span.
+ * To keep the summarized result row meaningful, we bias takeFirst() inside
+ * summarize toward server spans via a synthetic _kindRank field so the
+ * entry-point service still wins when one is present in the matches.
  */
 function buildUrlSearchQuery(host, path, timeframe, hostExact = false) {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
     : 'from: -120m';
 
-  const filters = [`| filter span.kind == "server"`];
+  const filters = [];
   if (path) {
     filters.push(`| filter contains(url.path, "${path}")`);
   }
@@ -93,6 +100,8 @@ function buildUrlSearchQuery(host, path, timeframe, hostExact = false) {
   return [
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
     ...filters,
+    `| fieldsAdd _kindRank = if(span.kind == "server", 0, else: 1)`,
+    `| sort _kindRank asc`,
     `| summarize {`,
     `    startTime = takeMin(start_time),`,
     `    endpoint = takeFirst(endpoint.name),`,
