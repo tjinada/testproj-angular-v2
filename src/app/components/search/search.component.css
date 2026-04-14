@@ -117,16 +117,39 @@
 .search-guide {
   border-top: 1px solid #f3f4f6;
   padding-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 .search-guide-title {
-  margin: 0 0 4px 0;
+  margin: 0;
+  padding: 4px 0;
   font-size: 14px;
   font-weight: 600;
   color: #1B4F72;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-guide-title::-webkit-details-marker {
+  display: none;
+}
+
+.search-guide-title::before {
+  content: '▶';
+  font-size: 10px;
+  color: #6b7280;
+  transition: transform 0.15s ease;
+}
+
+.search-guide[open] > .search-guide-title::before {
+  transform: rotate(90deg);
+}
+
+.search-guide > .search-guide-item {
+  margin-top: 8px;
 }
 
 .search-guide-item {

@@ -42,8 +42,8 @@
     </p>
   </div>
 
-  <div class="search-guide">
-    <h3 class="search-guide-title">How to search</h3>
+  <details class="search-guide" [attr.open]="hasSearched ? null : ''">
+    <summary class="search-guide-title">How to search</summary>
 
     <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
       <summary class="search-guide-summary">Browser x-request-id search</summary>
@@ -88,7 +88,7 @@
         </div>
       </div>
     </details>
-  </div>
+  </details>
 
   <div *ngIf="previewImageSrc" class="search-guide-modal" (click)="closePreview()" role="dialog" aria-label="Image preview">
     <button type="button" class="search-guide-modal-close" (click)="closePreview()" aria-label="Close preview">×</button>
