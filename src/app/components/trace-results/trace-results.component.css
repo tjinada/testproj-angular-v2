@@ -326,3 +326,141 @@
   word-break: break-all;
   margin: 0;
 }
+
+/* Captured Exceptions section on the success summary card */
+.captured-exceptions-section {
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  padding: 0;
+  overflow: hidden;
+}
+
+.captured-exceptions-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.captured-exceptions-header:hover {
+  background: #fee2e2;
+}
+
+.captured-exceptions-toggle {
+  font-size: 12px;
+  color: #991b1b;
+  width: 12px;
+  display: inline-block;
+}
+
+.captured-exceptions-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.captured-exceptions-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #e24b4a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.captured-exceptions-body {
+  padding: 0 14px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.captured-exception-card {
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.captured-exception-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+}
+
+.captured-exception-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: #991b1b;
+  background: #fee2e2;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.captured-exception-service {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.captured-exception-endpoint {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.captured-exception-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.captured-exception-field {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.captured-exception-label {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.captured-exception-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: #991b1b;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.captured-exception-message {
+  font-size: 12px;
+  color: #374151;
+  word-break: break-word;
+}
+
+.captured-exception-stack {
+  font-size: 11px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  padding: 8px;
+  margin: 4px 0 0 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre;
+  color: #374151;
+}

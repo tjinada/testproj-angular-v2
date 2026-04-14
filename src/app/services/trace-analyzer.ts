@@ -1,4 +1,4 @@
-import { SpanRecord, ErrorPathStep, CallFlowSpan } from '../models/trace.model';
+import { SpanRecord, ErrorPathStep, CallFlowSpan, CapturedException } from '../models/trace.model';
 
 /**
  * Standalone failure predicate. Exported so other modules (e.g. the flow
@@ -26,6 +26,65 @@ export function isSpanFailed(span: SpanRecord): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Extracts captured exceptions from a list of spans. A captured exception
+ * is any entry in span.events with span_event.name === 'exception',
+ * regardless of whether the span itself is considered failed. This is the
+ * single source of truth for surfacing handled exceptions in the UI.
+ *
+ * Spans are scanned in start_time order. Each span may contribute multiple
+ * exception entries. The returned httpStatus is the span's own status, so
+ * callers can see e.g. "200" alongside an exception type to make it clear
+ * the request still succeeded from the user's perspective.
+ */
+export function extractCapturedExceptions(spans: SpanRecord[]): CapturedException[] {
+  const sorted = [...spans].sort(
+    (a, b) => new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
+  );
+
+  const GENERIC_NAMES = new Set([
+    'invoke', 'POST', 'GET', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'
+  ]);
+
+  const out: CapturedException[] = [];
+  for (const span of sorted) {
+    const events = span['span.events'];
+    if (!events || events.length === 0) continue;
+
+    const service =
+      (span['dt.entity.service.entity.name'] as string) ||
+      (span['dt.service.name'] as string) ||
+      'Unknown';
+
+    const rawEp = span['endpoint.name'] || span['span.name'] || '';
+    const addr = (span['server.address'] as string) || '';
+    const path = (span['url.path'] as string) || '';
+    let endpoint = rawEp;
+    if (!rawEp || GENERIC_NAMES.has(rawEp)) {
+      if (addr && path) endpoint = `${addr}${path}`;
+      else if (path) endpoint = path;
+      else if (addr) endpoint = addr;
+      else endpoint = rawEp || '(unnamed)';
+    }
+
+    const httpStatus = String(span['http.response.status_code'] ?? '');
+
+    for (const ev of events) {
+      if (ev['span_event.name'] !== 'exception') continue;
+      out.push({
+        spanId: span['span.id'],
+        service,
+        endpoint,
+        httpStatus,
+        exceptionType: ev['exception.type'] || '',
+        exceptionMessage: ev['exception.message'] || '',
+        stackTrace: ev['exception.stack_trace'] || (span['code.call_stack'] as string) || ''
+      });
+    }
+  }
+  return out;
 }
 
 /**

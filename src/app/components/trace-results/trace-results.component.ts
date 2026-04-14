@@ -1,7 +1,7 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SpanRecord, ErrorSummary, SuccessSummary } from '../../models/trace.model';
-import { TraceAnalyzer } from '../../services/trace-analyzer';
+import { SpanRecord, ErrorSummary, SuccessSummary, CapturedException } from '../../models/trace.model';
+import { TraceAnalyzer, extractCapturedExceptions } from '../../services/trace-analyzer';
 import { FlowDiagramComponent } from '../flow-diagram/flow-diagram.component';
 
 @Component({
@@ -20,9 +20,11 @@ export class TraceResultsComponent implements OnChanges {
 
   showMessagePopup = false;
   showStackPopup = false;
+  showCapturedExceptions = false;
 
   errorSummary: ErrorSummary | null = null;
   successSummary: SuccessSummary | null = null;
+  capturedExceptions: CapturedException[] = [];
   rootCauseService: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -37,15 +39,22 @@ export class TraceResultsComponent implements OnChanges {
     return `${(nanos / 1_000_000_000).toFixed(1)}s`;
   }
 
+  toggleCapturedExceptions(): void {
+    this.showCapturedExceptions = !this.showCapturedExceptions;
+  }
+
   private analyzeTrace(): void {
     if (!this.spans || this.spans.length === 0) {
       this.errorSummary = null;
       this.successSummary = null;
+      this.capturedExceptions = [];
       this.rootCauseService = null;
       return;
     }
 
     const analyzer = new TraceAnalyzer(this.spans, this.envHostnamePatterns);
+    this.capturedExceptions = extractCapturedExceptions(this.spans);
+    this.showCapturedExceptions = false;
 
     // Successful trace: build a success summary, no root cause, no error card.
     if (analyzer.isTraceSuccessful()) {

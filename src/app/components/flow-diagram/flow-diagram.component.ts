@@ -10,9 +10,9 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SpanRecord, SpanEvent } from '../../models/trace.model';
+import { SpanRecord, SpanEvent, CapturedException } from '../../models/trace.model';
 import { buildFlowGraph, findConnectedNodeIds, FlowGraph, FlowNode, FlowEdge } from './flow-layout';
-import { isSpanFailed } from '../../services/trace-analyzer';
+import { isSpanFailed, extractCapturedExceptions } from '../../services/trace-analyzer';
 
 /** A row in the per-node span timeline. */
 export interface TimelineEntry {
@@ -207,6 +207,20 @@ export class FlowDiagramComponent implements OnChanges {
   /** Number of failing spans that have a stack trace available. */
   stackTraceCount = computed<number>(() => {
     return this.nodeFailingSpans().filter(f => !!f.stackTrace).length;
+  });
+
+  /**
+   * Captured exceptions on the currently selected node. Includes spans
+   * with exception events that are NOT already shown as failing spans,
+   * so handled exceptions on otherwise-successful spans surface here
+   * without being duplicated alongside genuine failures.
+   */
+  nodeCapturedExceptions = computed<CapturedException[]>(() => {
+    const node = this.selectedNode();
+    if (!node || node.isExternal || !node.spans?.length) return [];
+    const failingSpanIds = new Set(this.nodeFailingSpans().map(f => f.spanId));
+    return extractCapturedExceptions(node.spans)
+      .filter(ex => !failingSpanIds.has(ex.spanId));
   });
 
   /**
@@ -536,6 +550,7 @@ export class FlowDiagramComponent implements OnChanges {
 
   trackTimeline = (_: number, t: TimelineEntry) => t.spanId;
   trackFailingSpan = (_: number, f: FailingSpanDetail) => f.spanId;
+  trackCapturedException = (_: number, e: CapturedException) => e.spanId + '|' + e.exceptionType;
 
   trackNode = (_: number, n: FlowNode) => n.id;
   trackEdge = (_: number, e: FlowEdge) => e.id;

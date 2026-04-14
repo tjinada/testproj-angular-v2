@@ -57,6 +57,34 @@
           </div>
         </div>
       </div>
+
+      <!-- Captured Exceptions (handled exceptions on otherwise-successful trace) -->
+      <div class="section captured-exceptions-section" *ngIf="capturedExceptions.length > 0">
+        <div class="captured-exceptions-header" (click)="toggleCapturedExceptions()">
+          <span class="captured-exceptions-toggle">{{ showCapturedExceptions ? '▾' : '▸' }}</span>
+          <span class="captured-exceptions-title">Captured Exceptions</span>
+          <span class="captured-exceptions-count">{{ capturedExceptions.length }}</span>
+        </div>
+        <div class="captured-exceptions-body" *ngIf="showCapturedExceptions">
+          <div *ngFor="let ex of capturedExceptions" class="captured-exception-card">
+            <div class="captured-exception-header">
+              <span class="captured-exception-status" *ngIf="ex.httpStatus">{{ ex.httpStatus }}</span>
+              <span class="captured-exception-service">{{ ex.service }}</span>
+              <span class="captured-exception-endpoint">{{ ex.endpoint }}</span>
+            </div>
+            <div class="captured-exception-body">
+              <div class="captured-exception-field" *ngIf="ex.exceptionType">
+                <span class="captured-exception-label">Exception:</span>
+                <span class="captured-exception-type">{{ ex.exceptionType }}</span>
+              </div>
+              <div class="captured-exception-message" *ngIf="ex.exceptionMessage">
+                {{ ex.exceptionMessage }}
+              </div>
+              <pre class="captured-exception-stack" *ngIf="ex.stackTrace">{{ ex.stackTrace }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

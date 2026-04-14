@@ -201,6 +201,22 @@ export interface SuccessSummary {
   timestamp: string;
 }
 
+/**
+ * A captured exception found inside a span's span.events. Surfaced
+ * regardless of whether the span itself is considered failed — used to
+ * show handled exceptions on otherwise-successful spans (e.g. a 200
+ * response that internally caught and recorded an exception).
+ */
+export interface CapturedException {
+  spanId: string;
+  service: string;
+  endpoint: string;
+  httpStatus: string;
+  exceptionType: string;
+  exceptionMessage: string;
+  stackTrace: string;
+}
+
 /** Processed span for call flow display */
 export interface CallFlowSpan {
   spanId: string;

@@ -232,6 +232,33 @@
             </div>
           </div>
 
+          <!-- Captured exceptions (handled exceptions on non-failing spans) -->
+          <div class="flow-drawer-section" *ngIf="nodeCapturedExceptions().length > 0">
+            <div class="flow-section-header" (click)="toggleSection('capturedExceptions')">
+              <span class="flow-section-toggle">{{ isSectionExpanded('capturedExceptions') ? '▾' : '▸' }}</span>
+              <span class="flow-drawer-section-label">Captured Exceptions ({{ nodeCapturedExceptions().length }})</span>
+            </div>
+            <div class="flow-section-body" *ngIf="isSectionExpanded('capturedExceptions')">
+              <div *ngFor="let ex of nodeCapturedExceptions(); trackBy: trackCapturedException"
+                   class="flow-error-card">
+                <div class="flow-error-card-header">
+                  <span class="flow-error-status" *ngIf="ex.httpStatus">{{ ex.httpStatus }}</span>
+                  <span class="flow-error-endpoint">{{ ex.endpoint }}</span>
+                </div>
+                <div class="flow-error-card-body">
+                  <div class="flow-error-field" *ngIf="ex.exceptionType">
+                    <span class="flow-error-field-label">Exception:</span>
+                    <span class="flow-error-field-value flow-error-exception-type">{{ ex.exceptionType }}</span>
+                  </div>
+                  <div class="flow-error-message" *ngIf="ex.exceptionMessage">
+                    {{ ex.exceptionMessage }}
+                  </div>
+                  <pre class="flow-stacktrace-pre" *ngIf="ex.stackTrace">{{ ex.stackTrace }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Span timeline -->
           <div class="flow-drawer-section" *ngIf="nodeTimeline().length > 0">
             <div class="flow-section-header" (click)="toggleSection('timeline')">
