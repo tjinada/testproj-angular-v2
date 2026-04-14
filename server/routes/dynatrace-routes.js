@@ -41,14 +41,14 @@ router.post('/lookup-by-request-id', async (req, res) => {
  * deduplicated list of trace matches sorted by most recent first.
  */
 router.post('/search-by-url', async (req, res) => {
-  const { url, environment = 'NON-PROD', timeframe } = req.body;
+  const { url, environment = 'NON-PROD', timeframe, hostExact = false } = req.body;
 
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
   }
 
   try {
-    const results = await dynatraceService.searchTracesByUrl(url, environment, timeframe);
+    const results = await dynatraceService.searchTracesByUrl(url, environment, timeframe, hostExact);
     res.json({ results });
   } catch (error) {
     console.error(`[Dynatrace] Error searching by URL ${url}:`, error.message);

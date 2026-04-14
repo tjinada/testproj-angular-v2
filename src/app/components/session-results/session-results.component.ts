@@ -28,7 +28,7 @@ export class SessionResultsComponent implements OnChanges {
   @Input() errorMsg = '';
 
   /** Emitted when the user clicks "Find backend traces" on a user action. */
-  @Output() findTraces = new EventEmitter<string>();
+  @Output() findTraces = new EventEmitter<{ urlFull: string; eventStartTime: string }>();
 
   summary: SessionSummary | null = null;
   pageGroups: SessionPageGroup[] = [];
@@ -103,7 +103,10 @@ export class SessionResultsComponent implements OnChanges {
       // matches. We want the search to find every trace that hit the same
       // endpoint regardless of per-request parameters.
       const stripped = event.urlFull.split('?')[0].split('#')[0];
-      this.findTraces.emit(stripped);
+      this.findTraces.emit({
+        urlFull: stripped,
+        eventStartTime: event.startTime
+      });
     }
   }
 

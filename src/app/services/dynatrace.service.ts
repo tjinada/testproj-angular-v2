@@ -48,12 +48,22 @@ export class DynatraceService {
   /**
    * Searches for traces matching a full URL (hostname + path). Returns a
    * deduplicated list of trace matches sorted by most recent first.
+   *
+   * When hostExact is true, the backend uses an exact hostname match instead
+   * of contains(). Used by the session "Find backend traces" flow where the
+   * full FQDN is known and cross-environment pollution must be avoided.
    */
-  searchByUrl(url: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<UrlSearchResponse> {
+  searchByUrl(
+    url: string,
+    environment: string = 'NON-PROD',
+    timeframe?: Timeframe,
+    hostExact: boolean = false
+  ): Observable<UrlSearchResponse> {
     return this.http.post<UrlSearchResponse>(`${this.apiUrl}/search-by-url`, {
       url,
       environment,
-      timeframe
+      timeframe,
+      hostExact
     });
   }
 

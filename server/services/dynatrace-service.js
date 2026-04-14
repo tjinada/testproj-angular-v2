@@ -68,10 +68,12 @@ function parseUrl(url) {
 
 /**
  * Builds the DQL query for searching traces by URL (hostname + path).
- * Uses contains() on both fields so partial pastes still match. Deduplicates
- * by trace.id via summarize, and returns the most recent 100 matches.
+ * Uses contains() on path so partial pastes still match. Host matching is
+ * exact when hostExact is true (session flow) and contains() otherwise
+ * (free-form search bar flow). Deduplicates by trace.id via summarize, and
+ * returns the most recent 100 matches.
  */
-function buildUrlSearchQuery(host, path, timeframe) {
+function buildUrlSearchQuery(host, path, timeframe, hostExact = false) {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
     : 'from: -120m';
@@ -81,7 +83,11 @@ function buildUrlSearchQuery(host, path, timeframe) {
     filters.push(`| filter contains(url.path, "${path}")`);
   }
   if (host) {
-    filters.push(`| filter contains(server.address, "${host}")`);
+    if (hostExact) {
+      filters.push(`| filter server.address == "${host}"`);
+    } else {
+      filters.push(`| filter contains(server.address, "${host}")`);
+    }
   }
 
   return [
@@ -286,9 +292,10 @@ async function fetchTraceById(traceId, environment, timeframe) {
 /**
  * Searches for traces by full URL. Parses the URL into host + path and
  * queries Dynatrace spans. Returns a deduplicated list of matches sorted
- * by most recent first.
+ * by most recent first. When hostExact is true, uses exact hostname match
+ * so cross-environment pollution is avoided.
  */
-async function searchTracesByUrl(url, environment, timeframe) {
+async function searchTracesByUrl(url, environment, timeframe, hostExact = false) {
   if (process.env.USE_MOCK === 'true') {
     console.log(`[Mock] Returning mock URL search results for: ${url}`);
     const mock = loadMockResponse();
@@ -314,9 +321,9 @@ async function searchTracesByUrl(url, environment, timeframe) {
   }
 
   const config = getEnvConfig(environment);
-  const query = buildUrlSearchQuery(host, path, timeframe);
+  const query = buildUrlSearchQuery(host, path, timeframe, hostExact);
 
-  console.log(`[Dynatrace] Searching traces by URL (host="${host}", path="${path}") in ${environment}`);
+  console.log(`[Dynatrace] Searching traces by URL (host="${host}" hostExact=${hostExact}, path="${path}") in ${environment}`);
   const requestToken = await executeQuery(config, query);
 
   console.log(`[Dynatrace] Polling for URL search results (token: ${requestToken.substring(0, 10)}...)`);

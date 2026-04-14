@@ -266,9 +266,18 @@ export class AppComponent implements OnInit {
    * Triggered when the user clicks "Find backend traces" on a user action
    * inside the session view. Fires a URL search using the action's full URL
    * and populates the URL results table. Preserves the session view above.
+   *
+   * Narrows the search in two ways that regular URL search does not:
+   *  1. Time window: ±2 minutes around the event's actual start time,
+   *     overriding the user's global selection. Even a 5-day time window
+   *     becomes a 4-minute window, cutting ~1000x noise.
+   *  2. Host exact match: we know the fully qualified hostname from the
+   *     event, so we don't want cross-environment matches.
    */
-  onFindBackendTraces(urlFull: string): void {
+  onFindBackendTraces(payload: { urlFull: string; eventStartTime: string }): void {
+    const { urlFull, eventStartTime } = payload;
     if (!urlFull) return;
+
     this.tracesFromSessionUrl = urlFull;
     this.urlSearchResults = [];
     this.urlSearchLimitReached = false;
@@ -276,23 +285,44 @@ export class AppComponent implements OnInit {
     this.spans = [];
     this.errorMsg = '';
 
-    const timeframe = this.lastUrlSearchTimeframe || {
-      from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      to: new Date().toISOString()
-    };
+    const timeframe = this.buildNarrowTimeframe(eventStartTime);
 
-    this.dynatraceService.searchByUrl(urlFull, this.environment, timeframe).subscribe({
+    this.dynatraceService.searchByUrl(urlFull, this.environment, timeframe, true).subscribe({
       next: (response) => {
         this.urlSearchResults = response.results || [];
         this.urlSearchLimitReached = this.urlSearchResults.length >= 100;
         if (this.urlSearchResults.length === 0) {
-          this.errorMsg = 'No backend traces found for this URL in the selected time window.';
+          this.errorMsg = 'No backend traces found for this URL within ±2 minutes of the session event.';
         }
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to search backend traces. Please try again.';
       }
     });
+  }
+
+  /**
+   * Builds a tight ±2 minute timeframe centered on the given event time.
+   * Falls back to a last-2-hours window if the event time is missing or
+   * unparseable so the search still runs.
+   */
+  private buildNarrowTimeframe(eventStartTime: string): Timeframe {
+    const WINDOW_MS = 2 * 60 * 1000;   // 2 minutes either side
+    const FALLBACK_MS = 2 * 60 * 60 * 1000;  // last 2 hours
+
+    const eventMs = eventStartTime ? new Date(eventStartTime).getTime() : NaN;
+    if (!eventStartTime || isNaN(eventMs)) {
+      const now = Date.now();
+      return {
+        from: new Date(now - FALLBACK_MS).toISOString(),
+        to: new Date(now).toISOString()
+      };
+    }
+
+    return {
+      from: new Date(eventMs - WINDOW_MS).toISOString(),
+      to: new Date(eventMs + WINDOW_MS).toISOString()
+    };
   }
 
   /**
