@@ -182,16 +182,26 @@ export class SessionAnalyzer {
   }
 
   private buildPageGroup(r: UserEventRecord): SessionPageGroup {
+    // For SPAs, view.* fields update on router navigations while page.* fields
+    // stay constant for the whole session (the document never reloads). Prefer
+    // view.* so each router navigation shows up as a distinct page group.
     const pageName =
-      str(r, 'page.name') || str(r, 'view.name') || str(r, 'view.detected_name') ||
-      str(r, 'page.url.path') || str(r, 'view.url.path') || '(unknown page)';
+      str(r, 'view.name') || str(r, 'view.detected_name') ||
+      str(r, 'view.url.path') || str(r, 'page.name') || str(r, 'page.url.path') ||
+      '(unknown page)';
 
     const pageUrlFull =
-      str(r, 'page.url.full') || str(r, 'view.url.full') || '';
+      str(r, 'view.url.full') || str(r, 'page.url.full') || '';
+
+    // page.title is the document <title> which is static for SPAs (e.g. always
+    // "Sign in - BMO" even after navigating to /accounts). Only show it when it
+    // adds information — i.e. when it isn't equivalent to the page name.
+    const rawTitle = str(r, 'page.title');
+    const pageTitle = rawTitle && rawTitle !== pageName ? rawTitle : '';
 
     return {
       pageName,
-      pageTitle: str(r, 'page.title'),
+      pageTitle,
       pageUrlFull,
       startTime: str(r, 'start_time'),
       relativeMs: this.relativeMs(r),

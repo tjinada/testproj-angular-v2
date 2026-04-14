@@ -40,6 +40,11 @@ export class SessionResultsComponent implements OnChanges {
   selectedEventKey: string | null = null;
   selectedEvent: SessionEvent | null = null;
 
+  /** Set of group indices where the user has chosen to show HTTP request events.
+   *  Requests are hidden by default because static asset loads (.js/.css/fonts)
+   *  drown out the meaningful events. */
+  private requestsVisibleGroups = new Set<number>();
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['events']) {
       this.analyzeSession();
@@ -80,6 +85,30 @@ export class SessionResultsComponent implements OnChanges {
     return this.expandedGroupIndex === index;
   }
 
+  /** Returns the events for a group, filtered by the per-group "show requests" toggle. */
+  visibleEvents(group: SessionPageGroup, groupIdx: number): SessionEvent[] {
+    if (this.requestsVisibleGroups.has(groupIdx)) return group.events;
+    return group.events.filter(e => e.kind !== 'request');
+  }
+
+  /** Number of HTTP request events hidden in a group (for the toggle label). */
+  hiddenRequestCount(group: SessionPageGroup): number {
+    return group.events.filter(e => e.kind === 'request').length;
+  }
+
+  toggleRequests(groupIdx: number, mouseEvent: MouseEvent): void {
+    mouseEvent.stopPropagation();
+    if (this.requestsVisibleGroups.has(groupIdx)) {
+      this.requestsVisibleGroups.delete(groupIdx);
+    } else {
+      this.requestsVisibleGroups.add(groupIdx);
+    }
+  }
+
+  areRequestsVisible(groupIdx: number): boolean {
+    return this.requestsVisibleGroups.has(groupIdx);
+  }
+
   onEventClick(groupIdx: number, eventIdx: number, event: SessionEvent): void {
     const key = `${groupIdx}:${eventIdx}`;
     if (this.selectedEventKey === key) {
@@ -98,7 +127,12 @@ export class SessionResultsComponent implements OnChanges {
   onFindTracesClick(event: SessionEvent, mouseEvent: MouseEvent): void {
     mouseEvent.stopPropagation();
     if (event.urlFull) {
-      this.findTraces.emit(event.urlFull);
+      // Strip query strings before searching. Backend spans store url.path
+      // without query params, so passing the full URL with ?StateId=... never
+      // matches. We want the search to find every trace that hit the same
+      // endpoint regardless of per-request parameters.
+      const stripped = event.urlFull.split('?')[0].split('#')[0];
+      this.findTraces.emit(stripped);
     }
   }
 

@@ -241,6 +241,28 @@
   font-size: 12px;
 }
 
+.requests-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px 6px 8px;
+}
+
+.requests-toggle-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.requests-toggle-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
 .session-event {
   display: grid;
   grid-template-columns: 80px 20px 1fr auto auto;

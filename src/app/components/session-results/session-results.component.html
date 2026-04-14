@@ -88,21 +88,28 @@
         </div>
         <div class="page-group-counts">
           <span class="count-badge" [title]="group.events.length + ' events'">
-            {{ group.events.length }} events
+            {{ group.events.length }} {{ group.events.length === 1 ? 'event' : 'events' }}
           </span>
           <span *ngIf="groupErrorCount(group) > 0" class="count-badge count-badge-error">
-            {{ groupErrorCount(group) }} errors
+            {{ groupErrorCount(group) }} {{ groupErrorCount(group) === 1 ? 'error' : 'errors' }}
           </span>
         </div>
       </div>
 
       <!-- Expanded body -->
       <div *ngIf="isGroupExpanded(gi)" class="page-group-body">
-        <div *ngIf="group.events.length === 0" class="page-group-empty">
+        <!-- Show requests toggle, only when there are any request events -->
+        <div *ngIf="hiddenRequestCount(group) > 0" class="requests-toggle-row">
+          <button class="requests-toggle-btn" (click)="toggleRequests(gi, $event)">
+            {{ areRequestsVisible(gi) ? 'Hide' : 'Show' }}
+            {{ hiddenRequestCount(group) }} HTTP request{{ hiddenRequestCount(group) === 1 ? '' : 's' }}
+          </button>
+        </div>
+        <div *ngIf="visibleEvents(group, gi).length === 0" class="page-group-empty">
           No user actions or errors recorded on this page.
         </div>
         <div
-          *ngFor="let ev of group.events; let ei = index; trackBy: trackEvent"
+          *ngFor="let ev of visibleEvents(group, gi); let ei = index; trackBy: trackEvent"
           class="session-event"
           [class.session-event-failed]="ev.isFailed"
           [class.session-event-selected]="isEventSelected(gi, ei)"
