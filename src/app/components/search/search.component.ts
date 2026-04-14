@@ -19,7 +19,8 @@ export interface SearchEvent {
 export const SEARCH_FIELDS: SearchField[] = [
   { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
   { mode: 'request', label: 'Request ID', placeholder: 'Enter a request ID to search...' },
-  { mode: 'url', label: 'URL', placeholder: 'Paste a full URL (e.g. olb-qa8.abc.com/banking/services/...)' }
+  { mode: 'url', label: 'URL', placeholder: 'Paste a full URL (e.g. olb-qa8.abc.com/banking/services/...)' },
+  { mode: 'session', label: 'Session ID', placeholder: 'Enter a RUM session ID (e.g. AQSNRLGUDIM...)' }
 ];
 
 /** Time window presets. Add/remove entries here to change the dropdown options. */

@@ -1,5 +1,5 @@
-/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), or by full URL */
-export type SearchMode = 'trace' | 'request' | 'url';
+/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), by full URL, or by RUM session ID */
+export type SearchMode = 'trace' | 'request' | 'url' | 'session';
 
 /** A single trace match returned by a search (URL, hotspot, service, etc.) */
 export interface TraceMatch {
@@ -11,6 +11,72 @@ export interface TraceMatch {
   httpStatus: string;
   isFailed: boolean;
   duration: number;
+}
+
+/** Raw user.events record from Dynatrace. Fields are loose because the
+ *  Grail RUM schema varies by event kind and agent config; the analyzer
+ *  guards every access. */
+export interface UserEventRecord {
+  [key: string]: unknown;
+}
+
+/** One-time session-level metadata extracted from any event in the session. */
+export interface SessionSummary {
+  sessionId: string;
+  startTime: string;
+  endTime: string;
+  durationMs: number;
+  browser: string;
+  os: string;
+  deviceType: string;
+  country: string;
+  clientIp: string;
+  isp: string;
+  appName: string;
+  pageViewCount: number;
+  userActionCount: number;
+  errorCount: number;
+}
+
+/** Union kind for a single non-page-view event inside a page group. */
+export type SessionEventKind = 'user_action' | 'error' | 'request';
+
+/** A single non-page-view event inside a page group. */
+export interface SessionEvent {
+  kind: SessionEventKind;
+  startTime: string;
+  relativeMs: number;      // ms offset from session start
+  durationNanos: number;
+  label: string;           // human-readable summary
+  isFailed: boolean;
+  urlFull: string;          // for user_action — used by "Find backend traces"
+  httpStatus: string;
+  raw: UserEventRecord;    // retained for the detail panel
+}
+
+/** A page view and everything that happened on it. */
+export interface SessionPageGroup {
+  pageName: string;
+  pageTitle: string;
+  pageUrlFull: string;
+  startTime: string;
+  relativeMs: number;
+  durationNanos: number;
+  webVitals: {
+    lcp: string;
+    fcp: string;
+    fid: string;
+    cls: string;
+    clsValue: string;
+    inpDurationMs: number;
+  };
+  errorCounts: {
+    http4xx: number;
+    http5xx: number;
+    exception: number;
+    cspViolation: number;
+  };
+  events: SessionEvent[];
 }
 
 /** A preset time window option for search queries */

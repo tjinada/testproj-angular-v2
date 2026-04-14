@@ -4,14 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { SearchComponent, SearchEvent } from './components/search/search.component';
 import { TraceResultsComponent } from './components/trace-results/trace-results.component';
 import { TraceResultsTableComponent } from './components/trace-results-table/trace-results-table.component';
+import { SessionResultsComponent } from './components/session-results/session-results.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
-import { SpanRecord, Timeframe, TraceMatch } from './models/trace.model';
+import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent],
   template: `
     <div class="app-container">
       <h1 class="app-title">TESTPROJ Error Analyzer</h1>
@@ -33,6 +34,17 @@ import { SpanRecord, Timeframe, TraceMatch } from './models/trace.model';
         Found trace <code>{{ resolvedFromRequestId.traceId }}</code>
         for request <code>{{ resolvedFromRequestId.requestId }}</code>
         in <strong>{{ currentEnvLabel() }}</strong>
+      </div>
+
+      <app-session-results
+        [events]="sessionEvents"
+        [isLoading]="isLoading && lastSearchMode === 'session'"
+        [errorMsg]="errorMsg"
+        (findTraces)="onFindBackendTraces($event)">
+      </app-session-results>
+
+      <div *ngIf="tracesFromSessionUrl" class="resolved-banner">
+        Backend traces matching <code>{{ tracesFromSessionUrl }}</code>
       </div>
 
       <app-trace-results-table
@@ -148,6 +160,11 @@ export class AppComponent implements OnInit {
   selectedTraceId: string | null = null;
   private lastUrlSearchTimeframe: Timeframe | null = null;
 
+  // Session search state
+  sessionEvents: UserEventRecord[] = [];
+  tracesFromSessionUrl: string | null = null;
+  lastSearchMode: 'trace' | 'request' | 'url' | 'session' | null = null;
+
   constructor(
     private dynatraceService: DynatraceService,
     private configService: ConfigService,
@@ -185,6 +202,9 @@ export class AppComponent implements OnInit {
     this.urlSearchLimitReached = false;
     this.selectedTraceId = null;
     this.lastUrlSearchTimeframe = null;
+    this.sessionEvents = [];
+    this.tracesFromSessionUrl = null;
+    this.lastSearchMode = event.mode;
 
     if (event.mode === 'trace') {
       this.fetchTrace(event.value, event.timeframe);
@@ -210,6 +230,24 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    if (event.mode === 'session') {
+      this.lastUrlSearchTimeframe = event.timeframe;
+      this.dynatraceService.fetchSession(event.value, this.environment, event.timeframe).subscribe({
+        next: (response) => {
+          this.sessionEvents = response.events || [];
+          if (this.sessionEvents.length === 0) {
+            this.errorMsg = 'No events found for that session ID in the selected time window. Try widening the time window.';
+          }
+          this.isLoading = false;
+        },
+        error: (err) => {
+          this.errorMsg = err.error?.error || 'Failed to fetch session data. Please try again.';
+          this.isLoading = false;
+        }
+      });
+      return;
+    }
+
     // Request ID mode: resolve to trace ID first, then fetch the trace
     const requestId = event.value;
     this.dynatraceService.lookupTraceIdByRequestId(requestId, this.environment, event.timeframe).subscribe({
@@ -220,6 +258,39 @@ export class AppComponent implements OnInit {
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to look up request ID. Please try again.';
         this.isLoading = false;
+      }
+    });
+  }
+
+  /**
+   * Triggered when the user clicks "Find backend traces" on a user action
+   * inside the session view. Fires a URL search using the action's full URL
+   * and populates the URL results table. Preserves the session view above.
+   */
+  onFindBackendTraces(urlFull: string): void {
+    if (!urlFull) return;
+    this.tracesFromSessionUrl = urlFull;
+    this.urlSearchResults = [];
+    this.urlSearchLimitReached = false;
+    this.selectedTraceId = null;
+    this.spans = [];
+    this.errorMsg = '';
+
+    const timeframe = this.lastUrlSearchTimeframe || {
+      from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      to: new Date().toISOString()
+    };
+
+    this.dynatraceService.searchByUrl(urlFull, this.environment, timeframe).subscribe({
+      next: (response) => {
+        this.urlSearchResults = response.results || [];
+        this.urlSearchLimitReached = this.urlSearchResults.length >= 100;
+        if (this.urlSearchResults.length === 0) {
+          this.errorMsg = 'No backend traces found for this URL in the selected time window.';
+        }
+      },
+      error: (err) => {
+        this.errorMsg = err.error?.error || 'Failed to search backend traces. Please try again.';
       }
     });
   }

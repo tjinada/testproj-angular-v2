@@ -102,6 +102,22 @@ function buildUrlSearchQuery(host, path, timeframe) {
 }
 
 /**
+ * Builds the DQL query for fetching all user.events records for a session.
+ */
+function buildSessionQuery(sessionId, timeframe) {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -2h';
+
+  return [
+    `fetch user.events, ${timeframeClause}, scanLimitGBytes: 500`,
+    `| filter dt.rum.session.id == "${sessionId}"`,
+    `| sort start_time asc`,
+    `| limit 5000`
+  ].join('\n');
+}
+
+/**
  * Builds the full DQL query for fetching spans by trace ID.
  */
 function buildDqlQuery(traceId, timeframe) {
@@ -322,4 +338,29 @@ async function searchTracesByUrl(url, environment, timeframe) {
   }));
 }
 
-module.exports = { fetchTraceById, findTraceIdByRequestId, searchTracesByUrl };
+/**
+ * Fetches all user.events records for a given RUM session ID.
+ * Uses the same execute + poll pattern as trace fetches.
+ */
+async function fetchSessionEvents(sessionId, environment, timeframe) {
+  if (process.env.USE_MOCK === 'true') {
+    console.log(`[Mock] Returning empty mock session events for: ${sessionId}`);
+    return [];
+  }
+
+  const config = getEnvConfig(environment);
+  const query = buildSessionQuery(sessionId, timeframe);
+
+  console.log(`[Dynatrace] Fetching session events for session: ${sessionId} in ${environment}`);
+  const requestToken = await executeQuery(config, query);
+
+  console.log(`[Dynatrace] Polling for session events (token: ${requestToken.substring(0, 10)}...)`);
+  const result = await pollForResults(config, requestToken);
+
+  const records = result.result?.records || [];
+  console.log(`[Dynatrace] Session query returned ${records.length} event(s)`);
+
+  return records;
+}
+
+module.exports = { fetchTraceById, findTraceIdByRequestId, searchTracesByUrl, fetchSessionEvents };

@@ -1,0 +1,140 @@
+<div *ngIf="isLoading" class="session-loading">Loading session...</div>
+
+<div *ngIf="!isLoading && errorMsg && !summary" class="session-error">{{ errorMsg }}</div>
+
+<div *ngIf="summary" class="session-card">
+  <!-- Header -->
+  <div class="session-header">
+    <div class="session-header-main">
+      <div class="session-title">Session Journey</div>
+      <div class="session-id">{{ summary.sessionId }}</div>
+    </div>
+    <div class="session-header-stats">
+      <div class="stat">
+        <div class="stat-label">Duration</div>
+        <div class="stat-value">{{ formatSessionDuration(summary.durationMs) }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Pages</div>
+        <div class="stat-value">{{ summary.pageViewCount }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Actions</div>
+        <div class="stat-value">{{ summary.userActionCount }}</div>
+      </div>
+      <div class="stat" [class.stat-error]="summary.errorCount > 0">
+        <div class="stat-label">Errors</div>
+        <div class="stat-value">{{ summary.errorCount }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meta line -->
+  <div class="session-meta">
+    <span *ngIf="summary.browser">{{ summary.browser }}</span>
+    <span *ngIf="summary.os"> · {{ summary.os }}</span>
+    <span *ngIf="summary.deviceType"> · {{ summary.deviceType }}</span>
+    <span *ngIf="summary.country"> · {{ summary.country }}</span>
+    <span *ngIf="summary.clientIp"> · {{ summary.clientIp }}</span>
+    <span *ngIf="summary.isp"> · {{ summary.isp }}</span>
+    <span *ngIf="summary.appName"> · {{ summary.appName }}</span>
+    <span *ngIf="summary.startTime" class="session-meta-time"> · started {{ formatTimestamp(summary.startTime) }}</span>
+  </div>
+
+  <!-- Page groups -->
+  <div class="page-groups">
+    <div
+      *ngFor="let group of pageGroups; let gi = index; trackBy: trackGroup"
+      class="page-group"
+      [class.page-group-expanded]="isGroupExpanded(gi)"
+      [class.page-group-has-errors]="groupHasErrors(group)">
+
+      <!-- Group header (always visible, click to toggle) -->
+      <div class="page-group-header" (click)="toggleGroup(gi)">
+        <div class="page-group-chevron">{{ isGroupExpanded(gi) ? '▼' : '▶' }}</div>
+        <div class="page-group-time">{{ formatRelative(group.relativeMs) }}</div>
+        <div class="page-group-title">
+          <div class="page-group-name">{{ group.pageName }}</div>
+          <div *ngIf="group.pageTitle" class="page-group-subtitle">{{ group.pageTitle }}</div>
+        </div>
+        <div class="page-group-vitals">
+          <span
+            *ngIf="group.webVitals.lcp && group.webVitals.lcp !== 'not_reported'"
+            class="wv-badge"
+            [ngClass]="webVitalClass(group.webVitals.lcp)"
+            title="Largest Contentful Paint">
+            LCP {{ webVitalLabel(group.webVitals.lcp) }}
+          </span>
+          <span
+            *ngIf="group.webVitals.fcp && group.webVitals.fcp !== 'not_reported'"
+            class="wv-badge"
+            [ngClass]="webVitalClass(group.webVitals.fcp)"
+            title="First Contentful Paint">
+            FCP {{ webVitalLabel(group.webVitals.fcp) }}
+          </span>
+          <span
+            *ngIf="group.webVitals.cls && group.webVitals.cls !== 'not_reported'"
+            class="wv-badge"
+            [ngClass]="webVitalClass(group.webVitals.cls)"
+            title="Cumulative Layout Shift">
+            CLS {{ webVitalLabel(group.webVitals.cls) }}
+          </span>
+          <span
+            *ngIf="group.webVitals.inpDurationMs > 0"
+            class="wv-badge wv-info"
+            title="Interaction to Next Paint">
+            INP {{ group.webVitals.inpDurationMs }}ms
+          </span>
+        </div>
+        <div class="page-group-counts">
+          <span class="count-badge" [title]="group.events.length + ' events'">
+            {{ group.events.length }} events
+          </span>
+          <span *ngIf="groupErrorCount(group) > 0" class="count-badge count-badge-error">
+            {{ groupErrorCount(group) }} errors
+          </span>
+        </div>
+      </div>
+
+      <!-- Expanded body -->
+      <div *ngIf="isGroupExpanded(gi)" class="page-group-body">
+        <div *ngIf="group.events.length === 0" class="page-group-empty">
+          No user actions or errors recorded on this page.
+        </div>
+        <div
+          *ngFor="let ev of group.events; let ei = index; trackBy: trackEvent"
+          class="session-event"
+          [class.session-event-failed]="ev.isFailed"
+          [class.session-event-selected]="isEventSelected(gi, ei)"
+          (click)="onEventClick(gi, ei, ev)">
+          <div class="event-time">{{ formatRelative(ev.relativeMs) }}</div>
+          <div class="event-icon" [attr.data-kind]="ev.kind">{{ eventIcon(ev.kind) }}</div>
+          <div class="event-label">{{ ev.label }}</div>
+          <div class="event-duration">{{ formatDuration(ev.durationNanos) }}</div>
+          <div class="event-actions">
+            <button
+              *ngIf="ev.kind === 'user_action' && ev.urlFull"
+              class="find-traces-btn"
+              (click)="onFindTracesClick(ev, $event)"
+              title="Search backend traces for this URL">
+              Find backend traces
+            </button>
+          </div>
+        </div>
+
+        <!-- Detail panel for selected event -->
+        <div *ngIf="selectedEvent && expandedGroupIndex === gi" class="event-detail-panel">
+          <div class="event-detail-header">Event details</div>
+          <table class="event-detail-table">
+            <tbody>
+              <tr *ngFor="let k of selectedEventKeys()">
+                <td class="event-detail-key">{{ k }}</td>
+                <td class="event-detail-val">{{ selectedEventValue(k) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

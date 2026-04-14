@@ -65,6 +65,36 @@ router.post('/search-by-url', async (req, res) => {
 });
 
 /**
+ * POST /api/traces/session/:sessionId
+ * Fetches all user.events records for a RUM session ID. Used by the
+ * session search feature to render the session journey view.
+ */
+router.post('/session/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  const { environment = 'NON-PROD', timeframe } = req.body;
+
+  if (!sessionId) {
+    return res.status(400).json({ error: 'Session ID is required' });
+  }
+
+  try {
+    const events = await dynatraceService.fetchSessionEvents(sessionId, environment, timeframe);
+    res.json({ events });
+  } catch (error) {
+    console.error(`[Dynatrace] Error fetching session ${sessionId}:`, error.message);
+
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
  * POST /api/traces/:traceId
  * Fetches trace spans from Dynatrace for a given trace ID.
  */

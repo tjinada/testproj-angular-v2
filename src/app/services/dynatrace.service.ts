@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { DynatraceResponse, Timeframe, TraceMatch } from '../models/trace.model';
+import { DynatraceResponse, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
 
 export interface RequestIdLookupResponse {
   traceId: string;
@@ -10,6 +10,10 @@ export interface RequestIdLookupResponse {
 
 export interface UrlSearchResponse {
   results: TraceMatch[];
+}
+
+export interface SessionResponse {
+  events: UserEventRecord[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -48,6 +52,17 @@ export class DynatraceService {
   searchByUrl(url: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<UrlSearchResponse> {
     return this.http.post<UrlSearchResponse>(`${this.apiUrl}/search-by-url`, {
       url,
+      environment,
+      timeframe
+    });
+  }
+
+  /**
+   * Fetches all user.events records for a given RUM session ID. The backend
+   * handles the 2-step Dynatrace execute + poll flow.
+   */
+  fetchSession(sessionId: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<SessionResponse> {
+    return this.http.post<SessionResponse>(`${this.apiUrl}/session/${sessionId}`, {
       environment,
       timeframe
     });
