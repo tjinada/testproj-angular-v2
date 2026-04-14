@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter } from '@angular/core';
+import { Component, Output, EventEmitter, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SearchMode, TimeWindow, Timeframe } from '../../models/trace.model';
@@ -53,8 +53,22 @@ export class SearchComponent {
   selectedMode: SearchMode = 'request';
   selectedWindowId: string = DEFAULT_WINDOW_ID;
   hasSearched = false;
+  previewImageSrc: string | null = null;
 
   @Output() search = new EventEmitter<SearchEvent>();
+
+  openPreview(src: string): void {
+    this.previewImageSrc = src;
+  }
+
+  closePreview(): void {
+    this.previewImageSrc = null;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.previewImageSrc) this.closePreview();
+  }
 
   onModeChange(): void {
     this.inputValue = '';

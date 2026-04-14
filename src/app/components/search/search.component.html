@@ -54,9 +54,8 @@
           <li>Click the failing network call.</li>
           <li>Under <strong>Request Headers</strong>, copy the <code>x-request-id</code> value and paste it into the search box above.</li>
         </ol>
-        <div class="search-guide-thumb" title="Hover to enlarge">
+        <div class="search-guide-thumb" (click)="openPreview('assets/search-help/request-id.png')" title="Click to enlarge">
           <img src="assets/search-help/request-id.png" alt="Network tab showing x-request-id header" />
-          <img src="assets/search-help/request-id.png" alt="" class="search-guide-preview" aria-hidden="true" />
         </div>
       </div>
     </details>
@@ -69,9 +68,8 @@
           <li>Paste the URL into the search box above and hit Search.</li>
           <li>From the results table, select the most relevant trace ID (based on your timestamp) to see the details.</li>
         </ol>
-        <div class="search-guide-thumb" title="Hover to enlarge">
+        <div class="search-guide-thumb" (click)="openPreview('assets/search-help/url-search.png')" title="Click to enlarge">
           <img src="assets/search-help/url-search.png" alt="Network tab showing a full URL" />
-          <img src="assets/search-help/url-search.png" alt="" class="search-guide-preview" aria-hidden="true" />
         </div>
       </div>
     </details>
@@ -85,11 +83,15 @@
           <li>Go to the <strong>Payload</strong> tab and copy the string parameter next to <code>vi</code>.</li>
           <li>Paste it into the search box above to view the user session details.</li>
         </ol>
-        <div class="search-guide-thumb" title="Hover to enlarge">
+        <div class="search-guide-thumb" (click)="openPreview('assets/search-help/session-id-1.png')" title="Click to enlarge">
           <img src="assets/search-help/session-id-1.png" alt="Network tab filtered by bf?type=js showing the vi parameter" />
-          <img src="assets/search-help/session-id-1.png" alt="" class="search-guide-preview" aria-hidden="true" />
         </div>
       </div>
     </details>
+  </div>
+
+  <div *ngIf="previewImageSrc" class="search-guide-modal" (click)="closePreview()" role="dialog" aria-label="Image preview">
+    <button type="button" class="search-guide-modal-close" (click)="closePreview()" aria-label="Close preview">×</button>
+    <img [src]="previewImageSrc" alt="" class="search-guide-modal-image" (click)="$event.stopPropagation()" />
   </div>
 </div>
