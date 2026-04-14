@@ -41,73 +41,90 @@
     <span *ngIf="summary.startTime" class="session-meta-time"> · started {{ formatTimestamp(summary.startTime) }}</span>
   </div>
 
-  <!-- Page groups -->
-  <div class="page-groups">
-    <div
-      *ngFor="let group of pageGroups; let gi = index; trackBy: trackGroup"
-      class="page-group"
-      [class.page-group-expanded]="isGroupExpanded(gi)"
-      [class.page-group-has-errors]="groupHasErrors(group)">
-
-      <!-- Group header (always visible, click to toggle) -->
-      <div class="page-group-header" (click)="toggleGroup(gi)">
-        <div class="page-group-chevron">{{ isGroupExpanded(gi) ? '▼' : '▶' }}</div>
-        <div class="page-group-time">{{ formatRelative(group.relativeMs) }}</div>
-        <div class="page-group-title">
-          <div class="page-group-name">{{ group.pageName }}</div>
-          <div *ngIf="group.pageTitle" class="page-group-subtitle">{{ group.pageTitle }}</div>
+  <!-- Split view: page groups left, events right -->
+  <div class="session-split">
+    <!-- Left column: page groups -->
+    <div class="page-groups-pane">
+      <div
+        *ngFor="let group of pageGroups; let gi = index; trackBy: trackGroup"
+        class="page-group-row"
+        [class.page-group-row-selected]="isPageGroupSelected(gi)"
+        [class.page-group-row-has-errors]="groupHasErrors(group)"
+        (click)="selectPageGroup(gi)">
+        <div class="page-group-time">
+          <span class="time-abs">{{ formatTimeOfDay(group.startTime) }}</span>
+          <span class="time-rel">{{ formatRelative(group.relativeMs) }}</span>
         </div>
-        <div class="page-group-counts">
-          <span class="count-badge" [title]="group.events.length + ' events'">
+        <div class="page-group-body">
+          <div class="page-group-name" [title]="group.pageName">{{ group.pageName }}</div>
+          <div *ngIf="group.pageTitle" class="page-group-subtitle" [title]="group.pageTitle">{{ group.pageTitle }}</div>
+          <div class="page-group-counts">
             {{ group.events.length }} {{ group.events.length === 1 ? 'event' : 'events' }}
-          </span>
-          <span *ngIf="groupErrorCount(group) > 0" class="count-badge count-badge-error">
-            {{ groupErrorCount(group) }} {{ groupErrorCount(group) === 1 ? 'error' : 'errors' }}
-          </span>
+            <span *ngIf="groupErrorCount(group) > 0" class="page-group-counts-err">
+              · {{ groupErrorCount(group) }} {{ groupErrorCount(group) === 1 ? 'error' : 'errors' }}
+            </span>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Expanded body -->
-      <div *ngIf="isGroupExpanded(gi)" class="page-group-body">
-        <div *ngIf="group.events.length === 0" class="page-group-empty">
+    <!-- Right column: events for the selected page -->
+    <div class="events-pane">
+      <div *ngIf="selectedPageGroup" class="events-pane-header">
+        Events on <strong>{{ selectedPageGroup.pageName }}</strong>
+        · {{ selectedPageGroup.events.length }} {{ selectedPageGroup.events.length === 1 ? 'event' : 'events' }}
+        <span *ngIf="groupErrorCount(selectedPageGroup) > 0" class="events-pane-header-err">
+          · {{ groupErrorCount(selectedPageGroup) }} {{ groupErrorCount(selectedPageGroup) === 1 ? 'error' : 'errors' }}
+        </span>
+      </div>
+      <div class="events-pane-body">
+        <div *ngIf="!selectedPageGroup || selectedPageGroup.events.length === 0" class="events-pane-empty">
           No user actions or errors recorded on this page.
         </div>
         <div
-          *ngFor="let ev of group.events; let ei = index; trackBy: trackEvent"
+          *ngFor="let ev of selectedPageGroup?.events; let ei = index; trackBy: trackEvent"
           class="session-event"
           [class.session-event-failed]="ev.isFailed"
           [class.session-event-slow]="!ev.isFailed && isSlow(ev)"
           [class.session-event-very-slow]="!ev.isFailed && isVerySlow(ev)"
-          [class.session-event-selected]="isEventSelected(gi, ei)"
-          (click)="onEventClick(gi, ei, ev)">
-          <div class="event-time">{{ formatRelative(ev.relativeMs) }}</div>
+          [class.session-event-traces-active]="isEventTracesActive(selectedPageGroupIndex, ei)"
+          [class.session-event-selected]="isEventSelected(ei)"
+          (click)="onEventClick(ei, ev)">
+          <div class="event-time">
+            <span class="time-abs">{{ formatTimeOfDay(ev.startTime) }}</span>
+            <span class="time-rel">{{ formatRelative(ev.relativeMs) }}</span>
+          </div>
           <div class="event-icon" [attr.data-kind]="ev.kind">{{ eventIcon(ev.kind) }}</div>
-          <div class="event-label">{{ ev.label }}</div>
+          <div class="event-label" [title]="ev.label">{{ ev.label }}</div>
           <div class="event-duration">{{ formatDuration(ev.durationNanos) }}</div>
           <div class="event-actions">
             <button
               *ngIf="canFindBackendTraces(ev)"
-              class="find-traces-btn"
-              (click)="onFindTracesClick(ev, $event)"
+              class="trace-btn"
+              (click)="onFindTracesClick(ei, ev, $event)"
               title="Search backend traces for this URL">
-              Find backend traces
+              Trace
             </button>
           </div>
         </div>
-
-        <!-- Detail panel for selected event -->
-        <div *ngIf="selectedEvent && expandedGroupIndex === gi" class="event-detail-panel">
-          <div class="event-detail-header">Event details</div>
-          <table class="event-detail-table">
-            <tbody>
-              <tr *ngFor="let k of selectedEventKeys()">
-                <td class="event-detail-key">{{ k }}</td>
-                <td class="event-detail-val">{{ selectedEventValue(k) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Detail panel: full width, pinned at bottom -->
+  <div class="detail-panel">
+    <div class="detail-panel-label" *ngIf="!selectedEvent">Click an event to see details</div>
+    <div class="detail-panel-label" *ngIf="selectedEvent">Event details</div>
+    <div class="detail-panel-body">
+      <div *ngIf="!selectedEvent" class="detail-panel-empty">—</div>
+      <table *ngIf="selectedEvent" class="detail-panel-table">
+        <tbody>
+          <tr *ngFor="let k of selectedEventKeys()">
+            <td class="detail-panel-key">{{ k }}</td>
+            <td class="detail-panel-val">{{ selectedEventValue(k) }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

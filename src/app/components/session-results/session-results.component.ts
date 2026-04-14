@@ -9,11 +9,11 @@ import {
 import { SessionAnalyzer } from '../../services/session-analyzer';
 
 /**
- * Displays a RUM session as a header card plus a list of page view groups.
- * Each page group is collapsible; the first is expanded by default.
- *
- * Phase 1 uses a list layout. Phase 2 will swap the list for an SVG
- * timeline while keeping the same analyzer output.
+ * Displays a RUM session as a header card plus a split view: page groups
+ * on the left, events for the selected page on the right, detail panel at
+ * the bottom. The card has a fixed total height; left and right sides
+ * scroll independently, so expanding a 100-event page never pushes the
+ * trace results table off-screen.
  */
 @Component({
   selector: 'app-session-results',
@@ -27,18 +27,25 @@ export class SessionResultsComponent implements OnChanges {
   @Input() isLoading = false;
   @Input() errorMsg = '';
 
-  /** Emitted when the user clicks "Find backend traces" on a user action. */
+  /** Emitted when the user clicks the "Trace" button on an event. */
   @Output() findTraces = new EventEmitter<{ urlFull: string; eventStartTime: string }>();
 
   summary: SessionSummary | null = null;
   pageGroups: SessionPageGroup[] = [];
 
-  /** Index of currently expanded page group. First group is expanded by default. */
-  expandedGroupIndex: number | null = null;
+  /** Index of currently selected page group on the left. Always set to a
+   *  valid index when pageGroups has entries; never null while data loaded. */
+  selectedPageGroupIndex = 0;
 
-  /** Composite key of currently selected event (for the detail panel). */
+  /** Composite key "groupIdx:eventIdx" of currently selected event (for the
+   *  detail panel). Null when no event is selected. */
   selectedEventKey: string | null = null;
   selectedEvent: SessionEvent | null = null;
+
+  /** Composite key of the event whose "Trace" button was last clicked. The
+   *  row gets a persistent blue highlight so the user can navigate around
+   *  and still know which event the trace results below correspond to. */
+  tracesActiveEventKey: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['events']) {
@@ -50,9 +57,10 @@ export class SessionResultsComponent implements OnChanges {
     if (!this.events || this.events.length === 0) {
       this.summary = null;
       this.pageGroups = [];
-      this.expandedGroupIndex = null;
+      this.selectedPageGroupIndex = 0;
       this.selectedEventKey = null;
       this.selectedEvent = null;
+      this.tracesActiveEventKey = null;
       return;
     }
 
@@ -60,28 +68,44 @@ export class SessionResultsComponent implements OnChanges {
     this.summary = analyzer.getSummary();
     this.pageGroups = analyzer.getPageGroups();
 
-    // Expand the first page group by default. Auto-expand any group that
-    // contains errors so problems are immediately visible.
-    const firstErrorIdx = this.pageGroups.findIndex(
-      g => g.events.some(e => e.isFailed) ||
-           g.errorCounts.http4xx > 0 || g.errorCounts.http5xx > 0 ||
-           g.errorCounts.exception > 0
-    );
-    this.expandedGroupIndex = firstErrorIdx >= 0 ? firstErrorIdx : 0;
+    // Auto-select the first page group with errors so the user lands on
+    // the most interesting page. Falls back to the first page if no errors.
+    const firstErrorIdx = this.pageGroups.findIndex(g => this.groupHasErrors(g));
+    this.selectedPageGroupIndex = firstErrorIdx >= 0 ? firstErrorIdx : 0;
+    this.selectedEventKey = null;
+    this.selectedEvent = null;
+    this.tracesActiveEventKey = null;
+  }
+
+  // ------------------------------------------------------------------
+  // Page group selection (left column)
+  // ------------------------------------------------------------------
+
+  selectPageGroup(index: number): void {
+    if (index === this.selectedPageGroupIndex) return;
+    this.selectedPageGroupIndex = index;
+    // Clear the selected event when switching pages — the detail panel
+    // should always show an event from the currently-viewed page.
     this.selectedEventKey = null;
     this.selectedEvent = null;
   }
 
-  toggleGroup(index: number): void {
-    this.expandedGroupIndex = this.expandedGroupIndex === index ? null : index;
+  isPageGroupSelected(index: number): boolean {
+    return this.selectedPageGroupIndex === index;
   }
 
-  isGroupExpanded(index: number): boolean {
-    return this.expandedGroupIndex === index;
+  /** Returns the currently selected page group, or null if none. */
+  get selectedPageGroup(): SessionPageGroup | null {
+    if (this.pageGroups.length === 0) return null;
+    return this.pageGroups[this.selectedPageGroupIndex] || null;
   }
 
-  onEventClick(groupIdx: number, eventIdx: number, event: SessionEvent): void {
-    const key = `${groupIdx}:${eventIdx}`;
+  // ------------------------------------------------------------------
+  // Event selection (right column)
+  // ------------------------------------------------------------------
+
+  onEventClick(eventIdx: number, event: SessionEvent): void {
+    const key = `${this.selectedPageGroupIndex}:${eventIdx}`;
     if (this.selectedEventKey === key) {
       this.selectedEventKey = null;
       this.selectedEvent = null;
@@ -91,24 +115,38 @@ export class SessionResultsComponent implements OnChanges {
     this.selectedEvent = event;
   }
 
-  isEventSelected(groupIdx: number, eventIdx: number): boolean {
-    return this.selectedEventKey === `${groupIdx}:${eventIdx}`;
+  isEventSelected(eventIdx: number): boolean {
+    return this.selectedEventKey === `${this.selectedPageGroupIndex}:${eventIdx}`;
   }
 
-  onFindTracesClick(event: SessionEvent, mouseEvent: MouseEvent): void {
-    mouseEvent.stopPropagation();
-    if (event.urlFull) {
-      // Strip query strings before searching. Backend spans store url.path
-      // without query params, so passing the full URL with ?StateId=... never
-      // matches. We want the search to find every trace that hit the same
-      // endpoint regardless of per-request parameters.
-      const stripped = event.urlFull.split('?')[0].split('#')[0];
-      this.findTraces.emit({
-        urlFull: stripped,
-        eventStartTime: event.startTime
-      });
-    }
+  /** True when this event's row should show the persistent "I'm investigating
+   *  this one" blue highlight. Set by clicking the Trace button. */
+  isEventTracesActive(groupIdx: number, eventIdx: number): boolean {
+    return this.tracesActiveEventKey === `${groupIdx}:${eventIdx}`;
   }
+
+  onFindTracesClick(eventIdx: number, event: SessionEvent, mouseEvent: MouseEvent): void {
+    mouseEvent.stopPropagation();
+    if (!event.urlFull) return;
+
+    // Mark this event as the active "investigation target". Persists until
+    // a different Trace click or a new session search.
+    this.tracesActiveEventKey = `${this.selectedPageGroupIndex}:${eventIdx}`;
+
+    // Strip query strings before searching. Backend spans store url.path
+    // without query params, so passing the full URL with ?StateId=... never
+    // matches. We want to find every trace that hit the same endpoint
+    // regardless of per-request parameters.
+    const stripped = event.urlFull.split('?')[0].split('#')[0];
+    this.findTraces.emit({
+      urlFull: stripped,
+      eventStartTime: event.startTime
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Page group helpers
+  // ------------------------------------------------------------------
 
   groupHasErrors(group: SessionPageGroup): boolean {
     if (group.events.some(e => e.isFailed)) return true;
@@ -128,14 +166,17 @@ export class SessionResultsComponent implements OnChanges {
     return Math.max(innerErrors, summaryErrors);
   }
 
+  // ------------------------------------------------------------------
+  // Slow event classification
+  // ------------------------------------------------------------------
+
   /** Slow-request thresholds. Events with duration above these bounds get
    *  amber / red highlighting so performance issues are visually obvious. */
   private static readonly SLOW_NANOS = 1_000_000_000;       // 1s
   private static readonly VERY_SLOW_NANOS = 3_000_000_000;  // 3s
 
   /** Extensions and host fragments that identify static assets for which
-   *  a "Find backend traces" button would be pointless. Kept deliberately
-   *  conservative — anything that might be a real API call passes through. */
+   *  a Trace button would be pointless. */
   private static readonly STATIC_ASSET_EXT_RE =
     /\.(js|mjs|css|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|ico|webp|bmp|map)(\?|$|#)/i;
   private static readonly STATIC_ASSET_HOST_FRAGMENTS = [
@@ -144,22 +185,15 @@ export class SessionResultsComponent implements OnChanges {
     'fonts.gstatic.com'
   ];
 
-  /** True when the event took longer than 1s (but not yet 3s). */
   isSlow(ev: SessionEvent): boolean {
     return ev.durationNanos >= SessionResultsComponent.SLOW_NANOS
       && ev.durationNanos < SessionResultsComponent.VERY_SLOW_NANOS;
   }
 
-  /** True when the event took longer than 3s. */
   isVerySlow(ev: SessionEvent): boolean {
     return ev.durationNanos >= SessionResultsComponent.VERY_SLOW_NANOS;
   }
 
-  /**
-   * True when the event's URL is clearly a static asset (JS/CSS/font/image
-   * bundles, source maps, known CDN hosts). Used to suppress the "Find
-   * backend traces" button on requests where searching would be pointless.
-   */
   private isStaticAsset(ev: SessionEvent): boolean {
     const url = (ev.urlFull || '').toLowerCase();
     if (!url) return false;
@@ -170,11 +204,6 @@ export class SessionResultsComponent implements OnChanges {
     return false;
   }
 
-  /**
-   * True when the event should show a "Find backend traces" button. Applies
-   * to user actions and plain request events that have a URL and aren't
-   * clearly static assets.
-   */
   canFindBackendTraces(ev: SessionEvent): boolean {
     if (!ev.urlFull) return false;
     if (ev.kind !== 'user_action' && ev.kind !== 'request') return false;
@@ -182,7 +211,11 @@ export class SessionResultsComponent implements OnChanges {
     return true;
   }
 
-  /** For the "Duration" column — formats nanoseconds into a short string. */
+  // ------------------------------------------------------------------
+  // Formatting
+  // ------------------------------------------------------------------
+
+  /** Formats nanoseconds to a short duration string (e.g. "84ms", "4.38s"). */
   formatDuration(nanos: number): string {
     if (!nanos) return '—';
     if (nanos < 1_000_000) return `${Math.round(nanos / 1000)}µs`;
@@ -190,7 +223,7 @@ export class SessionResultsComponent implements OnChanges {
     return `${(nanos / 1_000_000_000).toFixed(2)}s`;
   }
 
-  /** Formats a relative offset in ms as mm:ss.SSS */
+  /** Formats a relative offset in ms as +mm:ss.SSS */
   formatRelative(ms: number): string {
     if (!ms) return '+00:00.000';
     const totalSec = Math.floor(ms / 1000);
@@ -211,6 +244,7 @@ export class SessionResultsComponent implements OnChanges {
     return `${min}m ${sec}s`;
   }
 
+  /** Full localized timestamp for the session header (with date). */
   formatTimestamp(iso: string): string {
     if (!iso) return '';
     const d = new Date(iso);
@@ -220,7 +254,16 @@ export class SessionResultsComponent implements OnChanges {
     });
   }
 
-  /** Icon character per event kind. Text-based so no icon library needed. */
+  /** Time-of-day only, used in the two-line time display next to events
+   *  and page groups. e.g. "09:48:17 p.m." */
+  formatTimeOfDay(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleTimeString('en-CA', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+
   eventIcon(kind: string): string {
     if (kind === 'user_action') return '▶';
     if (kind === 'error') return '✕';
@@ -231,7 +274,10 @@ export class SessionResultsComponent implements OnChanges {
   trackGroup = (_: number, g: SessionPageGroup) => `${g.startTime}|${g.pageName}`;
   trackEvent = (_: number, e: SessionEvent) => `${e.startTime}|${e.label}`;
 
-  /** Returns the keys of the selected event's raw record, for the detail panel. */
+  // ------------------------------------------------------------------
+  // Detail panel
+  // ------------------------------------------------------------------
+
   selectedEventKeys(): string[] {
     if (!this.selectedEvent) return [];
     return Object.keys(this.selectedEvent.raw)
@@ -242,7 +288,6 @@ export class SessionResultsComponent implements OnChanges {
       .sort();
   }
 
-  /** Looks up a field on the selected event's raw record. */
   selectedEventValue(key: string): string {
     if (!this.selectedEvent) return '';
     const v = this.selectedEvent.raw[key];
