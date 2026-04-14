@@ -86,7 +86,7 @@
           <div class="event-duration">{{ formatDuration(ev.durationNanos) }}</div>
           <div class="event-actions">
             <button
-              *ngIf="ev.kind === 'user_action' && ev.urlFull"
+              *ngIf="canFindBackendTraces(ev)"
               class="find-traces-btn"
               (click)="onFindTracesClick(ev, $event)"
               title="Search backend traces for this URL">

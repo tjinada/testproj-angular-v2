@@ -130,6 +130,17 @@ export class SessionResultsComponent implements OnChanges {
   private static readonly SLOW_NANOS = 1_000_000_000;       // 1s
   private static readonly VERY_SLOW_NANOS = 3_000_000_000;  // 3s
 
+  /** Extensions and host fragments that identify static assets for which
+   *  a "Find backend traces" button would be pointless. Kept deliberately
+   *  conservative — anything that might be a real API call passes through. */
+  private static readonly STATIC_ASSET_EXT_RE =
+    /\.(js|mjs|css|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|ico|webp|bmp|map)(\?|$|#)/i;
+  private static readonly STATIC_ASSET_HOST_FRAGMENTS = [
+    'cdn.cookielaw.org',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com'
+  ];
+
   /** True when the event took longer than 1s (but not yet 3s). */
   isSlow(ev: SessionEvent): boolean {
     return ev.durationNanos >= SessionResultsComponent.SLOW_NANOS
@@ -139,6 +150,33 @@ export class SessionResultsComponent implements OnChanges {
   /** True when the event took longer than 3s. */
   isVerySlow(ev: SessionEvent): boolean {
     return ev.durationNanos >= SessionResultsComponent.VERY_SLOW_NANOS;
+  }
+
+  /**
+   * True when the event's URL is clearly a static asset (JS/CSS/font/image
+   * bundles, source maps, known CDN hosts). Used to suppress the "Find
+   * backend traces" button on requests where searching would be pointless.
+   */
+  private isStaticAsset(ev: SessionEvent): boolean {
+    const url = (ev.urlFull || '').toLowerCase();
+    if (!url) return false;
+    if (SessionResultsComponent.STATIC_ASSET_EXT_RE.test(url)) return true;
+    for (const frag of SessionResultsComponent.STATIC_ASSET_HOST_FRAGMENTS) {
+      if (url.includes(frag)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * True when the event should show a "Find backend traces" button. Applies
+   * to user actions and plain request events that have a URL and aren't
+   * clearly static assets.
+   */
+  canFindBackendTraces(ev: SessionEvent): boolean {
+    if (!ev.urlFull) return false;
+    if (ev.kind !== 'user_action' && ev.kind !== 'request') return false;
+    if (this.isStaticAsset(ev)) return false;
+    return true;
   }
 
   /** For the "Duration" column — formats nanoseconds into a short string. */
