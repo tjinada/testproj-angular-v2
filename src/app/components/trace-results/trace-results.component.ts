@@ -21,7 +21,6 @@ export class TraceResultsComponent implements OnChanges {
   showMessagePopup = false;
   showStackPopup = false;
   showCapturedExceptions = false;
-  copiedValue: string | null = null;
 
   errorSummary: ErrorSummary | null = null;
   successSummary: SuccessSummary | null = null;
@@ -42,18 +41,6 @@ export class TraceResultsComponent implements OnChanges {
 
   toggleCapturedExceptions(): void {
     this.showCapturedExceptions = !this.showCapturedExceptions;
-  }
-
-  copyToClipboard(value: string | undefined | null): void {
-    if (!value) return;
-    navigator.clipboard.writeText(value).then(() => {
-      this.copiedValue = value;
-      setTimeout(() => {
-        if (this.copiedValue === value) this.copiedValue = null;
-      }, 1500);
-    }).catch(() => {
-      // Clipboard API can fail in non-secure contexts; swallow silently
-    });
   }
 
   private analyzeTrace(): void {
@@ -97,8 +84,7 @@ export class TraceResultsComponent implements OnChanges {
       errorPath: analyzer.buildErrorPath(),
       errorMessage: this.extractErrorMessage(rootCause),
       stackTrace: this.extractStackTrace(rootCause),
-      timestamp: this.formatTimestamp(rootCause['start_time']),
-      requestId: this.findRootRequestId(analyzer)
+      timestamp: this.formatTimestamp(rootCause['start_time'])
     };
   }
 
@@ -117,27 +103,8 @@ export class TraceResultsComponent implements OnChanges {
       httpStatus,
       duration: this.formatDuration(durationNanos),
       spanCount: this.spans.length,
-      timestamp: root ? this.formatTimestamp(root['start_time']) : '',
-      requestId: this.findRootRequestId(analyzer)
+      timestamp: root ? this.formatTimestamp(root['start_time']) : ''
     };
-  }
-
-  /**
-   * Pulls the x-request-id from the root span if present. Falls back to
-   * scanning all spans for the first one found, since some traces have
-   * the header propagated from a downstream span rather than the entry
-   * point itself (rare, but worth handling).
-   */
-  private findRootRequestId(analyzer: TraceAnalyzer): string | undefined {
-    const root = analyzer.findRootSpan();
-    const fromRoot = root && (root['http.request.header.x-request-id'] as string | undefined);
-    if (fromRoot) return fromRoot;
-
-    for (const s of this.spans) {
-      const rid = s['http.request.header.x-request-id'] as string | undefined;
-      if (rid) return rid;
-    }
-    return undefined;
   }
 
   private extractErrorMessage(span: SpanRecord): string {
