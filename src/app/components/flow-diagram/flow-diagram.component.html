@@ -167,6 +167,19 @@
               <span class="flow-drawer-meta-label">WAS Server</span>
               <span class="flow-drawer-meta-value">{{ node.websphereServer }}</span>
             </div>
+            <div class="flow-drawer-meta-item" *ngIf="nodeRequestIds().length > 0">
+              <span class="flow-drawer-meta-label">X-Request-ID</span>
+              <div class="flow-drawer-request-ids">
+                <span *ngFor="let rid of nodeRequestIds()"
+                      class="flow-drawer-request-id"
+                      [class.flow-drawer-request-id-copied]="copiedValue() === rid"
+                      (click)="copyToClipboard(rid)"
+                      title="Click to copy">
+                  {{ rid }}
+                  <span class="flow-drawer-copy-flash" *ngIf="copiedValue() === rid">Copied</span>
+                </span>
+              </div>
+            </div>
             <div class="flow-drawer-meta-item" *ngIf="nodeEndpoints().length > 0">
               <span class="flow-drawer-meta-label">Endpoints</span>
               <div class="flow-drawer-endpoints">

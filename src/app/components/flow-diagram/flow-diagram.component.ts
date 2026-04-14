@@ -224,6 +224,42 @@ export class FlowDiagramComponent implements OnChanges {
   });
 
   /**
+   * Distinct x-request-id header values found across the selected node's
+   * spans. Usually one per node (the inbound request that hit the service)
+   * but can be more if the node served multiple requests in the same trace.
+   * Order is preserved from first occurrence in the spans array.
+   */
+  nodeRequestIds = computed<string[]>(() => {
+    const node = this.selectedNode();
+    if (!node || node.isExternal || !node.spans?.length) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const s of node.spans) {
+      const rid = s['http.request.header.x-request-id'] as string | undefined;
+      if (!rid) continue;
+      if (seen.has(rid)) continue;
+      seen.add(rid);
+      out.push(rid);
+    }
+    return out;
+  });
+
+  /** Tracks the most recently copied value so the UI can flash a confirmation. */
+  copiedValue = signal<string | null>(null);
+
+  copyToClipboard(value: string): void {
+    if (!value) return;
+    navigator.clipboard.writeText(value).then(() => {
+      this.copiedValue.set(value);
+      setTimeout(() => {
+        if (this.copiedValue() === value) this.copiedValue.set(null);
+      }, 1500);
+    }).catch(() => {
+      // Clipboard API can fail in non-secure contexts; swallow silently
+    });
+  }
+
+  /**
    * Enriched endpoint list for the drawer metadata. Shows endpoint name
    * with server.address + url.path underneath when both are available
    * and the endpoint name is not already the path.

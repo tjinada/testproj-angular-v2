@@ -22,7 +22,17 @@
         </svg>
         <span class="header-title">Request Successful</span>
       </div>
-      <span class="header-timestamp">{{ successSummary.timestamp }}</span>
+      <div class="header-right">
+        <span class="header-timestamp">{{ successSummary.timestamp }}</span>
+        <div class="header-request-id" *ngIf="successSummary.requestId"
+             [class.header-request-id-copied]="copiedValue === successSummary.requestId"
+             (click)="copyToClipboard(successSummary.requestId)"
+             title="Click to copy">
+          <span class="header-request-id-label">X-Request-ID:</span>
+          <span class="header-request-id-value">{{ successSummary.requestId }}</span>
+          <span class="header-copy-flash" *ngIf="copiedValue === successSummary.requestId">Copied</span>
+        </div>
+      </div>
     </div>
 
     <div class="card-body">
@@ -100,7 +110,17 @@
         </svg>
         <span class="header-title">Error Summary</span>
       </div>
-      <span class="header-timestamp">{{ errorSummary.timestamp }}</span>
+      <div class="header-right">
+        <span class="header-timestamp">{{ errorSummary.timestamp }}</span>
+        <div class="header-request-id" *ngIf="errorSummary.requestId"
+             [class.header-request-id-copied]="copiedValue === errorSummary.requestId"
+             (click)="copyToClipboard(errorSummary.requestId)"
+             title="Click to copy">
+          <span class="header-request-id-label">X-Request-ID:</span>
+          <span class="header-request-id-value">{{ errorSummary.requestId }}</span>
+          <span class="header-copy-flash" *ngIf="copiedValue === errorSummary.requestId">Copied</span>
+        </div>
+      </div>
     </div>
 
     <!-- Content -->

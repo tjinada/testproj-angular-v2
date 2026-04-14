@@ -188,6 +188,7 @@ export interface ErrorSummary {
   errorMessage: string;
   stackTrace: string;
   timestamp: string;
+  requestId?: string;
 }
 
 /** Processed success summary for display (trace succeeded overall) */
@@ -199,6 +200,7 @@ export interface SuccessSummary {
   duration: string;         // formatted duration string (e.g. "4.27s")
   spanCount: number;
   timestamp: string;
+  requestId?: string;
 }
 
 /**
