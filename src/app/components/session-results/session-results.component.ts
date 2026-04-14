@@ -40,11 +40,6 @@ export class SessionResultsComponent implements OnChanges {
   selectedEventKey: string | null = null;
   selectedEvent: SessionEvent | null = null;
 
-  /** Set of group indices where the user has chosen to show HTTP request events.
-   *  Requests are hidden by default because static asset loads (.js/.css/fonts)
-   *  drown out the meaningful events. */
-  private requestsVisibleGroups = new Set<number>();
-
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['events']) {
       this.analyzeSession();
@@ -83,30 +78,6 @@ export class SessionResultsComponent implements OnChanges {
 
   isGroupExpanded(index: number): boolean {
     return this.expandedGroupIndex === index;
-  }
-
-  /** Returns the events for a group, filtered by the per-group "show requests" toggle. */
-  visibleEvents(group: SessionPageGroup, groupIdx: number): SessionEvent[] {
-    if (this.requestsVisibleGroups.has(groupIdx)) return group.events;
-    return group.events.filter(e => e.kind !== 'request');
-  }
-
-  /** Number of HTTP request events hidden in a group (for the toggle label). */
-  hiddenRequestCount(group: SessionPageGroup): number {
-    return group.events.filter(e => e.kind === 'request').length;
-  }
-
-  toggleRequests(groupIdx: number, mouseEvent: MouseEvent): void {
-    mouseEvent.stopPropagation();
-    if (this.requestsVisibleGroups.has(groupIdx)) {
-      this.requestsVisibleGroups.delete(groupIdx);
-    } else {
-      this.requestsVisibleGroups.add(groupIdx);
-    }
-  }
-
-  areRequestsVisible(groupIdx: number): boolean {
-    return this.requestsVisibleGroups.has(groupIdx);
   }
 
   onEventClick(groupIdx: number, eventIdx: number, event: SessionEvent): void {
@@ -154,6 +125,22 @@ export class SessionResultsComponent implements OnChanges {
     return Math.max(innerErrors, summaryErrors);
   }
 
+  /** Slow-request thresholds. Events with duration above these bounds get
+   *  amber / red highlighting so performance issues are visually obvious. */
+  private static readonly SLOW_NANOS = 1_000_000_000;       // 1s
+  private static readonly VERY_SLOW_NANOS = 3_000_000_000;  // 3s
+
+  /** True when the event took longer than 1s (but not yet 3s). */
+  isSlow(ev: SessionEvent): boolean {
+    return ev.durationNanos >= SessionResultsComponent.SLOW_NANOS
+      && ev.durationNanos < SessionResultsComponent.VERY_SLOW_NANOS;
+  }
+
+  /** True when the event took longer than 3s. */
+  isVerySlow(ev: SessionEvent): boolean {
+    return ev.durationNanos >= SessionResultsComponent.VERY_SLOW_NANOS;
+  }
+
   /** For the "Duration" column — formats nanoseconds into a short string. */
   formatDuration(nanos: number): string {
     if (!nanos) return '—';
@@ -190,20 +177,6 @@ export class SessionResultsComponent implements OnChanges {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
-  }
-
-  /** Maps a web vital status string to a short badge label. */
-  webVitalLabel(status: string): string {
-    if (!status || status === 'not_reported') return '—';
-    return status.replace('_', ' ');
-  }
-
-  /** CSS class for a web vital status badge. */
-  webVitalClass(status: string): string {
-    if (status === 'good') return 'wv-good';
-    if (status === 'needs_improvement') return 'wv-warn';
-    if (status === 'poor') return 'wv-bad';
-    return 'wv-none';
   }
 
   /** Icon character per event kind. Text-based so no icon library needed. */

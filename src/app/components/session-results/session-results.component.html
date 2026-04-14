@@ -57,35 +57,6 @@
           <div class="page-group-name">{{ group.pageName }}</div>
           <div *ngIf="group.pageTitle" class="page-group-subtitle">{{ group.pageTitle }}</div>
         </div>
-        <div class="page-group-vitals">
-          <span
-            *ngIf="group.webVitals.lcp && group.webVitals.lcp !== 'not_reported'"
-            class="wv-badge"
-            [ngClass]="webVitalClass(group.webVitals.lcp)"
-            title="Largest Contentful Paint">
-            LCP {{ webVitalLabel(group.webVitals.lcp) }}
-          </span>
-          <span
-            *ngIf="group.webVitals.fcp && group.webVitals.fcp !== 'not_reported'"
-            class="wv-badge"
-            [ngClass]="webVitalClass(group.webVitals.fcp)"
-            title="First Contentful Paint">
-            FCP {{ webVitalLabel(group.webVitals.fcp) }}
-          </span>
-          <span
-            *ngIf="group.webVitals.cls && group.webVitals.cls !== 'not_reported'"
-            class="wv-badge"
-            [ngClass]="webVitalClass(group.webVitals.cls)"
-            title="Cumulative Layout Shift">
-            CLS {{ webVitalLabel(group.webVitals.cls) }}
-          </span>
-          <span
-            *ngIf="group.webVitals.inpDurationMs > 0"
-            class="wv-badge wv-info"
-            title="Interaction to Next Paint">
-            INP {{ group.webVitals.inpDurationMs }}ms
-          </span>
-        </div>
         <div class="page-group-counts">
           <span class="count-badge" [title]="group.events.length + ' events'">
             {{ group.events.length }} {{ group.events.length === 1 ? 'event' : 'events' }}
@@ -98,20 +69,15 @@
 
       <!-- Expanded body -->
       <div *ngIf="isGroupExpanded(gi)" class="page-group-body">
-        <!-- Show requests toggle, only when there are any request events -->
-        <div *ngIf="hiddenRequestCount(group) > 0" class="requests-toggle-row">
-          <button class="requests-toggle-btn" (click)="toggleRequests(gi, $event)">
-            {{ areRequestsVisible(gi) ? 'Hide' : 'Show' }}
-            {{ hiddenRequestCount(group) }} HTTP request{{ hiddenRequestCount(group) === 1 ? '' : 's' }}
-          </button>
-        </div>
-        <div *ngIf="visibleEvents(group, gi).length === 0" class="page-group-empty">
+        <div *ngIf="group.events.length === 0" class="page-group-empty">
           No user actions or errors recorded on this page.
         </div>
         <div
-          *ngFor="let ev of visibleEvents(group, gi); let ei = index; trackBy: trackEvent"
+          *ngFor="let ev of group.events; let ei = index; trackBy: trackEvent"
           class="session-event"
           [class.session-event-failed]="ev.isFailed"
+          [class.session-event-slow]="!ev.isFailed && isSlow(ev)"
+          [class.session-event-very-slow]="!ev.isFailed && isVerySlow(ev)"
           [class.session-event-selected]="isEventSelected(gi, ei)"
           (click)="onEventClick(gi, ei, ev)">
           <div class="event-time">{{ formatRelative(ev.relativeMs) }}</div>
