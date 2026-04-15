@@ -165,14 +165,26 @@ function buildDqlQuery(traceId, timeframe) {
 
 /**
  * Returns the Dynatrace config for the given environment.
+ *
+ * When a userToken is provided (individual user token mode), it takes
+ * priority over the .env token. The .env URL is still required — only
+ * the token is user-supplied.
  */
-function getEnvConfig(environment = 'NON-PROD') {
+function getEnvConfig(environment = 'NON-PROD', userToken = null) {
   const config = ENV_CONFIG[environment.toUpperCase()];
-  if (!config || !config.url || !config.token) {
-    throw new Error(`Invalid or missing Dynatrace configuration for environment: ${environment}`);
+  if (!config || !config.url) {
+    throw new Error(`Invalid or missing Dynatrace URL configuration for environment: ${environment}`);
   }
-  config.url = config.url.replace(/\/+$/, '');
-  return config;
+
+  const token = userToken || config.token;
+  if (!token) {
+    throw new Error(`No Dynatrace token available for environment: ${environment}. Please provide a token in settings.`);
+  }
+
+  return {
+    url: config.url.replace(/\/+$/, ''),
+    token
+  };
 }
 
 /**
@@ -252,7 +264,7 @@ function loadMockResponse() {
  * Resolves a request ID to a trace ID by querying Dynatrace spans.
  * Returns the trace ID string, or null if no matching span was found.
  */
-async function findTraceIdByRequestId(requestId, environment, timeframe) {
+async function findTraceIdByRequestId(requestId, environment, timeframe, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
     console.log(`[Mock] Returning mock trace ID for request ID: ${requestId}`);
     const mock = loadMockResponse();
@@ -260,7 +272,7 @@ async function findTraceIdByRequestId(requestId, environment, timeframe) {
     return firstRecord?.['trace.id'] || null;
   }
 
-  const config = getEnvConfig(environment);
+  const config = getEnvConfig(environment, userToken);
   const query = buildRequestIdLookupQuery(requestId, timeframe);
 
   console.log(`[Dynatrace] Looking up trace ID for request ID: ${requestId} in ${environment}`);
@@ -284,13 +296,13 @@ async function findTraceIdByRequestId(requestId, environment, timeframe) {
  * If USE_MOCK is enabled, returns the mock response.
  * Otherwise, performs the 2-step execute + poll pattern against Dynatrace.
  */
-async function fetchTraceById(traceId, environment, timeframe) {
+async function fetchTraceById(traceId, environment, timeframe, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
     console.log(`[Mock] Returning mock response for trace: ${traceId}`);
     return loadMockResponse();
   }
 
-  const config = getEnvConfig(environment);
+  const config = getEnvConfig(environment, userToken);
   const query = buildDqlQuery(traceId, timeframe);
 
   console.log(`[Dynatrace] Executing query for trace: ${traceId} in ${environment}`);
@@ -309,7 +321,7 @@ async function fetchTraceById(traceId, environment, timeframe) {
  * by most recent first. When hostExact is true, uses exact hostname match
  * so cross-environment pollution is avoided.
  */
-async function searchTracesByUrl(url, environment, timeframe, hostExact = false) {
+async function searchTracesByUrl(url, environment, timeframe, hostExact = false, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
     console.log(`[Mock] Returning mock URL search results for: ${url}`);
     const mock = loadMockResponse();
@@ -335,7 +347,7 @@ async function searchTracesByUrl(url, environment, timeframe, hostExact = false)
     throw new Error('Invalid URL: could not parse hostname or path');
   }
 
-  const config = getEnvConfig(environment);
+  const config = getEnvConfig(environment, userToken);
   const query = buildUrlSearchQuery(host, path, timeframe, hostExact);
 
   console.log(`[Dynatrace] Searching traces by URL (host="${host}" hostExact=${hostExact}, path="${path}") in ${environment}`);
@@ -365,13 +377,13 @@ async function searchTracesByUrl(url, environment, timeframe, hostExact = false)
  * Fetches all user.events records for a given RUM session ID.
  * Uses the same execute + poll pattern as trace fetches.
  */
-async function fetchSessionEvents(sessionId, environment, timeframe) {
+async function fetchSessionEvents(sessionId, environment, timeframe, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
     console.log(`[Mock] Returning empty mock session events for: ${sessionId}`);
     return [];
   }
 
-  const config = getEnvConfig(environment);
+  const config = getEnvConfig(environment, userToken);
   const query = buildSessionQuery(sessionId, timeframe);
 
   console.log(`[Dynatrace] Fetching session events for session: ${sessionId} in ${environment}`);

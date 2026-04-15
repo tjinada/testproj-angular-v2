@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { DynatraceResponse, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
+import { ConfigService } from './config.service';
 
 export interface RequestIdLookupResponse {
   traceId: string;
@@ -16,12 +17,56 @@ export interface SessionResponse {
   events: UserEventRecord[];
 }
 
+/** localStorage key prefix for user-provided Dynatrace tokens. */
+const TOKEN_STORAGE_PREFIX = 'dt-token-';
+
 @Injectable({ providedIn: 'root' })
 export class DynatraceService {
 
   private apiUrl = '/api/traces';
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private configService: ConfigService
+  ) {}
+
+  // ── Token helpers ──────────────────────────────────────────────────
+
+  /**
+   * Returns the user-provided token for the given environment from
+   * localStorage, or null if not set.
+   */
+  static getStoredToken(environment: string): string | null {
+    const raw = localStorage.getItem(TOKEN_STORAGE_PREFIX + environment);
+    return raw?.trim() || null;
+  }
+
+  /**
+   * Persists a user-provided token for the given environment.
+   */
+  static saveToken(environment: string, token: string): void {
+    localStorage.setItem(TOKEN_STORAGE_PREFIX + environment, token.trim());
+  }
+
+  /**
+   * Removes the stored token for the given environment.
+   */
+  static removeToken(environment: string): void {
+    localStorage.removeItem(TOKEN_STORAGE_PREFIX + environment);
+  }
+
+  /**
+   * Returns the userToken to include in API requests, or undefined when
+   * individual token mode is off (so the backend uses its .env token).
+   */
+  private getUserToken(environment: string): string | undefined {
+    if (!this.configService.isIndividualUserToken()) {
+      return undefined;
+    }
+    return DynatraceService.getStoredToken(environment) || undefined;
+  }
+
+  // ── API methods ────────────────────────────────────────────────────
 
   /**
    * Fetches trace data from the backend by trace ID.
@@ -30,7 +75,8 @@ export class DynatraceService {
   fetchTrace(traceId: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<DynatraceResponse> {
     return this.http.post<DynatraceResponse>(`${this.apiUrl}/${traceId}`, {
       environment,
-      timeframe
+      timeframe,
+      userToken: this.getUserToken(environment)
     });
   }
 
@@ -41,7 +87,8 @@ export class DynatraceService {
     return this.http.post<RequestIdLookupResponse>(`${this.apiUrl}/lookup-by-request-id`, {
       requestId,
       environment,
-      timeframe
+      timeframe,
+      userToken: this.getUserToken(environment)
     });
   }
 
@@ -63,7 +110,8 @@ export class DynatraceService {
       url,
       environment,
       timeframe,
-      hostExact
+      hostExact,
+      userToken: this.getUserToken(environment)
     });
   }
 
@@ -74,7 +122,8 @@ export class DynatraceService {
   fetchSession(sessionId: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<SessionResponse> {
     return this.http.post<SessionResponse>(`${this.apiUrl}/session/${sessionId}`, {
       environment,
-      timeframe
+      timeframe,
+      userToken: this.getUserToken(environment)
     });
   }
 }

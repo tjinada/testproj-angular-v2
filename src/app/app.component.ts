@@ -5,6 +5,7 @@ import { SearchComponent, SearchEvent } from './components/search/search.compone
 import { TraceResultsComponent } from './components/trace-results/trace-results.component';
 import { TraceResultsTableComponent } from './components/trace-results-table/trace-results-table.component';
 import { SessionResultsComponent } from './components/session-results/session-results.component';
+import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
 import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
@@ -12,10 +13,23 @@ import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/tra
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent],
   template: `
     <div class="app-container">
-      <h1 class="app-title">TESTPROJ Error Analyzer</h1>
+      <div class="app-header-row">
+        <h1 class="app-title">TESTPROJ Error Analyzer</h1>
+        <button
+          *ngIf="showSettingsGear"
+          class="settings-btn"
+          (click)="openSettings()"
+          title="Token Settings">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" stroke="#6b7280" stroke-width="1.5"/>
+            <path d="M16.2 12.2a1.4 1.4 0 00.28 1.54l.05.05a1.7 1.7 0 01-1.2 2.9 1.7 1.7 0 01-1.2-.5l-.05-.05a1.4 1.4 0 00-1.54-.28 1.4 1.4 0 00-.84 1.28v.14a1.7 1.7 0 01-3.4 0v-.08a1.4 1.4 0 00-.92-1.28 1.4 1.4 0 00-1.54.28l-.05.05a1.7 1.7 0 01-2.4-2.4l.05-.05a1.4 1.4 0 00.28-1.54 1.4 1.4 0 00-1.28-.84H2.3a1.7 1.7 0 010-3.4h.08a1.4 1.4 0 001.28-.92 1.4 1.4 0 00-.28-1.54l-.05-.05a1.7 1.7 0 012.4-2.4l.05.05a1.4 1.4 0 001.54.28h.07a1.4 1.4 0 00.84-1.28V2.3a1.7 1.7 0 013.4 0v.08a1.4 1.4 0 00.84 1.28 1.4 1.4 0 001.54-.28l.05-.05a1.7 1.7 0 012.4 2.4l-.05.05a1.4 1.4 0 00-.28 1.54v.07a1.4 1.4 0 001.28.84h.14a1.7 1.7 0 010 3.4h-.08a1.4 1.4 0 00-1.28.84z"
+              stroke="#6b7280" stroke-width="1.5"/>
+          </svg>
+        </button>
+      </div>
 
       <div *ngIf="configLoaded" class="env-row" [class.env-row-prod]="isProd()">
         <label for="env-select" class="env-label">Environment:</label>
@@ -29,38 +43,60 @@ import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/tra
         <span *ngIf="isProd()" class="env-prod-badge">PROD</span>
       </div>
 
-      <app-search (search)="onSearch($event)"></app-search>
-      <div *ngIf="resolvedFromRequestId" class="resolved-banner">
-        Found trace <code>{{ resolvedFromRequestId.traceId }}</code>
-        for request <code>{{ resolvedFromRequestId.requestId }}</code>
-        in <strong>{{ currentEnvLabel() }}</strong>
-      </div>
+      <!-- Token setup modal (first-time) -->
+      <app-token-setup
+        *ngIf="showTokenSetup"
+        [mode]="'setup'"
+        [environments]="nonProdEnvironments"
+        [tokenUrls]="tokenUrls"
+        (saved)="onTokenSetupDone()">
+      </app-token-setup>
 
-      <app-session-results
-        [events]="sessionEvents"
-        [isLoading]="isLoading && lastSearchMode === 'session'"
-        [errorMsg]="errorMsg"
-        (findTraces)="onFindBackendTraces($event)">
-      </app-session-results>
+      <!-- Token settings modal (gear) -->
+      <app-token-setup
+        *ngIf="showTokenSettings"
+        [mode]="'settings'"
+        [environments]="environments"
+        [tokenUrls]="tokenUrls"
+        (saved)="onTokenSettingsDone()"
+        (closed)="onTokenSettingsDone()">
+      </app-token-setup>
 
-      <div *ngIf="tracesFromSessionUrl" class="resolved-banner">
-        Backend traces matching <code>{{ tracesFromSessionUrl }}</code>
-      </div>
+      <!-- Main app content (hidden when setup modal is blocking) -->
+      <ng-container *ngIf="!showTokenSetup">
+        <app-search (search)="onSearch($event)"></app-search>
+        <div *ngIf="resolvedFromRequestId" class="resolved-banner">
+          Found trace <code>{{ resolvedFromRequestId.traceId }}</code>
+          for request <code>{{ resolvedFromRequestId.requestId }}</code>
+          in <strong>{{ currentEnvLabel() }}</strong>
+        </div>
 
-      <app-trace-results-table
-        [results]="urlSearchResults"
-        [selectedTraceId]="selectedTraceId"
-        [limitReached]="urlSearchLimitReached"
-        (resultClick)="onUrlResultClick($event)">
-      </app-trace-results-table>
+        <app-session-results
+          [events]="sessionEvents"
+          [isLoading]="isLoading && lastSearchMode === 'session'"
+          [errorMsg]="errorMsg"
+          (findTraces)="onFindBackendTraces($event)">
+        </app-session-results>
 
-      <app-trace-results
-        [spans]="spans"
-        [isLoading]="isLoading"
-        [errorMsg]="errorMsg"
-        [environment]="environment"
-        [envHostnamePatterns]="envHostnamePatterns">
-      </app-trace-results>
+        <div *ngIf="tracesFromSessionUrl" class="resolved-banner">
+          Backend traces matching <code>{{ tracesFromSessionUrl }}</code>
+        </div>
+
+        <app-trace-results-table
+          [results]="urlSearchResults"
+          [selectedTraceId]="selectedTraceId"
+          [limitReached]="urlSearchLimitReached"
+          (resultClick)="onUrlResultClick($event)">
+        </app-trace-results-table>
+
+        <app-trace-results
+          [spans]="spans"
+          [isLoading]="isLoading"
+          [errorMsg]="errorMsg"
+          [environment]="environment"
+          [envHostnamePatterns]="envHostnamePatterns">
+        </app-trace-results>
+      </ng-container>
     </div>
   `,
   styles: [`
@@ -69,11 +105,33 @@ import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/tra
       margin: 0 auto;
       padding: 24px 16px;
     }
+    .app-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
     .app-title {
       font-size: 20px;
       font-weight: 600;
       color: #1B4F72;
-      margin: 0 0 20px 0;
+      margin: 0;
+    }
+    .settings-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .settings-btn:hover {
+      background: #f3f4f6;
+      border-color: #d1d5db;
     }
     .env-row {
       display: flex;
@@ -154,6 +212,12 @@ export class AppComponent implements OnInit {
   resolvedFromRequestId: { traceId: string; requestId: string } | null = null;
   configLoaded = false;
 
+  // Token management
+  showTokenSetup = false;
+  showTokenSettings = false;
+  showSettingsGear = false;
+  tokenUrls: Record<string, string> = {};
+
   // URL search state
   urlSearchResults: TraceMatch[] = [];
   urlSearchLimitReached = false;
@@ -175,13 +239,31 @@ export class AppComponent implements OnInit {
     await this.configService.load();
     this.envHostnamePatterns = this.configService.getEnvHostnamePatterns();
     this.environments = this.configService.getEnvironments();
+    this.tokenUrls = this.configService.getTokenUrls();
+
     // Always default to Non-Prod every session, regardless of what's available.
     const nonProd = this.environments.find(e => !e.isProd);
     this.environment = nonProd ? nonProd.id : (this.environments[0]?.id || 'NON-PROD');
     this.configLoaded = true;
+
+    // Token setup: if individual user tokens are enabled, check if the
+    // required (non-prod) token exists. If not, show the setup modal.
+    if (this.configService.isIndividualUserToken()) {
+      this.showSettingsGear = true;
+      const requiredEnvId = nonProd?.id || 'NON-PROD';
+      if (!DynatraceService.getStoredToken(requiredEnvId)) {
+        this.showTokenSetup = true;
+      }
+    }
+
     // Force a change detection pass — without this, the env-row may not
     // render until a user interaction triggers CD (zone.js timing issue).
     this.cdr.detectChanges();
+  }
+
+  /** Non-prod environments only — used for the first-time setup modal */
+  get nonProdEnvironments(): EnvironmentOption[] {
+    return this.environments.filter(e => !e.isProd);
   }
 
   isProd(): boolean {
@@ -192,6 +274,22 @@ export class AppComponent implements OnInit {
   currentEnvLabel(): string {
     return this.environments.find(e => e.id === this.environment)?.label || this.environment;
   }
+
+  // ── Token modal handlers ───────────────────────────────────────────
+
+  openSettings(): void {
+    this.showTokenSettings = true;
+  }
+
+  onTokenSetupDone(): void {
+    this.showTokenSetup = false;
+  }
+
+  onTokenSettingsDone(): void {
+    this.showTokenSettings = false;
+  }
+
+  // ── Search handlers ────────────────────────────────────────────────
 
   onSearch(event: SearchEvent): void {
     this.isLoading = true;

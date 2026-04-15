@@ -23,7 +23,22 @@ router.get('/', (req, res) => {
     environments.push({ id: 'PROD', label: 'Prod', isProd: true });
   }
 
-  res.json({ envHostnamePatterns, environments });
+  // Individual user token mode: when enabled, users provide their own
+  // Dynatrace platform tokens via the UI instead of relying on .env tokens.
+  const individualUserToken = process.env.INDIVIDUAL_USER_TOKEN === 'true';
+
+  // Token management URLs per environment (shown in UI instructions)
+  const tokenUrls = {};
+  if (individualUserToken) {
+    if (process.env.DYNATRACE_NONPROD_TOKEN_URL) {
+      tokenUrls['NON-PROD'] = process.env.DYNATRACE_NONPROD_TOKEN_URL;
+    }
+    if (process.env.DYNATRACE_PROD_TOKEN_URL) {
+      tokenUrls['PROD'] = process.env.DYNATRACE_PROD_TOKEN_URL;
+    }
+  }
+
+  res.json({ envHostnamePatterns, environments, individualUserToken, tokenUrls });
 });
 
 module.exports = router;

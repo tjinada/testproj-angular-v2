@@ -11,6 +11,8 @@ export interface EnvironmentOption {
 interface AppConfig {
   envHostnamePatterns: string[];
   environments: EnvironmentOption[];
+  individualUserToken: boolean;
+  tokenUrls: Record<string, string>;
 }
 
 const DEFAULT_ENVIRONMENTS: EnvironmentOption[] = [
@@ -21,7 +23,9 @@ const DEFAULT_ENVIRONMENTS: EnvironmentOption[] = [
 export class ConfigService {
   private readonly _config = signal<AppConfig>({
     envHostnamePatterns: [],
-    environments: DEFAULT_ENVIRONMENTS
+    environments: DEFAULT_ENVIRONMENTS,
+    individualUserToken: false,
+    tokenUrls: {}
   });
   readonly config = this._config.asReadonly();
 
@@ -39,7 +43,9 @@ export class ConfigService {
         envHostnamePatterns: cfg?.envHostnamePatterns || [],
         environments: (cfg?.environments && cfg.environments.length > 0)
           ? cfg.environments
-          : DEFAULT_ENVIRONMENTS
+          : DEFAULT_ENVIRONMENTS,
+        individualUserToken: cfg?.individualUserToken === true,
+        tokenUrls: cfg?.tokenUrls || {}
       });
     } catch (err) {
       console.warn('[ConfigService] Failed to load /api/config, using defaults', err);
@@ -52,5 +58,13 @@ export class ConfigService {
 
   getEnvironments(): EnvironmentOption[] {
     return this._config().environments;
+  }
+
+  isIndividualUserToken(): boolean {
+    return this._config().individualUserToken;
+  }
+
+  getTokenUrls(): Record<string, string> {
+    return this._config().tokenUrls;
   }
 }

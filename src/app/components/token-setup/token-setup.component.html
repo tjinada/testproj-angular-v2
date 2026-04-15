@@ -1,0 +1,89 @@
+<div class="token-overlay" (click)="mode === 'settings' ? onClose() : null">
+  <div class="token-modal" (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="token-header">
+      <span class="token-header-title">
+        {{ mode === 'setup' ? 'Dynatrace Token Setup' : 'Token Settings' }}
+      </span>
+      <button *ngIf="mode === 'settings'" class="token-close" (click)="onClose()">&times;</button>
+    </div>
+
+    <!-- Body -->
+    <div class="token-body">
+
+      <!-- Instructions (setup mode) -->
+      <div class="token-instructions" *ngIf="mode === 'setup'">
+        <p class="token-intro">
+          This tool uses the Dynatrace API to fetch trace data. You need to create a personal
+          platform token with <strong>Read</strong> access.
+        </p>
+      </div>
+
+      <!-- Environment token sections -->
+      <div *ngFor="let env of environments" class="token-env-section">
+        <div class="token-env-header">
+          <span class="token-env-label">{{ env.label }} Token</span>
+          <span *ngIf="!env.isProd && mode === 'setup'" class="token-required-badge">Required</span>
+          <span *ngIf="env.isProd" class="token-optional-badge">Optional</span>
+          <span *ngIf="hasStoredToken(env.id)" class="token-saved-badge">Saved</span>
+        </div>
+
+        <!-- Step-by-step instructions -->
+        <ol class="token-steps" *ngIf="getTokenUrl(env.id)">
+          <li>
+            Navigate to
+            <a class="token-link" [href]="getTokenUrl(env.id)" target="_blank" rel="noopener">
+              {{ env.label }} Token Management
+            </a>
+          </li>
+          <li>Click <strong>Generate new token</strong></li>
+          <li>In the permissions filter, search <strong>"Read"</strong> and select all Read scopes</li>
+          <li>Generate the token and copy it below</li>
+        </ol>
+
+        <!-- Token input row -->
+        <div class="token-input-row">
+          <input
+            type="password"
+            class="token-input"
+            [placeholder]="'Paste your ' + env.label + ' token'"
+            [(ngModel)]="tokenValues[env.id]"
+            (keyup.enter)="saveToken(env.id)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button
+            class="token-save-btn"
+            (click)="saveToken(env.id)"
+            [disabled]="!tokenValues[env.id]?.trim()">
+            Save
+          </button>
+          <button
+            *ngIf="hasStoredToken(env.id)"
+            class="token-clear-btn"
+            (click)="clearToken(env.id)">
+            Clear
+          </button>
+        </div>
+
+        <!-- Save feedback -->
+        <div *ngIf="savedFeedback[env.id]" class="token-feedback">
+          Token saved successfully.
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div *ngIf="errorMsg" class="token-error">{{ errorMsg }}</div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="token-footer">
+      <button class="token-continue-btn" (click)="onContinue()">
+        {{ mode === 'setup' ? 'Continue to Search' : 'Done' }}
+      </button>
+    </div>
+
+  </div>
+</div>

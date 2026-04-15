@@ -7,14 +7,14 @@ const dynatraceService = require('../services/dynatrace-service');
  * Resolves a request ID to a trace ID via Dynatrace span lookup.
  */
 router.post('/lookup-by-request-id', async (req, res) => {
-  const { requestId, environment = 'NON-PROD', timeframe } = req.body;
+  const { requestId, environment = 'NON-PROD', timeframe, userToken } = req.body;
 
   if (!requestId) {
     return res.status(400).json({ error: 'Request ID is required' });
   }
 
   try {
-    const traceId = await dynatraceService.findTraceIdByRequestId(requestId, environment, timeframe);
+    const traceId = await dynatraceService.findTraceIdByRequestId(requestId, environment, timeframe, userToken);
 
     if (!traceId) {
       return res.status(404).json({ error: 'No trace found for that request ID in the selected time window' });
@@ -41,14 +41,14 @@ router.post('/lookup-by-request-id', async (req, res) => {
  * deduplicated list of trace matches sorted by most recent first.
  */
 router.post('/search-by-url', async (req, res) => {
-  const { url, environment = 'NON-PROD', timeframe, hostExact = false } = req.body;
+  const { url, environment = 'NON-PROD', timeframe, hostExact = false, userToken } = req.body;
 
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
   }
 
   try {
-    const results = await dynatraceService.searchTracesByUrl(url, environment, timeframe, hostExact);
+    const results = await dynatraceService.searchTracesByUrl(url, environment, timeframe, hostExact, userToken);
     res.json({ results });
   } catch (error) {
     console.error(`[Dynatrace] Error searching by URL ${url}:`, error.message);
@@ -71,14 +71,14 @@ router.post('/search-by-url', async (req, res) => {
  */
 router.post('/session/:sessionId', async (req, res) => {
   const { sessionId } = req.params;
-  const { environment = 'NON-PROD', timeframe } = req.body;
+  const { environment = 'NON-PROD', timeframe, userToken } = req.body;
 
   if (!sessionId) {
     return res.status(400).json({ error: 'Session ID is required' });
   }
 
   try {
-    const events = await dynatraceService.fetchSessionEvents(sessionId, environment, timeframe);
+    const events = await dynatraceService.fetchSessionEvents(sessionId, environment, timeframe, userToken);
     res.json({ events });
   } catch (error) {
     console.error(`[Dynatrace] Error fetching session ${sessionId}:`, error.message);
@@ -100,14 +100,14 @@ router.post('/session/:sessionId', async (req, res) => {
  */
 router.post('/:traceId', async (req, res) => {
   const { traceId } = req.params;
-  const { environment = 'NON-PROD', timeframe } = req.body;
+  const { environment = 'NON-PROD', timeframe, userToken } = req.body;
 
   if (!traceId) {
     return res.status(400).json({ error: 'Trace ID is required' });
   }
 
   try {
-    const result = await dynatraceService.fetchTraceById(traceId, environment, timeframe);
+    const result = await dynatraceService.fetchTraceById(traceId, environment, timeframe, userToken);
     res.json(result);
   } catch (error) {
     console.error(`[Dynatrace] Error fetching trace ${traceId}:`, error.message);
