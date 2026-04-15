@@ -109,7 +109,7 @@ function buildUrlSearchQuery(host, path, timeframe, hostExact = false) {
     `    serverAddress = takeFirst(server.address),`,
     `    httpStatus = takeFirst(http.response.status_code),`,
     `    isFailed = countIf(request.is_failed == true) > 0,`,
-    `    hasExceptions = countIf(arraySize(span.events[span_event.name == "exception"]) > 0) > 0,`,
+    `    hasExceptions = countIf(arraySize(arrayFilter(span.events, e -> e[\`span_event.name\`] == "exception")) > 0) > 0,`,
     `    duration = takeFirst(duration)`,
     `  }, by: { trace.id }`,
     `| sort startTime desc`,
