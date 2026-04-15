@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EnvironmentOption } from '../../services/config.service';
@@ -45,6 +45,8 @@ export class TokenSetupComponent implements OnInit {
   /** Error message for validation */
   errorMsg = '';
 
+  constructor(private cdr: ChangeDetectorRef) {}
+
   /** The first non-prod environment — required in setup mode */
   get requiredEnvId(): string {
     const nonProd = this.environments.find(e => !e.isProd);
@@ -81,10 +83,12 @@ export class TokenSetupComponent implements OnInit {
     DynatraceService.saveToken(envId, value);
     this.savedFeedback[envId] = true;
     this.errorMsg = '';
+    this.cdr.detectChanges();
 
     // Clear the "Saved" feedback after 2s
     setTimeout(() => {
       this.savedFeedback[envId] = false;
+      this.cdr.detectChanges();
     }, 2000);
   }
 
@@ -92,6 +96,7 @@ export class TokenSetupComponent implements OnInit {
     DynatraceService.removeToken(envId);
     this.tokenValues[envId] = '';
     this.savedFeedback[envId] = false;
+    this.cdr.detectChanges();
   }
 
   /** Checks whether a token is already persisted in localStorage for this env */
@@ -103,6 +108,7 @@ export class TokenSetupComponent implements OnInit {
   onContinue(): void {
     if (this.mode === 'setup' && !this.hasRequiredToken) {
       this.errorMsg = `A ${this.requiredEnvLabel} token is required to continue.`;
+      this.cdr.detectChanges();
       return;
     }
     this.saved.emit();

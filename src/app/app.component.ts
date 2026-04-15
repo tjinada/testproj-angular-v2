@@ -283,10 +283,12 @@ export class AppComponent implements OnInit {
 
   onTokenSetupDone(): void {
     this.showTokenSetup = false;
+    this.cdr.detectChanges();
   }
 
   onTokenSettingsDone(): void {
     this.showTokenSettings = false;
+    this.cdr.detectChanges();
   }
 
   // ── Search handlers ────────────────────────────────────────────────
