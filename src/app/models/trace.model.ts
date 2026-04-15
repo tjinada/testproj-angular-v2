@@ -10,6 +10,7 @@ export interface TraceMatch {
   serverAddress: string;
   httpStatus: string;
   isFailed: boolean;
+  hasExceptions: boolean;
   duration: number;
 }
 

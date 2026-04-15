@@ -34,6 +34,11 @@
             <span class="status-badge" [class.status-badge-failed]="r.isFailed">
               {{ r.httpStatus || '—' }}
             </span>
+            <span *ngIf="r.hasExceptions && !r.isFailed"
+                  class="exceptions-badge"
+                  title="This trace contains captured exceptions">
+              ⚠ exceptions
+            </span>
           </td>
           <td class="cell-truncate" [title]="r.service">{{ r.service || '—' }}</td>
           <td class="cell-truncate" [title]="r.endpoint">{{ r.endpoint || '—' }}</td>

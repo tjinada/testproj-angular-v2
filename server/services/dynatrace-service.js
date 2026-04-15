@@ -109,6 +109,7 @@ function buildUrlSearchQuery(host, path, timeframe, hostExact = false) {
     `    serverAddress = takeFirst(server.address),`,
     `    httpStatus = takeFirst(http.response.status_code),`,
     `    isFailed = countIf(request.is_failed == true) > 0,`,
+    `    hasExceptions = countIf(arraySize(span.events[span_event.name == "exception"]) > 0) > 0,`,
     `    duration = takeFirst(duration)`,
     `  }, by: { trace.id }`,
     `| sort startTime desc`,
@@ -320,6 +321,7 @@ async function searchTracesByUrl(url, environment, timeframe, hostExact = false)
       serverAddress: first['server.address'] || '',
       httpStatus: String(first['http.response.status_code'] || ''),
       isFailed: first['request.is_failed'] === true,
+      hasExceptions: false,
       duration: Number(first['duration']) || 0
     }];
   }
@@ -350,6 +352,7 @@ async function searchTracesByUrl(url, environment, timeframe, hostExact = false)
     serverAddress: r['serverAddress'] || '',
     httpStatus: String(r['httpStatus'] || ''),
     isFailed: r['isFailed'] === true,
+    hasExceptions: r['hasExceptions'] === true,
     duration: Number(r['duration']) || 0
   }));
 }
