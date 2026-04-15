@@ -20,6 +20,7 @@
       <select
         class="search-select search-select-right"
         [(ngModel)]="selectedWindowId"
+        (ngModelChange)="onWindowChange()"
         aria-label="Time window">
         <option *ngFor="let window of timeWindows" [ngValue]="window.id">{{ window.label }}</option>
       </select>
@@ -31,6 +32,22 @@
       [disabled]="!inputValue.trim()">
       Search
     </button>
+  </div>
+
+  <!-- Custom time window inputs -->
+  <div class="custom-window" *ngIf="selectedWindowId === customWindowId">
+    <div class="custom-window-fields">
+      <label class="custom-window-field">
+        <span class="custom-window-label">From</span>
+        <input type="datetime-local" [(ngModel)]="customFrom" class="custom-window-input" />
+      </label>
+      <label class="custom-window-field">
+        <span class="custom-window-label">To</span>
+        <input type="datetime-local" [(ngModel)]="customTo" class="custom-window-input" />
+      </label>
+      <span class="custom-window-hint">Max range: 7 days</span>
+    </div>
+    <div class="custom-window-error" *ngIf="customError">{{ customError }}</div>
   </div>
 
   <div class="search-help">
