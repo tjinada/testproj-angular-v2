@@ -321,10 +321,12 @@ export class AppComponent implements OnInit {
             this.errorMsg = 'No traces found for that URL in the selected time window.';
           }
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.errorMsg = err.error?.error || 'Failed to search by URL. Please try again.';
           this.isLoading = false;
+          this.cdr.detectChanges();
         }
       });
       return;
@@ -339,10 +341,12 @@ export class AppComponent implements OnInit {
             this.errorMsg = 'No events found for that session ID in the selected time window. Try widening the time window.';
           }
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.errorMsg = err.error?.error || 'Failed to fetch session data. Please try again.';
           this.isLoading = false;
+          this.cdr.detectChanges();
         }
       });
       return;
@@ -358,6 +362,7 @@ export class AppComponent implements OnInit {
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to look up request ID. Please try again.';
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -394,9 +399,11 @@ export class AppComponent implements OnInit {
         if (this.urlSearchResults.length === 0) {
           this.errorMsg = 'No backend traces found for this URL within ±2 minutes of the session event.';
         }
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to search backend traces. Please try again.';
+        this.cdr.detectChanges();
       }
     });
   }
@@ -448,10 +455,12 @@ export class AppComponent implements OnInit {
           this.errorMsg = 'No spans found for this trace ID. Check the trace ID and try again.';
         }
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to fetch trace data. Please try again.';
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
