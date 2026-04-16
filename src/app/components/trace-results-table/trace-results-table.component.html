@@ -4,10 +4,19 @@
       Found {{ filtered().length }} of {{ results.length }} trace(s)
       <span *ngIf="limitReached" class="results-limit">(showing most recent 100)</span>
     </div>
-    <label class="results-toggle">
-      <input type="checkbox" [(ngModel)]="showFailuresOnly" />
-      Show failures only
-    </label>
+    <div class="results-filters">
+      <label class="results-filter-item" *ngIf="uniqueHosts.length > 1">
+        <span class="results-filter-label">Environment:</span>
+        <select class="results-filter-select" [(ngModel)]="selectedHost" aria-label="Filter by environment">
+          <option value="">All</option>
+          <option *ngFor="let h of uniqueHosts" [value]="h">{{ h }}</option>
+        </select>
+      </label>
+      <label class="results-toggle">
+        <input type="checkbox" [(ngModel)]="showFailuresOnly" />
+        Show failures &amp; exceptions
+      </label>
+    </div>
   </div>
   <div class="results-table-wrap">
     <table class="results-table">
@@ -48,7 +57,7 @@
         </tr>
         <tr *ngIf="filtered().length === 0">
           <td colspan="7" class="results-empty">
-            No failed traces in this result set.
+            No traces match the current filters.
           </td>
         </tr>
       </tbody>

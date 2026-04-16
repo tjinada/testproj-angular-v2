@@ -78,11 +78,12 @@
     </details>
 
     <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
-      <summary class="search-guide-summary">URL search</summary>
+      <summary class="search-guide-summary">URL / URL path search</summary>
       <div class="search-guide-body">
         <ol class="search-guide-steps">
-          <li>In the Network tab, find the affected request and copy its <strong>full URL</strong>.</li>
-          <li>Paste the URL into the search box above and hit Search.</li>
+          <li>In the Network tab, find the affected request.</li>
+          <li>Copy any of: the <strong>full URL</strong>, just the <strong>hostname</strong>, or just the <strong>path</strong> (with or without a leading <code>/</code>).</li>
+          <li>Paste it into the search box above and hit Search.</li>
           <li>From the results table, select the most relevant trace ID (based on your timestamp) to see the details.</li>
         </ol>
         <div class="search-guide-thumb" (click)="openPreview('assets/search-help/url-search.png')" title="Click to enlarge">

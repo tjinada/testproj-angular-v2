@@ -41,6 +41,47 @@
   cursor: pointer;
 }
 
+.results-filters {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.results-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.results-filter-label {
+  font-weight: 600;
+}
+
+.results-filter-select {
+  height: 26px;
+  padding: 0 24px 0 8px;
+  background-color: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  max-width: 240px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3e%3cpath fill='%236b7280' d='M5 7L1.5 3h7z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
+.results-filter-select:hover {
+  border-color: #9ca3af;
+}
+
 .results-table-wrap {
   max-height: 320px;
   overflow: auto;

@@ -1,8 +1,20 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TraceMatch } from '../../models/trace.model';
 
+/**
+ * Presentational component: displays a list of trace matches in a table
+ * with client-side filters and click-to-select behavior.
+ *
+ * Filters available:
+ *   - "Show failures & exceptions": rows where isFailed OR hasExceptions
+ *   - Environment (host) dropdown: exact-match on serverAddress, populated
+ *     with the unique hosts present in the current result set.
+ *
+ * Filters compose (AND). The environment filter resets whenever a new
+ * result set arrives so a stale selection doesn't silently hide rows.
+ */
 @Component({
   selector: 'app-trace-results-table',
   standalone: true,
@@ -10,17 +22,53 @@ import { TraceMatch } from '../../models/trace.model';
   templateUrl: './trace-results-table.component.html',
   styleUrls: ['./trace-results-table.component.scss']
 })
-export class TraceResultsTableComponent {
+export class TraceResultsTableComponent implements OnChanges {
   @Input() results: TraceMatch[] = [];
   @Input() selectedTraceId: string | null = null;
   @Input() limitReached = false;
   @Output() resultClick = new EventEmitter<TraceMatch>();
 
+  /** Toggle: show only rows that failed outright OR captured an exception. */
   showFailuresOnly = false;
 
+  /** Exact-match environment filter. Empty string = no filter (all hosts). */
+  selectedHost = '';
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Reset the environment filter when a new result set arrives. Without
+    // this, a stale selection from a previous search can silently produce
+    // an empty table.
+    if (changes['results']) {
+      this.selectedHost = '';
+    }
+  }
+
+  /**
+   * Distinct, non-empty server addresses from the current results, sorted
+   * alphabetically. Used to populate the environment dropdown.
+   */
+  get uniqueHosts(): string[] {
+    const set = new Set<string>();
+    for (const r of this.results) {
+      if (r.serverAddress) set.add(r.serverAddress);
+    }
+    return Array.from(set).sort();
+  }
+
+  /**
+   * Returns results with all active filters applied. Composes:
+   *   - failures & exceptions toggle (isFailed OR hasExceptions)
+   *   - environment exact-match
+   */
   filtered(): TraceMatch[] {
-    if (!this.showFailuresOnly) return this.results;
-    return this.results.filter(r => r.isFailed);
+    let out = this.results;
+    if (this.showFailuresOnly) {
+      out = out.filter(r => r.isFailed || r.hasExceptions);
+    }
+    if (this.selectedHost) {
+      out = out.filter(r => r.serverAddress === this.selectedHost);
+    }
+    return out;
   }
 
   onRowClick(result: TraceMatch): void {
