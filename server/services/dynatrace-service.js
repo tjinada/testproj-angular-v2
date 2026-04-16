@@ -109,13 +109,13 @@ function buildUrlSearchQuery(host, path, timeframe, hostExact = false) {
 
   const filters = [];
   if (path) {
-    filters.push(`| filter contains(url.path, "${path}")`);
+    filters.push(`| filter contains(lower(url.path), lower("${path}"))`);
   }
   if (host) {
     if (hostExact) {
       filters.push(`| filter server.address == "${host}"`);
     } else {
-      filters.push(`| filter contains(server.address, "${host}")`);
+      filters.push(`| filter contains(lower(server.address), lower("${host}"))`);
     }
   }
 
