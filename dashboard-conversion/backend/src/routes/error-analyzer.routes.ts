@@ -103,7 +103,7 @@ router.post('/traces/search-by-url', async (req: Request, res: Response) => {
  * POST /api/error-analyzer/traces/session/:sessionId
  */
 router.post('/traces/session/:sessionId', async (req: Request, res: Response) => {
-  const { sessionId } = req.params;
+  const sessionId = req.params.sessionId as string;
   const { environment = 'NON-PROD', timeframe, userToken } = req.body;
 
   if (!sessionId) {
@@ -128,7 +128,7 @@ router.post('/traces/session/:sessionId', async (req: Request, res: Response) =>
  * POST /api/error-analyzer/traces/:traceId
  */
 router.post('/traces/:traceId', async (req: Request, res: Response) => {
-  const { traceId } = req.params;
+  const traceId = req.params.traceId as string;
   const { environment = 'NON-PROD', timeframe, userToken } = req.body;
 
   if (!traceId) {
