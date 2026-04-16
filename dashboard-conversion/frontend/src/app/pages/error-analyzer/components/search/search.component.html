@@ -6,7 +6,9 @@
         [(ngModel)]="selectedMode"
         (ngModelChange)="onModeChange()"
         aria-label="Search field">
-        <option *ngFor="let field of fields" [ngValue]="field.mode">{{ field.label }}</option>
+        <option *ngFor="let field of fields" [ngValue]="field.mode" [disabled]="field.disabled">
+          {{ field.label }}{{ field.disabled ? ' (Temporarily unavailable)' : '' }}
+        </option>
       </select>
 
       <input
@@ -63,8 +65,13 @@
     <summary class="search-guide-title">How to search</summary>
 
     <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
-      <summary class="search-guide-summary">Browser x-request-id search</summary>
+      <summary class="search-guide-summary search-guide-summary-disabled">Browser x-request-id search</summary>
       <div class="search-guide-body">
+        <div class="search-guide-notice">
+          This search method is temporarily unavailable. The Dynatrace team has enabled ID masking,
+          which prevents x-request-id lookups. Please use <strong>URL / URL path</strong> or
+          <strong>Trace ID</strong> search in the meantime.
+        </div>
         <ol class="search-guide-steps">
           <li>Open your browser's DevTools and go to the <strong>Network</strong> tab.</li>
           <li>Reproduce the issue.</li>

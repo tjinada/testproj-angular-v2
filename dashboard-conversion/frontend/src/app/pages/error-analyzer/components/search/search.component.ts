@@ -7,6 +7,7 @@ export interface SearchField {
   mode: SearchMode;
   label: string;
   placeholder: string;
+  disabled?: boolean;
 }
 
 export interface SearchEvent {
@@ -17,7 +18,7 @@ export interface SearchEvent {
 
 /** Field type options. Add new entries here to support additional search modes. */
 export const SEARCH_FIELDS: SearchField[] = [
-  { mode: 'request', label: 'Browser x-request-id', placeholder: 'Paste the x-request-id from your browser network tab...' },
+  { mode: 'request', label: 'Browser x-request-id', placeholder: 'Paste the x-request-id from your browser network tab...', disabled: true },
   { mode: 'url', label: 'URL / URL path', placeholder: 'Paste a full URL, hostname, or path (e.g. host.com/foo, /banking, services/signin)' },
   { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
   { mode: 'session', label: 'RUM Session ID', placeholder: 'Enter a RUM session ID (e.g. AQSNRLGUDIM...)' }
@@ -52,7 +53,7 @@ export class SearchComponent {
   readonly timeWindows = TIME_WINDOWS;
 
   inputValue = '';
-  selectedMode: SearchMode = 'request';
+  selectedMode: SearchMode = 'url';
   selectedWindowId: string = DEFAULT_WINDOW_ID;
   hasSearched = false;
   previewImageSrc: string | null = null;
@@ -81,6 +82,11 @@ export class SearchComponent {
   }
 
   onModeChange(): void {
+    // Guard: if user somehow selects a disabled mode, snap back to url
+    const field = this.fields.find(f => f.mode === this.selectedMode);
+    if (field?.disabled) {
+      this.selectedMode = 'url';
+    }
     this.inputValue = '';
   }
 
