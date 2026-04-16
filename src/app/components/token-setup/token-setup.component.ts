@@ -45,6 +45,9 @@ export class TokenSetupComponent implements OnInit {
   /** Error message for validation */
   errorMsg = '';
 
+  /** Currently previewed scope screenshot path, or null when closed. */
+  scopePreviewSrc: string | null = null;
+
   constructor(private cdr: ChangeDetectorRef) {}
 
   /** The first non-prod environment — required in setup mode */
@@ -116,5 +119,22 @@ export class TokenSetupComponent implements OnInit {
 
   onClose(): void {
     this.closed.emit();
+  }
+
+  /**
+   * Returns the path to the scope screenshot for the given environment.
+   * Place images at: assets/token-help/scopes-<ENV_ID>.png
+   * e.g. assets/token-help/scopes-NON-PROD.png
+   */
+  getScopeImagePath(envId: string): string {
+    return `assets/token-help/scopes-${envId}.png`;
+  }
+
+  openScopePreview(envId: string): void {
+    this.scopePreviewSrc = this.getScopeImagePath(envId);
+  }
+
+  closeScopePreview(): void {
+    this.scopePreviewSrc = null;
   }
 }

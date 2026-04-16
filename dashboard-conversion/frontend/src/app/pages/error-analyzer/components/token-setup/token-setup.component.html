@@ -16,7 +16,7 @@
       <div class="token-instructions" *ngIf="mode === 'setup'">
         <p class="token-intro">
           This tool uses the Dynatrace API to fetch trace data. You need to create a personal
-          platform token with <strong>Read</strong> access.
+          platform token with the required <strong>Read</strong> scopes.
         </p>
       </div>
 
@@ -29,18 +29,23 @@
           <span *ngIf="hasStoredToken(env.id)" class="token-saved-badge">Saved</span>
         </div>
 
-        <!-- Step-by-step instructions -->
-        <ol class="token-steps" *ngIf="getTokenUrl(env.id)">
-          <li>
-            Navigate to
-            <a class="token-link" [href]="getTokenUrl(env.id)" target="_blank" rel="noopener">
-              {{ env.label }} Token Management
-            </a>
-          </li>
-          <li>Click <strong>Generate new token</strong></li>
-          <li>In the permissions filter, search <strong>"Read"</strong> and select all Read scopes</li>
-          <li>Generate the token and copy it below</li>
-        </ol>
+        <!-- Token generation link + steps -->
+        <div class="token-guide" *ngIf="getTokenUrl(env.id)">
+          <p class="token-guide-text">
+            You can generate a platform token from
+            <a class="token-link" [href]="getTokenUrl(env.id)" target="_blank" rel="noopener">here</a>.
+          </p>
+          <ol class="token-steps">
+            <li>Click <strong>Generate new token</strong></li>
+            <li>Give your token a name (e.g. "Error Analyzer")</li>
+            <li>In the permissions filter, search <strong>"Read"</strong> and select all Read scopes</li>
+            <li>Click <strong>Generate</strong> and copy the token below</li>
+          </ol>
+          <div class="token-guide-thumb" (click)="openScopePreview(env.id)" title="Click to see required scopes">
+            <img [src]="getScopeImagePath(env.id)" alt="Token creation page showing required Read scopes" />
+          </div>
+          <span class="token-scopes-caption">Required scopes (click to enlarge)</span>
+        </div>
 
         <!-- Token input row -->
         <div class="token-input-row">
@@ -86,4 +91,10 @@
     </div>
 
   </div>
+</div>
+
+<!-- Scope screenshot preview modal -->
+<div *ngIf="scopePreviewSrc" class="token-preview-overlay" (click)="closeScopePreview()" role="dialog" aria-label="Image preview">
+  <button type="button" class="token-preview-close" (click)="closeScopePreview()" aria-label="Close preview">&times;</button>
+  <img [src]="scopePreviewSrc" alt="" class="token-preview-image" (click)="$event.stopPropagation()" />
 </div>

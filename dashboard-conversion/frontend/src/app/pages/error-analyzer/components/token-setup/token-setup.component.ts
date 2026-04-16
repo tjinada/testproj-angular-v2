@@ -23,6 +23,9 @@ export class TokenSetupComponent implements OnInit {
   savedFeedback: Record<string, boolean> = {};
   errorMsg = '';
 
+  /** Currently previewed scope screenshot path, or null when closed. */
+  scopePreviewSrc: string | null = null;
+
   constructor(private cdr: ChangeDetectorRef) {}
 
   get requiredEnvId(): string {
@@ -89,5 +92,17 @@ export class TokenSetupComponent implements OnInit {
 
   onClose(): void {
     this.closed.emit();
+  }
+
+  getScopeImagePath(envId: string): string {
+    return `error-analyzer/token-help/scopes-${envId}.png`;
+  }
+
+  openScopePreview(envId: string): void {
+    this.scopePreviewSrc = this.getScopeImagePath(envId);
+  }
+
+  closeScopePreview(): void {
+    this.scopePreviewSrc = null;
   }
 }
