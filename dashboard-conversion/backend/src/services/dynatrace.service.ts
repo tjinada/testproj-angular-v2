@@ -82,12 +82,43 @@ function buildRequestIdLookupQuery(requestId: string, timeframe?: Timeframe): st
   ].join('\n');
 }
 
+/**
+ * Parses a user-supplied URL into a hostname and path. Accepts:
+ *   - Full URLs with scheme: "https://host.com/foo"
+ *   - Host + path without scheme: "host.com/foo"
+ *   - Hostname only: "host.com"
+ *   - Absolute path only: "/banking/services/foo"
+ *   - Relative path fragments: "banking/services/foo", "verifyCredential"
+ *
+ * Disambiguation rule: when there's no scheme, the first segment is
+ * treated as a hostname only if it contains a dot (e.g. "host.com",
+ * "api.bmogc.net"). Otherwise the entire input is treated as a path
+ * fragment. This lets users paste URL paths without a leading slash
+ * (e.g. "banking/services/signin") without accidentally being parsed
+ * as host="banking", path="/services/signin".
+ *
+ * Returns an object with { host, path }. Either field may be an empty
+ * string if not present in the input.
+ */
 function parseUrl(url: string): { host: string; path: string } {
   if (!url || typeof url !== 'string') return { host: '', path: '' };
 
-  let remainder = url.trim().replace(/^https?:\/\//i, '');
+  const trimmed = url.trim();
+  const hadScheme = /^https?:\/\//i.test(trimmed);
+  const remainder = trimmed.replace(/^https?:\/\//i, '');
 
   const firstSlash = remainder.indexOf('/');
+  const firstSegment = firstSlash === -1 ? remainder : remainder.substring(0, firstSlash);
+
+  // If no scheme and the first segment has no dot, treat the whole input
+  // as a path fragment. Real hostnames in our environments always contain
+  // dots; bare words like "banking" or "verifyCredential" are paths.
+  if (!hadScheme && !firstSegment.includes('.')) {
+    return { host: '', path: remainder };
+  }
+
+  // Otherwise split on the first slash into host + path. Collapse duplicate
+  // slashes between host and path (e.g. "host//path" -> "host/path").
   let host = '';
   let urlPath = '';
   if (firstSlash === -1) {
