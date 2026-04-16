@@ -1,0 +1,100 @@
+.error-analyzer-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+.app-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.app-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1B4F72;
+  margin: 0;
+}
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.settings-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+.env-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+.env-row-prod {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+.env-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+.env-select {
+  height: 32px;
+  padding: 0 28px 0 10px;
+  background-color: #f9fafb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3e%3cpath fill='%236b7280' d='M6 8.5L1.5 4h9z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.env-select-prod {
+  border-color: #dc2626;
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+.env-prod-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 3px;
+}
+.resolved-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.resolved-banner code {
+  font-family: monospace;
+  background: #dbeafe;
+  padding: 1px 6px;
+  border-radius: 3px;
+}

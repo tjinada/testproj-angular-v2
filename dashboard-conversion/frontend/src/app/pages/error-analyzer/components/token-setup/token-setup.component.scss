@@ -1,0 +1,250 @@
+/* Overlay */
+.token-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+}
+
+/* Modal */
+.token-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+/* Header */
+.token-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.token-header-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1B4F72;
+}
+
+.token-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.token-close:hover {
+  color: #374151;
+}
+
+/* Body */
+.token-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.token-intro {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #374151;
+}
+
+/* Environment sections */
+.token-env-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.token-env-section:last-of-type {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.token-env-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.token-env-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.token-required-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.token-optional-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.token-saved-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* Steps */
+.token-steps {
+  margin: 0 0 12px 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.token-steps li {
+  margin-bottom: 2px;
+}
+
+.token-link {
+  color: #1B4F72;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.token-link:hover {
+  text-decoration: underline;
+}
+
+/* Input row */
+.token-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.token-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  font-family: monospace;
+  font-size: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  outline: none;
+  background: #fff;
+  color: #374151;
+}
+
+.token-input:focus {
+  border-color: #1B4F72;
+  box-shadow: 0 0 0 2px rgba(27, 79, 114, 0.15);
+}
+
+.token-save-btn {
+  height: 36px;
+  padding: 0 18px;
+  background: #1B4F72;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.token-save-btn:hover {
+  background: #163d5c;
+}
+
+.token-save-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.token-clear-btn {
+  height: 36px;
+  padding: 0 14px;
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.token-clear-btn:hover {
+  background: #f9fafb;
+  color: #374151;
+}
+
+/* Feedback */
+.token-feedback {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #065f46;
+  font-weight: 500;
+}
+
+.token-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #b91c1c;
+  font-weight: 500;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+}
+
+/* Footer */
+.token-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.token-continue-btn {
+  height: 38px;
+  padding: 0 28px;
+  background: #1B4F72;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.token-continue-btn:hover {
+  background: #163d5c;
+}

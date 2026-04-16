@@ -1,0 +1,114 @@
+<div class="search-container">
+  <div class="search-row">
+    <div class="search-bar">
+      <select
+        class="search-select search-select-left"
+        [(ngModel)]="selectedMode"
+        (ngModelChange)="onModeChange()"
+        aria-label="Search field">
+        <option *ngFor="let field of fields" [ngValue]="field.mode">{{ field.label }}</option>
+      </select>
+
+      <input
+        type="text"
+        [(ngModel)]="inputValue"
+        [placeholder]="placeholder"
+        class="search-input"
+        (keyup.enter)="onSearch()"
+      />
+
+      <select
+        class="search-select search-select-right"
+        [(ngModel)]="selectedWindowId"
+        (ngModelChange)="onWindowChange()"
+        aria-label="Time window">
+        <option *ngFor="let window of timeWindows" [ngValue]="window.id">{{ window.label }}</option>
+      </select>
+    </div>
+
+    <button
+      class="search-button"
+      (click)="onSearch()"
+      [disabled]="!inputValue.trim()">
+      Search
+    </button>
+  </div>
+
+  <!-- Custom time window inputs -->
+  <div class="custom-window" *ngIf="selectedWindowId === customWindowId">
+    <div class="custom-window-fields">
+      <label class="custom-window-field">
+        <span class="custom-window-label">From</span>
+        <input type="datetime-local" [(ngModel)]="customFrom" class="custom-window-input" />
+      </label>
+      <label class="custom-window-field">
+        <span class="custom-window-label">To</span>
+        <input type="datetime-local" [(ngModel)]="customTo" class="custom-window-input" />
+      </label>
+      <span class="custom-window-hint">Max range: 7 days</span>
+    </div>
+    <div class="custom-window-error" *ngIf="customError">{{ customError }}</div>
+  </div>
+
+  <div class="search-help">
+    <p class="search-help-text">
+      Pick a search type, choose a time window, enter your ID, and hit Search.
+    </p>
+    <p class="search-help-tip">
+      <strong>Tip:</strong> New traces take about 5 minutes to appear in Dynatrace. If your search returns nothing, wait a moment and try again.
+    </p>
+  </div>
+
+  <details class="search-guide" [attr.open]="hasSearched ? null : ''">
+    <summary class="search-guide-title">How to search</summary>
+
+    <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
+      <summary class="search-guide-summary">Browser x-request-id search</summary>
+      <div class="search-guide-body">
+        <ol class="search-guide-steps">
+          <li>Open your browser's DevTools and go to the <strong>Network</strong> tab.</li>
+          <li>Reproduce the issue.</li>
+          <li>Click the failing network call.</li>
+          <li>Under <strong>Request Headers</strong>, copy the <code>x-request-id</code> value and paste it into the search box above.</li>
+        </ol>
+        <div class="search-guide-thumb" (click)="openPreview('assets/search-help/request-id.png')" title="Click to enlarge">
+          <img src="assets/search-help/request-id.png" alt="Network tab showing x-request-id header" />
+        </div>
+      </div>
+    </details>
+
+    <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
+      <summary class="search-guide-summary">URL search</summary>
+      <div class="search-guide-body">
+        <ol class="search-guide-steps">
+          <li>In the Network tab, find the affected request and copy its <strong>full URL</strong>.</li>
+          <li>Paste the URL into the search box above and hit Search.</li>
+          <li>From the results table, select the most relevant trace ID (based on your timestamp) to see the details.</li>
+        </ol>
+        <div class="search-guide-thumb" (click)="openPreview('assets/search-help/url-search.png')" title="Click to enlarge">
+          <img src="assets/search-help/url-search.png" alt="Network tab showing a full URL" />
+        </div>
+      </div>
+    </details>
+
+    <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
+      <summary class="search-guide-summary">RUM Session ID search</summary>
+      <div class="search-guide-body">
+        <ol class="search-guide-steps">
+          <li>In the Network tab, filter all requests by <code>bf?type=js</code>.</li>
+          <li>Click any one of the matching requests.</li>
+          <li>Go to the <strong>Payload</strong> tab and copy the string parameter next to <code>vi</code>.</li>
+          <li>Paste it into the search box above to view the user session details.</li>
+        </ol>
+        <div class="search-guide-thumb" (click)="openPreview('assets/search-help/session-id-1.png')" title="Click to enlarge">
+          <img src="assets/search-help/session-id-1.png" alt="Network tab filtered by bf?type=js showing the vi parameter" />
+        </div>
+      </div>
+    </details>
+  </details>
+
+  <div *ngIf="previewImageSrc" class="search-guide-modal" (click)="closePreview()" role="dialog" aria-label="Image preview">
+    <button type="button" class="search-guide-modal-close" (click)="closePreview()" aria-label="Close preview">×</button>
+    <img [src]="previewImageSrc" alt="" class="search-guide-modal-image" (click)="$event.stopPropagation()" />
+  </div>
+</div>

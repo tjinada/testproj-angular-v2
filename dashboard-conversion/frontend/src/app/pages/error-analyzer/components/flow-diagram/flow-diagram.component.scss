@@ -1,0 +1,881 @@
+.flow-diagram-wrapper {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 16px;
+}
+
+/* Fullscreen overlay */
+.flow-diagram-wrapper.flow-fullscreen {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-diagram-wrapper.flow-fullscreen .flow-canvas-container {
+  flex: 1;
+  height: auto;
+}
+
+/* Toolbar */
+.flow-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.flow-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+}
+
+.flow-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flow-btn {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #374151;
+  min-width: 28px;
+}
+
+.flow-btn:hover {
+  background: #f3f4f6;
+}
+
+.flow-zoom-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 4px;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Canvas container — flexbox column so drawer pushes canvas up */
+.flow-canvas-container {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background:
+    radial-gradient(circle, #e5e7eb 1px, transparent 1px) 0 0 / 20px 20px,
+    #fafafa;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-canvas {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: block;
+  cursor: grab;
+  user-select: none;
+}
+
+.flow-canvas:active {
+  cursor: grabbing;
+}
+
+/* Edges */
+.flow-edge {
+  stroke: #9ca3af;
+  stroke-width: 1.75;
+  transition: stroke 0.15s, opacity 0.2s;
+}
+
+.flow-edge-failed {
+  stroke: #e24b4a;
+  stroke-width: 2.25;
+}
+
+/* Faded state */
+.flow-node {
+  transition: opacity 0.2s;
+}
+
+.flow-faded {
+  opacity: 0.18;
+}
+
+/* Nodes */
+.flow-node {
+  cursor: pointer;
+}
+
+.flow-node-rect {
+  fill: #ffffff;
+  stroke: #cbd5e1;
+  stroke-width: 1.5;
+  transition: stroke 0.15s, fill 0.15s;
+}
+
+.flow-node:hover .flow-node-rect {
+  stroke: #3b82f6;
+}
+
+.flow-node-selected .flow-node-rect {
+  stroke: #2563eb;
+  stroke-width: 2.5;
+  fill: #eff6ff;
+}
+
+.flow-node-failed .flow-node-rect {
+  fill: #fef2f2;
+  stroke: #e24b4a;
+  stroke-width: 2;
+}
+
+.flow-node-failed.flow-node-selected .flow-node-rect {
+  stroke: #b91c1c;
+  stroke-width: 2.75;
+}
+
+/* Root cause */
+.flow-node-root-cause .flow-node-rect {
+  fill: #fee2e2;
+  stroke: #b91c1c;
+  stroke-width: 3;
+}
+
+.flow-node-root-cause.flow-node-selected .flow-node-rect {
+  stroke: #991b1b;
+  stroke-width: 3.5;
+}
+
+/* Root cause badge (top-left pill) */
+.flow-badge-rootcause rect {
+  fill: #b91c1c;
+  stroke: none;
+}
+
+.flow-badge-rootcause text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* Lambda badge (top-right tab) */
+.flow-badge-lambda rect {
+  fill: #d97706;
+  stroke: none;
+}
+
+.flow-badge-lambda text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* WebSphere badge (top-right tab) */
+.flow-badge-websphere rect {
+  fill: #1d4ed8;
+  stroke: none;
+}
+
+.flow-badge-websphere text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* Channels badge (top-right tab — green/teal) */
+.flow-badge-channels rect {
+  fill: #0d9488;
+  stroke: none;
+}
+
+.flow-badge-channels text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* External nodes — dashed border */
+.flow-node-external .flow-node-rect {
+  fill: #fafafa;
+  stroke: #9ca3af;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.flow-node-external:hover .flow-node-rect {
+  stroke: #3b82f6;
+}
+
+.flow-node-external.flow-node-selected .flow-node-rect {
+  stroke: #2563eb;
+  stroke-width: 2.5;
+  fill: #eff6ff;
+}
+
+.flow-node-external.flow-node-failed .flow-node-rect {
+  fill: #fef2f2;
+  stroke: #e24b4a;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+/* DB nodes — blue tint dashed */
+.flow-node-db .flow-node-rect {
+  fill: #f0f9ff;
+  stroke: #60a5fa;
+}
+
+.flow-node-db:hover .flow-node-rect {
+  stroke: #2563eb;
+}
+
+.flow-node-db.flow-node-selected .flow-node-rect {
+  fill: #dbeafe;
+  stroke: #2563eb;
+}
+
+/* Node text */
+.flow-node-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  fill: #111827;
+  pointer-events: none;
+}
+
+.flow-node-failed .flow-node-label {
+  fill: #991b1b;
+}
+
+.flow-node-host {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  fill: #6b7280;
+  pointer-events: none;
+}
+
+.flow-node-failed .flow-node-host {
+  fill: #b91c1c;
+}
+
+.flow-node-sub {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  fill: #6b7280;
+  pointer-events: none;
+}
+
+.flow-node-failed .flow-node-sub {
+  fill: #b91c1c;
+}
+
+.flow-node-external .flow-node-sub {
+  font-style: italic;
+}
+
+/* ============================================================
+   BOTTOM DRAWER
+   ============================================================ */
+.flow-drawer {
+  flex-shrink: 0;
+  width: 100%;
+  max-height: 55%;
+  background: #ffffff;
+  border-top: 2px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.flow-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  flex-shrink: 0;
+}
+
+.flow-drawer-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-drawer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.flow-drawer-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.flow-drawer-close:hover {
+  color: #111827;
+}
+
+/* Drawer body: flow breadcrumb on top, two columns below */
+.flow-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.flow-drawer-columns {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.flow-drawer-col {
+  flex: 1;
+  min-width: 0;
+  padding: 0 16px;
+}
+
+.flow-drawer-col-main {
+  flex: 1;
+  border-right: 1px solid #e5e7eb;
+  padding-left: 0;
+}
+
+.flow-drawer-col-detail {
+  flex: 1;
+  padding-right: 0;
+}
+
+/* Metadata grid */
+.flow-drawer-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+  overflow: hidden;
+}
+
+.flow-drawer-meta-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-drawer-meta-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+}
+
+.flow-drawer-meta-value {
+  font-size: 13px;
+  color: #111827;
+  word-break: break-all;
+}
+
+/* Enriched endpoint list in metadata */
+.flow-drawer-endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+/* ============================================================
+   ENDPOINT FLOW (upstream breadcrumb — single scrollable row)
+   ============================================================ */
+.flow-endpoint-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 11px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  position: relative;
+  min-height: 48px;
+  /* Thin visible scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.flow-endpoint-flow::-webkit-scrollbar {
+  height: 4px;
+}
+
+.flow-endpoint-flow::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.flow-endpoint-flow::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.flow-endpoint-flow::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.flow-endpoint-flow-step {
+  display: flex;
+  flex-direction: column;
+  max-width: 320px;
+  flex-shrink: 0;
+}
+
+.flow-endpoint-flow-svc {
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-endpoint-flow-path {
+  font-size: 9.5px;
+  color: #6b7280;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-endpoint-flow-step-current .flow-endpoint-flow-svc {
+  font-weight: 700;
+  color: #111827;
+}
+
+.flow-endpoint-flow-step-failed .flow-endpoint-flow-svc {
+  color: #991b1b;
+}
+
+.flow-endpoint-flow-step-failed .flow-endpoint-flow-path {
+  color: #b91c1c;
+}
+
+.flow-endpoint-flow-arrow {
+  color: #9ca3af;
+  font-size: 13px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.flow-drawer-endpoint {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-drawer-endpoint-name {
+  font-size: 13px;
+  color: #111827;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.flow-drawer-endpoint-path {
+  font-size: 10.5px;
+  color: #6b7280;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+/* Section labels */
+.flow-drawer-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.flow-drawer-section {
+  margin-bottom: 10px;
+}
+
+/* Inline badges */
+.flow-badge-inline {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.flow-badge-inline.flow-badge-failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.flow-badge-inline-lambda {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.flow-badge-inline-websphere {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.flow-badge-inline-channels {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.flow-badge-inline-db {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.flow-badge-inline-ext {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Collapsible section headers */
+.flow-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
+  user-select: none;
+  background: transparent;
+  transition: background 0.1s;
+}
+
+.flow-section-header:hover {
+  background: #f3f4f6;
+}
+
+.flow-section-header:hover .flow-drawer-section-label {
+  color: #111827;
+}
+
+.flow-section-toggle {
+  font-size: 11px;
+  color: #6b7280;
+  width: 12px;
+  text-align: center;
+}
+
+.flow-section-body {
+  margin-top: 4px;
+}
+
+/* ============================================================
+   ERROR CARDS
+   ============================================================ */
+.flow-drawer-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-error-card {
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  background: #fef2f2;
+  overflow: hidden;
+}
+
+.flow-error-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #fee2e2;
+  border-bottom: 1px solid #fecaca;
+}
+
+.flow-error-method {
+  font-size: 10px;
+  font-weight: 700;
+  color: #991b1b;
+  background: #fecaca;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.flow-error-status {
+  font-size: 10px;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.flow-error-endpoint {
+  font-size: 11px;
+  font-weight: 600;
+  color: #991b1b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-error-card-body {
+  padding: 6px 8px;
+}
+
+.flow-error-field {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+
+.flow-error-field-label {
+  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.flow-error-field-value {
+  color: #111827;
+  word-break: break-all;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+}
+
+.flow-error-exception-type {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.flow-error-message {
+  margin-top: 4px;
+  padding: 4px 6px;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #991b1b;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   STACK TRACE
+   ============================================================ */
+.flow-stacktrace-block {
+  margin-bottom: 8px;
+}
+
+.flow-stacktrace-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.flow-stacktrace-pre {
+  margin: 0;
+  padding: 8px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  border-radius: 4px;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 250px;
+  white-space: pre;
+  word-break: normal;
+}
+
+/* ============================================================
+   SPAN TIMELINE
+   ============================================================ */
+.flow-timeline {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fafafa;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.flow-timeline-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11px;
+}
+
+.flow-timeline-row:last-child {
+  border-bottom: none;
+}
+
+.flow-timeline-row-failed {
+  background: #fef2f2;
+}
+
+.flow-timeline-kind {
+  display: inline-block;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.flow-timeline-kind[data-kind="server"] {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.flow-timeline-kind[data-kind="client"] {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.flow-timeline-kind[data-kind="internal"] {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.flow-timeline-kind[data-kind="producer"],
+.flow-timeline-kind[data-kind="consumer"] {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.flow-timeline-name {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-timeline-row-failed .flow-timeline-name {
+  color: #991b1b;
+}
+
+.flow-timeline-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.flow-timeline-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.flow-timeline-row-failed .flow-timeline-status {
+  color: #b91c1c;
+}
+
+.flow-timeline-duration {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+/* X-Request-ID metadata row (click to copy) */
+.flow-drawer-request-ids {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flow-drawer-request-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  color: #374151;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  padding: 3px 8px;
+  cursor: pointer;
+  user-select: all;
+  word-break: break-all;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.flow-drawer-request-id:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+.flow-drawer-request-id-copied {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.flow-drawer-copy-flash {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: #166534;
+  background: #bbf7d0;
+  padding: 1px 6px;
+  border-radius: 8px;
+}

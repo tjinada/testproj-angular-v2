@@ -1,0 +1,308 @@
+<div class="flow-diagram-wrapper" *ngIf="graph().nodes.length > 0" [class.flow-fullscreen]="isFullscreen()">
+
+  <!-- Toolbar -->
+  <div class="flow-toolbar">
+    <span class="flow-title">Component Flow</span>
+    <div class="flow-controls">
+      <button class="flow-btn" (click)="zoomIn()" title="Zoom in">+</button>
+      <button class="flow-btn" (click)="zoomOut()" title="Zoom out">&minus;</button>
+      <button class="flow-btn" (click)="fitToScreen()" title="Fit to screen">Fit</button>
+      <button class="flow-btn" (click)="resetView()" title="Reset view">Reset</button>
+      <button class="flow-btn" (click)="toggleFullscreen()"
+              [title]="isFullscreen() ? 'Exit fullscreen (ESC)' : 'Fullscreen'">
+        {{ isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen' }}
+      </button>
+      <span class="flow-zoom-label">{{ (k() * 100) | number:'1.0-0' }}%</span>
+    </div>
+  </div>
+
+  <!-- Canvas + Drawer container -->
+  <div class="flow-canvas-container" [class.flow-drawer-open]="selectedNode() !== null">
+
+    <!-- SVG canvas -->
+    <svg
+      #svgEl
+      class="flow-canvas"
+      (mousedown)="onMouseDown($event)"
+      (mousemove)="onMouseMove($event)"
+      (mouseup)="onMouseUp()"
+      (mouseleave)="onMouseLeave()"
+      (wheel)="onWheel($event)"
+    >
+      <defs>
+        <marker id="fd-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af" />
+        </marker>
+        <marker id="fd-arrow-failed" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#e24b4a" />
+        </marker>
+      </defs>
+
+      <g [attr.transform]="transform()">
+
+        <!-- Edges -->
+        <g class="flow-edges">
+          <path
+            *ngFor="let edge of graph().edges; trackBy: trackEdge"
+            [attr.d]="edgePath(edge)"
+            class="flow-edge"
+            [class.flow-edge-failed]="edge.isFailed"
+            [class.flow-faded]="isEdgeFaded(edge)"
+            [attr.marker-end]="edge.isFailed ? 'url(#fd-arrow-failed)' : 'url(#fd-arrow)'"
+            fill="none"
+          />
+        </g>
+
+        <!-- Nodes -->
+        <g class="flow-nodes">
+          <g
+            *ngFor="let node of graph().nodes; trackBy: trackNode"
+            class="flow-node"
+            [class.flow-node-failed]="node.isFailed"
+            [class.flow-node-external]="node.isExternal"
+            [class.flow-node-db]="node.isDb"
+            [class.flow-node-lambda]="node.isLambda"
+            [class.flow-node-websphere]="node.isWebSphere"
+            [class.flow-node-channels]="node.isChannels"
+            [class.flow-node-root-cause]="node.isRootCause"
+            [class.flow-node-selected]="selectedNodeId() === node.id"
+            [class.flow-faded]="isNodeFaded(node.id)"
+            [attr.transform]="'translate(' + (node.x - node.width/2) + ',' + (node.y - node.height/2) + ')'"
+            (click)="onNodeClick(node, $event)"
+          >
+            <rect
+              class="flow-node-rect"
+              [attr.width]="node.width"
+              [attr.height]="node.height"
+              rx="6" ry="6"
+            />
+            <!-- Root cause badge (top-left) -->
+            <g *ngIf="node.isRootCause" class="flow-node-badge flow-badge-rootcause">
+              <rect x="8" y="-9" width="86" height="18" rx="9" ry="9" />
+              <text x="51" y="3" text-anchor="middle">ROOT CAUSE</text>
+            </g>
+            <!-- Lambda badge (top-right tab sticking up) -->
+            <g *ngIf="node.isLambda" class="flow-node-badge flow-badge-lambda">
+              <rect [attr.x]="node.width - 66" y="-18" width="62" height="20" rx="3" ry="3" />
+              <text [attr.x]="node.width - 35" y="-4" text-anchor="middle">LAMBDA</text>
+            </g>
+            <!-- WebSphere badge (top-right tab sticking up) -->
+            <g *ngIf="node.isWebSphere" class="flow-node-badge flow-badge-websphere">
+              <rect [attr.x]="node.width - 84" y="-18" width="80" height="20" rx="3" ry="3" />
+              <text [attr.x]="node.width - 44" y="-4" text-anchor="middle">WEBSPHERE</text>
+            </g>
+            <!-- Channels badge (top-right tab sticking up) -->
+            <g *ngIf="node.isChannels && !node.isWebSphere && !node.isLambda" class="flow-node-badge flow-badge-channels">
+              <rect [attr.x]="node.width - 78" y="-18" width="74" height="20" rx="3" ry="3" />
+              <text [attr.x]="node.width - 41" y="-4" text-anchor="middle">CHANNELS</text>
+            </g>
+            <text class="flow-node-label" [attr.x]="node.width/2" y="28" text-anchor="middle">
+              {{ truncate(node.label, 26) }}
+            </text>
+            <text class="flow-node-host" [attr.x]="node.width/2" y="48" text-anchor="middle"
+                  *ngIf="node.hostname">
+              {{ truncate(node.hostname, 32) }}
+            </text>
+            <text class="flow-node-sub" [attr.x]="node.width/2" y="70" text-anchor="middle">
+              {{ node.sublabel }}
+              <ng-container *ngIf="!node.isExternal && node.endpoints.length > 0">
+                · {{ node.endpoints.length }} endpoint{{ node.endpoints.length === 1 ? '' : 's' }}
+              </ng-container>
+            </text>
+          </g>
+        </g>
+      </g>
+    </svg>
+
+    <!-- Bottom drawer -->
+    <div class="flow-drawer" *ngIf="selectedNode() as node">
+      <div class="flow-drawer-header">
+        <span class="flow-drawer-title">{{ node.label }}</span>
+        <div class="flow-drawer-badges">
+          <span class="flow-badge-inline" [class.flow-badge-failed]="node.isFailed">
+            {{ node.isFailed ? 'Failed' : 'OK' }}
+          </span>
+          <span *ngIf="node.isLambda" class="flow-badge-inline flow-badge-inline-lambda">Lambda</span>
+          <span *ngIf="node.isWebSphere" class="flow-badge-inline flow-badge-inline-websphere">WebSphere</span>
+          <span *ngIf="node.isChannels" class="flow-badge-inline flow-badge-inline-channels">Channels</span>
+          <span *ngIf="node.isDb" class="flow-badge-inline flow-badge-inline-db">Database</span>
+          <span *ngIf="node.isExternal && !node.isDb" class="flow-badge-inline flow-badge-inline-ext">External</span>
+          <span *ngIf="node.isRootCause" class="flow-badge-inline flow-badge-failed">Root Cause</span>
+        </div>
+        <button class="flow-drawer-close" (click)="closeDetails()">&times;</button>
+      </div>
+
+      <div class="flow-drawer-body">
+
+        <!-- Endpoint flow (upstream chain from root to selected) -->
+        <div class="flow-endpoint-flow" *ngIf="endpointFlow().length > 1"
+             #flowBarEl
+             [class.flow-endpoint-flow-overflows]="flowBarOverflows()"
+             [class.flow-endpoint-flow-scrolled-end]="flowBarScrolledEnd()"
+             (scroll)="onFlowBarScroll()">
+          <ng-container *ngFor="let step of endpointFlow(); let last = last">
+            <div class="flow-endpoint-flow-step"
+                 [class.flow-endpoint-flow-step-current]="last"
+                 [class.flow-endpoint-flow-step-failed]="step.isFailed">
+              <span class="flow-endpoint-flow-svc">{{ step.service }}</span>
+              <span *ngIf="step.path" class="flow-endpoint-flow-path">{{ step.path }}</span>
+            </div>
+            <span class="flow-endpoint-flow-arrow" *ngIf="!last">&rarr;</span>
+          </ng-container>
+        </div>
+
+        <!-- Two-column layout -->
+        <div class="flow-drawer-columns">
+        <div class="flow-drawer-col flow-drawer-col-main">
+
+          <!-- Metadata row -->
+          <div class="flow-drawer-meta">
+            <div class="flow-drawer-meta-item" *ngIf="node.fullHostname">
+              <span class="flow-drawer-meta-label">Host</span>
+              <span class="flow-drawer-meta-value">{{ node.fullHostname }}</span>
+            </div>
+            <div class="flow-drawer-meta-item" *ngIf="node.websphereServer">
+              <span class="flow-drawer-meta-label">WAS Server</span>
+              <span class="flow-drawer-meta-value">{{ node.websphereServer }}</span>
+            </div>
+            <div class="flow-drawer-meta-item" *ngIf="nodeRequestIds().length > 0">
+              <span class="flow-drawer-meta-label">X-Request-ID</span>
+              <div class="flow-drawer-request-ids">
+                <span *ngFor="let rid of nodeRequestIds()"
+                      class="flow-drawer-request-id"
+                      [class.flow-drawer-request-id-copied]="copiedValue() === rid"
+                      (click)="copyToClipboard(rid)"
+                      title="Click to copy">
+                  {{ rid }}
+                  <span class="flow-drawer-copy-flash" *ngIf="copiedValue() === rid">Copied</span>
+                </span>
+              </div>
+            </div>
+            <div class="flow-drawer-meta-item" *ngIf="nodeEndpoints().length > 0">
+              <span class="flow-drawer-meta-label">Endpoints</span>
+              <div class="flow-drawer-endpoints">
+                <div *ngFor="let ep of nodeEndpoints()" class="flow-drawer-endpoint">
+                  <span class="flow-drawer-endpoint-name">{{ ep.name }}</span>
+                  <span *ngIf="ep.path" class="flow-drawer-endpoint-path">{{ ep.path }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error summary cards -->
+          <div class="flow-drawer-errors" *ngIf="nodeFailingSpans().length > 0">
+            <span class="flow-drawer-section-label">Errors ({{ nodeFailingSpans().length }})</span>
+            <div *ngFor="let err of nodeFailingSpans(); trackBy: trackFailingSpan"
+                 class="flow-error-card">
+              <div class="flow-error-card-header">
+                <span class="flow-error-method" *ngIf="err.httpMethod">{{ err.httpMethod }}</span>
+                <span class="flow-error-status" *ngIf="err.httpStatus">{{ err.httpStatus }}</span>
+                <span class="flow-error-endpoint">{{ err.endpointName }}</span>
+              </div>
+              <div class="flow-error-card-body">
+                <div class="flow-error-field" *ngIf="err.serverAddress">
+                  <span class="flow-error-field-label">Server:</span>
+                  <span class="flow-error-field-value">{{ err.serverAddress }}</span>
+                </div>
+                <div class="flow-error-field" *ngIf="err.urlPath">
+                  <span class="flow-error-field-label">Path:</span>
+                  <span class="flow-error-field-value">{{ err.urlPath }}</span>
+                </div>
+                <div class="flow-error-field" *ngIf="err.urlFull">
+                  <span class="flow-error-field-label">URL:</span>
+                  <span class="flow-error-field-value">{{ err.urlFull }}</span>
+                </div>
+                <div class="flow-error-field" *ngIf="err.exceptionType">
+                  <span class="flow-error-field-label">Exception:</span>
+                  <span class="flow-error-field-value flow-error-exception-type">{{ err.exceptionType }}</span>
+                </div>
+                <div class="flow-error-message" *ngIf="err.exceptionMessage">
+                  {{ err.exceptionMessage }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column: stack trace + timeline (collapsible) -->
+        <div class="flow-drawer-col flow-drawer-col-detail">
+
+          <!-- Stack traces -->
+          <div class="flow-drawer-section" *ngIf="stackTraceCount() > 0">
+            <div class="flow-section-header" (click)="toggleSection('stacktraces')">
+              <span class="flow-section-toggle">{{ isSectionExpanded('stacktraces') ? '▾' : '▸' }}</span>
+              <span class="flow-drawer-section-label">Stack Traces ({{ stackTraceCount() }})</span>
+            </div>
+            <div class="flow-section-body" *ngIf="isSectionExpanded('stacktraces')">
+              <ng-container *ngFor="let err of nodeFailingSpans(); trackBy: trackFailingSpan">
+                <div class="flow-stacktrace-block" *ngIf="err.stackTrace">
+                  <div class="flow-stacktrace-label">{{ err.endpointName }}</div>
+                  <pre class="flow-stacktrace-pre">{{ err.stackTrace }}</pre>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+
+          <!-- Captured exceptions (handled exceptions on non-failing spans) -->
+          <div class="flow-drawer-section" *ngIf="nodeCapturedExceptions().length > 0">
+            <div class="flow-section-header" (click)="toggleSection('capturedExceptions')">
+              <span class="flow-section-toggle">{{ isSectionExpanded('capturedExceptions') ? '▾' : '▸' }}</span>
+              <span class="flow-drawer-section-label">Captured Exceptions ({{ nodeCapturedExceptions().length }})</span>
+            </div>
+            <div class="flow-section-body" *ngIf="isSectionExpanded('capturedExceptions')">
+              <div *ngFor="let ex of nodeCapturedExceptions(); trackBy: trackCapturedException"
+                   class="flow-error-card">
+                <div class="flow-error-card-header">
+                  <span class="flow-error-status" *ngIf="ex.httpStatus">{{ ex.httpStatus }}</span>
+                  <span class="flow-error-endpoint">{{ ex.endpoint }}</span>
+                </div>
+                <div class="flow-error-card-body">
+                  <div class="flow-error-field" *ngIf="ex.exceptionType">
+                    <span class="flow-error-field-label">Exception:</span>
+                    <span class="flow-error-field-value flow-error-exception-type">{{ ex.exceptionType }}</span>
+                  </div>
+                  <div class="flow-error-message" *ngIf="ex.exceptionMessage">
+                    {{ ex.exceptionMessage }}
+                  </div>
+                  <pre class="flow-stacktrace-pre" *ngIf="ex.stackTrace">{{ ex.stackTrace }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Span timeline -->
+          <div class="flow-drawer-section" *ngIf="nodeTimeline().length > 0">
+            <div class="flow-section-header" (click)="toggleSection('timeline')">
+              <span class="flow-section-toggle">{{ isSectionExpanded('timeline') ? '▾' : '▸' }}</span>
+              <span class="flow-drawer-section-label">Span Timeline ({{ nodeTimeline().length }})</span>
+            </div>
+            <div class="flow-section-body" *ngIf="isSectionExpanded('timeline')">
+              <div class="flow-timeline">
+                <div
+                  *ngFor="let entry of nodeTimeline(); trackBy: trackTimeline"
+                  class="flow-timeline-row"
+                  [class.flow-timeline-row-failed]="entry.isFailed"
+                >
+                  <span class="flow-timeline-kind" [attr.data-kind]="entry.kind">
+                    {{ entry.kind }}
+                  </span>
+                  <span class="flow-timeline-name" [title]="entry.name">{{ entry.name }}</span>
+                  <span class="flow-timeline-meta">
+                    <span *ngIf="entry.status" class="flow-timeline-status">{{ entry.status }}</span>
+                    <span *ngIf="entry.durationNanos" class="flow-timeline-duration">
+                      {{ formatDuration(entry.durationNanos) }}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

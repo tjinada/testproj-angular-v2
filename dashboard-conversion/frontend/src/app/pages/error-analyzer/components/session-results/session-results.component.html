@@ -1,0 +1,130 @@
+<div *ngIf="isLoading" class="session-loading">Loading session...</div>
+
+<div *ngIf="!isLoading && errorMsg && !summary" class="session-error">{{ errorMsg }}</div>
+
+<div *ngIf="summary" class="session-card">
+  <!-- Header -->
+  <div class="session-header">
+    <div class="session-header-main">
+      <div class="session-title">Session Journey</div>
+      <div class="session-id">{{ summary.sessionId }}</div>
+    </div>
+    <div class="session-header-stats">
+      <div class="stat">
+        <div class="stat-label">Duration</div>
+        <div class="stat-value">{{ formatSessionDuration(summary.durationMs) }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Pages</div>
+        <div class="stat-value">{{ summary.pageViewCount }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Actions</div>
+        <div class="stat-value">{{ summary.userActionCount }}</div>
+      </div>
+      <div class="stat" [class.stat-error]="summary.errorCount > 0">
+        <div class="stat-label">Errors</div>
+        <div class="stat-value">{{ summary.errorCount }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meta line -->
+  <div class="session-meta">
+    <span *ngIf="summary.browser">{{ summary.browser }}</span>
+    <span *ngIf="summary.os"> · {{ summary.os }}</span>
+    <span *ngIf="summary.deviceType"> · {{ summary.deviceType }}</span>
+    <span *ngIf="summary.country"> · {{ summary.country }}</span>
+    <span *ngIf="summary.clientIp"> · {{ summary.clientIp }}</span>
+    <span *ngIf="summary.isp"> · {{ summary.isp }}</span>
+    <span *ngIf="summary.appName"> · {{ summary.appName }}</span>
+    <span *ngIf="summary.startTime" class="session-meta-time"> · started {{ formatTimestamp(summary.startTime) }}</span>
+  </div>
+
+  <!-- Split view: page groups left, events right -->
+  <div class="session-split">
+    <!-- Left column: page groups -->
+    <div class="page-groups-pane">
+      <div
+        *ngFor="let group of pageGroups; let gi = index; trackBy: trackGroup"
+        class="page-group-row"
+        [class.page-group-row-selected]="isPageGroupSelected(gi)"
+        [class.page-group-row-has-errors]="groupHasErrors(group)"
+        (click)="selectPageGroup(gi)">
+        <div class="page-group-time">
+          <span class="time-abs">{{ formatTimeOfDay(group.startTime) }}</span>
+          <span class="time-rel">{{ formatRelative(group.relativeMs) }}</span>
+        </div>
+        <div class="page-group-body">
+          <div class="page-group-name" [title]="group.pageName">{{ group.pageName }}</div>
+          <div *ngIf="group.pageTitle" class="page-group-subtitle" [title]="group.pageTitle">{{ group.pageTitle }}</div>
+          <div class="page-group-counts">
+            {{ group.events.length }} {{ group.events.length === 1 ? 'event' : 'events' }}
+            <span *ngIf="groupErrorCount(group) > 0" class="page-group-counts-err">
+              · {{ groupErrorCount(group) }} {{ groupErrorCount(group) === 1 ? 'error' : 'errors' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: events for the selected page -->
+    <div class="events-pane">
+      <div *ngIf="selectedPageGroup" class="events-pane-header">
+        Events on <strong>{{ selectedPageGroup.pageName }}</strong>
+        · {{ selectedPageGroup.events.length }} {{ selectedPageGroup.events.length === 1 ? 'event' : 'events' }}
+        <span *ngIf="groupErrorCount(selectedPageGroup) > 0" class="events-pane-header-err">
+          · {{ groupErrorCount(selectedPageGroup) }} {{ groupErrorCount(selectedPageGroup) === 1 ? 'error' : 'errors' }}
+        </span>
+      </div>
+      <div class="events-pane-body">
+        <div *ngIf="!selectedPageGroup || selectedPageGroup.events.length === 0" class="events-pane-empty">
+          No user actions or errors recorded on this page.
+        </div>
+        <div
+          *ngFor="let ev of selectedPageGroup?.events; let ei = index; trackBy: trackEvent"
+          class="session-event"
+          [class.session-event-failed]="ev.isFailed"
+          [class.session-event-slow]="!ev.isFailed && isSlow(ev)"
+          [class.session-event-very-slow]="!ev.isFailed && isVerySlow(ev)"
+          [class.session-event-traces-active]="isEventTracesActive(selectedPageGroupIndex, ei)"
+          [class.session-event-selected]="isEventSelected(ei)"
+          (click)="onEventClick(ei, ev)">
+          <div class="event-time">
+            <span class="time-abs">{{ formatTimeOfDay(ev.startTime) }}</span>
+            <span class="time-rel">{{ formatRelative(ev.relativeMs) }}</span>
+          </div>
+          <div class="event-icon" [attr.data-kind]="ev.kind">{{ eventIcon(ev.kind) }}</div>
+          <div class="event-label" [title]="ev.label">{{ ev.label }}</div>
+          <div class="event-duration">{{ formatDuration(ev.durationNanos) }}</div>
+          <div class="event-actions">
+            <button
+              *ngIf="canFindBackendTraces(ev)"
+              class="trace-btn"
+              (click)="onFindTracesClick(ei, ev, $event)"
+              title="Search backend traces for this URL">
+              Trace
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail panel: full width, pinned at bottom -->
+  <div class="detail-panel">
+    <div class="detail-panel-label" *ngIf="!selectedEvent">Click an event to see details</div>
+    <div class="detail-panel-label" *ngIf="selectedEvent">Event details</div>
+    <div class="detail-panel-body">
+      <div *ngIf="!selectedEvent" class="detail-panel-empty">—</div>
+      <table *ngIf="selectedEvent" class="detail-panel-table">
+        <tbody>
+          <tr *ngFor="let k of selectedEventKeys()">
+            <td class="detail-panel-key">{{ k }}</td>
+            <td class="detail-panel-val">{{ selectedEventValue(k) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,83 @@
+<div class="error-analyzer-container">
+  <div class="app-header-row">
+    <h1 class="app-title">Error Analyzer</h1>
+    <button
+      *ngIf="showSettingsGear"
+      class="settings-btn"
+      (click)="openSettings()"
+      title="Token Settings">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" stroke="#6b7280" stroke-width="1.5"/>
+        <path d="M16.2 12.2a1.4 1.4 0 00.28 1.54l.05.05a1.7 1.7 0 01-1.2 2.9 1.7 1.7 0 01-1.2-.5l-.05-.05a1.4 1.4 0 00-1.54-.28 1.4 1.4 0 00-.84 1.28v.14a1.7 1.7 0 01-3.4 0v-.08a1.4 1.4 0 00-.92-1.28 1.4 1.4 0 00-1.54.28l-.05.05a1.7 1.7 0 01-2.4-2.4l.05-.05a1.4 1.4 0 00.28-1.54 1.4 1.4 0 00-1.28-.84H2.3a1.7 1.7 0 010-3.4h.08a1.4 1.4 0 001.28-.92 1.4 1.4 0 00-.28-1.54l-.05-.05a1.7 1.7 0 012.4-2.4l.05.05a1.4 1.4 0 001.54.28h.07a1.4 1.4 0 00.84-1.28V2.3a1.7 1.7 0 013.4 0v.08a1.4 1.4 0 00.84 1.28 1.4 1.4 0 001.54-.28l.05-.05a1.7 1.7 0 012.4 2.4l-.05.05a1.4 1.4 0 00-.28 1.54v.07a1.4 1.4 0 001.28.84h.14a1.7 1.7 0 010 3.4h-.08a1.4 1.4 0 00-1.28.84z"
+          stroke="#6b7280" stroke-width="1.5"/>
+      </svg>
+    </button>
+  </div>
+
+  <div *ngIf="configLoaded" class="env-row" [class.env-row-prod]="isProd()">
+    <label for="env-select" class="env-label">Environment:</label>
+    <select
+      id="env-select"
+      class="env-select"
+      [class.env-select-prod]="isProd()"
+      [(ngModel)]="environment">
+      <option *ngFor="let env of environments" [ngValue]="env.id">{{ env.label }}</option>
+    </select>
+    <span *ngIf="isProd()" class="env-prod-badge">PROD</span>
+  </div>
+
+  <!-- Token setup modal (first-time) -->
+  <app-token-setup
+    *ngIf="showTokenSetup"
+    [mode]="'setup'"
+    [environments]="nonProdEnvironments"
+    [tokenUrls]="tokenUrls"
+    (saved)="onTokenSetupDone()">
+  </app-token-setup>
+
+  <!-- Token settings modal (gear) -->
+  <app-token-setup
+    *ngIf="showTokenSettings"
+    [mode]="'settings'"
+    [environments]="environments"
+    [tokenUrls]="tokenUrls"
+    (saved)="onTokenSettingsDone()"
+    (closed)="onTokenSettingsDone()">
+  </app-token-setup>
+
+  <!-- Main app content (hidden when setup modal is blocking) -->
+  <ng-container *ngIf="!showTokenSetup">
+    <app-search (search)="onSearch($event)"></app-search>
+    <div *ngIf="resolvedFromRequestId" class="resolved-banner">
+      Found trace <code>{{ resolvedFromRequestId.traceId }}</code>
+      for request <code>{{ resolvedFromRequestId.requestId }}</code>
+      in <strong>{{ currentEnvLabel() }}</strong>
+    </div>
+
+    <app-session-results
+      [events]="sessionEvents"
+      [isLoading]="isLoading && lastSearchMode === 'session'"
+      [errorMsg]="errorMsg"
+      (findTraces)="onFindBackendTraces($event)">
+    </app-session-results>
+
+    <div *ngIf="tracesFromSessionUrl" class="resolved-banner">
+      Backend traces matching <code>{{ tracesFromSessionUrl }}</code>
+    </div>
+
+    <app-trace-results-table
+      [results]="urlSearchResults"
+      [selectedTraceId]="selectedTraceId"
+      [limitReached]="urlSearchLimitReached"
+      (resultClick)="onUrlResultClick($event)">
+    </app-trace-results-table>
+
+    <app-trace-results
+      [spans]="spans"
+      [isLoading]="isLoading"
+      [errorMsg]="errorMsg"
+      [environment]="environment"
+      [envHostnamePatterns]="envHostnamePatterns">
+    </app-trace-results>
+  </ng-container>
+</div>
