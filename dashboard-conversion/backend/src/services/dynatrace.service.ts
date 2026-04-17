@@ -75,8 +75,8 @@ const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 const proxyAgent: HttpsProxyAgent<string> | null = (() => {
   const target = process.env.PROXY_TARGET;
   if (!target) return null;
-  const username = process.env.PROXY_USERNAME || '';
-  const password = process.env.PROXY_PASSWORD || '';
+  const username = encodeURIComponent(process.env.PROXY_USERNAME || '');
+  const password = encodeURIComponent(process.env.PROXY_PASSWORD || '');
   const proxyUrl = `http://${username}:${password}@${target}`;
   console.log(`[Dynatrace] Using proxy: ${target}`);
   return new HttpsProxyAgent(proxyUrl);
