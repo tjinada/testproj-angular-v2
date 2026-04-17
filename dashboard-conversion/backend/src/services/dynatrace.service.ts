@@ -74,11 +74,14 @@ const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 
 const proxyAgent: HttpsProxyAgent<string> | null = (() => {
   const target = process.env.PROXY_TARGET;
-  if (!target) return null;
+  if (!target) {
+    console.log('[Dynatrace] No PROXY_TARGET set — connecting directly');
+    return null;
+  }
   const username = encodeURIComponent(process.env.PROXY_USERNAME || '');
   const password = encodeURIComponent(process.env.PROXY_PASSWORD || '');
   const proxyUrl = `http://${username}:${password}@${target}`;
-  console.log(`[Dynatrace] Using proxy: ${target}`);
+  console.log(`[Dynatrace] Using proxy: ${target} (user: ${process.env.PROXY_USERNAME || '(none)'})`);
   return new HttpsProxyAgent(proxyUrl);
 })();
 
@@ -246,8 +249,10 @@ function getEnvConfig(environment: string = 'NON-PROD', userToken: string | null
 async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<string> {
   const executeUrl = `${config.url}/query:execute`;
   console.log(`[Dynatrace] POST ${executeUrl}`);
+  console.log(`[Dynatrace] Query (first 200 chars): ${query.substring(0, 200)}...`);
 
-  const response = await axios.post<DynatraceExecuteResponse>(
+  try {
+    const response = await axios.post<DynatraceExecuteResponse>(
     executeUrl,
     {
       query,
@@ -267,7 +272,19 @@ async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<s
     throw new Error('Dynatrace execute response missing requestToken');
   }
 
+  console.log(`[Dynatrace] Execute succeeded — requestToken: ${response.data.requestToken.substring(0, 15)}...`);
   return response.data.requestToken;
+  } catch (error: any) {
+    const status = error.response?.status;
+    const body = error.response?.data;
+    console.error(`[Dynatrace] Execute failed — HTTP ${status || 'N/A'}`);
+    if (typeof body === 'string' && body.includes('<HTML')) {
+      console.error('[Dynatrace] Response is HTML (likely proxy/gateway block)');
+    } else if (body) {
+      console.error(`[Dynatrace] Response body: ${JSON.stringify(body).substring(0, 500)}`);
+    }
+    throw error;
+  }
 }
 
 async function pollForResults(config: ResolvedEnvConfig, requestToken: string): Promise<DynatracePollResponse> {
