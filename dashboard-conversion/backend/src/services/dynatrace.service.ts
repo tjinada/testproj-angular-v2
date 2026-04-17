@@ -94,12 +94,14 @@ if (proxyAgent) {
   console.log(`[Dynatrace] No proxy agent — direct connections`);
 }
 
-/** Axios instance for Dynatrace API calls.
- * When https_proxy / http_proxy env vars are set at the container level,
- * axios uses them automatically. No explicit proxy agent needed.
- * When running locally without a proxy, calls go direct.
+/** Axios instance for Dynatrace API calls. Uses the corporate proxy when configured.
+ * NOTE: The proxy must allow Basic auth for the Dynatrace domain.
+ * If the proxy requires NTLM for this domain, a whitelist request to
+ * the network team is needed (same as was done for Artifactory).
  */
-const httpClient = axios;
+const httpClient = axios.create({
+  ...(proxyAgent && { httpsAgent: proxyAgent, proxy: false }),
+});
 
 // ── DQL Query Builders ───────────────────────────────────────────────
 
