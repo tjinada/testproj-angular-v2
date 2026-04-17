@@ -1,6 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 // Environment config mapping
 const ENV_CONFIG = {
@@ -21,6 +22,21 @@ const ENV_CONFIG = {
 const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_ATTEMPTS = 60;
 const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
+
+// Proxy setup — only activated when PROXY_TARGET is set.
+const proxyAgent = (() => {
+  const target = process.env.PROXY_TARGET;
+  if (!target) return null;
+  const username = process.env.PROXY_USERNAME || '';
+  const password = process.env.PROXY_PASSWORD || '';
+  const proxyUrl = `http://${username}:${password}@${target}`;
+  console.log(`[Dynatrace] Using proxy: ${target}`);
+  return new HttpsProxyAgent(proxyUrl);
+})();
+
+const proxyConfig = proxyAgent
+  ? { httpsAgent: proxyAgent, proxy: false }
+  : {};
 
 /**
  * Builds the lookup DQL query for resolving a request ID to a trace ID.
@@ -227,7 +243,8 @@ async function executeQuery(config, query) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.token}`
-      }
+      },
+      ...proxyConfig
     }
   );
 
@@ -251,7 +268,8 @@ async function pollForResults(config, requestToken) {
         params: { 'request-token': requestToken },
         headers: {
           'Authorization': `Bearer ${config.token}`
-        }
+        },
+        ...proxyConfig
       }
     );
 

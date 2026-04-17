@@ -1,6 +1,7 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -66,6 +67,25 @@ const ENV_CONFIG: Record<string, EnvConfigEntry> = {
 const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_ATTEMPTS = 60;
 const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
+
+// ── Proxy setup (matches ArtifactoryService pattern) ─────────────────
+// Only activated when PROXY_TARGET is set. When running locally without
+// a proxy, these env vars are empty and axios calls go direct.
+
+const proxyAgent: HttpsProxyAgent<string> | null = (() => {
+  const target = process.env.PROXY_TARGET;
+  if (!target) return null;
+  const username = process.env.PROXY_USERNAME || '';
+  const password = process.env.PROXY_PASSWORD || '';
+  const proxyUrl = `http://${username}:${password}@${target}`;
+  console.log(`[Dynatrace] Using proxy: ${target}`);
+  return new HttpsProxyAgent(proxyUrl);
+})();
+
+/** Axios config fragment that routes through the corporate proxy when configured. */
+const proxyConfig: Partial<AxiosRequestConfig> = proxyAgent
+  ? { httpsAgent: proxyAgent, proxy: false }
+  : {};
 
 // ── DQL Query Builders ───────────────────────────────────────────────
 
@@ -238,7 +258,8 @@ async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<s
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.token}`
-      }
+      },
+      ...proxyConfig
     }
   );
 
@@ -259,7 +280,8 @@ async function pollForResults(config: ResolvedEnvConfig, requestToken: string): 
         params: { 'request-token': requestToken },
         headers: {
           'Authorization': `Bearer ${config.token}`
-        }
+        },
+        ...proxyConfig
       }
     );
 
