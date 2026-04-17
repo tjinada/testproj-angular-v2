@@ -83,8 +83,16 @@ const proxyAgent: HttpsProxyAgent<string> | null = (() => {
   const password = config.proxy.password || '';
   const proxyUrl = `http://${username}:${password}@${target}`;
   console.log(`[Dynatrace] Using proxy: ${target} (user: ${username || '(none)'})`);
+  console.log(`[Dynatrace] Proxy URL (redacted password): http://${username}:***@${target}`);
   return new HttpsProxyAgent(proxyUrl);
 })();
+
+if (proxyAgent) {
+  console.log(`[Dynatrace] Proxy agent created successfully: ${typeof proxyAgent}`);
+  console.log(`[Dynatrace] Proxy agent proxy URI: ${(proxyAgent as any).proxy?.href || 'N/A'}`);
+} else {
+  console.log(`[Dynatrace] No proxy agent — direct connections`);
+}
 
 /** Axios instance for Dynatrace API calls. Uses the corporate proxy when configured. */
 const httpClient = axios.create({
@@ -253,6 +261,19 @@ async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<s
   console.log(`[Dynatrace] Query (first 200 chars): ${query.substring(0, 200)}...`);
 
   try {
+    // Log full request details for proxy debugging
+    const requestConfig = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.token.substring(0, 10)}...`
+      }
+    };
+    console.log(`[Dynatrace] executeQuery request details:`);
+    console.log(`[Dynatrace]   URL: ${executeUrl}`);
+    console.log(`[Dynatrace]   Proxy agent active: ${!!proxyAgent}`);
+    console.log(`[Dynatrace]   httpClient defaults httpsAgent: ${!!httpClient.defaults.httpsAgent}`);
+    console.log(`[Dynatrace]   httpClient defaults proxy: ${httpClient.defaults.proxy}`);
+
     const response = await httpClient.post<DynatraceExecuteResponse>(
     executeUrl,
     {
@@ -277,11 +298,19 @@ async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<s
   } catch (error: any) {
     const status = error.response?.status;
     const body = error.response?.data;
+    const headers = error.response?.headers;
     console.error(`[Dynatrace] Execute failed — HTTP ${status || 'N/A'}`);
+    if (headers) {
+      console.error(`[Dynatrace] Response headers: ${JSON.stringify(headers)}`);
+    }
     if (typeof body === 'string' && body.includes('<HTML')) {
       console.error('[Dynatrace] Response is HTML (likely proxy/gateway block)');
+      console.error(`[Dynatrace] HTML body (first 300 chars): ${body.substring(0, 300)}`);
     } else if (body) {
       console.error(`[Dynatrace] Response body: ${JSON.stringify(body).substring(0, 500)}`);
+    }
+    if (error.code) {
+      console.error(`[Dynatrace] Error code: ${error.code}`);
     }
     throw error;
   }
