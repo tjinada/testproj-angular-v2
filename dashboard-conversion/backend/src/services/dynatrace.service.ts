@@ -79,8 +79,10 @@ const proxyAgent: HttpsProxyAgent<string> | null = (() => {
     console.log('[Dynatrace] No proxy target configured — connecting directly');
     return null;
   }
-  const username = config.proxy.username || '';
-  const password = config.proxy.password || '';
+  // Use Dynatrace-specific proxy credentials if set, otherwise fall back to shared proxy creds.
+  // This allows using a different account for Dynatrace without affecting Artifactory.
+  const username = process.env.DYNATRACE_PROXY_USERNAME || config.proxy.username || '';
+  const password = process.env.DYNATRACE_PROXY_PASSWORD || config.proxy.password || '';
   const proxyUrl = `http://${username}:${password}@${target}`;
   console.log(`[Dynatrace] Using proxy: ${target} (user: ${username || '(none)'})`);
   console.log(`[Dynatrace] Proxy URL (redacted password): http://${username}:***@${target}`);
