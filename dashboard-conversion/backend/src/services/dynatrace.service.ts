@@ -2,6 +2,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import config from '../config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -73,15 +74,15 @@ const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 // a proxy, these env vars are empty and axios calls go direct.
 
 const proxyAgent: HttpsProxyAgent<string> | null = (() => {
-  const target = process.env.PROXY_TARGET;
+  const target = config.proxy?.target;
   if (!target) {
-    console.log('[Dynatrace] No PROXY_TARGET set — connecting directly');
+    console.log('[Dynatrace] No proxy target configured — connecting directly');
     return null;
   }
-  const username = encodeURIComponent(process.env.PROXY_USERNAME || '');
-  const password = encodeURIComponent(process.env.PROXY_PASSWORD || '');
+  const username = config.proxy.username || '';
+  const password = config.proxy.password || '';
   const proxyUrl = `http://${username}:${password}@${target}`;
-  console.log(`[Dynatrace] Using proxy: ${target} (user: ${process.env.PROXY_USERNAME || '(none)'})`);
+  console.log(`[Dynatrace] Using proxy: ${target} (user: ${username || '(none)'})`);
   return new HttpsProxyAgent(proxyUrl);
 })();
 

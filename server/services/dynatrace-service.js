@@ -30,10 +30,10 @@ const proxyAgent = (() => {
     console.log('[Dynatrace] No PROXY_TARGET set — connecting directly');
     return null;
   }
-  const username = encodeURIComponent(process.env.PROXY_USERNAME || '');
-  const password = encodeURIComponent(process.env.PROXY_PASSWORD || '');
+  const username = process.env.PROXY_USERNAME || '';
+  const password = process.env.PROXY_PASSWORD || '';
   const proxyUrl = `http://${username}:${password}@${target}`;
-  console.log(`[Dynatrace] Using proxy: ${target} (user: ${process.env.PROXY_USERNAME || '(none)'})`);
+  console.log(`[Dynatrace] Using proxy: ${target} (user: ${username || '(none)'})`);
   return new HttpsProxyAgent(proxyUrl);
 })();
 
