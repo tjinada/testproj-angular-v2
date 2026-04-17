@@ -37,9 +37,10 @@ const proxyAgent = (() => {
   return new HttpsProxyAgent(proxyUrl);
 })();
 
-const proxyConfig = proxyAgent
-  ? { httpsAgent: proxyAgent, proxy: false }
-  : {};
+/** Axios instance for Dynatrace API calls. Uses the corporate proxy when configured. */
+const httpClient = axios.create({
+  ...(proxyAgent && { httpsAgent: proxyAgent, proxy: false }),
+});
 
 /**
  * Builds the lookup DQL query for resolving a request ID to a trace ID.
@@ -237,7 +238,7 @@ async function executeQuery(config, query) {
   console.log(`[Dynatrace] Query (first 200 chars): ${query.substring(0, 200)}...`);
 
   try {
-    const response = await axios.post(
+    const response = await httpClient.post(
     executeUrl,
     {
       query,
@@ -248,8 +249,7 @@ async function executeQuery(config, query) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.token}`
-      },
-      ...proxyConfig
+      }
     }
   );
 
@@ -279,14 +279,13 @@ async function pollForResults(config, requestToken) {
   const pollUrl = `${config.url}/query:poll`;
 
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
-    const response = await axios.get(
+    const response = await httpClient.get(
       pollUrl,
       {
         params: { 'request-token': requestToken },
         headers: {
           'Authorization': `Bearer ${config.token}`
-        },
-        ...proxyConfig
+        }
       }
     );
 

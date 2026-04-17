@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { HttpsProxyAgent } from 'https-proxy-agent';
@@ -86,10 +86,10 @@ const proxyAgent: HttpsProxyAgent<string> | null = (() => {
   return new HttpsProxyAgent(proxyUrl);
 })();
 
-/** Axios config fragment that routes through the corporate proxy when configured. */
-const proxyConfig: Partial<AxiosRequestConfig> = proxyAgent
-  ? { httpsAgent: proxyAgent, proxy: false }
-  : {};
+/** Axios instance for Dynatrace API calls. Uses the corporate proxy when configured. */
+const httpClient = axios.create({
+  ...(proxyAgent && { httpsAgent: proxyAgent, proxy: false }),
+});
 
 // ── DQL Query Builders ───────────────────────────────────────────────
 
@@ -253,7 +253,7 @@ async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<s
   console.log(`[Dynatrace] Query (first 200 chars): ${query.substring(0, 200)}...`);
 
   try {
-    const response = await axios.post<DynatraceExecuteResponse>(
+    const response = await httpClient.post<DynatraceExecuteResponse>(
     executeUrl,
     {
       query,
@@ -264,8 +264,7 @@ async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<s
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.token}`
-      },
-      ...proxyConfig
+      }
     }
   );
 
@@ -292,14 +291,13 @@ async function pollForResults(config: ResolvedEnvConfig, requestToken: string): 
   const pollUrl = `${config.url}/query:poll`;
 
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
-    const response = await axios.get<DynatracePollResponse>(
+    const response = await httpClient.get<DynatracePollResponse>(
       pollUrl,
       {
         params: { 'request-token': requestToken },
         headers: {
           'Authorization': `Bearer ${config.token}`
-        },
-        ...proxyConfig
+        }
       }
     );
 
