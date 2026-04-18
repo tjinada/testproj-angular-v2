@@ -23,18 +23,17 @@ const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_ATTEMPTS = 60;
 const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 
-// Proxy setup — only activated when PROXY_TARGET is set.
+// Proxy setup — only activated when PROXY_TARGET is set. Uses
+// DYNATRACE_PROXY_USERNAME/PASSWORD if set, otherwise falls back to
+// shared PROXY_USERNAME/PASSWORD. This allows a different account for
+// Dynatrace without affecting other services.
 const proxyAgent = (() => {
   const target = process.env.PROXY_TARGET;
-  if (!target) {
-    console.log('[Dynatrace] No PROXY_TARGET set — connecting directly');
-    return null;
-  }
-  // Use Dynatrace-specific proxy credentials if set, otherwise fall back to shared proxy creds.
+  if (!target) return null;
+
   const username = process.env.DYNATRACE_PROXY_USERNAME || process.env.PROXY_USERNAME || '';
   const password = process.env.DYNATRACE_PROXY_PASSWORD || process.env.PROXY_PASSWORD || '';
   const proxyUrl = `http://${username}:${password}@${target}`;
-  console.log(`[Dynatrace] Using proxy: ${target} (user: ${username || '(none)'})`);
   return new HttpsProxyAgent(proxyUrl);
 })();
 
@@ -235,11 +234,8 @@ function getEnvConfig(environment = 'NON-PROD', userToken = null) {
  */
 async function executeQuery(config, query) {
   const executeUrl = `${config.url}/query:execute`;
-  console.log(`[Dynatrace] POST ${executeUrl}`);
-  console.log(`[Dynatrace] Query (first 200 chars): ${query.substring(0, 200)}...`);
 
-  try {
-    const response = await httpClient.post(
+  const response = await httpClient.post(
     executeUrl,
     {
       query,
@@ -258,19 +254,7 @@ async function executeQuery(config, query) {
     throw new Error('Dynatrace execute response missing requestToken');
   }
 
-  console.log(`[Dynatrace] Execute succeeded — requestToken: ${response.data.requestToken.substring(0, 15)}...`);
   return response.data.requestToken;
-  } catch (error) {
-    const status = error.response?.status;
-    const body = error.response?.data;
-    console.error(`[Dynatrace] Execute failed — HTTP ${status || 'N/A'}`);
-    if (typeof body === 'string' && body.includes('<HTML')) {
-      console.error('[Dynatrace] Response is HTML (likely proxy/gateway block)');
-    } else if (body) {
-      console.error(`[Dynatrace] Response body: ${JSON.stringify(body).substring(0, 500)}`);
-    }
-    throw error;
-  }
 }
 
 /**
@@ -323,28 +307,16 @@ function loadMockResponse() {
  */
 async function findTraceIdByRequestId(requestId, environment, timeframe, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
-    console.log(`[Mock] Returning mock trace ID for request ID: ${requestId}`);
-    const mock = loadMockResponse();
-    const firstRecord = mock.result?.records?.[0];
-    return firstRecord?.['trace.id'] || null;
+    return loadMockResponse().result?.records?.[0]?.['trace.id'] || null;
   }
 
   const config = getEnvConfig(environment, userToken);
   const query = buildRequestIdLookupQuery(requestId, timeframe);
-
-  console.log(`[Dynatrace] Looking up trace ID for request ID: ${requestId} in ${environment}`);
   const requestToken = await executeQuery(config, query);
-
-  console.log(`[Dynatrace] Polling for lookup results (token: ${requestToken.substring(0, 10)}...)`);
   const result = await pollForResults(config, requestToken);
-
   const records = result.result?.records || [];
-  console.log(`[Dynatrace] Lookup returned ${records.length} record(s)`);
 
-  if (records.length === 0) {
-    return null;
-  }
-
+  if (records.length === 0) return null;
   return records[0]['trace.id'] || null;
 }
 
@@ -355,21 +327,13 @@ async function findTraceIdByRequestId(requestId, environment, timeframe, userTok
  */
 async function fetchTraceById(traceId, environment, timeframe, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
-    console.log(`[Mock] Returning mock response for trace: ${traceId}`);
     return loadMockResponse();
   }
 
   const config = getEnvConfig(environment, userToken);
   const query = buildDqlQuery(traceId, timeframe);
-
-  console.log(`[Dynatrace] Executing query for trace: ${traceId} in ${environment}`);
   const requestToken = await executeQuery(config, query);
-
-  console.log(`[Dynatrace] Polling for results (token: ${requestToken.substring(0, 10)}...)`);
-  const result = await pollForResults(config, requestToken);
-
-  console.log(`[Dynatrace] Received ${result.result?.records?.length || 0} span records`);
-  return result;
+  return await pollForResults(config, requestToken);
 }
 
 /**
@@ -380,10 +344,8 @@ async function fetchTraceById(traceId, environment, timeframe, userToken = null)
  */
 async function searchTracesByUrl(url, environment, timeframe, hostExact = false, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
-    console.log(`[Mock] Returning mock URL search results for: ${url}`);
     const mock = loadMockResponse();
     const records = mock.result?.records || [];
-    // Derive a single synthetic match from the mock for UI testing
     const first = records[0];
     if (!first) return [];
     return [{
@@ -406,17 +368,11 @@ async function searchTracesByUrl(url, environment, timeframe, hostExact = false,
 
   const config = getEnvConfig(environment, userToken);
   const query = buildUrlSearchQuery(host, path, timeframe, hostExact);
-
-  console.log(`[Dynatrace] Searching traces by URL (host="${host}" hostExact=${hostExact}, path="${path}") in ${environment}`);
   const requestToken = await executeQuery(config, query);
-
-  console.log(`[Dynatrace] Polling for URL search results (token: ${requestToken.substring(0, 10)}...)`);
   const result = await pollForResults(config, requestToken);
-
   const records = result.result?.records || [];
-  console.log(`[Dynatrace] URL search returned ${records.length} unique trace(s)`);
 
-  // Normalize field names from DQL output to the UrlSearchResult shape
+  // Normalize field names from DQL output
   return records.map(r => ({
     traceId: r['trace.id'] || '',
     startTime: r['startTime'] || '',
@@ -436,23 +392,14 @@ async function searchTracesByUrl(url, environment, timeframe, hostExact = false,
  */
 async function fetchSessionEvents(sessionId, environment, timeframe, userToken = null) {
   if (process.env.USE_MOCK === 'true') {
-    console.log(`[Mock] Returning empty mock session events for: ${sessionId}`);
     return [];
   }
 
   const config = getEnvConfig(environment, userToken);
   const query = buildSessionQuery(sessionId, timeframe);
-
-  console.log(`[Dynatrace] Fetching session events for session: ${sessionId} in ${environment}`);
   const requestToken = await executeQuery(config, query);
-
-  console.log(`[Dynatrace] Polling for session events (token: ${requestToken.substring(0, 10)}...)`);
   const result = await pollForResults(config, requestToken);
-
-  const records = result.result?.records || [];
-  console.log(`[Dynatrace] Session query returned ${records.length} event(s)`);
-
-  return records;
+  return result.result?.records || [];
 }
 
 module.exports = { fetchTraceById, findTraceIdByRequestId, searchTracesByUrl, fetchSessionEvents };
