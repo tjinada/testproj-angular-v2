@@ -131,14 +131,24 @@
   margin-bottom: 2px;
 }
 
-.token-link {
-  color: #1B4F72;
-  text-decoration: none;
+.token-link-btn {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 6px 14px;
+  font-size: 13px;
   font-weight: 500;
+  color: #1B4F72;
+  background: #f0f7fc;
+  border: 1px solid #1B4F72;
+  border-radius: 5px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
-.token-link:hover {
-  text-decoration: underline;
+.token-link-btn:hover {
+  background: #1B4F72;
+  color: #fff;
 }
 
 /* Input row */

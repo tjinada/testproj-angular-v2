@@ -31,10 +31,10 @@
 
         <!-- Token generation link + steps -->
         <div class="token-guide" *ngIf="getTokenUrl(env.id)">
-          <p class="token-guide-text">
-            You can generate a platform token from
-            <a class="token-link" [href]="getTokenUrl(env.id)" target="_blank" rel="noopener">here</a>.
-          </p>
+          <p class="token-guide-text">You can generate a platform token from the Dynatrace console:</p>
+          <a class="token-link-btn" [href]="getTokenUrl(env.id)" target="_blank" rel="noopener">
+            Open Token Management ↗
+          </a>
           <ol class="token-steps">
             <li>Click <strong>Generate new token</strong></li>
             <li>Give your token a name (e.g. "Error Analyzer")</li>
