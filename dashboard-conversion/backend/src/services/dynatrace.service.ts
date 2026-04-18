@@ -173,7 +173,6 @@ function buildUrlSearchQuery(host: string, urlPath: string, timeframe?: Timefram
     `    serverAddress = takeFirst(server.address),`,
     `    httpStatus = takeFirst(http.response.status_code),`,
     `    isFailed = countIf(request.is_failed == true) > 0,`,
-    `    hasExceptions = countIf(isNotNull(span.events) and arraySize(span.events) > 0) > 0,`,
     `    duration = takeFirst(duration)`,
     `  }, by: { trace.id }`,
     `| sort startTime desc`,
@@ -191,6 +190,31 @@ function buildSessionQuery(sessionId: string, timeframe?: Timeframe): string {
     `| filter dt.rum.session.id == "${sessionId}"`,
     `| sort start_time asc`,
     `| limit 5000`
+  ].join('\n');
+}
+
+/**
+ * Builds a DQL query that checks for exceptions across ALL spans in the
+ * given trace IDs — not just the spans that matched the URL filters.
+ *
+ * The URL search query's hasExceptions was unreliable because it only
+ * counted span.events on spans matching the URL filters. Exceptions often
+ * live on downstream/internal spans that don't match the searched URL.
+ * This second-pass query scans all spans for the specific trace IDs and
+ * returns which ones have exception events.
+ */
+function buildExceptionCheckQuery(traceIds: string[], timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  const uidList = traceIds.map(id => `toUid("${id}")`).join(', ');
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    `| filter in(trace.id, {${uidList}})`,
+    `| filter isNotNull(span.events) and arraySize(span.events) > 0`,
+    `| summarize { hasExceptions = count() > 0 }, by: { trace.id }`,
   ].join('\n');
 }
 
@@ -370,7 +394,7 @@ export async function searchTracesByUrl(
   const result = await pollForResults(config, requestToken);
   const records = result.result?.records || [];
 
-  return records.map(r => ({
+  const results: TraceMatch[] = records.map(r => ({
     traceId: (r['trace.id'] as string) || '',
     startTime: (r['startTime'] as string) || '',
     endpoint: (r['endpoint'] as string) || '',
@@ -378,9 +402,33 @@ export async function searchTracesByUrl(
     serverAddress: (r['serverAddress'] as string) || '',
     httpStatus: String(r['httpStatus'] || ''),
     isFailed: r['isFailed'] === true,
-    hasExceptions: r['hasExceptions'] === true,
+    hasExceptions: false,
     duration: Number(r['duration']) || 0
   }));
+
+  // Second-pass: check for exceptions across ALL spans in the matched
+  // trace IDs. The URL search query only sees spans matching the URL
+  // filters, so exceptions on downstream/internal spans get missed.
+  if (results.length > 0) {
+    try {
+      const traceIds = results.map(r => r.traceId);
+      const exQuery = buildExceptionCheckQuery(traceIds, timeframe);
+      const exToken = await executeQuery(config, exQuery);
+      const exResult = await pollForResults(config, exToken);
+      const exRecords = exResult.result?.records || [];
+      const exSet = new Set(exRecords.map(r => r['trace.id']));
+      for (const r of results) {
+        if (exSet.has(r.traceId)) r.hasExceptions = true;
+      }
+    } catch (err: unknown) {
+      // Non-fatal: if the exception check fails, results still show
+      // without exception badges rather than failing the whole search.
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('Exception check query failed:', msg);
+    }
+  }
+
+  return results;
 }
 
 export async function fetchSessionEvents(
