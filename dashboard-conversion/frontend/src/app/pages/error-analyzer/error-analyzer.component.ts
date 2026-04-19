@@ -186,6 +186,7 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.selectedTraceId = null;
     this.spans = [];
     this.errorMsg = '';
+    this.isLoading = true;
 
     const timeframe = this.buildNarrowTimeframe(eventStartTime);
 
@@ -196,10 +197,12 @@ export class ErrorAnalyzerComponent implements OnInit {
         if (this.urlSearchResults.length === 0) {
           this.errorMsg = 'No backend traces found for this URL within ±2 minutes of the session event.';
         }
+        this.isLoading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to search backend traces. Please try again.';
+        this.isLoading = false;
         this.cdr.detectChanges();
       }
     });
@@ -226,6 +229,9 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   onUrlResultClick(result: TraceMatch): void {
     this.selectedTraceId = result.traceId;
+    this.isLoading = true;
+    this.errorMsg = '';
+    this.spans = [];
     const timeframe = this.lastUrlSearchTimeframe || {
       from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       to: new Date().toISOString()

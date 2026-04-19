@@ -389,6 +389,7 @@ export class AppComponent implements OnInit {
     this.selectedTraceId = null;
     this.spans = [];
     this.errorMsg = '';
+    this.isLoading = true;
 
     const timeframe = this.buildNarrowTimeframe(eventStartTime);
 
@@ -399,10 +400,12 @@ export class AppComponent implements OnInit {
         if (this.urlSearchResults.length === 0) {
           this.errorMsg = 'No backend traces found for this URL within ±2 minutes of the session event.';
         }
+        this.isLoading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to search backend traces. Please try again.';
+        this.isLoading = false;
         this.cdr.detectChanges();
       }
     });
@@ -438,6 +441,9 @@ export class AppComponent implements OnInit {
    */
   onUrlResultClick(result: TraceMatch): void {
     this.selectedTraceId = result.traceId;
+    this.isLoading = true;
+    this.errorMsg = '';
+    this.spans = [];
     // Reuse the same timeframe that was used for the URL search so the
     // trace fetch targets the same window the user was exploring.
     const timeframe = this.lastUrlSearchTimeframe || {
