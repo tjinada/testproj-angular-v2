@@ -75,14 +75,26 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let ex of capturedExceptions">
-                <td class="captured-ex-service">{{ ex.service }}</td>
-                <td class="captured-ex-endpoint">{{ ex.endpoint }}</td>
-                <td class="captured-ex-exception">
-                  <span class="captured-ex-type" *ngIf="ex.exceptionType">{{ ex.exceptionType }}</span>
-                  <span class="captured-ex-msg" *ngIf="ex.exceptionMessage">{{ ex.exceptionMessage }}</span>
-                </td>
-              </tr>
+              <ng-container *ngFor="let ex of capturedExceptions; let i = index">
+                <tr [class.captured-ex-clickable]="ex.stackTrace"
+                    [class.captured-ex-expanded]="isExceptionRowExpanded(i)"
+                    (click)="ex.stackTrace ? toggleExceptionRow(i) : null">
+                  <td class="captured-ex-service">{{ ex.service }}</td>
+                  <td class="captured-ex-endpoint">{{ ex.endpoint }}</td>
+                  <td class="captured-ex-exception">
+                    <span class="captured-ex-type" *ngIf="ex.exceptionType">{{ ex.exceptionType }}</span>
+                    <span class="captured-ex-msg" *ngIf="ex.exceptionMessage">{{ ex.exceptionMessage }}</span>
+                    <span class="captured-ex-expand-hint" *ngIf="ex.stackTrace">
+                      {{ isExceptionRowExpanded(i) ? '▾ hide stack trace' : '▸ show stack trace' }}
+                    </span>
+                  </td>
+                </tr>
+                <tr *ngIf="isExceptionRowExpanded(i) && ex.stackTrace" class="captured-ex-stack-row">
+                  <td colspan="3">
+                    <pre class="captured-ex-stack">{{ ex.stackTrace }}</pre>
+                  </td>
+                </tr>
+              </ng-container>
             </tbody>
           </table>
         </div>

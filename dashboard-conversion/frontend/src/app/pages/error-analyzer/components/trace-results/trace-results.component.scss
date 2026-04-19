@@ -438,3 +438,44 @@
   font-size: 11px;
   word-break: break-word;
 }
+
+.captured-ex-expand-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #1B4F72;
+  font-weight: 500;
+}
+
+.captured-ex-clickable {
+  cursor: pointer;
+}
+
+.captured-ex-clickable:hover td {
+  background: #fff5f5;
+}
+
+.captured-ex-expanded td {
+  border-bottom: none;
+}
+
+.captured-ex-stack-row td {
+  padding: 0 10px 10px 10px;
+  border-bottom: 1px solid #fecaca;
+}
+
+.captured-ex-stack {
+  margin: 0;
+  padding: 8px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-height: 250px;
+  overflow-y: auto;
+  white-space: pre;
+  word-break: normal;
+}

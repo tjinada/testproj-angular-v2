@@ -98,10 +98,10 @@
               <rect [attr.x]="node.width - 78" y="-18" width="74" height="20" rx="3" ry="3" />
               <text [attr.x]="node.width - 41" y="-4" text-anchor="middle">CHANNELS</text>
             </g>
-            <!-- Exception badge (top-right, amber) -->
+            <!-- Exception badge (bottom-right, amber) -->
             <g *ngIf="node.exceptionCount > 0 && !node.isFailed" class="flow-node-badge flow-badge-exceptions">
-              <rect [attr.x]="node.width - 50" y="-9" width="46" height="18" rx="9" ry="9" />
-              <text [attr.x]="node.width - 27" y="3" text-anchor="middle">⚠ {{ node.exceptionCount }}</text>
+              <rect [attr.x]="node.width - 50" [attr.y]="node.height - 9" width="46" height="18" rx="9" ry="9" />
+              <text [attr.x]="node.width - 27" [attr.y]="node.height + 3" text-anchor="middle">⚠ {{ node.exceptionCount }}</text>
             </g>
             <text class="flow-node-label" [attr.x]="node.width/2" y="28" text-anchor="middle">
               {{ truncate(node.label, 26) }}

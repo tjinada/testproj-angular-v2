@@ -21,6 +21,7 @@ export class TraceResultsComponent implements OnChanges {
   showMessagePopup = false;
   showStackPopup = false;
   showCapturedExceptions = false;
+  expandedExceptionRows = new Set<number>();
 
   errorSummary: ErrorSummary | null = null;
   successSummary: SuccessSummary | null = null;
@@ -41,6 +42,19 @@ export class TraceResultsComponent implements OnChanges {
 
   toggleCapturedExceptions(): void {
     this.showCapturedExceptions = !this.showCapturedExceptions;
+    this.expandedExceptionRows.clear();
+  }
+
+  toggleExceptionRow(index: number): void {
+    if (this.expandedExceptionRows.has(index)) {
+      this.expandedExceptionRows.delete(index);
+    } else {
+      this.expandedExceptionRows.add(index);
+    }
+  }
+
+  isExceptionRowExpanded(index: number): boolean {
+    return this.expandedExceptionRows.has(index);
   }
 
   private analyzeTrace(): void {
@@ -55,6 +69,7 @@ export class TraceResultsComponent implements OnChanges {
     const analyzer = new TraceAnalyzer(this.spans, this.envHostnamePatterns);
     this.capturedExceptions = extractCapturedExceptions(this.spans);
     this.showCapturedExceptions = false;
+    this.expandedExceptionRows.clear();
 
     // Successful trace: build a success summary, no root cause, no error card.
     if (analyzer.isTraceSuccessful()) {
