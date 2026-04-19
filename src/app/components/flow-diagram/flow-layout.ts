@@ -1,5 +1,5 @@
 import { SpanRecord } from '../../models/trace.model';
-import { isSpanFailed } from '../../services/trace-analyzer';
+import { isSpanFailed, extractCapturedExceptions } from '../../services/trace-analyzer';
 
 /** A node in the flow diagram (real service or synthetic external system) */
 export interface FlowNode {
@@ -18,6 +18,7 @@ export interface FlowNode {
   isLambda: boolean;       // true if otel.scope.name is dt.agent.nodejs.Lambda
   isWebSphere: boolean;    // true if websphere.server.name is present
   isChannels: boolean;     // true if k8s.container.name contains 'channels'
+  exceptionCount: number;  // count of captured exceptions on non-failing spans
   websphereServer: string; // websphere.server.name value (empty if not WAS)
   spanCount: number;
   endpoints: string[];
@@ -193,6 +194,10 @@ export function buildFlowGraph(
       isLambda,
       isWebSphere,
       isChannels,
+      exceptionCount: (() => {
+        const failedSpanIds = new Set(grp.filter(isSpanFailed).map(s => s['span.id']));
+        return extractCapturedExceptions(grp).filter(ex => !failedSpanIds.has(ex.spanId)).length;
+      })(),
       websphereServer: wasServerName,
       spanCount: grp.length,
       endpoints,
@@ -263,6 +268,7 @@ export function buildFlowGraph(
         isLambda: false,
         isWebSphere: false,
         isChannels: false,
+        exceptionCount: 0,
         websphereServer: '',
         spanCount: 0,
         endpoints: [],
@@ -313,6 +319,7 @@ export function buildFlowGraph(
         isLambda: false,
         isWebSphere: false,
         isChannels: false,
+        exceptionCount: 0,
         websphereServer: '',
         spanCount: 0,
         endpoints: [],

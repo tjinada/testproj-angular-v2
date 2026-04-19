@@ -11,6 +11,7 @@ export interface TraceMatch {
   httpStatus: string;
   isFailed: boolean;
   hasExceptions: boolean;
+  exceptionCount: number;
   duration: number;
 }
 

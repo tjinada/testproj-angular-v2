@@ -220,6 +220,21 @@
   pointer-events: none;
 }
 
+/* Exception badge (top-right amber pill) */
+.flow-badge-exceptions rect {
+  fill: #fef3c7;
+  stroke: #fde68a;
+  stroke-width: 1;
+}
+
+.flow-badge-exceptions text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  fill: #92400e;
+  pointer-events: none;
+}
+
 /* External nodes — dashed border */
 .flow-node-external .flow-node-rect {
   fill: #fafafa;

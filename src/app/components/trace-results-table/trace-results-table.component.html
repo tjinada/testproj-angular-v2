@@ -46,7 +46,7 @@
             <span *ngIf="r.hasExceptions && !r.isFailed"
                   class="exceptions-badge"
                   title="This trace contains captured exceptions">
-              ⚠ exceptions
+              ⚠ {{ r.exceptionCount }} exception{{ r.exceptionCount === 1 ? '' : 's' }}
             </span>
           </td>
           <td class="cell-truncate" [title]="r.service">{{ r.service || '—' }}</td>

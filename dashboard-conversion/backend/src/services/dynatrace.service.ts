@@ -45,6 +45,7 @@ interface TraceMatch {
   httpStatus: string;
   isFailed: boolean;
   hasExceptions: boolean;
+  exceptionCount: number;
   duration: number;
 }
 
@@ -214,7 +215,7 @@ function buildExceptionCheckQuery(traceIds: string[], timeframe?: Timeframe): st
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
     `| filter in(trace.id, {${uidList}})`,
     `| filter isNotNull(span.events) and arraySize(span.events) > 0`,
-    `| summarize { hasExceptions = count() > 0 }, by: { trace.id }`,
+    `| summarize { exceptionCount = count() }, by: { trace.id }`,
   ].join('\n');
 }
 
@@ -379,6 +380,7 @@ export async function searchTracesByUrl(
       httpStatus: String(first['http.response.status_code'] || ''),
       isFailed: first['request.is_failed'] === true,
       hasExceptions: false,
+      exceptionCount: 0,
       duration: Number(first['duration']) || 0
     }];
   }
@@ -403,6 +405,7 @@ export async function searchTracesByUrl(
     httpStatus: String(r['httpStatus'] || ''),
     isFailed: r['isFailed'] === true,
     hasExceptions: false,
+    exceptionCount: 0,
     duration: Number(r['duration']) || 0
   }));
 
@@ -416,9 +419,13 @@ export async function searchTracesByUrl(
       const exToken = await executeQuery(config, exQuery);
       const exResult = await pollForResults(config, exToken);
       const exRecords = exResult.result?.records || [];
-      const exSet = new Set(exRecords.map(r => r['trace.id']));
+      const exMap = new Map(exRecords.map(r => [r['trace.id'], Number(r['exceptionCount']) || 0]));
       for (const r of results) {
-        if (exSet.has(r.traceId)) r.hasExceptions = true;
+        const count = exMap.get(r.traceId);
+        if (count && count > 0) {
+          r.hasExceptions = true;
+          r.exceptionCount = count;
+        }
       }
     } catch (err: unknown) {
       // Non-fatal: if the exception check fails, results still show
