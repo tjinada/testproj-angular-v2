@@ -65,6 +65,35 @@ router.post('/search-by-url', async (req, res) => {
 });
 
 /**
+ * POST /api/traces/search-by-jsession
+ * Searches for traces by JSESSIONID, following the chain of session ID
+ * rotations via Set-Cookie response headers.
+ */
+router.post('/search-by-jsession', async (req, res) => {
+  const { jsessionId, environment = 'NON-PROD', timeframe, userToken } = req.body;
+
+  if (!jsessionId) {
+    return res.status(400).json({ error: 'JSESSIONID is required' });
+  }
+
+  try {
+    const results = await dynatraceService.searchTracesByJsession(jsessionId, environment, timeframe, userToken);
+    res.json({ results });
+  } catch (error) {
+    console.error(`[Dynatrace] Error searching by JSESSIONID:`, error.message);
+
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
  * POST /api/traces/session/:sessionId
  * Fetches all user.events records for a RUM session ID. Used by the
  * session search feature to render the session journey view.

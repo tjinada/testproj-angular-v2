@@ -436,6 +436,154 @@ async function searchTracesByUrl(url, environment, timeframe, hostExact = false,
 }
 
 /**
+ * Builds a DQL query that finds traces where the request cookie header
+ * contains the given JSESSIONID suffix. Also returns the response
+ * set-cookie header so we can extract the next JSESSIONID in the chain.
+ */
+function buildJsessionSearchQuery(suffixes, timeframe) {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  const conditions = suffixes
+    .map(s => `contains(\`http.request.header.cookie\`, "${s}")`)
+    .join(' or ');
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    `| filter ${conditions}`,
+    `| fieldsAdd _kindRank = if(span.kind == "server", 0, else: 1)`,
+    `| sort _kindRank asc`,
+    `| summarize {`,
+    `    startTime = takeMin(start_time),`,
+    `    endpoint = takeFirst(endpoint.name),`,
+    `    service = takeFirst(dt.service.name),`,
+    `    serverAddress = takeFirst(server.address),`,
+    `    httpStatus = takeFirst(http.response.status_code),`,
+    `    isFailed = countIf(request.is_failed == true) > 0,`,
+    `    setCookie = takeFirst(\`http.response.header.set-cookie\`),`,
+    `    duration = takeFirst(duration)`,
+    `  }, by: { trace.id }`,
+    `| sort startTime desc`,
+    `| limit 100`
+  ].join('\n');
+}
+
+/**
+ * Extracts new JSESSIONID values from set-cookie strings.
+ * Looks for "JSESSIONID=<value>;" or "JSESSIONID=<value>" at end of string.
+ * Returns an array of full JSESSIONID values (not suffixes).
+ */
+function parseNewJsessionIds(records, seenSuffixes) {
+  const newIds = [];
+  const jsessionRegex = /JSESSIONID=([^;\s]+)/i;
+
+  for (const r of records) {
+    const setCookie = r['setCookie'] || '';
+    if (!setCookie) continue;
+    const match = jsessionRegex.exec(setCookie);
+    if (!match) continue;
+    const fullId = match[1];
+    const suffix = fullId.slice(-20);
+    if (!seenSuffixes.has(suffix)) {
+      newIds.push(fullId);
+    }
+  }
+  return newIds;
+}
+
+const JSESSION_SUFFIX_LENGTH = 20;
+const JSESSION_MAX_ITERATIONS = 5;
+
+/**
+ * Searches for traces by JSESSIONID using a chain-walk approach.
+ * Each JSESSIONID rotation (via Set-Cookie) is followed to the next,
+ * building a complete picture of the user's session across ID changes.
+ */
+async function searchTracesByJsession(jsessionId, environment, timeframe, userToken = null) {
+  if (process.env.USE_MOCK === 'true') {
+    return [];
+  }
+
+  const config = getEnvConfig(environment, userToken);
+  const allResults = new Map(); // traceId -> TraceMatch
+  const seenSuffixes = new Set();
+
+  // Seed with the initial JSESSIONID suffix
+  let currentSuffixes = [jsessionId.slice(-JSESSION_SUFFIX_LENGTH)];
+  seenSuffixes.add(currentSuffixes[0]);
+
+  for (let iteration = 0; iteration < JSESSION_MAX_ITERATIONS; iteration++) {
+    if (currentSuffixes.length === 0) break;
+
+    console.log(`[jsession] Iteration ${iteration + 1}: searching ${currentSuffixes.length} suffix(es)`);
+
+    const query = buildJsessionSearchQuery(currentSuffixes, timeframe);
+    const requestToken = await executeQuery(config, query);
+    const result = await pollForResults(config, requestToken);
+    const records = result.result?.records || [];
+
+    console.log(`[jsession] Iteration ${iteration + 1}: found ${records.length} trace(s)`);
+
+    // Collect results (deduplicate by trace.id)
+    for (const r of records) {
+      const traceId = r['trace.id'] || '';
+      if (traceId && !allResults.has(traceId)) {
+        allResults.set(traceId, {
+          traceId,
+          startTime: r['startTime'] || '',
+          endpoint: r['endpoint'] || '',
+          service: r['service'] || '',
+          serverAddress: r['serverAddress'] || '',
+          httpStatus: String(r['httpStatus'] || ''),
+          isFailed: r['isFailed'] === true,
+          hasExceptions: false,
+          exceptionCount: 0,
+          duration: Number(r['duration']) || 0
+        });
+      }
+    }
+
+    // Extract new JSESSIONIDs from set-cookie headers
+    const newIds = parseNewJsessionIds(records, seenSuffixes);
+    currentSuffixes = [];
+    for (const id of newIds) {
+      const suffix = id.slice(-JSESSION_SUFFIX_LENGTH);
+      seenSuffixes.add(suffix);
+      currentSuffixes.push(suffix);
+    }
+  }
+
+  const results = Array.from(allResults.values())
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  console.log(`[jsession] Total: ${results.length} unique trace(s) across ${seenSuffixes.size} JSESSIONID(s)`);
+
+  // Exception check (same as URL search)
+  if (results.length > 0) {
+    try {
+      const traceIds = results.map(r => r.traceId);
+      const exQuery = buildExceptionCheckQuery(traceIds, timeframe);
+      const exToken = await executeQuery(config, exQuery);
+      const exResult = await pollForResults(config, exToken);
+      const exRecords = exResult.result?.records || [];
+      const exMap = new Map(exRecords.map(r => [r['trace.id'], Number(r['exceptionCount']) || 0]));
+      for (const r of results) {
+        const count = exMap.get(r.traceId);
+        if (count && count > 0) {
+          r.hasExceptions = true;
+          r.exceptionCount = count;
+        }
+      }
+    } catch (err) {
+      console.warn('Exception check query failed:', err.message);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Fetches all user.events records for a given RUM session ID.
  * Uses the same execute + poll pattern as trace fetches.
  */
@@ -451,4 +599,4 @@ async function fetchSessionEvents(sessionId, environment, timeframe, userToken =
   return result.result?.records || [];
 }
 
-module.exports = { fetchTraceById, findTraceIdByRequestId, searchTracesByUrl, fetchSessionEvents };
+module.exports = { fetchTraceById, findTraceIdByRequestId, searchTracesByUrl, searchTracesByJsession, fetchSessionEvents };

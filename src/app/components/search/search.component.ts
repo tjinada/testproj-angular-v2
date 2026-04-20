@@ -20,6 +20,7 @@ export interface SearchEvent {
 export const SEARCH_FIELDS: SearchField[] = [
   { mode: 'request', label: 'Browser x-request-id', placeholder: 'Paste the x-request-id from your browser network tab...', disabled: true },
   { mode: 'url', label: 'URL / URL path', placeholder: 'Paste a full URL, hostname, or path (e.g. host.com/foo, /banking, services/signin)' },
+  { mode: 'jsession', label: 'JSESSIONID', placeholder: 'Paste a JSESSIONID value from browser cookies or Set-Cookie header' },
   { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
   { mode: 'session', label: 'RUM Session ID', placeholder: 'Enter a RUM session ID (e.g. AQSNRLGUDIM...)' }
 ];

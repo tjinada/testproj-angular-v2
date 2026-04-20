@@ -42,7 +42,7 @@ export class ErrorAnalyzerComponent implements OnInit {
   // Session search state
   sessionEvents: UserEventRecord[] = [];
   tracesFromSessionUrl: string | null = null;
-  lastSearchMode: 'trace' | 'request' | 'url' | 'session' | null = null;
+  lastSearchMode: 'trace' | 'request' | 'url' | 'session' | 'jsession' | null = null;
 
   constructor(
     private dynatraceService: DynatraceService,
@@ -134,6 +134,27 @@ export class ErrorAnalyzerComponent implements OnInit {
         },
         error: (err) => {
           this.errorMsg = err.error?.error || 'Failed to search by URL. Please try again.';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+      return;
+    }
+
+    if (event.mode === 'jsession') {
+      this.lastUrlSearchTimeframe = event.timeframe;
+      this.dynatraceService.searchByJsession(event.value, this.environment, event.timeframe).subscribe({
+        next: (response) => {
+          this.urlSearchResults = response.results || [];
+          this.urlSearchLimitReached = this.urlSearchResults.length >= 100;
+          if (this.urlSearchResults.length === 0) {
+            this.errorMsg = 'No traces found for that JSESSIONID in the selected time window.';
+          }
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.errorMsg = err.error?.error || 'Failed to search by JSESSIONID. Please try again.';
           this.isLoading = false;
           this.cdr.detectChanges();
         }

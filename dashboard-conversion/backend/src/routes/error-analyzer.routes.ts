@@ -3,6 +3,7 @@ import {
   fetchTraceById,
   findTraceIdByRequestId,
   searchTracesByUrl,
+  searchTracesByJsession,
   fetchSessionEvents
 } from '../services/dynatrace.service';
 
@@ -90,6 +91,30 @@ router.post('/traces/search-by-url', async (req: Request, res: Response) => {
     res.json({ results });
   } catch (error: any) {
     console.error(`[Dynatrace] Error searching by URL ${url}:`, error.message);
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/error-analyzer/traces/search-by-jsession
+ */
+router.post('/traces/search-by-jsession', async (req: Request, res: Response) => {
+  const { jsessionId, environment = 'NON-PROD', timeframe, userToken } = req.body;
+
+  if (!jsessionId) {
+    return res.status(400).json({ error: 'JSESSIONID is required' });
+  }
+
+  try {
+    const results = await searchTracesByJsession(jsessionId, environment, timeframe, userToken);
+    res.json({ results });
+  } catch (error: any) {
+    console.error(`[Dynatrace] Error searching by JSESSIONID:`, error.message);
     if (error.response?.data) {
       console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
     }

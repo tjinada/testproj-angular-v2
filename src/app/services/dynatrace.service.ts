@@ -116,6 +116,23 @@ export class DynatraceService {
   }
 
   /**
+   * Searches for traces by JSESSIONID. The backend follows the chain of
+   * session ID rotations via Set-Cookie response headers.
+   */
+  searchByJsession(
+    jsessionId: string,
+    environment: string = 'NON-PROD',
+    timeframe?: Timeframe
+  ): Observable<UrlSearchResponse> {
+    return this.http.post<UrlSearchResponse>(`${this.apiUrl}/search-by-jsession`, {
+      jsessionId,
+      environment,
+      timeframe,
+      userToken: this.getUserToken(environment)
+    });
+  }
+
+  /**
    * Fetches all user.events records for a given RUM session ID. The backend
    * handles the 2-step Dynatrace execute + poll flow.
    */
