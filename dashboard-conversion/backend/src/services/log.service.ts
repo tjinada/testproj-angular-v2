@@ -49,7 +49,10 @@ export async function searchLog(
 ): Promise<LogSearchResponse> {
   const parsed = new URL(logUrl);
   const transport = chooseTransport(parsed.protocol);
-  const needle = `REQID=${reqId}`;
+  // Plain substring match on the user's input. Log format varies
+  // across services (REQID=[REQ_xxx], "rqUID":"REQ_xxx", etc.), so
+  // we search for the raw value anywhere on the line.
+  const needle = reqId;
 
   return new Promise<LogSearchResponse>((resolve, reject) => {
     const request = transport.get(
@@ -95,6 +98,7 @@ export async function searchLog(
         rl.on('line', (line) => {
           if (line.indexOf(needle) === -1) return;
           totalMatched += 1;
+          // (match is case-sensitive; REQ_ ids are always uppercase prefix)
           if (matched.length < MAX_MATCHED_LINES) {
             matched.push(line);
           } else if (!truncated) {
