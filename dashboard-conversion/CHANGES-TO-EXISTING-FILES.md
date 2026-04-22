@@ -24,24 +24,27 @@ Add this nav link in the template's `<nav class="nav-links">` section:
 
 ## 3. backend/src/index.ts
 
-Add import at top:
+Add imports at top:
 
 ```typescript
 import errorAnalyzerRoutes from './routes/error-analyzer.routes';
+import logRoutes from './routes/log.routes';
 ```
 
-Add route mount (alongside existing `app.use` lines):
+Add route mounts (alongside existing `app.use` lines):
 
 ```typescript
 app.use('/api/error-analyzer', errorAnalyzerRoutes);
+app.use('/api/logs', logRoutes);
 ```
 
 ## 4. backend/src/services/index.ts
 
-Add barrel export:
+Add barrel exports:
 
 ```typescript
 export { default as dynatraceService } from './dynatrace.service';
+export * from './log.service';
 ```
 
 ## 5. backend/.env.example
@@ -62,6 +65,10 @@ DYNATRACE_PREP_TOKEN=your-platform-token-here
 DYNATRACE_PROD_ENABLED=true
 DYNATRACE_PROD_API_URL=dynatrace_prod_api_url_here
 DYNATRACE_PROD_TOKEN=your-platform-token-here
+
+# CDBBOS Log Search - Basic Auth for log file server (e.g., https://10.195.26.240)
+LOG_SERVER_USERNAME=<PLACEHOLDER_USERNAME>
+LOG_SERVER_PASSWORD=<PLACEHOLDER_PASSWORD>
 ```
 
 ## 6. Files to Copy As-Is from V2
@@ -94,3 +101,25 @@ Copy these from `testproj-angular-v2` into the corresponding paths under
 
 ### Mock data (copy to backend):
 - `server/mocks/trace-sample.json` → `backend/src/mocks/trace-sample.json`
+
+## 7. CDBBOS Log Search — New Files (No Action Needed Beyond Merge)
+
+The following are brand-new files already created in `dashboard-conversion/`
+under the standard paths. No edits to existing files required for these
+files themselves — just copy the `dashboard-conversion/` tree into place.
+
+**Backend:**
+- `backend/src/services/log.service.ts`
+- `backend/src/routes/log.routes.ts`
+
+**Frontend:**
+- `frontend/src/app/pages/error-analyzer/models/log.model.ts`
+- `frontend/src/app/pages/error-analyzer/services/log.service.ts`
+- `frontend/src/app/pages/error-analyzer/components/log-search/log-search.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/log-search/log-search.component.html`
+- `frontend/src/app/pages/error-analyzer/components/log-search/log-search.component.scss`
+
+**Existing error-analyzer component updated in place** (all within
+`dashboard-conversion/`): `error-analyzer.component.{ts,html,scss}` — now wraps
+the original trace-analysis UI in a two-tab layout alongside the new CDBBOS
+Log Search tab.

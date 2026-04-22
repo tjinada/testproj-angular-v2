@@ -1,0 +1,76 @@
+<div class="log-search-container">
+
+  <!-- Env loading / error state -->
+  <div *ngIf="isLoadingEnvs()" class="log-info">
+    Loading environments&hellip;
+  </div>
+
+  <div *ngIf="envsError()" class="log-error-banner">
+    {{ envsError() }}
+    <button type="button" class="log-link-btn" (click)="onRefreshEnvs()">Retry</button>
+  </div>
+
+  <!-- Search form -->
+  <div class="log-form" *ngIf="!isLoadingEnvs() && !envsError()">
+    <div class="log-form-row">
+      <label for="log-env-select" class="log-label">Environment:</label>
+      <select
+        id="log-env-select"
+        class="log-env-select"
+        [ngModel]="selectedEnvName()"
+        (ngModelChange)="selectedEnvName.set($event)">
+        <option *ngFor="let env of envs()" [value]="env.name">{{ env.name }}</option>
+      </select>
+
+      <label for="log-reqid-input" class="log-label">CDBBOS Request ID:</label>
+      <input
+        id="log-reqid-input"
+        type="text"
+        class="log-reqid-input"
+        placeholder="Enter REQID value"
+        [ngModel]="reqId()"
+        (ngModelChange)="reqId.set($event)"
+        (keyup.enter)="canSearch() && onSearch()" />
+
+      <button
+        type="button"
+        class="log-search-btn"
+        [disabled]="!canSearch()"
+        (click)="onSearch()">
+        {{ isSearching() ? 'Searching…' : 'Search' }}
+      </button>
+    </div>
+
+    <div class="log-form-hint" *ngIf="selectedEnv()">
+      Searching for <code>REQID={{ reqId() || '&lt;id&gt;' }}</code> in
+      <code>{{ selectedEnv()!.applicationLogsUrl }}</code>
+    </div>
+  </div>
+
+  <!-- Search error -->
+  <div *ngIf="searchError()" class="log-error-banner">
+    {{ searchError() }}
+  </div>
+
+  <!-- Results -->
+  <div *ngIf="hasSearched() && !isSearching() && !searchError()" class="log-results">
+    <div class="log-results-header">
+      <span>
+        <strong>{{ totalMatched() }}</strong>
+        match<span *ngIf="totalMatched() !== 1">es</span>
+      </span>
+      <span *ngIf="truncated()" class="log-truncated-badge">
+        Showing first {{ lines().length }} — results truncated
+      </span>
+    </div>
+
+    <div *ngIf="lines().length === 0" class="log-empty">
+      No log lines matched. Double-check the REQID and environment, and that the
+      request occurred before the log file rolled over.
+    </div>
+
+    <pre *ngIf="lines().length > 0" class="log-lines">
+<ng-container *ngFor="let line of lines()">{{ line }}
+</ng-container></pre>
+  </div>
+</div>

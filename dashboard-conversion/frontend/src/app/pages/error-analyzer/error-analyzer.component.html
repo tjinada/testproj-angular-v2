@@ -14,70 +14,100 @@
     </button>
   </div>
 
-  <div *ngIf="configLoaded" class="env-row" [class.env-row-prod]="isProd()">
-    <label for="env-select" class="env-label">Environment:</label>
-    <select
-      id="env-select"
-      class="env-select"
-      [class.env-select-prod]="isProd()"
-      [(ngModel)]="environment">
-      <option *ngFor="let env of environments" [ngValue]="env.id">{{ env.label }}</option>
-    </select>
-    <span *ngIf="isProd()" class="env-prod-badge">PROD</span>
+  <!-- Tab bar -->
+  <div class="tab-bar" role="tablist">
+    <button
+      type="button"
+      class="tab-btn"
+      role="tab"
+      [attr.aria-selected]="activeTab === 'trace'"
+      [class.tab-btn-active]="activeTab === 'trace'"
+      (click)="setTab('trace')">
+      Trace Analysis
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      role="tab"
+      [attr.aria-selected]="activeTab === 'logs'"
+      [class.tab-btn-active]="activeTab === 'logs'"
+      (click)="setTab('logs')">
+      CDBBOS Log Search
+    </button>
   </div>
 
-  <!-- Token setup modal (first-time) -->
-  <app-token-setup
-    *ngIf="showTokenSetup"
-    [mode]="'setup'"
-    [environments]="nonProdEnvironments"
-    [tokenUrls]="tokenUrls"
-    (saved)="onTokenSetupDone()">
-  </app-token-setup>
-
-  <!-- Token settings modal (gear) -->
-  <app-token-setup
-    *ngIf="showTokenSettings"
-    [mode]="'settings'"
-    [environments]="environments"
-    [tokenUrls]="tokenUrls"
-    (saved)="onTokenSettingsDone()"
-    (closed)="onTokenSettingsDone()">
-  </app-token-setup>
-
-  <!-- Main app content (hidden when setup modal is blocking) -->
-  <ng-container *ngIf="!showTokenSetup">
-    <app-search (search)="onSearch($event)"></app-search>
-    <div *ngIf="resolvedFromRequestId" class="resolved-banner">
-      Found trace <code>{{ resolvedFromRequestId.traceId }}</code>
-      for request <code>{{ resolvedFromRequestId.requestId }}</code>
-      in <strong>{{ currentEnvLabel() }}</strong>
+  <!-- Tab: Trace Analysis ──────────────────────────────────────────── -->
+  <div *ngIf="activeTab === 'trace'" class="tab-panel" role="tabpanel">
+    <div *ngIf="configLoaded" class="env-row" [class.env-row-prod]="isProd()">
+      <label for="env-select" class="env-label">Environment:</label>
+      <select
+        id="env-select"
+        class="env-select"
+        [class.env-select-prod]="isProd()"
+        [(ngModel)]="environment">
+        <option *ngFor="let env of environments" [ngValue]="env.id">{{ env.label }}</option>
+      </select>
+      <span *ngIf="isProd()" class="env-prod-badge">PROD</span>
     </div>
 
-    <app-session-results
-      [events]="sessionEvents"
-      [isLoading]="isLoading && lastSearchMode === 'session'"
-      [errorMsg]="errorMsg"
-      (findTraces)="onFindBackendTraces($event)">
-    </app-session-results>
+    <!-- Token setup modal (first-time) -->
+    <app-token-setup
+      *ngIf="showTokenSetup"
+      [mode]="'setup'"
+      [environments]="nonProdEnvironments"
+      [tokenUrls]="tokenUrls"
+      (saved)="onTokenSetupDone()">
+    </app-token-setup>
 
-    <div *ngIf="tracesFromSessionUrl" class="resolved-banner">
-      Backend traces matching <code>{{ tracesFromSessionUrl }}</code>
-    </div>
+    <!-- Token settings modal (gear) -->
+    <app-token-setup
+      *ngIf="showTokenSettings"
+      [mode]="'settings'"
+      [environments]="environments"
+      [tokenUrls]="tokenUrls"
+      (saved)="onTokenSettingsDone()"
+      (closed)="onTokenSettingsDone()">
+    </app-token-setup>
 
-    <app-trace-results-table
-      [results]="urlSearchResults"
-      [selectedTraceId]="selectedTraceId"
-      [limitReached]="urlSearchLimitReached"
-      (resultClick)="onUrlResultClick($event)">
-    </app-trace-results-table>
+    <!-- Main app content (hidden when setup modal is blocking) -->
+    <ng-container *ngIf="!showTokenSetup">
+      <app-search (search)="onSearch($event)"></app-search>
+      <div *ngIf="resolvedFromRequestId" class="resolved-banner">
+        Found trace <code>{{ resolvedFromRequestId.traceId }}</code>
+        for request <code>{{ resolvedFromRequestId.requestId }}</code>
+        in <strong>{{ currentEnvLabel() }}</strong>
+      </div>
 
-    <app-trace-results
-      [spans]="spans"
-      [isLoading]="isLoading"
-      [errorMsg]="errorMsg"
-      [environment]="environment"
-      [envHostnamePatterns]="envHostnamePatterns">
-    </app-trace-results>
-  </ng-container>
+      <app-session-results
+        [events]="sessionEvents"
+        [isLoading]="isLoading && lastSearchMode === 'session'"
+        [errorMsg]="errorMsg"
+        (findTraces)="onFindBackendTraces($event)">
+      </app-session-results>
+
+      <div *ngIf="tracesFromSessionUrl" class="resolved-banner">
+        Backend traces matching <code>{{ tracesFromSessionUrl }}</code>
+      </div>
+
+      <app-trace-results-table
+        [results]="urlSearchResults"
+        [selectedTraceId]="selectedTraceId"
+        [limitReached]="urlSearchLimitReached"
+        (resultClick)="onUrlResultClick($event)">
+      </app-trace-results-table>
+
+      <app-trace-results
+        [spans]="spans"
+        [isLoading]="isLoading"
+        [errorMsg]="errorMsg"
+        [environment]="environment"
+        [envHostnamePatterns]="envHostnamePatterns">
+      </app-trace-results>
+    </ng-container>
+  </div>
+
+  <!-- Tab: CDBBOS Log Search ───────────────────────────────────────── -->
+  <div *ngIf="activeTab === 'logs'" class="tab-panel" role="tabpanel">
+    <app-log-search></app-log-search>
+  </div>
 </div>

@@ -6,14 +6,17 @@ import { TraceResultsComponent } from './components/trace-results/trace-results.
 import { TraceResultsTableComponent } from './components/trace-results-table/trace-results-table.component';
 import { SessionResultsComponent } from './components/session-results/session-results.component';
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
+import { LogSearchComponent } from './components/log-search/log-search.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
 import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
+type TabId = 'trace' | 'logs';
+
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, LogSearchComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -26,6 +29,9 @@ export class ErrorAnalyzerComponent implements OnInit {
   envHostnamePatterns: string[] = [];
   resolvedFromRequestId: { traceId: string; requestId: string } | null = null;
   configLoaded = false;
+
+  // Tab state
+  activeTab: TabId = 'trace';
 
   // Token management
   showTokenSetup = false;
@@ -82,6 +88,12 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   currentEnvLabel(): string {
     return this.environments.find(e => e.id === this.environment)?.label || this.environment;
+  }
+
+  // ── Tab handlers ───────────────────────────────────────────────────
+
+  setTab(tab: TabId): void {
+    this.activeTab = tab;
   }
 
   // ── Token modal handlers ───────────────────────────────────────────
