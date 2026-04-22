@@ -54,6 +54,18 @@ export async function searchLog(
   // we search for the raw value anywhere on the line.
   const needle = reqId;
 
+  // Auth sanity check — log whether creds are present (NEVER log values).
+  const hasUser = !!process.env.LOG_SERVER_USERNAME;
+  const hasPass = !!process.env.LOG_SERVER_PASSWORD;
+  console.log(`[LogSearch] start — url=${logUrl}`);
+  console.log(`[LogSearch] needle="${needle}" (length=${needle.length})`);
+  console.log(`[LogSearch] creds present: username=${hasUser}, password=${hasPass}`);
+  if (!hasUser || !hasPass) {
+    console.warn('[LogSearch] WARNING: LOG_SERVER_USERNAME or LOG_SERVER_PASSWORD is empty');
+  }
+
+  const startedAt = Date.now();
+
   return new Promise<LogSearchResponse>((resolve, reject) => {
     const request = transport.get(
       logUrl,
@@ -68,6 +80,9 @@ export async function searchLog(
       },
       (response) => {
         const status = response.statusCode || 0;
+        const contentType = response.headers['content-type'] || '<none>';
+        const contentLength = response.headers['content-length'] || '<unknown>';
+        console.log(`[LogSearch] response received — status=${status}, content-type=${contentType}, content-length=${contentLength}`);
 
         if (status === 401 || status === 403) {
           response.resume();
@@ -89,6 +104,12 @@ export async function searchLog(
         const matched: string[] = [];
         let totalMatched = 0;
         let truncated = false;
+        let linesScanned = 0;
+        let bytesReceived = 0;
+
+        response.on('data', (chunk: Buffer) => {
+          bytesReceived += chunk.length;
+        });
 
         const rl = readline.createInterface({
           input: response,
@@ -96,6 +117,11 @@ export async function searchLog(
         });
 
         rl.on('line', (line) => {
+          linesScanned += 1;
+          // Heartbeat every 50k lines so long scans don't look frozen.
+          if (linesScanned % 50_000 === 0) {
+            console.log(`[LogSearch] progress — scanned=${linesScanned} lines, ${bytesReceived} bytes, matches=${totalMatched}`);
+          }
           if (line.indexOf(needle) === -1) return;
           totalMatched += 1;
           // (match is case-sensitive; REQ_ ids are always uppercase prefix)
@@ -103,6 +129,7 @@ export async function searchLog(
             matched.push(line);
           } else if (!truncated) {
             truncated = true;
+            console.log(`[LogSearch] truncation cap reached (${MAX_MATCHED_LINES}), stopping stream early`);
             // Stop reading further; we've hit the cap.
             rl.close();
             response.destroy();
@@ -110,20 +137,34 @@ export async function searchLog(
         });
 
         rl.on('close', () => {
+          const elapsedMs = Date.now() - startedAt;
+          console.log(`[LogSearch] done — scanned=${linesScanned} lines, ${bytesReceived} bytes, matches=${totalMatched}, truncated=${truncated}, elapsed=${elapsedMs}ms`);
+          if (totalMatched === 0 && linesScanned > 0) {
+            console.log(`[LogSearch] ZERO MATCHES. Sample of first line scanned (for format check): ${firstLineSample || '<none captured>'}`);
+          }
           resolve({ lines: matched, totalMatched, truncated });
         });
 
         rl.on('error', (err) => {
+          console.error(`[LogSearch] readline error: ${err.message}`);
           reject(err);
+        });
+
+        // Capture first line for format debugging when zero matches.
+        let firstLineSample: string | null = null;
+        rl.once('line', (line) => {
+          firstLineSample = line.length > 300 ? line.slice(0, 300) + '…' : line;
         });
       }
     );
 
     request.on('timeout', () => {
+      console.error(`[LogSearch] request timeout after ${REQUEST_TIMEOUT_MS}ms for ${logUrl}`);
       request.destroy(new Error(`Request to ${logUrl} timed out after ${REQUEST_TIMEOUT_MS}ms`));
     });
 
     request.on('error', (err) => {
+      console.error(`[LogSearch] request error: ${err.message}`);
       reject(err);
     });
   });

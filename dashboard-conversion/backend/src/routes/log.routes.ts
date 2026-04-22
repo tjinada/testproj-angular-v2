@@ -10,6 +10,7 @@ const router = Router();
  */
 router.post('/search', async (req: Request, res: Response) => {
   const { logUrl, reqId } = req.body || {};
+  console.log(`[LogSearch/route] POST /api/logs/search received — reqId="${reqId}", logUrl="${logUrl}"`);
 
   if (!logUrl || typeof logUrl !== 'string') {
     return res.status(400).json({ error: 'logUrl is required' });
