@@ -240,14 +240,16 @@
 // ── Compact (collapsed) line layout ────────────────────────────────
 .log-line-compact {
   display: grid;
-  grid-template-columns: 180px 56px minmax(140px, 220px) 1fr;
-  gap: 10px;
+  grid-template-columns: 220px 60px minmax(180px, 240px) 1fr;
+  gap: 12px;
   align-items: baseline;
 }
 
 .log-ts {
   color: #9ca3af;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .log-lvl {
