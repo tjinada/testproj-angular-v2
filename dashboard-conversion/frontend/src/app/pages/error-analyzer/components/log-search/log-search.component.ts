@@ -22,16 +22,16 @@ interface LogLineVM extends ParsedLogLine {
 }
 
 // Regex targets lines like:
-//   17:18:41.656 -0400 [WebContainer : 1] DEBUG com.bmo.cs.controller.Foo IP=[...] ... REQID=[...] - message text
+//   2026-04-22 11:00:39.817 -0400 [WebContainer : 15] DEBUG com.bmo.cs.controller.Foo IP=[...] ... REQID=[...] - message text
 // Capture groups:
-//   1 = timestamp (HH:MM:SS.mmm plus optional timezone)
-//   2 = thread bracket content (e.g., "WebContainer : 1")
+//   1 = timestamp (full date + time + timezone)
+//   2 = thread bracket content (e.g., "WebContainer : 15")
 //   3 = level
 //   4 = class path
 //   5 = the prefix metadata block (IP=..., SESSION=..., etc.) — may be empty
 //   6 = message (after final " - ")
 const LINE_REGEX =
-  /^(\d{2}:\d{2}:\d{2}\.\d{3}(?:\s+[-+]\d{4})?)\s+\[([^\]]+)\]\s+(DEBUG|INFO|WARN|WARNING|ERROR|TRACE|FATAL)\s+([\w.$]+)\s+(.*?)\s-\s(.*)$/;
+  /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}(?:\s+[-+]\d{4})?)\s+\[([^\]]+)\]\s+(DEBUG|INFO|WARN|WARNING|ERROR|TRACE|FATAL)\s+([\w.$]+)\s+(.*?)\s-\s(.*)$/;
 
 function parseLine(raw: string): ParsedLogLine {
   const m = LINE_REGEX.exec(raw);
