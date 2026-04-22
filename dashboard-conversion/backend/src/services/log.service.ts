@@ -10,15 +10,33 @@ export interface LogSearchRequest {
   reqId: string;
 }
 
+/** One emitted line in the response. */
+export interface LogLineOut {
+  text: string;
+  lineNum: number;
+  isMatch: boolean;
+}
+
+/** Inserted between non-adjacent groups when rendered with context. */
+export interface LogGap {
+  gap: true;
+  skipped: number;
+}
+
+export type LogEntry = LogLineOut | LogGap;
+
 export interface LogSearchResponse {
-  lines: string[];
-  totalMatched: number;
-  truncated: boolean;
+  lines: LogEntry[];       // interleaved lines + gap markers
+  totalMatched: number;    // total matching lines in file (uncapped count)
+  matchesReturned: number; // matches actually included in `lines`
+  truncated: boolean;      // true if we stopped streaming because of cap
+  contextSize: number;     // the context size captured (fixed: MAX_CONTEXT)
 }
 
 // ── Constants ────────────────────────────────────────────────────────
 
 const MAX_MATCHED_LINES = 10_000;
+const MAX_CONTEXT = 100;               // always captured; client slices smaller
 const REQUEST_TIMEOUT_MS = 60_000;
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -37,11 +55,15 @@ function chooseTransport(protocol: string): typeof https | typeof http {
 // ── Main entry ───────────────────────────────────────────────────────
 
 /**
- * Fetches a remote log file, streams it line-by-line, and returns lines
- * containing `REQID=<reqId>`. Caps matches at MAX_MATCHED_LINES.
+ * Fetches a remote log file, streams it line-by-line, and returns:
+ *   - every line whose text contains `reqId` (a match), AND
+ *   - up to MAX_CONTEXT lines of context before and after each match.
  *
- * Rejects only on network / auth failures; an empty match set is a
- * successful response with `lines: []`.
+ * Overlapping contexts are merged. Non-adjacent groups are separated
+ * by a `{gap, skipped}` marker so the client can render "···".
+ *
+ * Caps matches at MAX_MATCHED_LINES. When the cap is hit, we still
+ * continue counting matches (for `totalMatched`) but stop emitting.
  */
 export async function searchLog(
   logUrl: string,
@@ -49,12 +71,8 @@ export async function searchLog(
 ): Promise<LogSearchResponse> {
   const parsed = new URL(logUrl);
   const transport = chooseTransport(parsed.protocol);
-  // Plain substring match on the user's input. Log format varies
-  // across services (REQID=[REQ_xxx], "rqUID":"REQ_xxx", etc.), so
-  // we search for the raw value anywhere on the line.
   const needle = reqId;
 
-  // Auth sanity check — log whether creds are present (NEVER log values).
   const hasUser = !!process.env.LOG_SERVER_USERNAME;
   const hasPass = !!process.env.LOG_SERVER_PASSWORD;
   console.log(`[LogSearch] start — url=${logUrl}`);
@@ -74,7 +92,6 @@ export async function searchLog(
           Authorization: buildBasicAuthHeader(),
           Accept: 'text/plain, */*'
         },
-        // File server uses a self-signed cert on an internal IP.
         rejectUnauthorized: false,
         timeout: REQUEST_TIMEOUT_MS
       },
@@ -101,11 +118,20 @@ export async function searchLog(
           return reject(new Error(`Log server returned HTTP ${status} for ${logUrl}`));
         }
 
-        const matched: string[] = [];
+        // ── Streaming state ──────────────────────────────────────────
+        // ringBuf holds the last MAX_CONTEXT lines (for before-context).
+        const ringBuf: { text: string; lineNum: number }[] = [];
+        // Map lineNum -> LogLineOut for lines we've decided to emit.
+        // Using a Map keyed by line number dedupes overlapping contexts.
+        const emitted = new Map<number, LogLineOut>();
+        // Countdown: when > 0, we keep adding upcoming lines as after-context.
+        let afterCountdown = 0;
         let totalMatched = 0;
+        let matchesReturned = 0;
         let truncated = false;
         let linesScanned = 0;
         let bytesReceived = 0;
+        let firstLineSample: string | null = null;
 
         response.on('data', (chunk: Buffer) => {
           bytesReceived += chunk.length;
@@ -118,42 +144,100 @@ export async function searchLog(
 
         rl.on('line', (line) => {
           linesScanned += 1;
-          // Heartbeat every 50k lines so long scans don't look frozen.
+          if (firstLineSample === null) {
+            firstLineSample = line.length > 300 ? line.slice(0, 300) + '…' : line;
+          }
           if (linesScanned % 50_000 === 0) {
             console.log(`[LogSearch] progress — scanned=${linesScanned} lines, ${bytesReceived} bytes, matches=${totalMatched}`);
           }
-          if (line.indexOf(needle) === -1) return;
-          totalMatched += 1;
-          // (match is case-sensitive; REQ_ ids are always uppercase prefix)
-          if (matched.length < MAX_MATCHED_LINES) {
-            matched.push(line);
-          } else if (!truncated) {
-            truncated = true;
-            console.log(`[LogSearch] truncation cap reached (${MAX_MATCHED_LINES}), stopping stream early`);
-            // Stop reading further; we've hit the cap.
-            rl.close();
-            response.destroy();
+
+          const isMatch = line.indexOf(needle) !== -1;
+
+          if (isMatch) {
+            totalMatched += 1;
+
+            if (matchesReturned < MAX_MATCHED_LINES) {
+              matchesReturned += 1;
+
+              // Emit the before-context from the ring buffer.
+              for (const buffered of ringBuf) {
+                if (!emitted.has(buffered.lineNum)) {
+                  emitted.set(buffered.lineNum, {
+                    text: buffered.text,
+                    lineNum: buffered.lineNum,
+                    isMatch: false
+                  });
+                }
+              }
+              // Emit the match itself (overwrite isMatch=true even if already in as context).
+              emitted.set(linesScanned, {
+                text: line,
+                lineNum: linesScanned,
+                isMatch: true
+              });
+              // Arm after-context countdown.
+              afterCountdown = MAX_CONTEXT;
+
+              // If we just hit the cap, flag truncation but keep counting matches.
+              if (matchesReturned >= MAX_MATCHED_LINES && !truncated) {
+                truncated = true;
+                console.log(`[LogSearch] match cap reached (${MAX_MATCHED_LINES}); continuing to count but not emit`);
+              }
+            }
+            // else: cap reached — we still count totalMatched, but skip emission.
+          } else if (afterCountdown > 0) {
+            // Non-match, but inside after-context window of a prior match.
+            if (!emitted.has(linesScanned)) {
+              emitted.set(linesScanned, {
+                text: line,
+                lineNum: linesScanned,
+                isMatch: false
+              });
+            }
+            afterCountdown -= 1;
+          }
+
+          // Update the ring buffer (slide window).
+          ringBuf.push({ text: line, lineNum: linesScanned });
+          if (ringBuf.length > MAX_CONTEXT) {
+            ringBuf.shift();
           }
         });
 
         rl.on('close', () => {
           const elapsedMs = Date.now() - startedAt;
-          console.log(`[LogSearch] done — scanned=${linesScanned} lines, ${bytesReceived} bytes, matches=${totalMatched}, truncated=${truncated}, elapsed=${elapsedMs}ms`);
+          console.log(`[LogSearch] done — scanned=${linesScanned} lines, ${bytesReceived} bytes, totalMatched=${totalMatched}, returned=${matchesReturned}, truncated=${truncated}, elapsed=${elapsedMs}ms`);
           if (totalMatched === 0 && linesScanned > 0) {
-            console.log(`[LogSearch] ZERO MATCHES. Sample of first line scanned (for format check): ${firstLineSample || '<none captured>'}`);
+            console.log(`[LogSearch] ZERO MATCHES. Sample of first line scanned: ${firstLineSample || '<none captured>'}`);
           }
-          resolve({ lines: matched, totalMatched, truncated });
+
+          // Convert the emitted Map into a sorted array, inserting gap
+          // markers wherever there's a jump in lineNum > 1.
+          const sorted = Array.from(emitted.values()).sort((a, b) => a.lineNum - b.lineNum);
+          const result: LogEntry[] = [];
+          for (let i = 0; i < sorted.length; i++) {
+            if (i > 0) {
+              const prev = sorted[i - 1].lineNum;
+              const curr = sorted[i].lineNum;
+              if (curr - prev > 1) {
+                result.push({ gap: true, skipped: curr - prev - 1 });
+              }
+            }
+            result.push(sorted[i]);
+          }
+
+          resolve({
+            lines: result,
+            totalMatched,
+            matchesReturned,
+            truncated,
+            contextSize: MAX_CONTEXT
+          });
         });
 
         rl.on('error', (err) => {
           console.error(`[LogSearch] readline error: ${err.message}`);
           reject(err);
-        });
-
-        // Capture first line for format debugging when zero matches.
-        let firstLineSample: string | null = null;
-        rl.once('line', (line) => {
-          firstLineSample = line.length > 300 ? line.slice(0, 300) + '…' : line;
         });
       }
     );

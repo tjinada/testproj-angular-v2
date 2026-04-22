@@ -82,7 +82,7 @@
   border: 1px solid #d1d5db;
   border-radius: 4px;
   font-size: 13px;
-  min-width: 240px;
+  min-width: 320px;
   outline: none;
 }
 
@@ -176,9 +176,90 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.log-action-btn:hover {
+.log-action-btn:hover:not(:disabled) {
   background: #f3f4f6;
   border-color: #9ca3af;
+}
+
+.log-action-btn:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+// ── Context toggle + size selector ────────────────────────────────
+.log-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+.log-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.log-context-select {
+  height: 26px;
+  padding: 0 24px 0 8px;
+  background-color: #f9fafb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3e%3cpath fill='%236b7280' d='M6 8.5L1.5 4h9z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
+// ── Find-in-results bar ────────────────────────────────────────────
+.log-find-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.log-find-input {
+  flex: 1 1 260px;
+  min-width: 220px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+}
+
+.log-find-input:focus {
+  border-color: #1B4F72;
+  box-shadow: 0 0 0 2px rgba(27, 79, 114, 0.15);
+}
+
+.log-find-count {
+  min-width: 80px;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-find-zero {
+  color: #dc2626;
+  font-weight: 500;
 }
 
 .log-empty {
@@ -201,6 +282,7 @@
   max-height: 900px;
   overflow: auto;
   padding: 6px 0;
+  scroll-behavior: smooth;
 }
 
 .log-line {
@@ -226,7 +308,55 @@
   background: #29374f;
 }
 
-// Unparsed lines: keep fully visible, no cursor affordance (no collapse to show).
+// ── Context (non-match) lines: dimmed ──────────────────────────────
+.log-line-context {
+  opacity: 0.55;
+}
+
+.log-line-context:hover {
+  opacity: 0.85;
+}
+
+// Matches get a subtle left border so they stand out among context.
+.log-line-match {
+  border-left-color: #475569;
+}
+
+// ── Gap separator ──────────────────────────────────────────────────
+.log-gap {
+  padding: 6px 12px;
+  color: #6b7280;
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+  letter-spacing: 1px;
+  user-select: none;
+  background: #111827;
+  border-top: 1px dashed #374151;
+  border-bottom: 1px dashed #374151;
+  margin: 4px 0;
+}
+
+// Lines that contain the find term (non-current matches).
+.log-line-find-match {
+  background: #2a2a1a;
+}
+
+.log-line-find-match:hover {
+  background: #343421;
+}
+
+// The currently-navigated match: strong left border + brighter bg.
+.log-line-current-match {
+  background: #3a2a12;
+  border-left-color: #fb923c;
+}
+
+.log-line-current-match:hover {
+  background: #452f14;
+}
+
+// Unparsed lines: keep fully visible, no cursor affordance.
 .log-line-unparsed {
   cursor: default;
   color: #cbd5e1;
@@ -235,6 +365,15 @@
 .log-line-unparsed:hover {
   background: transparent;
   border-left-color: transparent;
+}
+
+.log-line-unparsed.log-line-find-match {
+  background: #2a2a1a;
+}
+
+.log-line-unparsed.log-line-current-match {
+  background: #3a2a12;
+  border-left-color: #fb923c;
 }
 
 // ── Compact (collapsed) line layout ────────────────────────────────
@@ -326,9 +465,17 @@
   color: #cbd5e1;
 }
 
-// ── Search term highlight ──────────────────────────────────────────
-:host ::ng-deep mark.log-hl {
+// ── Highlight styles (two colors: primary vs find) ─────────────────
+:host ::ng-deep mark.log-hl-primary {
   background: #fde047;
+  color: #1f2937;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+:host ::ng-deep mark.log-hl-find {
+  background: #fb923c;
   color: #1f2937;
   padding: 0 2px;
   border-radius: 2px;
