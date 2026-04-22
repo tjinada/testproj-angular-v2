@@ -18,7 +18,7 @@ export interface LogSearchResponse {
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const MAX_MATCHED_LINES = 500;
+const MAX_MATCHED_LINES = 10_000;
 const REQUEST_TIMEOUT_MS = 60_000;
 
 // ── Helpers ──────────────────────────────────────────────────────────

@@ -42,7 +42,7 @@
     </div>
 
     <div class="log-form-hint" *ngIf="selectedEnv()">
-      Searching for <code>REQID={{ reqId() || '&lt;id&gt;' }}</code> in
+      Searching for <code>{{ reqId() || '&lt;id&gt;' }}</code> in
       <code>{{ selectedEnv()!.applicationLogsUrl }}</code>
     </div>
   </div>
@@ -59,18 +59,66 @@
         <strong>{{ totalMatched() }}</strong>
         match<span *ngIf="totalMatched() !== 1">es</span>
       </span>
-      <span *ngIf="truncated()" class="log-truncated-badge">
-        Showing first {{ lines().length }} — results truncated
-      </span>
+
+      <div class="log-results-actions">
+        <span *ngIf="truncated()" class="log-truncated-badge">
+          Showing first {{ vmLines().length }} — results truncated
+        </span>
+        <button
+          *ngIf="vmLines().length > 0"
+          type="button"
+          class="log-action-btn"
+          (click)="expandAll()">
+          Expand all
+        </button>
+        <button
+          *ngIf="vmLines().length > 0"
+          type="button"
+          class="log-action-btn"
+          (click)="collapseAll()">
+          Collapse all
+        </button>
+      </div>
     </div>
 
-    <div *ngIf="lines().length === 0" class="log-empty">
+    <div *ngIf="vmLines().length === 0" class="log-empty">
       No log lines matched. Double-check the REQID and environment, and that the
       request occurred before the log file rolled over.
     </div>
 
-    <pre *ngIf="lines().length > 0" class="log-lines">
-<ng-container *ngFor="let line of lines()">{{ line }}
-</ng-container></pre>
+    <div *ngIf="vmLines().length > 0" class="log-lines">
+      <div
+        *ngFor="let line of vmLines(); trackBy: trackById"
+        class="log-line"
+        [class.log-line-expanded]="line.expanded"
+        [class.log-line-unparsed]="!line.parsed"
+        (mouseup)="onLineMouseup(line.id)">
+
+        <!-- Parsed line: compact view + optional expanded prefix block -->
+        <ng-container *ngIf="line.parsed; else unparsedTpl">
+          <div class="log-line-compact">
+            <span class="log-ts">{{ line.timestamp }}</span>
+            <span class="log-lvl" [ngClass]="levelClass(line.level)">{{ line.level }}</span>
+            <span class="log-cls">{{ line.shortClass }}</span>
+            <span
+              class="log-msg"
+              [innerHTML]="highlight(line.message || '', lastSearchedReqId())"></span>
+          </div>
+          <div *ngIf="line.expanded" class="log-line-prefix">
+            <span class="log-prefix-label">prefix:</span>
+            <span
+              class="log-prefix-text"
+              [innerHTML]="highlight(line.prefix || '', lastSearchedReqId())"></span>
+          </div>
+        </ng-container>
+
+        <!-- Unparsed line: show raw text as-is, no toggle affordance -->
+        <ng-template #unparsedTpl>
+          <span
+            class="log-raw"
+            [innerHTML]="highlight(line.raw, lastSearchedReqId())"></span>
+        </ng-template>
+      </div>
+    </div>
   </div>
 </div>
