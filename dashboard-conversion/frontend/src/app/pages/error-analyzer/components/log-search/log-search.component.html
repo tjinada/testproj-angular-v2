@@ -37,13 +37,17 @@
         class="log-search-btn"
         [disabled]="!canSearch()"
         (click)="onSearch()">
-        {{ isSearching() ? 'Searching…' : 'Search' }}
+        {{ isSearching() ? 'Searching… ' + elapsedDisplay() : 'Search' }}
       </button>
     </div>
 
     <div class="log-form-hint" *ngIf="selectedEnv()">
       Searching for <code>{{ searchTerm() || '&lt;term&gt;' }}</code> in
       <code>{{ selectedEnv()!.applicationLogsUrl }}</code>
+    </div>
+
+    <div *ngIf="isSearching() && searchHint()" class="log-search-hint">
+      {{ searchHint() }}
     </div>
   </div>
 

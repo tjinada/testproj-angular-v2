@@ -36,7 +36,8 @@ export interface LogSearchResponse {
 // ── Constants ────────────────────────────────────────────────────────
 
 const MAX_MATCHED_LINES = 10_000;
-const MAX_CONTEXT = 100;               // always captured; client slices smaller
+const MAX_CONTEXT = 500;              // always captured; client slices smaller
+const MAX_TOTAL_EMITTED = 200_000;    // hard safety cap on emitted lines (matches + context)
 const REQUEST_TIMEOUT_MS = 60_000;
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -156,12 +157,12 @@ export async function searchLog(
           if (isMatch) {
             totalMatched += 1;
 
-            if (matchesReturned < MAX_MATCHED_LINES) {
+            if (matchesReturned < MAX_MATCHED_LINES && emitted.size < MAX_TOTAL_EMITTED) {
               matchesReturned += 1;
 
               // Emit the before-context from the ring buffer.
               for (const buffered of ringBuf) {
-                if (!emitted.has(buffered.lineNum)) {
+                if (!emitted.has(buffered.lineNum) && emitted.size < MAX_TOTAL_EMITTED) {
                   emitted.set(buffered.lineNum, {
                     text: buffered.text,
                     lineNum: buffered.lineNum,
@@ -169,23 +170,25 @@ export async function searchLog(
                   });
                 }
               }
-              // Emit the match itself (overwrite isMatch=true even if already in as context).
+              // Emit the match itself.
               emitted.set(linesScanned, {
                 text: line,
                 lineNum: linesScanned,
                 isMatch: true
               });
-              // Arm after-context countdown.
               afterCountdown = MAX_CONTEXT;
 
-              // If we just hit the cap, flag truncation but keep counting matches.
               if (matchesReturned >= MAX_MATCHED_LINES && !truncated) {
                 truncated = true;
                 console.log(`[LogSearch] match cap reached (${MAX_MATCHED_LINES}); continuing to count but not emit`);
               }
+              if (emitted.size >= MAX_TOTAL_EMITTED && !truncated) {
+                truncated = true;
+                console.log(`[LogSearch] emitted-lines safety cap reached (${MAX_TOTAL_EMITTED}); stopping emission`);
+              }
             }
             // else: cap reached — we still count totalMatched, but skip emission.
-          } else if (afterCountdown > 0) {
+          } else if (afterCountdown > 0 && emitted.size < MAX_TOTAL_EMITTED) {
             // Non-match, but inside after-context window of a prior match.
             if (!emitted.has(linesScanned)) {
               emitted.set(linesScanned, {

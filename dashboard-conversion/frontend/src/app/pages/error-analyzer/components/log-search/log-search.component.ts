@@ -43,7 +43,7 @@ function parseLine(raw: string): ParsedLogLine {
   return { raw, parsed: true, timestamp, level: level.toUpperCase(), shortClass, message, prefix };
 }
 
-const CONTEXT_CHOICES = [5, 20, 50, 100] as const;
+const CONTEXT_CHOICES = [5, 20, 50, 100, 500] as const;
 type ContextSize = typeof CONTEXT_CHOICES[number];
 
 @Component({
@@ -79,6 +79,20 @@ export class LogSearchComponent implements OnInit {
   serverContextSize = signal<number>(0);
   hasSearched = signal<boolean>(false);
   lastSearchedTerm = signal<string>('');
+
+  // Elapsed-time tracker for the search-in-progress indicator.
+  // Updates every 100ms while isSearching is true.
+  elapsedMs = signal<number>(0);
+  private elapsedTimer: ReturnType<typeof setInterval> | null = null;
+  private searchStartedAt = 0;
+
+  elapsedDisplay = computed(() => (this.elapsedMs() / 1000).toFixed(1) + 's');
+  searchHint = computed(() => {
+    const ms = this.elapsedMs();
+    if (ms < 10_000) return '';
+    if (ms < 30_000) return 'Scanning the log file — typically 5–15 seconds for a 300MB file…';
+    return 'Still scanning — large file or slow network…';
+  });
 
   // ── Context controls ──────────────────────────────────────────────
   showContext = signal<boolean>(false);
@@ -287,6 +301,8 @@ export class LogSearchComponent implements OnInit {
     this.currentMatchIndex.set(-1);
     this.expandedIds.set(new Set());
 
+    this.startElapsedTimer();
+
     this.logService.searchLogs({ logUrl: env.applicationLogsUrl, reqId: term }).subscribe({
       next: (response) => {
         this.rawEntries.set(response.lines || []);
@@ -295,12 +311,30 @@ export class LogSearchComponent implements OnInit {
         this.truncated.set(!!response.truncated);
         this.serverContextSize.set(response.contextSize || 0);
         this.isSearching.set(false);
+        this.stopElapsedTimer();
       },
       error: (err) => {
         this.searchError.set(err?.error?.error || err?.message || 'Failed to search logs');
         this.isSearching.set(false);
+        this.stopElapsedTimer();
       }
     });
+  }
+
+  private startElapsedTimer(): void {
+    this.searchStartedAt = Date.now();
+    this.elapsedMs.set(0);
+    this.stopElapsedTimer();
+    this.elapsedTimer = setInterval(() => {
+      this.elapsedMs.set(Date.now() - this.searchStartedAt);
+    }, 100);
+  }
+
+  private stopElapsedTimer(): void {
+    if (this.elapsedTimer !== null) {
+      clearInterval(this.elapsedTimer);
+      this.elapsedTimer = null;
+    }
   }
 
   onContextSizeChange(value: number | string): void {
