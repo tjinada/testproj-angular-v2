@@ -77,7 +77,7 @@
           *ngIf="showContext()"
           class="log-context-select"
           [ngModel]="contextSize()"
-          (ngModelChange)="contextSize.set(+$event)"
+          (ngModelChange)="onContextSizeChange($event)"
           title="Lines of context to show before and after each match">
           <option *ngFor="let n of contextChoices" [ngValue]="n">±{{ n }} lines</option>
         </select>

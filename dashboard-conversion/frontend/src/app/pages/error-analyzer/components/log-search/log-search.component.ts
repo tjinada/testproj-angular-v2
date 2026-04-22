@@ -303,6 +303,13 @@ export class LogSearchComponent implements OnInit {
     });
   }
 
+  onContextSizeChange(value: number | string): void {
+    const n = typeof value === 'string' ? parseInt(value, 10) : value;
+    if ((CONTEXT_CHOICES as readonly number[]).includes(n)) {
+      this.contextSize.set(n as ContextSize);
+    }
+  }
+
   // ── Expand / collapse handlers ─────────────────────────────────────
 
   isExpanded(id: number): boolean {
