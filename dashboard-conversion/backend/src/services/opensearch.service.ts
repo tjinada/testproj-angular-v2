@@ -1,6 +1,4 @@
 import axios from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import config from '../config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -30,23 +28,22 @@ const SEARCH_PATH = '/_dashboards/internal/search/opensearch';
 // used in dynatrace.service.ts: reads from the shared `config.proxy` facade
 // (not process.env directly), uses axios with httpsAgent + proxy:false.
 
-const proxyAgent: HttpsProxyAgent<string> | null = (() => {
-  const target = config.proxy?.target;
-  if (!target) {
-    console.log('[OpenSearch] Proxy not configured — requests will go direct');
-    return null;
-  }
+// AWS OpenSearch is a public internet endpoint (*.amazonaws.com). Laptops
+// and OpenShift pods reach it directly, NOT through the corporate proxy
+// (which is scoped to internal BMO destinations). This mirrors how Postman
+// and curl successfully reach it from your laptop without any proxy flag.
+//
+// If a future deployment needs the proxy for AWS traffic, re-introduce it
+// here using the same `config.proxy` + axios `httpsAgent` pattern that
+// dynatrace.service.ts uses.
 
-  const username = config.proxy.username || '';
-  const password = config.proxy.password || '';
-  const proxyUrl = `http://${username}:${password}@${target}`;
-  console.log(`[OpenSearch] Proxy configured: target=${target}, user=${username ? username : '(none)'}`);
-  return new HttpsProxyAgent(proxyUrl);
-})();
+console.log('[OpenSearch] Using direct connection (no proxy) — AWS endpoints are reached directly');
 
-/** Axios instance for OpenSearch API calls. Routes through the corporate proxy when configured. */
 const httpClient = axios.create({
-  ...(proxyAgent && { httpsAgent: proxyAgent, proxy: false }),
+  // Explicitly disable axios's built-in proxy detection so env vars like
+  // HTTPS_PROXY don't accidentally route this call through the corporate
+  // proxy.
+  proxy: false,
 });
 
 // ── Main entry ───────────────────────────────────────────────────────
@@ -88,7 +85,7 @@ export async function searchOpenSearch(
   console.log(`[OpenSearch] POST ${fullUrl}`);
   console.log(`[OpenSearch] index="${indexPattern}", term="${searchTerm}"`);
   console.log(`[OpenSearch] timeframe ${from} → ${to}`);
-  console.log(`[OpenSearch] proxy=${proxyAgent ? 'yes' : 'no'}`);
+  console.log(`[OpenSearch] proxy=no (AWS direct)`);
   console.log(`[OpenSearch] request body size: ${JSON.stringify(requestBody).length} bytes`);
 
   const started = Date.now();
