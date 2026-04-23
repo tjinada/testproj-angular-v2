@@ -7,16 +7,17 @@ import { TraceResultsTableComponent } from './components/trace-results-table/tra
 import { SessionResultsComponent } from './components/session-results/session-results.component';
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { LogSearchComponent } from './components/log-search/log-search.component';
+import { OpenSearchLogSearchComponent } from './components/opensearch-log-search/opensearch-log-search.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
 import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
-type TabId = 'trace' | 'logs';
+type TabId = 'trace' | 'logs' | 'opensearch';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, LogSearchComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, LogSearchComponent, OpenSearchLogSearchComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })

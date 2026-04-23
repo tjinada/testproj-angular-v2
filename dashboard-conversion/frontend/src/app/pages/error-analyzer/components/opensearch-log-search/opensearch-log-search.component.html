@@ -1,0 +1,55 @@
+<div class="os-search">
+
+  <!-- Banner -->
+  <div class="os-banner">
+    <strong>Test feature.</strong> Queries AWS OpenSearch via the backend.
+    Index: <code>channels-olb-*</code> · Window: last 1 hour · Auth: fixed cookie from <code>.env</code>.
+  </div>
+
+  <!-- Search form -->
+  <div class="os-form">
+    <div class="os-row">
+      <label for="os-term" class="os-label">Search term:</label>
+      <input
+        id="os-term"
+        type="text"
+        class="os-input"
+        placeholder="REQ_xxxxx, exception, path, *wildcard*, etc."
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+        (keydown)="onSearchKeydown($event)"
+        [disabled]="isSearching()" />
+
+      <button
+        type="button"
+        class="os-search-btn"
+        [disabled]="!canSearch()"
+        (click)="onSearch()">
+        {{ isSearching() ? 'Searching… ' + elapsedDisplay() : 'Search' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="searchError()" class="os-error">
+    {{ searchError() }}
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="!hasSearched() && !isSearching()" class="os-empty">
+    Enter a search term and click <strong>Search</strong> to query OpenSearch.
+  </div>
+
+  <!-- Results -->
+  <div *ngIf="response() as r" class="os-results">
+    <div class="os-results-header">
+      <span>HTTP <strong>{{ r.status }}</strong></span>
+      <span>·</span>
+      <span>{{ r.elapsedMs }} ms</span>
+      <span>·</span>
+      <span class="os-url" [title]="r.url">{{ r.url }}</span>
+    </div>
+
+    <pre class="os-json">{{ responseJson() }}</pre>
+  </div>
+</div>

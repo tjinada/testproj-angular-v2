@@ -34,6 +34,15 @@
       (click)="setTab('logs')">
       CDBBOS Log Search
     </button>
+    <button
+      type="button"
+      class="tab-btn"
+      role="tab"
+      [attr.aria-selected]="activeTab === 'opensearch'"
+      [class.tab-btn-active]="activeTab === 'opensearch'"
+      (click)="setTab('opensearch')">
+      CDBBOS Logs - OpenSearch
+    </button>
   </div>
 
   <!-- Tab: Trace Analysis ──────────────────────────────────────────── -->
@@ -109,5 +118,9 @@
   <!-- Tab: CDBBOS Log Search ───────────────────────────────────────── -->
   <div *ngIf="activeTab === 'logs'" class="tab-panel" role="tabpanel">
     <app-log-search></app-log-search>
+  </div>
+
+  <div *ngIf="activeTab === 'opensearch'" class="tab-panel" role="tabpanel">
+    <app-opensearch-log-search></app-opensearch-log-search>
   </div>
 </div>

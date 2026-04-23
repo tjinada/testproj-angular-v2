@@ -29,6 +29,7 @@ Add imports at top:
 ```typescript
 import errorAnalyzerRoutes from './routes/error-analyzer.routes';
 import logRoutes from './routes/log.routes';
+import opensearchRoutes from './routes/opensearch.routes';
 ```
 
 Add route mounts (alongside existing `app.use` lines):
@@ -36,6 +37,7 @@ Add route mounts (alongside existing `app.use` lines):
 ```typescript
 app.use('/api/error-analyzer', errorAnalyzerRoutes);
 app.use('/api/logs', logRoutes);
+app.use('/api/opensearch', opensearchRoutes);
 ```
 
 ## 4. backend/src/services/index.ts
@@ -69,6 +71,17 @@ DYNATRACE_PROD_TOKEN=your-platform-token-here
 # CDBBOS Log Search - Basic Auth for log file server (e.g., https://10.195.26.240)
 LOG_SERVER_USERNAME=<PLACEHOLDER_USERNAME>
 LOG_SERVER_PASSWORD=<PLACEHOLDER_PASSWORD>
+
+# CDBBOS Logs - OpenSearch (TEST feature - uses fixed session cookie)
+# OPENSEARCH_URL is the base of the AWS OpenSearch domain (no trailing slash, no path).
+# OPENSEARCH_COOKIE is the full `security_authentication=...` cookie string copied
+# from a logged-in browser session. Expires after a few hours; must be refreshed.
+# OPENSEARCH_INDEX is the index pattern to query (default: channels-olb-*).
+# Proxy is required for OpenShift egress; uses the shared PROXY_* env vars
+# that already exist in the host repo's .env for Dynatrace.
+OPENSEARCH_URL=https://vpc-your-domain.ca-central-1.es.amazonaws.com
+OPENSEARCH_COOKIE=security_authentication=<PASTE_FROM_BROWSER>
+OPENSEARCH_INDEX=channels-olb-*
 ```
 
 ## 6. Files to Copy As-Is from V2
@@ -123,3 +136,31 @@ files themselves — just copy the `dashboard-conversion/` tree into place.
 `dashboard-conversion/`): `error-analyzer.component.{ts,html,scss}` — now wraps
 the original trace-analysis UI in a two-tab layout alongside the new CDBBOS
 Log Search tab.
+
+## 8. CDBBOS Logs - OpenSearch (TEST) — New Files
+
+A third tab alongside Trace Analysis and CDBBOS Log Search. Sends the user's
+search term to AWS OpenSearch (`_dashboards/internal/search/opensearch`) via
+the backend using a fixed session cookie from `.env`. Displays the raw JSON
+response.
+
+**Backend:**
+- `backend/src/services/opensearch.service.ts`
+- `backend/src/routes/opensearch.routes.ts`
+
+**Uses existing shared proxy env vars** already present in the host repo for
+Dynatrace: `PROXY_TARGET`, `PROXY_USERNAME`, `PROXY_PASSWORD`. When
+`PROXY_TARGET` is set, OpenSearch calls route through the corporate proxy;
+when unset, they go direct (which is fine for local development where the
+developer's laptop has internet access). No new proxy variables are
+introduced by this feature.
+
+**Frontend:**
+- `frontend/src/app/pages/error-analyzer/services/opensearch.service.ts`
+- `frontend/src/app/pages/error-analyzer/components/opensearch-log-search/opensearch-log-search.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/opensearch-log-search/opensearch-log-search.component.html`
+- `frontend/src/app/pages/error-analyzer/components/opensearch-log-search/opensearch-log-search.component.scss`
+
+**Existing error-analyzer updated again** (already in `dashboard-conversion/`):
+third tab added; `TabId` union extended to include `'opensearch'`; component
+import list updated.
