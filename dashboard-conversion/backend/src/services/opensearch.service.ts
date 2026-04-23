@@ -1,6 +1,6 @@
-import https from 'https';
-import { URL } from 'url';
+import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import config from '../config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -26,26 +26,28 @@ const TIME_RANGE_MS = 60 * 60 * 1000; // Last 1 hour — hardcoded per design
 const SEARCH_PATH = '/_dashboards/internal/search/opensearch';
 
 // ── Proxy setup ──────────────────────────────────────────────────────
-// Only activated when PROXY_TARGET is configured. Uses the shared corporate
-// proxy credentials (PROXY_USERNAME / PROXY_PASSWORD). Built once at module
-// load so all calls share the same agent.
+// Only activated when PROXY_TARGET is configured. Mirrors the exact pattern
+// used in dynatrace.service.ts: reads from the shared `config.proxy` facade
+// (not process.env directly), uses axios with httpsAgent + proxy:false.
 
 const proxyAgent: HttpsProxyAgent<string> | null = (() => {
-  const target = process.env.PROXY_TARGET;
+  const target = config.proxy?.target;
   if (!target) {
-    console.log('[OpenSearch] PROXY_TARGET not set — requests will go direct');
+    console.log('[OpenSearch] Proxy not configured — requests will go direct');
     return null;
   }
 
-  // Credentials in .env are already URL-encoded, so do NOT encode again.
-  const username = process.env.PROXY_USERNAME || '';
-  const password = process.env.PROXY_PASSWORD || '';
-  const creds = username ? `${username}:${password}@` : '';
-  const proxyUrl = `http://${creds}${target}`;
-
+  const username = config.proxy.username || '';
+  const password = config.proxy.password || '';
+  const proxyUrl = `http://${username}:${password}@${target}`;
   console.log(`[OpenSearch] Proxy configured: target=${target}, user=${username ? username : '(none)'}`);
   return new HttpsProxyAgent(proxyUrl);
 })();
+
+/** Axios instance for OpenSearch API calls. Routes through the corporate proxy when configured. */
+const httpClient = axios.create({
+  ...(proxyAgent && { httpsAgent: proxyAgent, proxy: false }),
+});
 
 // ── Main entry ───────────────────────────────────────────────────────
 
@@ -53,7 +55,7 @@ const proxyAgent: HttpsProxyAgent<string> | null = (() => {
  * Hits the AWS OpenSearch Dashboards internal search endpoint with the
  * user's search term. Authentication is via a fixed cookie pulled from
  * `.env` (OPENSEARCH_COOKIE). Routes through the corporate proxy when
- * PROXY_TARGET is set.
+ * configured (via shared `config.proxy`).
  *
  * This is a TEST feature — returns the raw response for display.
  */
@@ -81,12 +83,9 @@ export async function searchOpenSearch(
   const to = new Date(now).toISOString();
 
   const requestBody = buildQueryBody(searchTerm, indexPattern, from, to);
-
   const fullUrl = baseUrl.replace(/\/+$/, '') + SEARCH_PATH;
-  const parsed = new URL(fullUrl);
 
   console.log(`[OpenSearch] POST ${fullUrl}`);
-  console.log(`[OpenSearch] hostname=${parsed.hostname}, port=${parsed.port || 443}, path=${parsed.pathname}`);
   console.log(`[OpenSearch] index="${indexPattern}", term="${searchTerm}"`);
   console.log(`[OpenSearch] timeframe ${from} → ${to}`);
   console.log(`[OpenSearch] proxy=${proxyAgent ? 'yes' : 'no'}`);
@@ -94,108 +93,75 @@ export async function searchOpenSearch(
 
   const started = Date.now();
 
-  return new Promise<OpenSearchTestResponse>((resolve, reject) => {
-    const bodyStr = JSON.stringify(requestBody);
-
-    const options: https.RequestOptions = {
-      method: 'POST',
-      hostname: parsed.hostname,
-      port: parsed.port || 443,
-      path: parsed.pathname + parsed.search,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-        'osd-xsrf': 'true',
-        'Cookie': cookie
-      },
-      timeout: REQUEST_TIMEOUT_MS,
-      // Bypass TLS cert verification. Needed when routing through a
-      // corporate proxy that performs TLS inspection (re-signs certs
-      // with a private CA not in Node's default trust store).
-      rejectUnauthorized: false,
-      ...(proxyAgent && { agent: proxyAgent })
-    };
-
-    const req = https.request(options, (res) => {
-      console.log(`[OpenSearch] response status ${res.statusCode} received, headers:`, {
-        'content-type': res.headers['content-type'],
-        'content-length': res.headers['content-length'],
-        'set-cookie': res.headers['set-cookie'] ? '(present, ' + (res.headers['set-cookie'] as string[]).length + ' cookies)' : '(none)',
-        'location': res.headers['location'],
-        'www-authenticate': res.headers['www-authenticate']
-      });
-
-      const chunks: Buffer[] = [];
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => {
-        const elapsedMs = Date.now() - started;
-        const bodyText = Buffer.concat(chunks).toString('utf-8');
-        const status = res.statusCode || 0;
-
-        console.log(`[OpenSearch] response complete: ${status} in ${elapsedMs}ms, ${bodyText.length} bytes`);
-
-        // Log the first chunk of the body for debugging (max 500 chars)
-        const preview = bodyText.length > 500
-          ? bodyText.substring(0, 500) + `... (${bodyText.length - 500} more chars)`
-          : bodyText;
-        console.log(`[OpenSearch] response body preview:`);
-        console.log(preview);
-
-        // Try to parse the response as JSON; if not, return the text in
-        // a wrapper so the caller still gets something useful.
-        let raw: unknown;
-        try {
-          raw = JSON.parse(bodyText);
-          // Summary for JSON responses:
-          const r: any = raw;
-          if (r?.rawResponse?.hits) {
-            console.log(`[OpenSearch] parsed: hits.total=${r.rawResponse.hits.total?.value ?? r.rawResponse.hits.total}, returned=${r.rawResponse.hits.hits?.length ?? 0}, took=${r.rawResponse.took}ms`);
-          } else if (r?.hits) {
-            console.log(`[OpenSearch] parsed: hits.total=${r.hits.total?.value ?? r.hits.total}, returned=${r.hits.hits?.length ?? 0}, took=${r.took}ms`);
-          } else if (r?.statusCode || r?.error) {
-            console.log(`[OpenSearch] parsed as error: statusCode=${r.statusCode}, error=${typeof r.error === 'string' ? r.error : JSON.stringify(r.error)?.substring(0, 200)}`);
-          } else {
-            console.log(`[OpenSearch] parsed JSON but unexpected shape. Top-level keys: ${Object.keys(r || {}).join(', ')}`);
-          }
-        } catch (parseErr: any) {
-          console.log(`[OpenSearch] response is NOT valid JSON: ${parseErr.message}`);
-          raw = { nonJsonResponse: bodyText };
-        }
-
-        console.log(`[OpenSearch] ────── END SEARCH ──────`);
-
-        if (status < 200 || status >= 300) {
-          // Non-2xx: still resolve so the frontend can display the raw
-          // response (useful for debugging auth/403/etc).
-          return resolve({ raw, status, elapsedMs, url: fullUrl });
-        }
-
-        resolve({ raw, status, elapsedMs, url: fullUrl });
-      });
-    });
-
-    req.on('timeout', () => {
-      console.error(`[OpenSearch] TIMEOUT after ${REQUEST_TIMEOUT_MS}ms`);
-      req.destroy(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`));
-    });
-
-    req.on('error', (err: any) => {
-      console.error(`[OpenSearch] request error: ${err.message} (code=${err.code || 'unknown'})`);
-      if (err.code === 'ENOTFOUND') {
-        console.error(`[OpenSearch] DNS lookup failed — hostname unreachable`);
-      } else if (err.code === 'ECONNREFUSED') {
-        console.error(`[OpenSearch] Connection refused — server not listening or proxy rejected`);
-      } else if (err.code === 'ETIMEDOUT') {
-        console.error(`[OpenSearch] Connection timed out — likely firewall block`);
-      } else if (err.code === 'ECONNRESET') {
-        console.error(`[OpenSearch] Connection reset — server or proxy closed connection mid-request`);
+  try {
+    const response = await httpClient.post(
+      fullUrl,
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'osd-xsrf': 'true',
+          'Cookie': cookie
+        },
+        timeout: REQUEST_TIMEOUT_MS,
+        // Accept ANY status code so non-2xx responses (401, 403, 500)
+        // flow back to the frontend for display instead of throwing.
+        validateStatus: () => true
       }
-      reject(err);
-    });
+    );
 
-    req.write(bodyStr);
-    req.end();
-  });
+    const elapsedMs = Date.now() - started;
+    const status = response.status;
+    const bodyText = typeof response.data === 'string'
+      ? response.data
+      : JSON.stringify(response.data);
+
+    console.log(`[OpenSearch] response status ${status} received, headers:`, {
+      'content-type': response.headers['content-type'],
+      'content-length': response.headers['content-length'],
+      'set-cookie': response.headers['set-cookie'] ? '(present)' : '(none)',
+      'www-authenticate': response.headers['www-authenticate']
+    });
+    console.log(`[OpenSearch] response complete: ${status} in ${elapsedMs}ms, ${bodyText.length} bytes`);
+
+    // Log the first chunk of the body for debugging (max 500 chars)
+    const preview = bodyText.length > 500
+      ? bodyText.substring(0, 500) + `... (${bodyText.length - 500} more chars)`
+      : bodyText;
+    console.log(`[OpenSearch] response body preview:`);
+    console.log(preview);
+
+    // Summarise parsed response
+    const raw: any = response.data;
+    if (raw?.rawResponse?.hits) {
+      console.log(`[OpenSearch] parsed: hits.total=${raw.rawResponse.hits.total?.value ?? raw.rawResponse.hits.total}, returned=${raw.rawResponse.hits.hits?.length ?? 0}, took=${raw.rawResponse.took}ms`);
+    } else if (raw?.hits) {
+      console.log(`[OpenSearch] parsed: hits.total=${raw.hits.total?.value ?? raw.hits.total}, returned=${raw.hits.hits?.length ?? 0}, took=${raw.took}ms`);
+    } else if (raw?.statusCode || raw?.error) {
+      console.log(`[OpenSearch] parsed as error: statusCode=${raw.statusCode}, error=${typeof raw.error === 'string' ? raw.error : JSON.stringify(raw.error)?.substring(0, 200)}`);
+    } else {
+      console.log(`[OpenSearch] parsed JSON but unexpected shape. Top-level keys: ${Object.keys(raw || {}).join(', ')}`);
+    }
+
+    console.log(`[OpenSearch] ────── END SEARCH ──────`);
+
+    return { raw, status, elapsedMs, url: fullUrl };
+  } catch (err: any) {
+    const elapsedMs = Date.now() - started;
+    const code = err.code || 'unknown';
+    console.error(`[OpenSearch] request failed after ${elapsedMs}ms: ${err.message} (code=${code})`);
+    if (code === 'ENOTFOUND') {
+      console.error(`[OpenSearch] DNS lookup failed — hostname unreachable`);
+    } else if (code === 'ECONNREFUSED') {
+      console.error(`[OpenSearch] Connection refused — server not listening or proxy rejected`);
+    } else if (code === 'ETIMEDOUT' || code === 'ECONNABORTED') {
+      console.error(`[OpenSearch] Connection timed out — likely firewall block or proxy hang`);
+    } else if (code === 'ECONNRESET') {
+      console.error(`[OpenSearch] Connection reset — server or proxy closed connection mid-request`);
+    }
+    console.log(`[OpenSearch] ────── END SEARCH (error) ──────`);
+    throw err;
+  }
 }
 
 // ── Query builder ────────────────────────────────────────────────────
