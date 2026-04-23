@@ -201,7 +201,7 @@ function buildQueryBody(
         _source: { excludes: [] },
         query: {
           bool: {
-            must: [],
+            must: [{ match_all: {} }],
             filter: [
               {
                 query_string: {
@@ -223,9 +223,9 @@ function buildQueryBody(
             should: [],
             must_not: []
           }
-        },
-        preference: Date.now()
-      }
+        }
+      },
+      preference: Date.now()
     }
   };
 }
