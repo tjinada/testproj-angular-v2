@@ -37,9 +37,10 @@ const proxyAgent: HttpsProxyAgent<string> | null = (() => {
     return null;
   }
 
+  // Credentials in .env are already URL-encoded, so do NOT encode again.
   const username = process.env.PROXY_USERNAME || '';
   const password = process.env.PROXY_PASSWORD || '';
-  const creds = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : '';
+  const creds = username ? `${username}:${password}@` : '';
   const proxyUrl = `http://${creds}${target}`;
 
   console.log(`[OpenSearch] Proxy configured: target=${target}, user=${username ? username : '(none)'}`);
@@ -108,6 +109,10 @@ export async function searchOpenSearch(
         'Cookie': cookie
       },
       timeout: REQUEST_TIMEOUT_MS,
+      // Bypass TLS cert verification. Needed when routing through a
+      // corporate proxy that performs TLS inspection (re-signs certs
+      // with a private CA not in Node's default trust store).
+      rejectUnauthorized: false,
       ...(proxyAgent && { agent: proxyAgent })
     };
 
