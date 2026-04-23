@@ -63,6 +63,11 @@ export async function searchOpenSearch(
   const cookie = process.env.OPENSEARCH_COOKIE || '';
   const indexPattern = process.env.OPENSEARCH_INDEX || 'channels-olb-*';
 
+  console.log(`[OpenSearch] ────── NEW SEARCH ──────`);
+  console.log(`[OpenSearch] env check: OPENSEARCH_URL=${baseUrl ? 'set (' + baseUrl.length + ' chars)' : 'MISSING'}`);
+  console.log(`[OpenSearch] env check: OPENSEARCH_COOKIE=${cookie ? 'set (' + cookie.length + ' chars)' : 'MISSING'}`);
+  console.log(`[OpenSearch] env check: OPENSEARCH_INDEX=${indexPattern}`);
+
   if (!baseUrl) {
     throw new Error('OPENSEARCH_URL is not set in .env');
   }
@@ -80,9 +85,11 @@ export async function searchOpenSearch(
   const parsed = new URL(fullUrl);
 
   console.log(`[OpenSearch] POST ${fullUrl}`);
+  console.log(`[OpenSearch] hostname=${parsed.hostname}, port=${parsed.port || 443}, path=${parsed.pathname}`);
   console.log(`[OpenSearch] index="${indexPattern}", term="${searchTerm}"`);
   console.log(`[OpenSearch] timeframe ${from} → ${to}`);
   console.log(`[OpenSearch] proxy=${proxyAgent ? 'yes' : 'no'}`);
+  console.log(`[OpenSearch] request body size: ${JSON.stringify(requestBody).length} bytes`);
 
   const started = Date.now();
 
@@ -105,6 +112,14 @@ export async function searchOpenSearch(
     };
 
     const req = https.request(options, (res) => {
+      console.log(`[OpenSearch] response status ${res.statusCode} received, headers:`, {
+        'content-type': res.headers['content-type'],
+        'content-length': res.headers['content-length'],
+        'set-cookie': res.headers['set-cookie'] ? '(present, ' + (res.headers['set-cookie'] as string[]).length + ' cookies)' : '(none)',
+        'location': res.headers['location'],
+        'www-authenticate': res.headers['www-authenticate']
+      });
+
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
       res.on('end', () => {
@@ -112,16 +127,37 @@ export async function searchOpenSearch(
         const bodyText = Buffer.concat(chunks).toString('utf-8');
         const status = res.statusCode || 0;
 
-        console.log(`[OpenSearch] response ${status} in ${elapsedMs}ms (${bodyText.length} bytes)`);
+        console.log(`[OpenSearch] response complete: ${status} in ${elapsedMs}ms, ${bodyText.length} bytes`);
+
+        // Log the first chunk of the body for debugging (max 500 chars)
+        const preview = bodyText.length > 500
+          ? bodyText.substring(0, 500) + `... (${bodyText.length - 500} more chars)`
+          : bodyText;
+        console.log(`[OpenSearch] response body preview:`);
+        console.log(preview);
 
         // Try to parse the response as JSON; if not, return the text in
         // a wrapper so the caller still gets something useful.
         let raw: unknown;
         try {
           raw = JSON.parse(bodyText);
-        } catch {
+          // Summary for JSON responses:
+          const r: any = raw;
+          if (r?.rawResponse?.hits) {
+            console.log(`[OpenSearch] parsed: hits.total=${r.rawResponse.hits.total?.value ?? r.rawResponse.hits.total}, returned=${r.rawResponse.hits.hits?.length ?? 0}, took=${r.rawResponse.took}ms`);
+          } else if (r?.hits) {
+            console.log(`[OpenSearch] parsed: hits.total=${r.hits.total?.value ?? r.hits.total}, returned=${r.hits.hits?.length ?? 0}, took=${r.took}ms`);
+          } else if (r?.statusCode || r?.error) {
+            console.log(`[OpenSearch] parsed as error: statusCode=${r.statusCode}, error=${typeof r.error === 'string' ? r.error : JSON.stringify(r.error)?.substring(0, 200)}`);
+          } else {
+            console.log(`[OpenSearch] parsed JSON but unexpected shape. Top-level keys: ${Object.keys(r || {}).join(', ')}`);
+          }
+        } catch (parseErr: any) {
+          console.log(`[OpenSearch] response is NOT valid JSON: ${parseErr.message}`);
           raw = { nonJsonResponse: bodyText };
         }
+
+        console.log(`[OpenSearch] ────── END SEARCH ──────`);
 
         if (status < 200 || status >= 300) {
           // Non-2xx: still resolve so the frontend can display the raw
@@ -134,11 +170,21 @@ export async function searchOpenSearch(
     });
 
     req.on('timeout', () => {
+      console.error(`[OpenSearch] TIMEOUT after ${REQUEST_TIMEOUT_MS}ms`);
       req.destroy(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`));
     });
 
-    req.on('error', (err) => {
-      console.error(`[OpenSearch] request error:`, err.message);
+    req.on('error', (err: any) => {
+      console.error(`[OpenSearch] request error: ${err.message} (code=${err.code || 'unknown'})`);
+      if (err.code === 'ENOTFOUND') {
+        console.error(`[OpenSearch] DNS lookup failed — hostname unreachable`);
+      } else if (err.code === 'ECONNREFUSED') {
+        console.error(`[OpenSearch] Connection refused — server not listening or proxy rejected`);
+      } else if (err.code === 'ETIMEDOUT') {
+        console.error(`[OpenSearch] Connection timed out — likely firewall block`);
+      } else if (err.code === 'ECONNRESET') {
+        console.error(`[OpenSearch] Connection reset — server or proxy closed connection mid-request`);
+      }
       reject(err);
     });
 
