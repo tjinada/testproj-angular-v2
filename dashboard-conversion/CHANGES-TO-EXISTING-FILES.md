@@ -77,14 +77,10 @@ LOG_SERVER_PASSWORD=<PLACEHOLDER_PASSWORD>
 # OPENSEARCH_COOKIE is the full `security_authentication=...` cookie string copied
 # from a logged-in browser session. Expires after a few hours; must be refreshed.
 # OPENSEARCH_INDEX is the index pattern to query (default: channels-olb-*).
-# OPENSEARCH_PROXY_ENABLED: set to 'true' ONLY in OpenShift (pod has no direct
-# internet egress and must tunnel through the corporate proxy). Leave unset or
-# set to 'false' locally — laptops reach AWS directly. When 'true', proxy
-# settings are read from the shared `config.proxy` facade (same as Dynatrace).
+# No proxy is used — both laptop and OpenShift pod reach AWS directly.
 OPENSEARCH_URL=https://vpc-your-domain.ca-central-1.es.amazonaws.com
 OPENSEARCH_COOKIE=security_authentication=<PASTE_FROM_BROWSER>
 OPENSEARCH_INDEX=channels-olb-*
-OPENSEARCH_PROXY_ENABLED=false
 ```
 
 ## 6. Files to Copy As-Is from V2
@@ -151,13 +147,11 @@ response.
 - `backend/src/services/opensearch.service.ts`
 - `backend/src/routes/opensearch.routes.ts`
 
-**Uses existing shared proxy settings** already present in the host repo's
-`config.proxy` (same source Dynatrace uses). Whether to route through the
-proxy is controlled by a NEW env var: `OPENSEARCH_PROXY_ENABLED`. Set to
-`true` in OpenShift (pod cannot reach AWS directly); leave unset/false
-locally (laptop has direct internet access). This split exists because
-AWS OpenSearch is a public AWS endpoint whose reachability differs between
-the two environments.
+**No proxy required.** Both local laptop and OpenShift pod have a direct
+network path to AWS (`*.amazonaws.com`). Axios is configured with
+`proxy: false` to prevent `HTTPS_PROXY` / `HTTP_PROXY` env vars from
+accidentally routing these calls through the corporate proxy (which only
+allows internal BMO destinations).
 
 **Frontend:**
 - `frontend/src/app/pages/error-analyzer/services/opensearch.service.ts`

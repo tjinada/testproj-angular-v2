@@ -1,4 +1,4 @@
-<div class="os-search">
+<div class="log-search-container">
 
   <!-- Banner -->
   <div class="os-banner">
@@ -7,14 +7,14 @@
   </div>
 
   <!-- Search form -->
-  <div class="os-form">
-    <div class="os-row">
-      <label for="os-term" class="os-label">Search term:</label>
+  <div class="log-form">
+    <div class="log-form-row">
+      <label for="os-search-input" class="log-label">Search term:</label>
       <input
-        id="os-term"
+        id="os-search-input"
         type="text"
-        class="os-input"
-        placeholder="REQ_xxxxx, exception, path, *wildcard*, etc."
+        class="log-reqid-input"
+        placeholder="REQ_xxxxx, exception, URL path, session ID, etc."
         [ngModel]="searchTerm()"
         (ngModelChange)="searchTerm.set($event)"
         (keydown)="onSearchKeydown($event)"
@@ -22,34 +22,84 @@
 
       <button
         type="button"
-        class="os-search-btn"
+        class="log-search-btn"
         [disabled]="!canSearch()"
         (click)="onSearch()">
         {{ isSearching() ? 'Searching… ' + elapsedDisplay() : 'Search' }}
       </button>
     </div>
+
+    <div *ngIf="isSearching() && searchHint()" class="log-search-hint">
+      {{ searchHint() }}
+    </div>
   </div>
 
-  <!-- Error -->
-  <div *ngIf="searchError()" class="os-error">
+  <!-- Search error -->
+  <div *ngIf="searchError()" class="log-error-banner">
     {{ searchError() }}
   </div>
 
-  <!-- Empty state -->
-  <div *ngIf="!hasSearched() && !isSearching()" class="os-empty">
-    Enter a search term and click <strong>Search</strong> to query OpenSearch.
-  </div>
-
   <!-- Results -->
-  <div *ngIf="response() as r" class="os-results">
-    <div class="os-results-header">
-      <span>HTTP <strong>{{ r.status }}</strong></span>
-      <span>·</span>
-      <span>{{ r.elapsedMs }} ms</span>
-      <span>·</span>
-      <span class="os-url" [title]="r.url">{{ r.url }}</span>
+  <div *ngIf="hasSearched() && !isSearching() && !searchError()" class="log-results">
+    <div class="log-results-header">
+      <span>
+        <strong>{{ totalHits() }}</strong>
+        hit<span *ngIf="totalHits() !== 1">s</span>
+        <span *ngIf="returnedCount() !== totalHits()">
+          &mdash; showing {{ returnedCount() }}
+        </span>
+      </span>
+
+      <div class="log-results-actions">
+        <button
+          *ngIf="vmLines().length > 0"
+          type="button"
+          class="log-action-btn"
+          (click)="expandAll()">
+          Expand all
+        </button>
+        <button
+          *ngIf="vmLines().length > 0"
+          type="button"
+          class="log-action-btn"
+          (click)="collapseAll()">
+          Collapse all
+        </button>
+      </div>
     </div>
 
-    <pre class="os-json">{{ responseJson() }}</pre>
+    <!-- Empty state -->
+    <div *ngIf="vmLines().length === 0" class="log-empty">
+      No hits returned for <code>{{ lastSearchedTerm() }}</code> in the last hour.
+      Check the search term, or that the request occurred within the time window.
+    </div>
+
+    <!-- Log lines -->
+    <div *ngIf="vmLines().length > 0" class="log-lines">
+      <div *ngFor="let line of vmLines(); trackBy: trackById"
+        class="log-line log-line-match"
+        [attr.data-line-id]="line.id"
+        [class.log-line-expanded]="isExpanded(line.id)"
+        [class.log-line-unparsed]="!line.parsed"
+        (mouseup)="onLineMouseup(line.id, line)">
+
+        <ng-container *ngIf="line.parsed; else unparsedTpl">
+          <div class="log-line-compact">
+            <span class="log-ts">{{ line.timestamp }}</span>
+            <span class="log-lvl" [ngClass]="levelClass(line.level)">{{ line.level }}</span>
+            <span class="log-cls">{{ line.shortClass }}</span>
+            <span class="log-msg" [innerHTML]="highlight(line.message || '')"></span>
+          </div>
+          <div *ngIf="isExpanded(line.id)" class="log-line-prefix">
+            <span class="log-prefix-label">prefix:</span>
+            <span class="log-prefix-text" [innerHTML]="highlight(line.prefix || '')"></span>
+          </div>
+        </ng-container>
+
+        <ng-template #unparsedTpl>
+          <span class="log-raw" [innerHTML]="highlight(line.raw)"></span>
+        </ng-template>
+      </div>
+    </div>
   </div>
 </div>

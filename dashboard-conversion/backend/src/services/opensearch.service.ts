@@ -1,6 +1,4 @@
 import axios from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import config from '../config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -25,49 +23,17 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const TIME_RANGE_MS = 60 * 60 * 1000; // Last 1 hour — hardcoded per design
 const SEARCH_PATH = '/_dashboards/internal/search/opensearch';
 
-// ── Proxy setup ──────────────────────────────────────────────────────
-// AWS OpenSearch is a public internet endpoint (*.amazonaws.com). Routing
-// depends on where the backend runs:
-//   - Local laptop: direct connection works (laptop has internet access).
-//   - OpenShift pod: must go through the corporate proxy because the pod
-//     has no direct egress.
-//
-// The env flag OPENSEARCH_PROXY_ENABLED picks the mode. When true, we
-// build an HttpsProxyAgent using the shared `config.proxy` settings
-// (same as dynatrace.service.ts). When false/unset, we go direct.
+// ── HTTP client ───────────────────────────────────────────────────────────
+// AWS OpenSearch is reached directly from both laptop and OpenShift pod
+// — both environments have a working network path to *.amazonaws.com.
+// The corporate proxy (used by Dynatrace and the log file server) is NOT
+// used here because its allow-list is scoped to internal BMO destinations.
 
-const proxyAgent: HttpsProxyAgent<string> | null = (() => {
-  const enabled = process.env.OPENSEARCH_PROXY_ENABLED === 'true';
-  if (!enabled) {
-    console.log('[OpenSearch] OPENSEARCH_PROXY_ENABLED!=true — using direct connection');
-    return null;
-  }
-
-  const target = config.proxy?.target;
-  if (!target) {
-    console.log('[OpenSearch] OPENSEARCH_PROXY_ENABLED=true but config.proxy.target is missing — falling back to direct');
-    return null;
-  }
-
-  const username = config.proxy.username || '';
-  const password = config.proxy.password || '';
-  const proxyUrl = `http://${username}:${password}@${target}`;
-  console.log(`[OpenSearch] Proxy enabled: target=${target}, user=${username ? username : '(none)'}`);
-
-  // Pass TLS options explicitly to the agent. When a custom agent is used
-  // with axios, the global NODE_TLS_REJECT_UNAUTHORIZED setting is NOT
-  // inherited — we must set rejectUnauthorized on the agent itself.
-  // Matches curl's `-k` flag behavior used in the working pod test.
-  return new HttpsProxyAgent(proxyUrl, { rejectUnauthorized: false });
-})();
-
-/** Axios instance for OpenSearch API calls. Routes through the corporate proxy when configured. */
 const httpClient = axios.create({
-  // proxy: false explicitly disables axios's built-in proxy env-var detection.
-  // When proxyAgent is present, use it via httpsAgent instead.
-  ...(proxyAgent
-    ? { httpsAgent: proxyAgent, proxy: false as const }
-    : { proxy: false as const })
+  // Explicitly disable axios's built-in proxy env-var detection so that
+  // HTTPS_PROXY / HTTP_PROXY env vars don't accidentally route AWS calls
+  // through the corporate proxy.
+  proxy: false
 });
 
 // ── Main entry ───────────────────────────────────────────────────────
@@ -109,7 +75,6 @@ export async function searchOpenSearch(
   console.log(`[OpenSearch] POST ${fullUrl}`);
   console.log(`[OpenSearch] index="${indexPattern}", term="${searchTerm}"`);
   console.log(`[OpenSearch] timeframe ${from} → ${to}`);
-  console.log(`[OpenSearch] proxy=${proxyAgent ? 'yes (corporate proxy)' : 'no (direct)'}`);
   console.log(`[OpenSearch] request body size: ${JSON.stringify(requestBody).length} bytes`);
 
   const started = Date.now();
