@@ -53,7 +53,12 @@ const proxyAgent: HttpsProxyAgent<string> | null = (() => {
   const password = config.proxy.password || '';
   const proxyUrl = `http://${username}:${password}@${target}`;
   console.log(`[OpenSearch] Proxy enabled: target=${target}, user=${username ? username : '(none)'}`);
-  return new HttpsProxyAgent(proxyUrl);
+
+  // Pass TLS options explicitly to the agent. When a custom agent is used
+  // with axios, the global NODE_TLS_REJECT_UNAUTHORIZED setting is NOT
+  // inherited — we must set rejectUnauthorized on the agent itself.
+  // Matches curl's `-k` flag behavior used in the working pod test.
+  return new HttpsProxyAgent(proxyUrl, { rejectUnauthorized: false });
 })();
 
 /** Axios instance for OpenSearch API calls. Routes through the corporate proxy when configured. */
