@@ -169,7 +169,10 @@ function buildQueryBody(
       body: {
         version: true,
         size: 10000,
-        sort: [{ '@timestamp': { order: 'desc', unmapped_type: 'boolean' } }],
+        sort: [
+          { fbTimestamp: { order: 'asc', unmapped_type: 'boolean' } },
+          { _id: { order: 'asc' } }
+        ],
         aggs: {
           '2': {
             date_histogram: {
@@ -201,7 +204,7 @@ function buildQueryBody(
               },
               {
                 range: {
-                  '@timestamp': {
+                  fbTimestamp: {
                     gte: from,
                     lte: to,
                     format: 'strict_date_optional_time'

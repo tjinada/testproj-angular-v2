@@ -7,6 +7,8 @@ interface ParsedLogLine {
   raw: string;
   parsed: boolean;
   timestamp?: string;
+  /** Epoch milliseconds parsed from the message timestamp, for sorting. */
+  timestampMs?: number;
   level?: string;
   shortClass?: string;
   message?: string;
@@ -28,7 +30,19 @@ function parseLine(raw: string): ParsedLogLine {
   const [, timestamp, thread, level, fullClass, metadata, message] = m;
   const shortClass = fullClass.includes('.') ? fullClass.split('.').pop()! : fullClass;
   const prefix = `[${thread}] ${fullClass}${metadata ? ' ' + metadata : ''}`;
-  return { raw, parsed: true, timestamp, level: level.toUpperCase(), shortClass, message, prefix };
+
+  // Parse the timestamp into epoch ms for sorting.
+  // Format: "2026-04-23 17:57:53.529 -0400" (space-separated date/time,
+  // space-separated offset). Convert to ISO for Date parsing.
+  // Replace first space with 'T', leave offset as-is after collapsing whitespace.
+  let timestampMs: number | undefined;
+  const isoish = timestamp.replace(/\s+/, 'T').replace(/\s+([-+]\d{4})$/, '$1');
+  const parsed = Date.parse(isoish);
+  if (!isNaN(parsed)) {
+    timestampMs = parsed;
+  }
+
+  return { raw, parsed: true, timestamp, timestampMs, level: level.toUpperCase(), shortClass, message, prefix };
 }
 
 /**
@@ -88,6 +102,9 @@ export class OpenSearchLogSearchComponent {
   });
 
   // Parsed log lines, derived from the response hits.
+  // OpenSearch returns them pre-sorted by fbTimestamp asc with _id tiebreaker
+  // (see backend query), so no client-side sort is needed — we just map in
+  // the order received.
   vmLines = computed<LineVM[]>(() => {
     const r = this.response();
     if (!r) return [];
