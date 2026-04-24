@@ -3,7 +3,7 @@
   <!-- Banner -->
   <div class="os-banner">
     <strong>Test feature.</strong> Queries AWS OpenSearch via the backend.
-    Index: <code>channels-olb-*</code> · Window: last 1 hour · Auth: fixed cookie from <code>.env</code>.
+    Index: <code>channels-olb-*</code> · Auth: fixed cookie from <code>.env</code>.
   </div>
 
   <!-- Search form -->
@@ -19,6 +19,16 @@
         (ngModelChange)="searchTerm.set($event)"
         (keydown)="onSearchKeydown($event)"
         [disabled]="isSearching()" />
+
+      <label for="os-range" class="log-label">Range:</label>
+      <select
+        id="os-range"
+        class="log-select"
+        [disabled]="isSearching()"
+        [ngModel]="timeRangeMs()"
+        (ngModelChange)="onTimeRangeChange($event)">
+        <option *ngFor="let c of timeRangeChoices" [ngValue]="c.value">{{ c.label }}</option>
+      </select>
 
       <button
         type="button"
@@ -51,6 +61,41 @@
       </span>
 
       <div class="log-results-actions">
+        <!-- Find-in-results -->
+        <ng-container *ngIf="vmLines().length > 0">
+          <label for="os-find" class="log-find-label">Find:</label>
+          <input
+            id="os-find"
+            type="text"
+            class="log-find-input"
+            placeholder="filter visible lines"
+            [ngModel]="findTerm()"
+            (ngModelChange)="findTerm.set($event)"
+            (keydown)="onFindKeydown($event)" />
+          <span class="log-find-counter">
+            {{ currentMatchDisplay() }} / {{ findMatchCount() }}
+          </span>
+          <button
+            type="button"
+            class="log-action-btn"
+            [disabled]="findMatchCount() === 0"
+            (click)="prevMatch()"
+            title="Previous match (Shift+Enter)">&uarr; Prev</button>
+          <button
+            type="button"
+            class="log-action-btn"
+            [disabled]="findMatchCount() === 0"
+            (click)="nextMatch()"
+            title="Next match (Enter)">&darr; Next</button>
+          <button
+            *ngIf="findTerm()"
+            type="button"
+            class="log-action-btn log-action-btn-subtle"
+            (click)="clearFind()"
+            title="Clear find">×</button>
+        </ng-container>
+
+        <!-- Expand/collapse -->
         <button
           *ngIf="vmLines().length > 0"
           type="button"
@@ -70,17 +115,19 @@
 
     <!-- Empty state -->
     <div *ngIf="vmLines().length === 0" class="log-empty">
-      No hits returned for <code>{{ lastSearchedTerm() }}</code> in the last hour.
-      Check the search term, or that the request occurred within the time window.
+      No hits returned for <code>{{ lastSearchedTerm() }}</code> in the selected time range.
+      Check the search term, or widen the time range.
     </div>
 
     <!-- Log lines -->
-    <div *ngIf="vmLines().length > 0" class="log-lines">
+    <div *ngIf="vmLines().length > 0" #logLinesContainer class="log-lines">
       <div *ngFor="let line of vmLines(); trackBy: trackById"
         class="log-line log-line-match"
         [attr.data-line-id]="line.id"
         [class.log-line-expanded]="isExpanded(line.id)"
         [class.log-line-unparsed]="!line.parsed"
+        [class.log-line-error]="line.isErrorLike"
+        [class.log-line-find-current]="isCurrentMatch(line.id)"
         (mouseup)="onLineMouseup(line.id, line)">
 
         <ng-container *ngIf="line.parsed; else unparsedTpl">

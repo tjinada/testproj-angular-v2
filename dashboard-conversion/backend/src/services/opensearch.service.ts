@@ -20,7 +20,7 @@ export interface OpenSearchTestResponse {
 // ── Constants ────────────────────────────────────────────────────────
 
 const REQUEST_TIMEOUT_MS = 30_000;
-const TIME_RANGE_MS = 60 * 60 * 1000; // Last 1 hour — hardcoded per design
+const DEFAULT_TIME_RANGE_MS = 60 * 60 * 1000; // 1 hour default
 const SEARCH_PATH = '/_dashboards/internal/search/opensearch';
 
 // ── HTTP client ───────────────────────────────────────────────────────────
@@ -47,7 +47,8 @@ const httpClient = axios.create({
  * This is a TEST feature — returns the raw response for display.
  */
 export async function searchOpenSearch(
-  searchTerm: string
+  searchTerm: string,
+  timeRangeMs: number = DEFAULT_TIME_RANGE_MS
 ): Promise<OpenSearchTestResponse> {
   const baseUrl = process.env.OPENSEARCH_URL || '';
   const cookie = process.env.OPENSEARCH_COOKIE || '';
@@ -66,7 +67,7 @@ export async function searchOpenSearch(
   }
 
   const now = Date.now();
-  const from = new Date(now - TIME_RANGE_MS).toISOString();
+  const from = new Date(now - timeRangeMs).toISOString();
   const to = new Date(now).toISOString();
 
   const requestBody = buildQueryBody(searchTerm, indexPattern, from, to);
@@ -74,7 +75,7 @@ export async function searchOpenSearch(
 
   console.log(`[OpenSearch] POST ${fullUrl}`);
   console.log(`[OpenSearch] index="${indexPattern}", term="${searchTerm}"`);
-  console.log(`[OpenSearch] timeframe ${from} → ${to}`);
+  console.log(`[OpenSearch] timeframe ${from} → ${to} (window ${Math.round(timeRangeMs / 60000)}min)`);
   console.log(`[OpenSearch] request body size: ${JSON.stringify(requestBody).length} bytes`);
 
   const started = Date.now();

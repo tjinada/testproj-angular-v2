@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, signal, computed, effect, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OpenSearchService, OpenSearchTestResponse } from '../../services/opensearch.service';
@@ -7,7 +7,6 @@ interface ParsedLogLine {
   raw: string;
   parsed: boolean;
   timestamp?: string;
-  /** Epoch milliseconds parsed from the message timestamp, for sorting. */
   timestampMs?: number;
   level?: string;
   shortClass?: string;
@@ -17,10 +16,38 @@ interface ParsedLogLine {
 
 interface LineVM extends ParsedLogLine {
   id: number;
+  /** True if the line suggests an error/exception \u2014 drives subtle red tint. */
+  isErrorLike: boolean;
 }
+
+// ── Regexes ─────────────────────────────────────────────────────────
 
 const LINE_REGEX =
   /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}(?:\s+[-+]\d{4})?)\s+\[([^\]]+)\]\s+(DEBUG|INFO|WARN|WARNING|ERROR|TRACE|FATAL)\s+([\w.$]+)\s+(.*?)\s-\s(.*)$/;
+
+// Error signals in the message body (complement to level=ERROR/FATAL).
+const ERROR_SIGNAL_REGEX =
+  /\b(Exception|Error|Caused by:|FATAL|stacktrace)\b|^\s+at\s+[\w.$]+/i;
+
+// URL path pattern: starts with /, has at least 2 segments of word chars,
+// can include hyphens, underscores, digits. Excludes:
+//   - paths with dots (to avoid matching class names like `java.lang.String`)
+//   - trailing slash/word only (e.g. `/foo` alone \u2014 too noisy)
+// Examples that match:   /api/banking/signin, /services/verifyCredential, /banking/services/signin/verifyCredential
+// Examples that don't:   /foo, a/b/c, com.bmo/util, 2026-04-23
+const URL_PATH_REGEX = /(?:^|[\s(\[])(\/[A-Za-z_][\w-]*(?:\/[A-Za-z_][\w-]*)+)/g;
+
+// ── Time range choices ──────────────────────────────────────────────
+
+const TIME_RANGE_CHOICES = [
+  { label: 'Last 1 hour',   value: 60 * 60 * 1000 },
+  { label: 'Last 4 hours',  value: 4 * 60 * 60 * 1000 },
+  { label: 'Last 24 hours', value: 24 * 60 * 60 * 1000 }
+] as const;
+
+const DEFAULT_TIME_RANGE_MS = 60 * 60 * 1000;
+
+// ── Parsing ─────────────────────────────────────────────────────────
 
 function parseLine(raw: string): ParsedLogLine {
   const m = LINE_REGEX.exec(raw);
@@ -31,25 +58,24 @@ function parseLine(raw: string): ParsedLogLine {
   const shortClass = fullClass.includes('.') ? fullClass.split('.').pop()! : fullClass;
   const prefix = `[${thread}] ${fullClass}${metadata ? ' ' + metadata : ''}`;
 
-  // Parse the timestamp into epoch ms for sorting.
-  // Format: "2026-04-23 17:57:53.529 -0400" (space-separated date/time,
-  // space-separated offset). Convert to ISO for Date parsing.
-  // Replace first space with 'T', leave offset as-is after collapsing whitespace.
   let timestampMs: number | undefined;
   const isoish = timestamp.replace(/\s+/, 'T').replace(/\s+([-+]\d{4})$/, '$1');
-  const parsed = Date.parse(isoish);
-  if (!isNaN(parsed)) {
-    timestampMs = parsed;
+  const parsedTs = Date.parse(isoish);
+  if (!isNaN(parsedTs)) {
+    timestampMs = parsedTs;
   }
 
   return { raw, parsed: true, timestamp, timestampMs, level: level.toUpperCase(), shortClass, message, prefix };
 }
 
+function isErrorLikeLine(p: ParsedLogLine): boolean {
+  if (p.level === 'ERROR' || p.level === 'FATAL') return true;
+  const hay = p.message || p.raw;
+  return ERROR_SIGNAL_REGEX.test(hay);
+}
+
 /**
  * Extracts log lines from an OpenSearch Dashboards internal-search response.
- * The shape is:
- *   { rawResponse: { hits: { hits: [{ _source: { message: string, ... } }] } } }
- * Falls back to `raw.hits.hits` for direct OpenSearch responses.
  */
 function extractMessages(raw: unknown): string[] {
   if (!raw || typeof raw !== 'object') return [];
@@ -67,7 +93,7 @@ function extractMessages(raw: unknown): string[] {
 }
 
 /**
- * TEST component — sends a search term to AWS OpenSearch via the backend
+ * TEST component \u2014 sends a search term to AWS OpenSearch via the backend
  * and renders the `_source.message` field from each hit using the same
  * log-line formatting as CDBBOS Log Search.
  */
@@ -81,14 +107,19 @@ function extractMessages(raw: unknown): string[] {
 })
 export class OpenSearchLogSearchComponent {
 
+  readonly timeRangeChoices = TIME_RANGE_CHOICES;
+
+  private logLinesContainer = viewChild<ElementRef<HTMLElement>>('logLinesContainer');
+
   searchTerm = signal<string>('');
+  timeRangeMs = signal<number>(DEFAULT_TIME_RANGE_MS);
   isSearching = signal<boolean>(false);
   searchError = signal<string>('');
   response = signal<OpenSearchTestResponse | null>(null);
   hasSearched = signal<boolean>(false);
   lastSearchedTerm = signal<string>('');
 
-  // Elapsed-time tracker for the in-progress indicator.
+  // Elapsed-time tracker
   elapsedMs = signal<number>(0);
   private elapsedTimer: ReturnType<typeof setInterval> | null = null;
   private searchStartedAt = 0;
@@ -97,22 +128,26 @@ export class OpenSearchLogSearchComponent {
   searchHint = computed(() => {
     const ms = this.elapsedMs();
     if (ms < 10_000) return '';
-    if (ms < 30_000) return 'Querying OpenSearch…';
-    return 'Still waiting on OpenSearch — large result set or slow response…';
+    if (ms < 30_000) return 'Querying OpenSearch\u2026';
+    return 'Still waiting on OpenSearch \u2014 large result set or slow response\u2026';
   });
 
-  // Parsed log lines, derived from the response hits.
-  // OpenSearch returns them pre-sorted by fbTimestamp asc with _id tiebreaker
-  // (see backend query), so no client-side sort is needed — we just map in
-  // the order received.
+  // ── Find-in-results state ─────────────────────────────────────────
+  findTerm = signal<string>('');
+  currentMatchIndex = signal<number>(-1);
+
+  // ── View model ────────────────────────────────────────────────────
+
   vmLines = computed<LineVM[]>(() => {
     const r = this.response();
     if (!r) return [];
     const messages = extractMessages(r.raw);
-    return messages.map((raw, idx) => ({ id: idx, ...parseLine(raw) }));
+    return messages.map((raw, idx) => {
+      const p = parseLine(raw);
+      return { id: idx, isErrorLike: isErrorLikeLine(p), ...p };
+    });
   });
 
-  // Total hits reported by OpenSearch (may exceed returned hit count).
   totalHits = computed<number>(() => {
     const r = this.response();
     if (!r) return 0;
@@ -129,10 +164,46 @@ export class OpenSearchLogSearchComponent {
     this.searchTerm().trim().length > 0 && !this.isSearching()
   );
 
-  // Expansion state — toggled by click on a line.
+  // ── Find-in-results computed matches ──────────────────────────────
+
+  findMatches = computed<number[]>(() => {
+    const term = this.findTerm().trim().toLowerCase();
+    if (!term) return [];
+    const hits: number[] = [];
+    for (const l of this.vmLines()) {
+      if (l.raw.toLowerCase().indexOf(term) !== -1) {
+        hits.push(l.id);
+      }
+    }
+    return hits;
+  });
+
+  findMatchCount = computed(() => this.findMatches().length);
+  currentMatchDisplay = computed(() =>
+    this.findMatchCount() > 0 ? this.currentMatchIndex() + 1 : 0
+  );
+
+  // Expansion state
   private expandedIds = signal<Set<number>>(new Set());
 
-  constructor(private openSearchService: OpenSearchService) {}
+  constructor(private openSearchService: OpenSearchService) {
+    // Reset current match when find term changes.
+    effect(() => {
+      const count = this.findMatchCount();
+      this.currentMatchIndex.set(count > 0 ? 0 : -1);
+    }, { allowSignalWrites: true });
+
+    // Scroll current find match into view.
+    effect(() => {
+      const idx = this.currentMatchIndex();
+      const matches = this.findMatches();
+      if (idx < 0 || idx >= matches.length) return;
+      const lineId = matches[idx];
+      queueMicrotask(() => this.scrollMatchIntoView(lineId));
+    });
+  }
+
+  // ── Search ────────────────────────────────────────────────────────
 
   onSearch(): void {
     const term = this.searchTerm().trim();
@@ -143,10 +214,12 @@ export class OpenSearchLogSearchComponent {
     this.response.set(null);
     this.hasSearched.set(true);
     this.lastSearchedTerm.set(term);
+    this.findTerm.set('');
+    this.currentMatchIndex.set(-1);
     this.expandedIds.set(new Set());
     this.startElapsedTimer();
 
-    this.openSearchService.search(term).subscribe({
+    this.openSearchService.search(term, this.timeRangeMs()).subscribe({
       next: (response) => {
         this.response.set(response);
         this.isSearching.set(false);
@@ -166,6 +239,13 @@ export class OpenSearchLogSearchComponent {
     }
   }
 
+  onTimeRangeChange(value: number | string): void {
+    const n = typeof value === 'string' ? parseInt(value, 10) : value;
+    if (TIME_RANGE_CHOICES.some(c => c.value === n)) {
+      this.timeRangeMs.set(n);
+    }
+  }
+
   private startElapsedTimer(): void {
     this.searchStartedAt = Date.now();
     this.elapsedMs.set(0);
@@ -182,7 +262,7 @@ export class OpenSearchLogSearchComponent {
     }
   }
 
-  // ── Expand / collapse handlers ────────────────────────────────────
+  // ── Expand / collapse ─────────────────────────────────────────────
 
   isExpanded(id: number): boolean {
     return this.expandedIds().has(id);
@@ -220,15 +300,85 @@ export class OpenSearchLogSearchComponent {
     return line.id;
   }
 
+  // ── Find-in-results navigation ────────────────────────────────────
+
+  onFindKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      if (event.shiftKey) this.prevMatch();
+      else this.nextMatch();
+    }
+  }
+
+  nextMatch(): void {
+    const count = this.findMatchCount();
+    if (count === 0) return;
+    this.currentMatchIndex.set((this.currentMatchIndex() + 1) % count);
+  }
+
+  prevMatch(): void {
+    const count = this.findMatchCount();
+    if (count === 0) return;
+    this.currentMatchIndex.set((this.currentMatchIndex() - 1 + count) % count);
+  }
+
+  clearFind(): void {
+    this.findTerm.set('');
+  }
+
+  isCurrentMatch(id: number): boolean {
+    const matches = this.findMatches();
+    const idx = this.currentMatchIndex();
+    return idx >= 0 && idx < matches.length && matches[idx] === id;
+  }
+
+  private scrollMatchIntoView(lineId: number): void {
+    const container = this.logLinesContainer()?.nativeElement;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(`[data-line-id="${lineId}"]`);
+    if (!el) return;
+    const containerRect = container.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const fullyVisible = elRect.top >= containerRect.top && elRect.bottom <= containerRect.bottom;
+    if (fullyVisible) return;
+    const offset = el.offsetTop - container.offsetTop
+      - (container.clientHeight / 2)
+      + (el.clientHeight / 2);
+    container.scrollTo({ top: offset, behavior: 'smooth' });
+  }
+
   // ── Highlighting ──────────────────────────────────────────────────
 
+  /**
+   * Apply all highlights to text: primary search term (yellow),
+   * find-in-results (orange), and URL paths (cyan).
+   * Order matters \u2014 apply URL first (least likely to overlap), then
+   * primary, then find (so find overrides primary on same substring).
+   */
   highlight(text: string): string {
     let safe = this.escapeHtml(text);
+
+    // URL paths first \u2014 cyan
+    safe = safe.replace(URL_PATH_REGEX, (whole, path) => {
+      // Whole matches include the preceding char (space/paren/bracket or BOL).
+      // Preserve it; only wrap the path portion.
+      const prefix = whole.slice(0, whole.length - path.length);
+      return `${prefix}<mark class="log-hl-url">${path}</mark>`;
+    });
+
+    // Primary search term \u2014 yellow
     const primary = this.lastSearchedTerm();
     if (primary) {
       const re = new RegExp(this.escapeRegex(this.escapeHtml(primary)), 'gi');
       safe = safe.replace(re, '<mark class="log-hl-primary">$&</mark>');
     }
+
+    // Find-in-results \u2014 orange
+    const find = this.findTerm().trim();
+    if (find) {
+      const re = new RegExp(this.escapeRegex(this.escapeHtml(find)), 'gi');
+      safe = safe.replace(re, '<mark class="log-hl-find">$&</mark>');
+    }
+
     return safe;
   }
 

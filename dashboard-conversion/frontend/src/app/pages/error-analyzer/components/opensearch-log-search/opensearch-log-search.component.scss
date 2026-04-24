@@ -313,3 +313,19 @@
   border-radius: 2px;
   font-weight: 600;
 }
+
+:host ::ng-deep mark.log-hl-find {
+  background: #fb923c;
+  color: #1f2937;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+:host ::ng-deep mark.log-hl-url {
+  background: transparent;
+  color: #5eead4;
+  padding: 0;
+  border-bottom: 1px dashed #5eead4;
+  font-weight: 500;
+}
