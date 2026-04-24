@@ -16,7 +16,7 @@ interface ParsedLogLine {
 
 interface LineVM extends ParsedLogLine {
   id: number;
-  /** True if the line suggests an error/exception \u2014 drives subtle red tint. */
+  /** True if the line suggests an error/exception — drives subtle red tint. */
   isErrorLike: boolean;
 }
 
@@ -29,13 +29,26 @@ const LINE_REGEX =
 const ERROR_SIGNAL_REGEX =
   /\b(Exception|Error|Caused by:|FATAL|stacktrace)\b|^\s+at\s+[\w.$]+/i;
 
-// URL path pattern: starts with /, has at least 2 segments of word chars,
-// can include hyphens, underscores, digits. Excludes:
-//   - paths with dots (to avoid matching class names like `java.lang.String`)
-//   - trailing slash/word only (e.g. `/foo` alone \u2014 too noisy)
-// Examples that match:   /api/banking/signin, /services/verifyCredential, /banking/services/signin/verifyCredential
-// Examples that don't:   /foo, a/b/c, com.bmo/util, 2026-04-23
-const URL_PATH_REGEX = /(?:^|[\s(\[])(\/[A-Za-z_][\w-]*(?:\/[A-Za-z_][\w-]*)+)/g;
+// URL / URL-path pattern. Matches any of:
+//   1. Full URL with scheme: https://host[:port]/path...
+//   2. Host-with-path: api2-sit4.bmogc.net/api/...  (host has at least one dot;
+//      followed by at least one path segment)
+//   3. Path-only: /api/foo/bar  (leading slash; at least two segments)
+//
+// The leading-boundary lookbehind uses a non-capturing group so we can anchor
+// the path-only case without eating a leading word char. Alternatives 1 and 2
+// stand alone; alternative 3 needs the boundary check.
+const URL_REGEX = new RegExp(
+  [
+    // 1. scheme://host[:port]/path
+    'https?:\\/\\/[A-Za-z0-9][\\w.-]*(?::\\d+)?(?:\\/[A-Za-z0-9_.~!$&\'()*+,;=:@%-]*)+',
+    // 2. host.with.dots[:port]/path
+    '(?<![\\w/])[A-Za-z][\\w-]*(?:\\.[A-Za-z][\\w-]*)+(?::\\d+)?(?:\\/[A-Za-z_][\\w.-]*)+',
+    // 3. /path/with/at-least-two-segments
+    '(?<![\\w/])\\/[A-Za-z_][\\w-]*(?:\\/[A-Za-z_][\\w-]*)+'
+  ].join('|'),
+  'g'
+);
 
 // ── Time range choices ──────────────────────────────────────────────
 
@@ -93,7 +106,7 @@ function extractMessages(raw: unknown): string[] {
 }
 
 /**
- * TEST component \u2014 sends a search term to AWS OpenSearch via the backend
+ * TEST component — sends a search term to AWS OpenSearch via the backend
  * and renders the `_source.message` field from each hit using the same
  * log-line formatting as CDBBOS Log Search.
  */
@@ -128,8 +141,8 @@ export class OpenSearchLogSearchComponent {
   searchHint = computed(() => {
     const ms = this.elapsedMs();
     if (ms < 10_000) return '';
-    if (ms < 30_000) return 'Querying OpenSearch\u2026';
-    return 'Still waiting on OpenSearch \u2014 large result set or slow response\u2026';
+    if (ms < 30_000) return 'Querying OpenSearch…';
+    return 'Still waiting on OpenSearch — large result set or slow response…';
   });
 
   // ── Find-in-results state ─────────────────────────────────────────
@@ -349,34 +362,35 @@ export class OpenSearchLogSearchComponent {
   // ── Highlighting ──────────────────────────────────────────────────
 
   /**
-   * Apply all highlights to text: primary search term (yellow),
-   * find-in-results (orange), and URL paths (cyan).
-   * Order matters \u2014 apply URL first (least likely to overlap), then
-   * primary, then find (so find overrides primary on same substring).
+   * Apply all highlights to text: URLs/hosts (cyan), primary search term
+   * (yellow), find-in-results (orange, brighter on the current-match line).
+   *
+   * @param text       The text to highlight
+   * @param isCurrent  True if this text is on the line containing the
+   *                   CURRENT find match — causes find marks to use a
+   *                   brighter variant so Next/Prev is obvious.
    */
-  highlight(text: string): string {
+  highlight(text: string, isCurrent: boolean = false): string {
     let safe = this.escapeHtml(text);
 
-    // URL paths first \u2014 cyan
-    safe = safe.replace(URL_PATH_REGEX, (whole, path) => {
-      // Whole matches include the preceding char (space/paren/bracket or BOL).
-      // Preserve it; only wrap the path portion.
-      const prefix = whole.slice(0, whole.length - path.length);
-      return `${prefix}<mark class="log-hl-url">${path}</mark>`;
+    // URLs first — cyan
+    safe = safe.replace(URL_REGEX, (match) => {
+      return `<mark class="log-hl-url">${match}</mark>`;
     });
 
-    // Primary search term \u2014 yellow
+    // Primary search term — yellow
     const primary = this.lastSearchedTerm();
     if (primary) {
       const re = new RegExp(this.escapeRegex(this.escapeHtml(primary)), 'gi');
       safe = safe.replace(re, '<mark class="log-hl-primary">$&</mark>');
     }
 
-    // Find-in-results \u2014 orange
+    // Find-in-results — orange, or bright orange on the current-match line
     const find = this.findTerm().trim();
     if (find) {
       const re = new RegExp(this.escapeRegex(this.escapeHtml(find)), 'gi');
-      safe = safe.replace(re, '<mark class="log-hl-find">$&</mark>');
+      const cls = isCurrent ? 'log-hl-find-current' : 'log-hl-find';
+      safe = safe.replace(re, `<mark class="${cls}">$&</mark>`);
     }
 
     return safe;

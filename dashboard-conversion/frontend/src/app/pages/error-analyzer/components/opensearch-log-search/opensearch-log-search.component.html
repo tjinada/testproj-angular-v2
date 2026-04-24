@@ -134,17 +134,17 @@
           <div class="log-line-compact">
             <span class="log-ts">{{ line.timestamp }}</span>
             <span class="log-lvl" [ngClass]="levelClass(line.level)">{{ line.level }}</span>
-            <span class="log-cls">{{ line.shortClass }}</span>
-            <span class="log-msg" [innerHTML]="highlight(line.message || '')"></span>
+            <span class="log-cls" [innerHTML]="highlight(line.shortClass || '', isCurrentMatch(line.id))"></span>
+            <span class="log-msg" [innerHTML]="highlight(line.message || '', isCurrentMatch(line.id))"></span>
           </div>
           <div *ngIf="isExpanded(line.id)" class="log-line-prefix">
             <span class="log-prefix-label">prefix:</span>
-            <span class="log-prefix-text" [innerHTML]="highlight(line.prefix || '')"></span>
+            <span class="log-prefix-text" [innerHTML]="highlight(line.prefix || '', isCurrentMatch(line.id))"></span>
           </div>
         </ng-container>
 
         <ng-template #unparsedTpl>
-          <span class="log-raw" [innerHTML]="highlight(line.raw)"></span>
+          <span class="log-raw" [innerHTML]="highlight(line.raw, isCurrentMatch(line.id))"></span>
         </ng-template>
       </div>
     </div>

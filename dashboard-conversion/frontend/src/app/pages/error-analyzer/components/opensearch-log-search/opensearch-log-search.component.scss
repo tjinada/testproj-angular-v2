@@ -322,6 +322,17 @@
   font-weight: 600;
 }
 
+:host ::ng-deep mark.log-hl-find-current {
+  background: #ea580c;
+  color: #ffffff;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 700;
+  outline: 2px solid #fed7aa;
+  outline-offset: 0;
+  box-shadow: 0 0 0 1px #ea580c;
+}
+
 :host ::ng-deep mark.log-hl-url {
   background: transparent;
   color: #5eead4;
