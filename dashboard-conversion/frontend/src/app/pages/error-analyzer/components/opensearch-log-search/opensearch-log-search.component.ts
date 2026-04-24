@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnInit, signal, computed, effect, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, signal, computed, effect, inject, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OpenSearchService, OpenSearchTestResponse } from '../../services/opensearch.service';
@@ -100,7 +100,7 @@ function extractMessages(raw: unknown): string[] {
   styleUrls: ['./opensearch-log-search.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class OpenSearchLogSearchComponent implements OnInit {
+export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
 
   readonly timeRangeChoices = TIME_RANGE_CHOICES;
 
@@ -140,6 +140,14 @@ export class OpenSearchLogSearchComponent implements OnInit {
   /** Set of line IDs the user has marked. Resets on every new search. */
   private markedIds = signal<Set<number>>(new Set());
   currentMarkIndex = signal<number>(-1);
+
+  /**
+   * True when the user has a non-empty text selection *inside* the log-lines
+   * container. Drives the enabled state of the "Mark selection" button.
+   * Updated by a document-level `selectionchange` listener.
+   */
+  hasSelection = signal<boolean>(false);
+  private selectionChangeHandler: (() => void) | null = null;
 
   /** Transient "Copied ✓" confirmation message. */
   copyFeedback = signal<string>('');
@@ -238,6 +246,41 @@ export class OpenSearchLogSearchComponent implements OnInit {
     this.indexOptions.set(options);
     if (options.length > 0 && !this.selectedIndex()) {
       this.selectedIndex.set(options[0].value);
+    }
+
+    // Track text selection inside the log-lines container.
+    // `selectionchange` fires on document; we filter to selections whose range
+    // anchor is inside our container.
+    this.selectionChangeHandler = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+        this.hasSelection.set(false);
+        return;
+      }
+      const container = this.logLinesContainer()?.nativeElement;
+      if (!container) {
+        this.hasSelection.set(false);
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      const inside = container.contains(range.commonAncestorContainer);
+      this.hasSelection.set(inside && sel.toString().length > 0);
+    };
+    document.addEventListener('selectionchange', this.selectionChangeHandler);
+  }
+
+  ngOnDestroy(): void {
+    if (this.selectionChangeHandler) {
+      document.removeEventListener('selectionchange', this.selectionChangeHandler);
+      this.selectionChangeHandler = null;
+    }
+    if (this.elapsedTimer !== null) {
+      clearInterval(this.elapsedTimer);
+      this.elapsedTimer = null;
+    }
+    if (this.copyFeedbackTimer !== null) {
+      clearTimeout(this.copyFeedbackTimer);
+      this.copyFeedbackTimer = null;
     }
   }
 
@@ -386,26 +429,91 @@ export class OpenSearchLogSearchComponent implements OnInit {
   }
 
   /**
-   * Toggle the mark on a line. Called from the star button.
-   * Stops propagation so it doesn't also trigger the line's expand toggle.
+   * Mark all lines touched by the current text selection. Called from the
+   * "Mark selection" button. If the selection spans multiple lines, all of
+   * them get marked. The browser selection is cleared after.
+   *
+   * If no selection is active, this is a no-op.
    */
-  toggleMark(id: number, event: Event): void {
+  markSelection(): void {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    const container = this.logLinesContainer()?.nativeElement;
+    if (!container) return;
+
+    const range = sel.getRangeAt(0);
+    if (!container.contains(range.commonAncestorContainer)) return;
+
+    // Walk up from both endpoints to find their `.log-line` ancestor and its
+    // data-line-id. Then mark every line whose id falls in that inclusive range.
+    const startId = this.lineIdForNode(range.startContainer, container);
+    const endId = this.lineIdForNode(range.endContainer, container);
+    if (startId === null && endId === null) return;
+
+    const lo = Math.min(startId ?? endId!, endId ?? startId!);
+    const hi = Math.max(startId ?? endId!, endId ?? startId!);
+
+    this.markedIds.update(set => {
+      const next = new Set(set);
+      for (let i = lo; i <= hi; i++) next.add(i);
+      return next;
+    });
+
+    // Activate the first newly-marked line so Next/Prev starts somewhere sensible.
+    if (this.currentMarkIndex() === -1) {
+      this.currentMarkIndex.set(0);
+    }
+
+    // Clear the browser selection so the yellow selection color goes away
+    // and the gold mark highlight is unobstructed.
+    sel.removeAllRanges();
+    this.hasSelection.set(false);
+  }
+
+  /**
+   * Unmark a single line. Called from a small "×" button that appears on
+   * marked lines, so users can remove individual marks without clearing all.
+   */
+  unmarkLine(id: number, event: Event): void {
     event.stopPropagation();
     this.markedIds.update(set => {
       const next = new Set(set);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      next.delete(id);
       return next;
     });
-    // If the current index is now out of bounds, clamp it.
     const newCount = this.markedList().length;
     if (this.currentMarkIndex() >= newCount) {
       this.currentMarkIndex.set(newCount > 0 ? newCount - 1 : -1);
-    } else if (this.currentMarkIndex() === -1 && newCount > 0) {
-      this.currentMarkIndex.set(0);
+    }
+  }
+
+  /**
+   * Walk up from an arbitrary DOM node to the nearest ancestor with
+   * `data-line-id`, and return the numeric line ID. Returns null if the
+   * node is not inside a log line (e.g., clicked in a gap).
+   */
+  private lineIdForNode(node: Node, container: HTMLElement): number | null {
+    let el: Node | null = node;
+    while (el && el !== container) {
+      if (el.nodeType === Node.ELEMENT_NODE) {
+        const idAttr = (el as HTMLElement).getAttribute?.('data-line-id');
+        if (idAttr !== null && idAttr !== undefined) {
+          const n = parseInt(idAttr, 10);
+          if (!isNaN(n)) return n;
+        }
+      }
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  /** Keyboard shortcut: Ctrl+M / Cmd+M on the log-lines container marks the selection. */
+  onLinesKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && (event.key === 'm' || event.key === 'M')) {
+      if (this.hasSelection()) {
+        event.preventDefault();
+        this.markSelection();
+      }
     }
   }
 

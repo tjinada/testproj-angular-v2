@@ -111,7 +111,15 @@
     <!-- Row 2: mark toolbar + copy + expand/collapse -->
     <div *ngIf="vmLines().length > 0" class="log-results-toolbar">
       <div class="log-toolbar-group">
-        <span class="log-toolbar-label">★ Marked:</span>
+        <button
+          type="button"
+          class="log-action-btn log-action-btn-primary"
+          [disabled]="!hasSelection()"
+          (click)="markSelection()"
+          title="Mark line(s) containing the selected text (Ctrl+M / Cmd+M)">
+          <span class="log-btn-star">★</span> Mark selection
+        </button>
+        <span class="log-toolbar-label">Marked:</span>
         <span class="log-find-counter">
           {{ currentMarkDisplay() }} / {{ markedCount() }}
         </span>
@@ -169,7 +177,7 @@
     </div>
 
     <!-- Log lines -->
-    <div *ngIf="vmLines().length > 0" #logLinesContainer class="log-lines">
+    <div *ngIf="vmLines().length > 0" #logLinesContainer class="log-lines" tabindex="0" (keydown)="onLinesKeydown($event)">
       <div *ngFor="let line of vmLines(); trackBy: trackById"
         class="log-line log-line-match"
         [attr.data-line-id]="line.id"
@@ -181,15 +189,15 @@
         [class.log-line-mark-current]="isCurrentMark(line.id)"
         (mouseup)="onLineMouseup(line.id, line)">
 
-        <!-- Mark toggle (star) — always in DOM, visible on hover or when marked -->
+        <!-- Unmark button — only visible on marked lines -->
         <button
+          *ngIf="isMarked(line.id)"
           type="button"
-          class="log-mark-btn"
-          [class.log-mark-btn-active]="isMarked(line.id)"
-          [attr.aria-label]="isMarked(line.id) ? 'Unmark line' : 'Mark line'"
-          [attr.title]="isMarked(line.id) ? 'Unmark line' : 'Mark line'"
-          (click)="toggleMark(line.id, $event)"
-          (mouseup)="$event.stopPropagation()">★</button>
+          class="log-unmark-btn"
+          title="Unmark this line"
+          aria-label="Unmark line"
+          (click)="unmarkLine(line.id, $event)"
+          (mouseup)="$event.stopPropagation()">×</button>
 
         <ng-container *ngIf="line.parsed; else unparsedTpl">
           <div class="log-line-compact">
