@@ -41,8 +41,37 @@ router.get('/config', (_req: Request, res: Response) => {
     }
   }
 
-  res.json({ envHostnamePatterns, environments, individualUserToken, tokenUrls });
+  // OpenSearch index options. Format in .env:
+  //   OPENSEARCH_INDEX_OPTIONS=CDBBOS|channels-olb-*,channels|channels-*
+  // Each option is a `label|value` pair; pairs are comma-separated.
+  // Falls back to a single default derived from OPENSEARCH_INDEX or 'channels-olb-*'.
+  const openSearchIndices = parseIndexOptions(
+    process.env.OPENSEARCH_INDEX_OPTIONS,
+    process.env.OPENSEARCH_INDEX || 'channels-olb-*'
+  );
+
+  res.json({ envHostnamePatterns, environments, individualUserToken, tokenUrls, openSearchIndices });
 });
+
+function parseIndexOptions(raw: string | undefined, fallback: string): Array<{ label: string; value: string }> {
+  if (!raw || raw.trim().length === 0) {
+    return [{ label: fallback, value: fallback }];
+  }
+  const parsed = raw
+    .split(',')
+    .map(pair => pair.trim())
+    .filter(Boolean)
+    .map(pair => {
+      const idx = pair.indexOf('|');
+      if (idx === -1) {
+        return { label: pair, value: pair };
+      }
+      return { label: pair.slice(0, idx).trim(), value: pair.slice(idx + 1).trim() };
+    })
+    .filter(opt => opt.label && opt.value);
+
+  return parsed.length > 0 ? parsed : [{ label: fallback, value: fallback }];
+}
 
 // ── Trace endpoints ──────────────────────────────────────────────────
 

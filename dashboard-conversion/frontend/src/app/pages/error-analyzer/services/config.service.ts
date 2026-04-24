@@ -8,15 +8,25 @@ export interface EnvironmentOption {
   isProd: boolean;
 }
 
+export interface OpenSearchIndexOption {
+  label: string;
+  value: string;
+}
+
 interface AppConfig {
   envHostnamePatterns: string[];
   environments: EnvironmentOption[];
   individualUserToken: boolean;
   tokenUrls: Record<string, string>;
+  openSearchIndices: OpenSearchIndexOption[];
 }
 
 const DEFAULT_ENVIRONMENTS: EnvironmentOption[] = [
   { id: 'NON-PROD', label: 'Non-Prod', isProd: false }
+];
+
+const DEFAULT_INDICES: OpenSearchIndexOption[] = [
+  { label: 'channels-olb-*', value: 'channels-olb-*' }
 ];
 
 @Injectable({ providedIn: 'root' })
@@ -25,7 +35,8 @@ export class ConfigService {
     envHostnamePatterns: [],
     environments: DEFAULT_ENVIRONMENTS,
     individualUserToken: false,
-    tokenUrls: {}
+    tokenUrls: {},
+    openSearchIndices: DEFAULT_INDICES
   });
   readonly config = this._config.asReadonly();
 
@@ -40,7 +51,10 @@ export class ConfigService {
           ? cfg.environments
           : DEFAULT_ENVIRONMENTS,
         individualUserToken: cfg?.individualUserToken === true,
-        tokenUrls: cfg?.tokenUrls || {}
+        tokenUrls: cfg?.tokenUrls || {},
+        openSearchIndices: (cfg?.openSearchIndices && cfg.openSearchIndices.length > 0)
+          ? cfg.openSearchIndices
+          : DEFAULT_INDICES
       });
     } catch (err) {
       console.warn('[ConfigService] Failed to load /api/error-analyzer/config, using defaults', err);
@@ -61,5 +75,9 @@ export class ConfigService {
 
   getTokenUrls(): Record<string, string> {
     return this._config().tokenUrls;
+  }
+
+  getOpenSearchIndices(): OpenSearchIndexOption[] {
+    return this._config().openSearchIndices;
   }
 }

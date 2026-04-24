@@ -3,7 +3,7 @@
   <!-- Banner -->
   <div class="os-banner">
     <strong>Test feature.</strong> Queries AWS OpenSearch via the backend.
-    Index: <code>channels-olb-*</code> · Auth: fixed cookie from <code>.env</code>.
+    Auth: fixed cookie from <code>.env</code>.
   </div>
 
   <!-- Search form -->
@@ -19,6 +19,16 @@
         (ngModelChange)="searchTerm.set($event)"
         (keydown)="onSearchKeydown($event)"
         [disabled]="isSearching()" />
+
+      <label for="os-index" class="log-label">Index:</label>
+      <select
+        id="os-index"
+        class="log-select"
+        [disabled]="isSearching()"
+        [ngModel]="selectedIndex()"
+        (ngModelChange)="onIndexChange($event)">
+        <option *ngFor="let o of indexOptions()" [ngValue]="o.value">{{ o.label }}</option>
+      </select>
 
       <label for="os-range" class="log-label">Range:</label>
       <select
@@ -51,6 +61,7 @@
 
   <!-- Results -->
   <div *ngIf="hasSearched() && !isSearching() && !searchError()" class="log-results">
+    <!-- Row 1: hits count + find bar -->
     <div class="log-results-header">
       <span>
         <strong>{{ totalHits() }}</strong>
@@ -94,22 +105,60 @@
             (click)="clearFind()"
             title="Clear find">×</button>
         </ng-container>
+      </div>
+    </div>
 
-        <!-- Expand/collapse -->
+    <!-- Row 2: mark toolbar + copy + expand/collapse -->
+    <div *ngIf="vmLines().length > 0" class="log-results-toolbar">
+      <div class="log-toolbar-group">
+        <span class="log-toolbar-label">★ Marked:</span>
+        <span class="log-find-counter">
+          {{ currentMarkDisplay() }} / {{ markedCount() }}
+        </span>
         <button
-          *ngIf="vmLines().length > 0"
           type="button"
           class="log-action-btn"
-          (click)="expandAll()">
-          Expand all
-        </button>
+          [disabled]="markedCount() === 0"
+          (click)="prevMark()"
+          title="Previous marked line">&uarr; Prev</button>
         <button
-          *ngIf="vmLines().length > 0"
           type="button"
           class="log-action-btn"
-          (click)="collapseAll()">
-          Collapse all
-        </button>
+          [disabled]="markedCount() === 0"
+          (click)="nextMark()"
+          title="Next marked line">&darr; Next</button>
+        <button
+          type="button"
+          class="log-action-btn"
+          [disabled]="markedCount() === 0"
+          (click)="clearMarks()"
+          title="Clear all marks">Clear</button>
+      </div>
+
+      <div class="log-toolbar-group">
+        <button
+          type="button"
+          class="log-action-btn"
+          [disabled]="markedCount() === 0"
+          (click)="copyMarked()"
+          title="Copy marked lines to clipboard">Copy marked</button>
+        <button
+          type="button"
+          class="log-action-btn"
+          (click)="copyAll()"
+          title="Copy all visible lines to clipboard">Copy all</button>
+        <span *ngIf="copyFeedback()" class="log-copy-feedback">{{ copyFeedback() }}</span>
+      </div>
+
+      <div class="log-toolbar-group">
+        <button
+          type="button"
+          class="log-action-btn"
+          (click)="expandAll()">Expand all</button>
+        <button
+          type="button"
+          class="log-action-btn"
+          (click)="collapseAll()">Collapse all</button>
       </div>
     </div>
 
@@ -128,7 +177,19 @@
         [class.log-line-unparsed]="!line.parsed"
         [class.log-line-error]="line.isErrorLike"
         [class.log-line-find-current]="isCurrentMatch(line.id)"
+        [class.log-line-marked]="isMarked(line.id)"
+        [class.log-line-mark-current]="isCurrentMark(line.id)"
         (mouseup)="onLineMouseup(line.id, line)">
+
+        <!-- Mark toggle (star) — always in DOM, visible on hover or when marked -->
+        <button
+          type="button"
+          class="log-mark-btn"
+          [class.log-mark-btn-active]="isMarked(line.id)"
+          [attr.aria-label]="isMarked(line.id) ? 'Unmark line' : 'Mark line'"
+          [attr.title]="isMarked(line.id) ? 'Unmark line' : 'Mark line'"
+          (click)="toggleMark(line.id, $event)"
+          (mouseup)="$event.stopPropagation()">★</button>
 
         <ng-container *ngIf="line.parsed; else unparsedTpl">
           <div class="log-line-compact">

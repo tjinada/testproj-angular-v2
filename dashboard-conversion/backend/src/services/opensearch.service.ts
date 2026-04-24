@@ -48,11 +48,12 @@ const httpClient = axios.create({
  */
 export async function searchOpenSearch(
   searchTerm: string,
-  timeRangeMs: number = DEFAULT_TIME_RANGE_MS
+  timeRangeMs: number = DEFAULT_TIME_RANGE_MS,
+  indexOverride?: string
 ): Promise<OpenSearchTestResponse> {
   const baseUrl = process.env.OPENSEARCH_URL || '';
   const cookie = process.env.OPENSEARCH_COOKIE || '';
-  const indexPattern = process.env.OPENSEARCH_INDEX || 'channels-olb-*';
+  const indexPattern = indexOverride || process.env.OPENSEARCH_INDEX || 'channels-olb-*';
 
   console.log(`[OpenSearch] ────── NEW SEARCH ──────`);
   console.log(`[OpenSearch] env check: OPENSEARCH_URL=${baseUrl ? 'set (' + baseUrl.length + ' chars)' : 'MISSING'}`);

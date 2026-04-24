@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, signal, computed, effect, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnInit, signal, computed, effect, inject, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OpenSearchService, OpenSearchTestResponse } from '../../services/opensearch.service';
+import { ConfigService, OpenSearchIndexOption } from '../../services/config.service';
 
 interface ParsedLogLine {
   raw: string;
@@ -29,22 +30,11 @@ const LINE_REGEX =
 const ERROR_SIGNAL_REGEX =
   /\b(Exception|Error|Caused by:|FATAL|stacktrace)\b|^\s+at\s+[\w.$]+/i;
 
-// URL / URL-path pattern. Matches any of:
-//   1. Full URL with scheme: https://host[:port]/path...
-//   2. Host-with-path: api2-sit4.bmogc.net/api/...  (host has at least one dot;
-//      followed by at least one path segment)
-//   3. Path-only: /api/foo/bar  (leading slash; at least two segments)
-//
-// The leading-boundary lookbehind uses a non-capturing group so we can anchor
-// the path-only case without eating a leading word char. Alternatives 1 and 2
-// stand alone; alternative 3 needs the boundary check.
+// URL / URL-path pattern.
 const URL_REGEX = new RegExp(
   [
-    // 1. scheme://host[:port]/path
     'https?:\\/\\/[A-Za-z0-9][\\w.-]*(?::\\d+)?(?:\\/[A-Za-z0-9_.~!$&\'()*+,;=:@%-]*)+',
-    // 2. host.with.dots[:port]/path
     '(?<![\\w/])[A-Za-z][\\w-]*(?:\\.[A-Za-z][\\w-]*)+(?::\\d+)?(?:\\/[A-Za-z_][\\w.-]*)+',
-    // 3. /path/with/at-least-two-segments
     '(?<![\\w/])\\/[A-Za-z_][\\w-]*(?:\\/[A-Za-z_][\\w-]*)+'
   ].join('|'),
   'g'
@@ -87,9 +77,6 @@ function isErrorLikeLine(p: ParsedLogLine): boolean {
   return ERROR_SIGNAL_REGEX.test(hay);
 }
 
-/**
- * Extracts log lines from an OpenSearch Dashboards internal-search response.
- */
 function extractMessages(raw: unknown): string[] {
   if (!raw || typeof raw !== 'object') return [];
   const r: any = raw;
@@ -105,11 +92,6 @@ function extractMessages(raw: unknown): string[] {
   return out;
 }
 
-/**
- * TEST component — sends a search term to AWS OpenSearch via the backend
- * and renders the `_source.message` field from each hit using the same
- * log-line formatting as CDBBOS Log Search.
- */
 @Component({
   selector: 'app-opensearch-log-search',
   standalone: true,
@@ -118,11 +100,16 @@ function extractMessages(raw: unknown): string[] {
   styleUrls: ['./opensearch-log-search.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class OpenSearchLogSearchComponent {
+export class OpenSearchLogSearchComponent implements OnInit {
 
   readonly timeRangeChoices = TIME_RANGE_CHOICES;
 
+  private configService = inject(ConfigService);
   private logLinesContainer = viewChild<ElementRef<HTMLElement>>('logLinesContainer');
+
+  // Index dropdown — sourced from ConfigService
+  indexOptions = signal<OpenSearchIndexOption[]>([]);
+  selectedIndex = signal<string>('');
 
   searchTerm = signal<string>('');
   timeRangeMs = signal<number>(DEFAULT_TIME_RANGE_MS);
@@ -149,6 +136,15 @@ export class OpenSearchLogSearchComponent {
   findTerm = signal<string>('');
   currentMatchIndex = signal<number>(-1);
 
+  // ── Mark state ────────────────────────────────────────────────────
+  /** Set of line IDs the user has marked. Resets on every new search. */
+  private markedIds = signal<Set<number>>(new Set());
+  currentMarkIndex = signal<number>(-1);
+
+  /** Transient "Copied ✓" confirmation message. */
+  copyFeedback = signal<string>('');
+  private copyFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+
   // ── View model ────────────────────────────────────────────────────
 
   vmLines = computed<LineVM[]>(() => {
@@ -174,7 +170,9 @@ export class OpenSearchLogSearchComponent {
   returnedCount = computed<number>(() => this.vmLines().length);
 
   canSearch = computed<boolean>(() =>
-    this.searchTerm().trim().length > 0 && !this.isSearching()
+    this.searchTerm().trim().length > 0 &&
+    !this.isSearching() &&
+    !!this.selectedIndex()
   );
 
   // ── Find-in-results computed matches ──────────────────────────────
@@ -196,31 +194,59 @@ export class OpenSearchLogSearchComponent {
     this.findMatchCount() > 0 ? this.currentMatchIndex() + 1 : 0
   );
 
+  // ── Mark computed ─────────────────────────────────────────────────
+
+  /** Sorted array of marked line IDs — sorted ascending so navigation follows visual order. */
+  markedList = computed<number[]>(() => {
+    return Array.from(this.markedIds()).sort((a, b) => a - b);
+  });
+
+  markedCount = computed<number>(() => this.markedList().length);
+  currentMarkDisplay = computed<number>(() =>
+    this.markedCount() > 0 ? this.currentMarkIndex() + 1 : 0
+  );
+
   // Expansion state
   private expandedIds = signal<Set<number>>(new Set());
 
   constructor(private openSearchService: OpenSearchService) {
-    // Reset current match when find term changes.
     effect(() => {
       const count = this.findMatchCount();
       this.currentMatchIndex.set(count > 0 ? 0 : -1);
     }, { allowSignalWrites: true });
 
-    // Scroll current find match into view.
     effect(() => {
       const idx = this.currentMatchIndex();
       const matches = this.findMatches();
       if (idx < 0 || idx >= matches.length) return;
       const lineId = matches[idx];
-      queueMicrotask(() => this.scrollMatchIntoView(lineId));
+      queueMicrotask(() => this.scrollLineIntoView(lineId));
     });
+
+    // Scroll current-mark into view.
+    effect(() => {
+      const idx = this.currentMarkIndex();
+      const list = this.markedList();
+      if (idx < 0 || idx >= list.length) return;
+      const lineId = list[idx];
+      queueMicrotask(() => this.scrollLineIntoView(lineId));
+    });
+  }
+
+  ngOnInit(): void {
+    const options = this.configService.getOpenSearchIndices();
+    this.indexOptions.set(options);
+    if (options.length > 0 && !this.selectedIndex()) {
+      this.selectedIndex.set(options[0].value);
+    }
   }
 
   // ── Search ────────────────────────────────────────────────────────
 
   onSearch(): void {
     const term = this.searchTerm().trim();
-    if (!term) return;
+    const idx = this.selectedIndex();
+    if (!term || !idx) return;
 
     this.isSearching.set(true);
     this.searchError.set('');
@@ -230,9 +256,12 @@ export class OpenSearchLogSearchComponent {
     this.findTerm.set('');
     this.currentMatchIndex.set(-1);
     this.expandedIds.set(new Set());
+    // Reset marks on every new search — marks tied to previous result set.
+    this.markedIds.set(new Set());
+    this.currentMarkIndex.set(-1);
     this.startElapsedTimer();
 
-    this.openSearchService.search(term, this.timeRangeMs()).subscribe({
+    this.openSearchService.search(term, this.timeRangeMs(), idx).subscribe({
       next: (response) => {
         this.response.set(response);
         this.isSearching.set(false);
@@ -256,6 +285,12 @@ export class OpenSearchLogSearchComponent {
     const n = typeof value === 'string' ? parseInt(value, 10) : value;
     if (TIME_RANGE_CHOICES.some(c => c.value === n)) {
       this.timeRangeMs.set(n);
+    }
+  }
+
+  onIndexChange(value: string): void {
+    if (this.indexOptions().some(o => o.value === value)) {
+      this.selectedIndex.set(value);
     }
   }
 
@@ -344,7 +379,122 @@ export class OpenSearchLogSearchComponent {
     return idx >= 0 && idx < matches.length && matches[idx] === id;
   }
 
-  private scrollMatchIntoView(lineId: number): void {
+  // ── Mark handlers ─────────────────────────────────────────────────
+
+  isMarked(id: number): boolean {
+    return this.markedIds().has(id);
+  }
+
+  /**
+   * Toggle the mark on a line. Called from the star button.
+   * Stops propagation so it doesn't also trigger the line's expand toggle.
+   */
+  toggleMark(id: number, event: Event): void {
+    event.stopPropagation();
+    this.markedIds.update(set => {
+      const next = new Set(set);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    // If the current index is now out of bounds, clamp it.
+    const newCount = this.markedList().length;
+    if (this.currentMarkIndex() >= newCount) {
+      this.currentMarkIndex.set(newCount > 0 ? newCount - 1 : -1);
+    } else if (this.currentMarkIndex() === -1 && newCount > 0) {
+      this.currentMarkIndex.set(0);
+    }
+  }
+
+  nextMark(): void {
+    const count = this.markedCount();
+    if (count === 0) return;
+    this.currentMarkIndex.set((this.currentMarkIndex() + 1) % count);
+  }
+
+  prevMark(): void {
+    const count = this.markedCount();
+    if (count === 0) return;
+    this.currentMarkIndex.set((this.currentMarkIndex() - 1 + count) % count);
+  }
+
+  clearMarks(): void {
+    this.markedIds.set(new Set());
+    this.currentMarkIndex.set(-1);
+  }
+
+  isCurrentMark(id: number): boolean {
+    const list = this.markedList();
+    const idx = this.currentMarkIndex();
+    return idx >= 0 && idx < list.length && list[idx] === id;
+  }
+
+  // ── Copy handlers ─────────────────────────────────────────────────
+
+  copyMarked(): void {
+    const marked = this.markedList();
+    if (marked.length === 0) return;
+    const lines = this.vmLines();
+    const byId = new Map(lines.map(l => [l.id, l.raw]));
+    const text = marked.map(id => byId.get(id) || '').filter(Boolean).join('\n');
+    this.writeToClipboard(text, `Copied ${marked.length} marked line${marked.length === 1 ? '' : 's'}`);
+  }
+
+  copyAll(): void {
+    const lines = this.vmLines();
+    if (lines.length === 0) return;
+    const text = lines.map(l => l.raw).join('\n');
+    this.writeToClipboard(text, `Copied ${lines.length} line${lines.length === 1 ? '' : 's'}`);
+  }
+
+  private writeToClipboard(text: string, successMessage: string): void {
+    // navigator.clipboard requires a secure context (https or localhost).
+    // Fall back to a hidden textarea + execCommand('copy') otherwise.
+    const done = () => this.showCopyFeedback(successMessage);
+    const fail = (err: any) => {
+      console.error('[OpenSearch] Copy failed:', err);
+      this.showCopyFeedback('Copy failed');
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fail);
+      return;
+    }
+
+    // Fallback
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) done();
+      else fail(new Error('execCommand returned false'));
+    } catch (err) {
+      fail(err);
+    }
+  }
+
+  private showCopyFeedback(msg: string): void {
+    this.copyFeedback.set(msg);
+    if (this.copyFeedbackTimer !== null) {
+      clearTimeout(this.copyFeedbackTimer);
+    }
+    this.copyFeedbackTimer = setTimeout(() => {
+      this.copyFeedback.set('');
+      this.copyFeedbackTimer = null;
+    }, 2500);
+  }
+
+  // ── Scroll helpers ────────────────────────────────────────────────
+
+  private scrollLineIntoView(lineId: number): void {
     const container = this.logLinesContainer()?.nativeElement;
     if (!container) return;
     const el = container.querySelector<HTMLElement>(`[data-line-id="${lineId}"]`);
@@ -361,31 +511,19 @@ export class OpenSearchLogSearchComponent {
 
   // ── Highlighting ──────────────────────────────────────────────────
 
-  /**
-   * Apply all highlights to text: URLs/hosts (cyan), primary search term
-   * (yellow), find-in-results (orange, brighter on the current-match line).
-   *
-   * @param text       The text to highlight
-   * @param isCurrent  True if this text is on the line containing the
-   *                   CURRENT find match — causes find marks to use a
-   *                   brighter variant so Next/Prev is obvious.
-   */
   highlight(text: string, isCurrent: boolean = false): string {
     let safe = this.escapeHtml(text);
 
-    // URLs first — cyan
     safe = safe.replace(URL_REGEX, (match) => {
       return `<mark class="log-hl-url">${match}</mark>`;
     });
 
-    // Primary search term — yellow
     const primary = this.lastSearchedTerm();
     if (primary) {
       const re = new RegExp(this.escapeRegex(this.escapeHtml(primary)), 'gi');
       safe = safe.replace(re, '<mark class="log-hl-primary">$&</mark>');
     }
 
-    // Find-in-results — orange, or bright orange on the current-match line
     const find = this.findTerm().trim();
     if (find) {
       const re = new RegExp(this.escapeRegex(this.escapeHtml(find)), 'gi');

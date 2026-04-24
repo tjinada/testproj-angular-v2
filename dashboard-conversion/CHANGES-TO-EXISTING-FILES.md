@@ -76,11 +76,17 @@ LOG_SERVER_PASSWORD=<PLACEHOLDER_PASSWORD>
 # OPENSEARCH_URL is the base of the AWS OpenSearch domain (no trailing slash, no path).
 # OPENSEARCH_COOKIE is the full `security_authentication=...` cookie string copied
 # from a logged-in browser session. Expires after a few hours; must be refreshed.
-# OPENSEARCH_INDEX is the index pattern to query (default: channels-olb-*).
+# OPENSEARCH_INDEX is the single-index fallback (used only if OPENSEARCH_INDEX_OPTIONS is not set).
+# OPENSEARCH_INDEX_OPTIONS lists the choices shown in the Index dropdown. Format is
+# comma-separated `label|value` pairs. Example:
+#   OPENSEARCH_INDEX_OPTIONS=CDBBOS|channels-olb-*,channels|channels-*
+# The first option is selected by default. Values are validated server-side; only these
+# are accepted in /api/opensearch/search.
 # No proxy is used — both laptop and OpenShift pod reach AWS directly.
 OPENSEARCH_URL=https://vpc-your-domain.ca-central-1.es.amazonaws.com
 OPENSEARCH_COOKIE=security_authentication=<PASTE_FROM_BROWSER>
 OPENSEARCH_INDEX=channels-olb-*
+OPENSEARCH_INDEX_OPTIONS=CDBBOS|channels-olb-*,channels|channels-*
 ```
 
 ## 6. Files to Copy As-Is from V2
