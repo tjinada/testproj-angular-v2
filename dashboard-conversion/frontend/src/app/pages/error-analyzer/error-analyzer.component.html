@@ -1,4 +1,4 @@
-<div class="container error-analyzer-container">
+<div class="error-analyzer-container">
   <div class="app-header-row">
     <h1 class="app-title">Error Analyzer</h1>
     <button
@@ -46,7 +46,7 @@
   </div>
 
   <!-- Tab: Trace Analysis ──────────────────────────────────────────── -->
-  <div *ngIf="activeTab === 'trace'" class="tab-panel" role="tabpanel">
+  <div [hidden]="activeTab !== 'trace'" class="tab-panel" role="tabpanel">
     <div *ngIf="configLoaded" class="env-row" [class.env-row-prod]="isProd()">
       <label for="env-select" class="env-label">Environment:</label>
       <select
@@ -116,11 +116,11 @@
   </div>
 
   <!-- Tab: CDBBOS Log Search ───────────────────────────────────────── -->
-  <div *ngIf="activeTab === 'logs'" class="tab-panel" role="tabpanel">
+  <div [hidden]="activeTab !== 'logs'" class="tab-panel" role="tabpanel">
     <app-log-search></app-log-search>
   </div>
 
-  <div *ngIf="activeTab === 'opensearch'" class="tab-panel" role="tabpanel">
+  <div [hidden]="activeTab !== 'opensearch'" class="tab-panel" role="tabpanel">
     <app-opensearch-log-search></app-opensearch-log-search>
   </div>
 </div>
