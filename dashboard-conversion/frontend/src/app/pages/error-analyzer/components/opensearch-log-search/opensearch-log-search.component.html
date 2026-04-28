@@ -6,6 +6,54 @@
     Auth: fixed cookie from <code>.env</code>.
   </div>
 
+  <!-- Search form -->
+  <div class="log-form">
+    <div class="log-form-row">
+      <label for="os-search-input" class="log-label">Search term:</label>
+      <input
+        id="os-search-input"
+        type="text"
+        class="log-reqid-input"
+        placeholder="REQ_xxxxx, exception, URL path, session ID, etc."
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+        (keydown)="onSearchKeydown($event)"
+        [disabled]="isSearching()" />
+
+      <label for="os-index" class="log-label">Index:</label>
+      <select
+        id="os-index"
+        class="log-select"
+        [disabled]="isSearching()"
+        [ngModel]="selectedIndex()"
+        (ngModelChange)="onIndexChange($event)">
+        <option *ngFor="let o of indexOptions()" [ngValue]="o.value">{{ o.label }}</option>
+      </select>
+
+      <label for="os-range" class="log-label">Range:</label>
+      <select
+        id="os-range"
+        class="log-select"
+        [disabled]="isSearching()"
+        [ngModel]="timeRangeMs()"
+        (ngModelChange)="onTimeRangeChange($event)">
+        <option *ngFor="let c of timeRangeChoices" [ngValue]="c.value">{{ c.label }}</option>
+      </select>
+
+      <button
+        type="button"
+        class="log-search-btn"
+        [disabled]="!canSearch()"
+        (click)="onSearch()">
+        {{ isSearching() ? 'Searching… ' + elapsedDisplay() : 'Search' }}
+      </button>
+    </div>
+
+    <div *ngIf="isSearching() && searchHint()" class="log-search-hint">
+      {{ searchHint() }}
+    </div>
+  </div>
+
   <!-- How to search -->
   <details class="os-help" [open]="showHelp()" (toggle)="showHelp.set($any($event.target).open)">
     <summary class="os-help-summary">How to search</summary>
@@ -60,54 +108,6 @@
 
     </div>
   </details>
-
-  <!-- Search form -->
-  <div class="log-form">
-    <div class="log-form-row">
-      <label for="os-search-input" class="log-label">Search term:</label>
-      <input
-        id="os-search-input"
-        type="text"
-        class="log-reqid-input"
-        placeholder="REQ_xxxxx, exception, URL path, session ID, etc."
-        [ngModel]="searchTerm()"
-        (ngModelChange)="searchTerm.set($event)"
-        (keydown)="onSearchKeydown($event)"
-        [disabled]="isSearching()" />
-
-      <label for="os-index" class="log-label">Index:</label>
-      <select
-        id="os-index"
-        class="log-select"
-        [disabled]="isSearching()"
-        [ngModel]="selectedIndex()"
-        (ngModelChange)="onIndexChange($event)">
-        <option *ngFor="let o of indexOptions()" [ngValue]="o.value">{{ o.label }}</option>
-      </select>
-
-      <label for="os-range" class="log-label">Range:</label>
-      <select
-        id="os-range"
-        class="log-select"
-        [disabled]="isSearching()"
-        [ngModel]="timeRangeMs()"
-        (ngModelChange)="onTimeRangeChange($event)">
-        <option *ngFor="let c of timeRangeChoices" [ngValue]="c.value">{{ c.label }}</option>
-      </select>
-
-      <button
-        type="button"
-        class="log-search-btn"
-        [disabled]="!canSearch()"
-        (click)="onSearch()">
-        {{ isSearching() ? 'Searching… ' + elapsedDisplay() : 'Search' }}
-      </button>
-    </div>
-
-    <div *ngIf="isSearching() && searchHint()" class="log-search-hint">
-      {{ searchHint() }}
-    </div>
-  </div>
 
   <!-- Search error -->
   <div *ngIf="searchError()" class="log-error-banner">
