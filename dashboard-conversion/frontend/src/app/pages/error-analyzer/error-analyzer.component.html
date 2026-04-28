@@ -29,19 +29,10 @@
       type="button"
       class="tab-btn"
       role="tab"
-      [attr.aria-selected]="activeTab === 'logs'"
-      [class.tab-btn-active]="activeTab === 'logs'"
-      (click)="setTab('logs')">
-      CDBBOS Log Search
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      role="tab"
       [attr.aria-selected]="activeTab === 'opensearch'"
       [class.tab-btn-active]="activeTab === 'opensearch'"
       (click)="setTab('opensearch')">
-      CDBBOS Logs - OpenSearch
+      Application Logs
     </button>
   </div>
 
@@ -113,11 +104,6 @@
         [envHostnamePatterns]="envHostnamePatterns">
       </app-trace-results>
     </ng-container>
-  </div>
-
-  <!-- Tab: CDBBOS Log Search ───────────────────────────────────────── -->
-  <div [hidden]="activeTab !== 'logs'" class="tab-panel" role="tabpanel">
-    <app-log-search></app-log-search>
   </div>
 
   <div [hidden]="activeTab !== 'opensearch'" class="tab-panel" role="tabpanel">

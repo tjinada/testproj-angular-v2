@@ -6,18 +6,17 @@ import { TraceResultsComponent } from './components/trace-results/trace-results.
 import { TraceResultsTableComponent } from './components/trace-results-table/trace-results-table.component';
 import { SessionResultsComponent } from './components/session-results/session-results.component';
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
-import { LogSearchComponent } from './components/log-search/log-search.component';
 import { OpenSearchLogSearchComponent } from './components/opensearch-log-search/opensearch-log-search.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
 import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
-type TabId = 'trace' | 'logs' | 'opensearch';
+type TabId = 'trace' | 'opensearch';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, LogSearchComponent, OpenSearchLogSearchComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
