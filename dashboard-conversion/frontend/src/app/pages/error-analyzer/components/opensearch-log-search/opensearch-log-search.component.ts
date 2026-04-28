@@ -43,9 +43,12 @@ const URL_REGEX = new RegExp(
 // ── Time range choices ──────────────────────────────────────────────
 
 const TIME_RANGE_CHOICES = [
-  { label: 'Last 1 hour',   value: 60 * 60 * 1000 },
-  { label: 'Last 4 hours',  value: 4 * 60 * 60 * 1000 },
-  { label: 'Last 24 hours', value: 24 * 60 * 60 * 1000 }
+  { label: 'Last 15 minutes', value: 15 * 60 * 1000 },
+  { label: 'Last 30 minutes', value: 30 * 60 * 1000 },
+  { label: 'Last 1 hour',     value: 60 * 60 * 1000 },
+  { label: 'Last 2 hours',    value: 2 * 60 * 60 * 1000 },
+  { label: 'Last 6 hours',    value: 6 * 60 * 60 * 1000 },
+  { label: 'Last 24 hours',   value: 24 * 60 * 60 * 1000 }
 ] as const;
 
 const DEFAULT_TIME_RANGE_MS = 60 * 60 * 1000;
