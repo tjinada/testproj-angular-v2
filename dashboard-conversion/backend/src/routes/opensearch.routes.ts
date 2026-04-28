@@ -7,8 +7,11 @@ const router = Router();
 // rejected — we do NOT want users to be able to request arbitrary ranges
 // that could pull huge amounts of data or stress OpenSearch.
 const ALLOWED_TIME_RANGES_MS = new Set<number>([
+  15 * 60 * 1000,       // 15 minutes
+  30 * 60 * 1000,       // 30 minutes
   60 * 60 * 1000,       // 1 hour
-  4 * 60 * 60 * 1000,   // 4 hours
+  2 * 60 * 60 * 1000,   // 2 hours
+  6 * 60 * 60 * 1000,   // 6 hours
   24 * 60 * 60 * 1000   // 24 hours
 ]);
 
@@ -46,7 +49,7 @@ router.post('/search', async (req: Request, res: Response) => {
   let validatedRange: number | undefined;
   if (timeRangeMs !== undefined) {
     if (typeof timeRangeMs !== 'number' || !ALLOWED_TIME_RANGES_MS.has(timeRangeMs)) {
-      return res.status(400).json({ error: 'Invalid timeRangeMs (must be 1h, 4h, or 24h)' });
+      return res.status(400).json({ error: 'Invalid timeRangeMs (must be 15m, 30m, 1h, 2h, 6h, or 24h)' });
     }
     validatedRange = timeRangeMs;
   }
