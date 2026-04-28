@@ -6,6 +6,61 @@
     Auth: fixed cookie from <code>.env</code>.
   </div>
 
+  <!-- How to search -->
+  <details class="os-help" [open]="showHelp()" (toggle)="showHelp.set($any($event.target).open)">
+    <summary class="os-help-summary">How to search</summary>
+    <div class="os-help-body">
+
+      <details class="os-help-section" open>
+        <summary>Wait before searching</summary>
+        <div class="os-help-section-body">
+          New logs take roughly <strong>2 minutes</strong> to land in OpenSearch after the
+          request runs. If your search returns nothing, wait a moment and try again.
+        </div>
+      </details>
+
+      <details class="os-help-section">
+        <summary>Picking the right index</summary>
+        <div class="os-help-section-body">
+          The <strong>Index</strong> dropdown controls which log location is queried.
+          Pick the index that matches the application or component that emitted the log
+          you're looking for. If you're not sure, try the most likely one first, then
+          switch indexes and re-search.
+        </div>
+      </details>
+
+      <details class="os-help-section">
+        <summary>Searching within results</summary>
+        <div class="os-help-section-body">
+          Once results are returned, use the <strong>Find</strong> box at the top of the
+          results to filter visible lines. Press <kbd>Enter</kbd> to jump to the next
+          match, <kbd>Shift</kbd>+<kbd>Enter</kbd> for the previous, or use the
+          <strong>Prev</strong> / <strong>Next</strong> buttons. The counter shows your
+          current position out of total matches.
+        </div>
+      </details>
+
+      <details class="os-help-section">
+        <summary>Mark, navigate, and copy lines</summary>
+        <div class="os-help-section-body">
+          Select text inside any log line and click <strong>★ Mark selection</strong>
+          (or press <kbd>Ctrl</kbd>+<kbd>M</kbd> / <kbd>Cmd</kbd>+<kbd>M</kbd>) to mark
+          every line touched by the selection. Marked lines get a gold left border.
+          <br><br>
+          Use the <strong>Prev</strong> / <strong>Next</strong> buttons in the marked
+          toolbar to step through them, or click the small <strong>×</strong> on a
+          marked line to unmark just that one. <strong>Clear</strong> removes all marks.
+          <br><br>
+          <strong>Copy marked</strong> copies just the marked lines to your clipboard.
+          <strong>Copy all</strong> copies every visible line. Use
+          <strong>Expand all</strong> / <strong>Collapse all</strong> to show or hide
+          the prefix details (thread, full class name) for parsed lines.
+        </div>
+      </details>
+
+    </div>
+  </details>
+
   <!-- Search form -->
   <div class="log-form">
     <div class="log-form-row">

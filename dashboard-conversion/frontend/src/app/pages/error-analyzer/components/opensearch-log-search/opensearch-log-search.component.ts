@@ -119,6 +119,9 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
   hasSearched = signal<boolean>(false);
   lastSearchedTerm = signal<string>('');
 
+  /** Help section open by default; auto-collapses on first search. User can re-open manually. */
+  showHelp = signal<boolean>(true);
+
   // Elapsed-time tracker
   elapsedMs = signal<number>(0);
   private elapsedTimer: ReturnType<typeof setInterval> | null = null;
@@ -296,6 +299,7 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
     this.response.set(null);
     this.hasSearched.set(true);
     this.lastSearchedTerm.set(term);
+    this.showHelp.set(false);
     this.findTerm.set('');
     this.currentMatchIndex.set(-1);
     this.expandedIds.set(new Set());
