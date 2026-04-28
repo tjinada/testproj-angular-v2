@@ -224,6 +224,17 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
   private expandedIds = signal<Set<number>>(new Set());
 
   constructor(private openSearchService: OpenSearchService) {
+    // Reactively track config so dropdown updates when /config finishes loading.
+    // (Parent's async ngOnInit may not have resolved by the time this child's
+    // ngOnInit runs, so a one-shot read would lock in DEFAULT_INDICES.)
+    effect(() => {
+      const options = this.configService.config().openSearchIndices;
+      this.indexOptions.set(options);
+      if (options.length > 0 && !this.selectedIndex()) {
+        this.selectedIndex.set(options[0].value);
+      }
+    }, { allowSignalWrites: true });
+
     effect(() => {
       const count = this.findMatchCount();
       this.currentMatchIndex.set(count > 0 ? 0 : -1);
@@ -248,12 +259,6 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const options = this.configService.getOpenSearchIndices();
-    this.indexOptions.set(options);
-    if (options.length > 0 && !this.selectedIndex()) {
-      this.selectedIndex.set(options[0].value);
-    }
-
     // Track text selection inside the log-lines container.
     // `selectionchange` fires on document; we filter to selections whose range
     // anchor is inside our container.
