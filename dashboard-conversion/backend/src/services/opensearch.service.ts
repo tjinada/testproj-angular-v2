@@ -172,21 +172,11 @@ function buildQueryBody(
       index: indexPattern,
       body: {
         version: true,
-        size: 10000,
+        size: 5000,
         sort: [
           { [timestampField]: { order: 'asc', unmapped_type: 'boolean' } },
           { _id: { order: 'asc' } }
         ],
-        aggs: {
-          '2': {
-            date_histogram: {
-              field: '@timestamp',
-              calendar_interval: '1m',
-              time_zone: 'Canada/Eastern',
-              min_doc_count: 1
-            }
-          }
-        },
         stored_fields: ['*'],
         script_fields: {},
         docvalue_fields: [
