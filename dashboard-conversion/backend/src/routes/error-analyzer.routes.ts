@@ -57,16 +57,19 @@ function parseIndexOptions(raw: string | undefined, fallback: string): Array<{ l
   if (!raw || raw.trim().length === 0) {
     return [{ label: fallback, value: fallback }];
   }
+  // Format per entry: label|value  OR  label|value|timestampField
+  // Pairs are comma-separated. The timestamp field (if present) is consumed
+  // by the OpenSearch route, not the frontend, so we just ignore it here.
   const parsed = raw
     .split(',')
     .map(pair => pair.trim())
     .filter(Boolean)
     .map(pair => {
-      const idx = pair.indexOf('|');
-      if (idx === -1) {
-        return { label: pair, value: pair };
+      const parts = pair.split('|').map(s => s.trim());
+      if (parts.length === 1) {
+        return { label: parts[0], value: parts[0] };
       }
-      return { label: pair.slice(0, idx).trim(), value: pair.slice(idx + 1).trim() };
+      return { label: parts[0], value: parts[1] };
     })
     .filter(opt => opt.label && opt.value);
 
