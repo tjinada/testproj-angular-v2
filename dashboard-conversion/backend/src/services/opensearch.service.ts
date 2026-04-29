@@ -49,7 +49,8 @@ const httpClient = axios.create({
 export async function searchOpenSearch(
   searchTerm: string,
   timeRangeMs: number = DEFAULT_TIME_RANGE_MS,
-  indexOverride?: string
+  indexOverride?: string,
+  timestampField: string = '@timestamp'
 ): Promise<OpenSearchTestResponse> {
   const baseUrl = process.env.OPENSEARCH_URL || '';
   const cookie = process.env.OPENSEARCH_COOKIE || '';
@@ -71,11 +72,11 @@ export async function searchOpenSearch(
   const from = new Date(now - timeRangeMs).toISOString();
   const to = new Date(now).toISOString();
 
-  const requestBody = buildQueryBody(searchTerm, indexPattern, from, to);
+  const requestBody = buildQueryBody(searchTerm, indexPattern, from, to, timestampField);
   const fullUrl = baseUrl.replace(/\/+$/, '') + SEARCH_PATH;
 
   console.log(`[OpenSearch] POST ${fullUrl}`);
-  console.log(`[OpenSearch] index="${indexPattern}", term="${searchTerm}"`);
+  console.log(`[OpenSearch] index="${indexPattern}", term="${searchTerm}", timestampField="${timestampField}"`);
   console.log(`[OpenSearch] timeframe ${from} → ${to} (window ${Math.round(timeRangeMs / 60000)}min)`);
   console.log(`[OpenSearch] request body size: ${JSON.stringify(requestBody).length} bytes`);
 
@@ -163,7 +164,8 @@ function buildQueryBody(
   searchTerm: string,
   indexPattern: string,
   from: string,
-  to: string
+  to: string,
+  timestampField: string
 ): Record<string, unknown> {
   return {
     params: {
@@ -172,7 +174,7 @@ function buildQueryBody(
         version: true,
         size: 10000,
         sort: [
-          { fbTimestamp: { order: 'asc', unmapped_type: 'boolean' } },
+          { [timestampField]: { order: 'asc', unmapped_type: 'boolean' } },
           { _id: { order: 'asc' } }
         ],
         aggs: {
@@ -206,7 +208,7 @@ function buildQueryBody(
               },
               {
                 range: {
-                  fbTimestamp: {
+                  [timestampField]: {
                     gte: from,
                     lte: to,
                     format: 'strict_date_optional_time'

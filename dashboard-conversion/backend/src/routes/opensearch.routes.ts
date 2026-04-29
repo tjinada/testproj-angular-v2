@@ -24,12 +24,32 @@ function getAllowedIndices(): Set<string> {
     return out;
   }
   for (const pair of raw.split(',').map(s => s.trim()).filter(Boolean)) {
-    const idx = pair.indexOf('|');
-    const value = idx === -1 ? pair : pair.slice(idx + 1).trim();
+    const parts = pair.split('|').map(s => s.trim());
+    // Format: label|value  OR  label|value|timestampField
+    const value = parts.length >= 2 ? parts[1] : parts[0];
     if (value) out.add(value);
   }
   if (out.size === 0) out.add(fallback);
   return out;
+}
+
+/**
+ * Resolve the timestamp field to use for a given index pattern, parsed from
+ * OPENSEARCH_INDEX_OPTIONS (format: label|value|timestampField). Falls back
+ * to '@timestamp' when no per-index field is configured.
+ */
+function getTimestampFieldForIndex(indexValue: string): string {
+  const raw = process.env.OPENSEARCH_INDEX_OPTIONS || '';
+  const DEFAULT_FIELD = '@timestamp';
+  if (!raw.trim()) return DEFAULT_FIELD;
+  for (const pair of raw.split(',').map(s => s.trim()).filter(Boolean)) {
+    const parts = pair.split('|').map(s => s.trim());
+    if (parts.length < 2) continue;
+    const value = parts[1];
+    const tsField = parts[2];
+    if (value === indexValue && tsField) return tsField;
+  }
+  return DEFAULT_FIELD;
 }
 
 /**
@@ -64,7 +84,9 @@ router.post('/search', async (req: Request, res: Response) => {
   }
 
   try {
-    const result = await searchOpenSearch(searchTerm, validatedRange, validatedIndex);
+    const timestampField = validatedIndex ? getTimestampFieldForIndex(validatedIndex) : '@timestamp';
+    console.log(`[OpenSearch/route] resolved timestampField="${timestampField}" for index="${validatedIndex || '(default)'}"`);
+    const result = await searchOpenSearch(searchTerm, validatedRange, validatedIndex, timestampField);
     res.json(result);
   } catch (error: any) {
     console.error(`[OpenSearch] Error for term="${searchTerm}":`, error.message);
