@@ -56,6 +56,14 @@ const DEFAULT_TIME_RANGE_MS = 60 * 60 * 1000;
 // ── Parsing ─────────────────────────────────────────────────────────
 
 function parseLine(raw: string): ParsedLogLine {
+  // JSON-shaped log line (e.g. project.* index emits each message as a JSON
+  // object with named fields). Try this first; fall back to the regex path
+  // for plain-text lines (e.g. CDBBOS / channels-olb-*).
+  if (raw.length > 0 && raw.charCodeAt(0) === 0x7B /* '{' */) {
+    const json = parseJsonLogLine(raw);
+    if (json) return json;
+  }
+
   const m = LINE_REGEX.exec(raw);
   if (!m) {
     return { raw, parsed: false };
@@ -72,6 +80,44 @@ function parseLine(raw: string): ParsedLogLine {
   }
 
   return { raw, parsed: true, timestamp, timestampMs, level: level.toUpperCase(), shortClass, message, prefix };
+}
+
+/**
+ * Attempt to parse a JSON-shaped log line. Returns null if the string isn't
+ * valid JSON, isn't an object, or doesn't have the minimum expected shape
+ * (timestamp + logLevel). Maps named fields onto the same ParsedLogLine
+ * structure used by the regex path so the rest of the component stays
+ * agnostic to log format.
+ */
+function parseJsonLogLine(raw: string): ParsedLogLine | null {
+  let obj: any;
+  try {
+    obj = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+
+  const timestamp = typeof obj.timestamp === 'string' ? obj.timestamp : undefined;
+  const level = typeof obj.logLevel === 'string' ? obj.logLevel.toUpperCase() : undefined;
+  if (!timestamp || !level) return null;
+
+  const logger = typeof obj.logger === 'string' ? obj.logger : '';
+  const message = typeof obj.logMessage === 'string' ? obj.logMessage : '';
+  const shortClass = logger.includes('.') ? logger.split('.').pop()! : logger;
+  const prefix = logger;
+
+  let timestampMs: number | undefined;
+  // Normalize "2026-04-29 13:50:49.089 UTC" → "2026-04-29T13:50:49.089Z"
+  const isoish = timestamp
+    .replace(/\s+UTC$/i, 'Z')
+    .replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
+  const parsedTs = Date.parse(isoish);
+  if (!isNaN(parsedTs)) {
+    timestampMs = parsedTs;
+  }
+
+  return { raw, parsed: true, timestamp, timestampMs, level, shortClass, message, prefix };
 }
 
 function isErrorLikeLine(p: ParsedLogLine): boolean {
