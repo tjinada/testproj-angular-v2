@@ -103,9 +103,10 @@ function parseJsonLogLine(raw: string): ParsedLogLine | null {
   if (!timestamp || !level) return null;
 
   const logger = typeof obj.logger === 'string' ? obj.logger : '';
-  const message = typeof obj.logMessage === 'string' ? obj.logMessage : '';
+  const message = typeof obj.message === 'string' ? obj.message : '';
+  const thread = typeof obj.thread === 'string' ? obj.thread : '';
   const shortClass = logger.includes('.') ? logger.split('.').pop()! : logger;
-  const prefix = logger;
+  const prefix = thread ? `[${thread}] ${logger}` : logger;
 
   let timestampMs: number | undefined;
   // Normalize "2026-04-29 13:50:49.089 UTC" → "2026-04-29T13:50:49.089Z"
