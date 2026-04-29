@@ -58,10 +58,11 @@ function parseIndexOptions(raw: string | undefined, fallback: string): Array<{ l
     return [{ label: fallback, value: fallback }];
   }
   // Format per entry: label|value  OR  label|value|timestampField
-  // Pairs are comma-separated. The timestamp field (if present) is consumed
-  // by the OpenSearch route, not the frontend, so we just ignore it here.
+  // Entries are separated by ';' (not ',') so commas can appear inside
+  // `value` for multi-index patterns. The timestamp field (if present) is
+  // consumed by the OpenSearch route, not the frontend, so we ignore it here.
   const parsed = raw
-    .split(',')
+    .split(';')
     .map(pair => pair.trim())
     .filter(Boolean)
     .map(pair => {

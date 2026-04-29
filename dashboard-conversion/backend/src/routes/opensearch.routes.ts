@@ -15,7 +15,9 @@ function getAllowedIndices(): Set<string> {
     out.add(fallback);
     return out;
   }
-  for (const pair of raw.split(',').map(s => s.trim()).filter(Boolean)) {
+  // Entries are separated by ';' so commas can appear inside `value` for
+  // multi-index patterns (e.g. "project.olb-*,project.cdb-*").
+  for (const pair of raw.split(';').map(s => s.trim()).filter(Boolean)) {
     const parts = pair.split('|').map(s => s.trim());
     // Format: label|value  OR  label|value|timestampField
     const value = parts.length >= 2 ? parts[1] : parts[0];
@@ -34,7 +36,7 @@ function getTimestampFieldForIndex(indexValue: string): string {
   const raw = process.env.OPENSEARCH_INDEX_OPTIONS || '';
   const DEFAULT_FIELD = '@timestamp';
   if (!raw.trim()) return DEFAULT_FIELD;
-  for (const pair of raw.split(',').map(s => s.trim()).filter(Boolean)) {
+  for (const pair of raw.split(';').map(s => s.trim()).filter(Boolean)) {
     const parts = pair.split('|').map(s => s.trim());
     if (parts.length < 2) continue;
     const value = parts[1];
