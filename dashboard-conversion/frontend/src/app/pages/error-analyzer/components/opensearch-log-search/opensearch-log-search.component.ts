@@ -105,19 +105,29 @@ function parseJsonLogLine(raw: string): ParsedLogLine | null {
   }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
 
-  const timestamp = typeof obj.timestamp === 'string' ? obj.timestamp : undefined;
+  // Field-name variations seen across indices:
+  //   timestamp — some emit `timestamp`, others `@timestamp`
+  //   message — some emit `message` (full payload), others `additionalInfo` (summary)
+  const timestampRaw = (typeof obj.timestamp === 'string' && obj.timestamp)
+    || (typeof obj['@timestamp'] === 'string' && obj['@timestamp'])
+    || undefined;
   const level = typeof obj.logLevel === 'string' ? obj.logLevel.toUpperCase() : undefined;
-  if (!timestamp || !level) return null;
+  if (!timestampRaw || !level) return null;
 
   const logger = typeof obj.logger === 'string' ? obj.logger : '';
-  const message = typeof obj.message === 'string' ? obj.message : '';
+  const message = (typeof obj.message === 'string' && obj.message)
+    || (typeof obj.additionalInfo === 'string' && obj.additionalInfo)
+    || '';
   const thread = typeof obj.thread === 'string' ? obj.thread : '';
   const shortClass = logger.includes('.') ? logger.split('.').pop()! : logger;
   const prefix = thread ? `[${thread}] ${logger}` : logger;
 
   let timestampMs: number | undefined;
-  // Normalize "2026-04-29 13:50:49.089 UTC" → "2026-04-29T13:50:49.089Z"
-  const isoish = timestamp
+  // Normalize the various forms we've seen:
+  //   "2026-04-29 13:50:49.089 UTC"     → "2026-04-29T13:50:49.089Z"
+  //   "2026-04-27T15:32:18.258+0000"    → already ISO-ish, Date.parse handles it
+  //   "2026-04-27T15:32:18.249Z"        → already ISO
+  const isoish = timestampRaw
     .replace(/\s+UTC$/i, 'Z')
     .replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
   const parsedTs = Date.parse(isoish);
@@ -125,7 +135,7 @@ function parseJsonLogLine(raw: string): ParsedLogLine | null {
     timestampMs = parsedTs;
   }
 
-  return { raw, parsed: true, timestamp, timestampMs, level, shortClass, message, prefix };
+  return { raw, parsed: true, timestamp: timestampRaw, timestampMs, level, shortClass, message, prefix };
 }
 
 function isErrorLikeLine(p: ParsedLogLine): boolean {
