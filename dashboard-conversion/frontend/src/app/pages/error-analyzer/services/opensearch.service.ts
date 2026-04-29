@@ -19,7 +19,7 @@ export class OpenSearchService {
 
   constructor(private http: HttpClient) {}
 
-  search(searchTerm: string, timeRangeMs: number, index: string): Observable<OpenSearchTestResponse> {
-    return this.http.post<OpenSearchTestResponse>(this.searchUrl, { searchTerm, timeRangeMs, index });
+  search(searchTerm: string, from: string, to: string, index: string): Observable<OpenSearchTestResponse> {
+    return this.http.post<OpenSearchTestResponse>(this.searchUrl, { searchTerm, from, to, index });
   }
 }

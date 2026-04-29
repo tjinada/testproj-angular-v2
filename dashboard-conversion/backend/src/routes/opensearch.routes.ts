@@ -3,17 +3,9 @@ import { searchOpenSearch } from '../services/opensearch.service';
 
 const router = Router();
 
-// Accepted time-range presets (milliseconds). Anything outside this list is
-// rejected — we do NOT want users to be able to request arbitrary ranges
-// that could pull huge amounts of data or stress OpenSearch.
-const ALLOWED_TIME_RANGES_MS = new Set<number>([
-  15 * 60 * 1000,       // 15 minutes
-  30 * 60 * 1000,       // 30 minutes
-  60 * 60 * 1000,       // 1 hour
-  2 * 60 * 60 * 1000,   // 2 hours
-  6 * 60 * 60 * 1000,   // 6 hours
-  24 * 60 * 60 * 1000   // 24 hours
-]);
+// Server-side hard cap on the search window. Anything wider is rejected to
+// prevent runaway queries / timeouts. Matches the largest UI option.
+const MAX_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 function getAllowedIndices(): Set<string> {
   const raw = process.env.OPENSEARCH_INDEX_OPTIONS || '';
@@ -54,24 +46,38 @@ function getTimestampFieldForIndex(indexValue: string): string {
 
 /**
  * POST /api/opensearch/search
- * Body: { searchTerm: string, timeRangeMs?: number, index?: string }
+ * Body: { searchTerm: string, from: string, to: string, index?: string }
+ *   - from / to are ISO 8601 timestamps
+ *   - the [from, to] window must be ≤ 1 hour and `to` must not be in the future
  * Returns: { raw: unknown, status: number, elapsedMs: number, url: string }
  */
 router.post('/search', async (req: Request, res: Response) => {
-  const { searchTerm, timeRangeMs, index } = req.body || {};
-  console.log(`[OpenSearch/route] POST /api/opensearch/search — term="${searchTerm}", timeRangeMs=${timeRangeMs}, index="${index}"`);
+  const { searchTerm, from, to, index } = req.body || {};
+  console.log(`[OpenSearch/route] POST /api/opensearch/search — term="${searchTerm}", from="${from}", to="${to}", index="${index}"`);
 
   if (!searchTerm || typeof searchTerm !== 'string') {
     return res.status(400).json({ error: 'searchTerm is required' });
   }
 
-  // Validate time range if provided; otherwise the service's default kicks in.
-  let validatedRange: number | undefined;
-  if (timeRangeMs !== undefined) {
-    if (typeof timeRangeMs !== 'number' || !ALLOWED_TIME_RANGES_MS.has(timeRangeMs)) {
-      return res.status(400).json({ error: 'Invalid timeRangeMs (must be 15m, 30m, 1h, 2h, 6h, or 24h)' });
-    }
-    validatedRange = timeRangeMs;
+  // Validate from/to.
+  if (typeof from !== 'string' || typeof to !== 'string') {
+    return res.status(400).json({ error: 'from and to are required (ISO 8601 strings)' });
+  }
+  const fromMs = Date.parse(from);
+  const toMs = Date.parse(to);
+  if (isNaN(fromMs) || isNaN(toMs)) {
+    return res.status(400).json({ error: 'Invalid from/to (must be ISO 8601 timestamps)' });
+  }
+  if (toMs <= fromMs) {
+    return res.status(400).json({ error: 'to must be after from' });
+  }
+  if (toMs - fromMs > MAX_WINDOW_MS) {
+    return res.status(400).json({ error: 'Search window must be 1 hour or less' });
+  }
+  // Allow a 60s grace for `to` slightly in the future (clock skew between
+  // browser and server is common). Anything beyond that is rejected.
+  if (toMs > Date.now() + 60_000) {
+    return res.status(400).json({ error: 'to cannot be in the future' });
   }
 
   // Validate index against the allow-list from .env.
@@ -86,7 +92,7 @@ router.post('/search', async (req: Request, res: Response) => {
   try {
     const timestampField = validatedIndex ? getTimestampFieldForIndex(validatedIndex) : '@timestamp';
     console.log(`[OpenSearch/route] resolved timestampField="${timestampField}" for index="${validatedIndex || '(default)'}"`);
-    const result = await searchOpenSearch(searchTerm, validatedRange, validatedIndex, timestampField);
+    const result = await searchOpenSearch(searchTerm, from, to, validatedIndex, timestampField);
     res.json(result);
   } catch (error: any) {
     console.error(`[OpenSearch] Error for term="${searchTerm}":`, error.message);

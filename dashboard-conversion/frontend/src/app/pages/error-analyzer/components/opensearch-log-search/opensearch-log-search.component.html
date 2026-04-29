@@ -35,10 +35,32 @@
         id="os-range"
         class="log-select"
         [disabled]="isSearching()"
-        [ngModel]="timeRangeMs()"
-        (ngModelChange)="onTimeRangeChange($event)">
-        <option *ngFor="let c of timeRangeChoices" [ngValue]="c.value">{{ c.label }}</option>
+        [ngModel]="selectedRangeId()"
+        (ngModelChange)="onRangeChange($event)">
+        <option *ngFor="let p of recentRangePresets" [ngValue]="p.id">{{ p.label }}</option>
+        <option [ngValue]="aroundModeId">Around a time…</option>
       </select>
+
+      <ng-container *ngIf="isAroundMode()">
+        <label for="os-around-start" class="log-label">Start:</label>
+        <input
+          id="os-around-start"
+          type="datetime-local"
+          class="log-select"
+          [disabled]="isSearching()"
+          [ngModel]="aroundStart()"
+          (ngModelChange)="onAroundStartChange($event)" />
+
+        <label for="os-around-window" class="log-label">Window:</label>
+        <select
+          id="os-around-window"
+          class="log-select"
+          [disabled]="isSearching()"
+          [ngModel]="aroundWindowId()"
+          (ngModelChange)="onAroundWindowChange($event)">
+          <option *ngFor="let w of aroundWindowChoices" [ngValue]="w.id">{{ w.label }}</option>
+        </select>
+      </ng-container>
 
       <button
         type="button"
@@ -51,6 +73,10 @@
 
     <div *ngIf="isSearching() && searchHint()" class="log-search-hint">
       {{ searchHint() }}
+    </div>
+
+    <div *ngIf="rangeError()" class="log-range-error">
+      {{ rangeError() }}
     </div>
   </div>
 

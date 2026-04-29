@@ -42,16 +42,23 @@ const URL_REGEX = new RegExp(
 
 // ── Time range choices ──────────────────────────────────────────────
 
-const TIME_RANGE_CHOICES = [
-  { label: 'Last 15 minutes', value: 15 * 60 * 1000 },
-  { label: 'Last 30 minutes', value: 30 * 60 * 1000 },
-  { label: 'Last 1 hour',     value: 60 * 60 * 1000 },
-  { label: 'Last 2 hours',    value: 2 * 60 * 60 * 1000 },
-  { label: 'Last 6 hours',    value: 6 * 60 * 60 * 1000 },
-  { label: 'Last 24 hours',   value: 24 * 60 * 60 * 1000 }
+/** Recent presets — search [now - durationMs, now]. */
+const RECENT_RANGE_PRESETS = [
+  { id: '15m', label: 'Last 15 minutes', durationMs: 15 * 60 * 1000 },
+  { id: '30m', label: 'Last 30 minutes', durationMs: 30 * 60 * 1000 },
+  { id: '1h',  label: 'Last 1 hour',     durationMs: 60 * 60 * 1000 }
 ] as const;
 
-const DEFAULT_TIME_RANGE_MS = 60 * 60 * 1000;
+/** Window-size choices when in "Around a time" mode. */
+const AROUND_WINDOW_CHOICES = [
+  { id: '15m', label: '15 min', durationMs: 15 * 60 * 1000 },
+  { id: '30m', label: '30 min', durationMs: 30 * 60 * 1000 },
+  { id: '60m', label: '1 hour', durationMs: 60 * 60 * 1000 }
+] as const;
+
+const AROUND_MODE_ID = 'around';
+const DEFAULT_RANGE_ID = '15m';
+const DEFAULT_AROUND_WINDOW_ID = '15m';
 
 // ── Parsing ─────────────────────────────────────────────────────────
 
@@ -152,7 +159,9 @@ function extractMessages(raw: unknown): string[] {
 })
 export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
 
-  readonly timeRangeChoices = TIME_RANGE_CHOICES;
+  readonly recentRangePresets = RECENT_RANGE_PRESETS;
+  readonly aroundWindowChoices = AROUND_WINDOW_CHOICES;
+  readonly aroundModeId = AROUND_MODE_ID;
 
   private configService = inject(ConfigService);
   private logLinesContainer = viewChild<ElementRef<HTMLElement>>('logLinesContainer');
@@ -162,7 +171,16 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
   selectedIndex = signal<string>('');
 
   searchTerm = signal<string>('');
-  timeRangeMs = signal<number>(DEFAULT_TIME_RANGE_MS);
+
+  // Range state. `selectedRangeId` is either a preset id (e.g. '15m') or
+  // the special AROUND_MODE_ID. When in 'around' mode, `aroundStart` and
+  // `aroundWindowId` drive the [from, to] computation.
+  selectedRangeId = signal<string>(DEFAULT_RANGE_ID);
+  aroundStart = signal<string>(''); // datetime-local value, e.g. "2026-04-29T10:30"
+  aroundWindowId = signal<string>(DEFAULT_AROUND_WINDOW_ID);
+  rangeError = signal<string>('');
+
+  isAroundMode = computed<boolean>(() => this.selectedRangeId() === AROUND_MODE_ID);
   isSearching = signal<boolean>(false);
   searchError = signal<string>('');
   response = signal<OpenSearchTestResponse | null>(null);
@@ -349,6 +367,9 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
     const idx = this.selectedIndex();
     if (!term || !idx) return;
 
+    const range = this.buildRange();
+    if (!range) return;
+
     this.isSearching.set(true);
     this.searchError.set('');
     this.response.set(null);
@@ -363,7 +384,7 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
     this.currentMarkIndex.set(-1);
     this.startElapsedTimer();
 
-    this.openSearchService.search(term, this.timeRangeMs(), idx).subscribe({
+    this.openSearchService.search(term, range.from, range.to, idx).subscribe({
       next: (response) => {
         this.response.set(response);
         this.isSearching.set(false);
@@ -377,17 +398,89 @@ export class OpenSearchLogSearchComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Compute the [from, to] ISO range from the current UI state. Sets
+   * `rangeError` and returns null if the user is in "around" mode but
+   * hasn't supplied a valid start time.
+   */
+  private buildRange(): { from: string; to: string } | null {
+    this.rangeError.set('');
+
+    if (!this.isAroundMode()) {
+      const preset = this.recentRangePresets.find(p => p.id === this.selectedRangeId())
+        ?? this.recentRangePresets[0];
+      const now = Date.now();
+      return {
+        from: new Date(now - preset.durationMs).toISOString(),
+        to: new Date(now).toISOString()
+      };
+    }
+
+    // Around-a-time mode.
+    const start = this.aroundStart();
+    if (!start) {
+      this.rangeError.set('Pick a start time.');
+      return null;
+    }
+    const startMs = new Date(start).getTime();
+    if (isNaN(startMs)) {
+      this.rangeError.set('Invalid start time.');
+      return null;
+    }
+    const window = this.aroundWindowChoices.find(w => w.id === this.aroundWindowId())
+      ?? this.aroundWindowChoices[0];
+    let endMs = startMs + window.durationMs;
+    const now = Date.now();
+    if (startMs > now) {
+      this.rangeError.set('Start time cannot be in the future.');
+      return null;
+    }
+    // Cap `to` at now — don't query the future.
+    if (endMs > now) endMs = now;
+
+    return {
+      from: new Date(startMs).toISOString(),
+      to: new Date(endMs).toISOString()
+    };
+  }
+
   onSearchKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && this.canSearch()) {
       this.onSearch();
     }
   }
 
-  onTimeRangeChange(value: number | string): void {
-    const n = typeof value === 'string' ? parseInt(value, 10) : value;
-    if (TIME_RANGE_CHOICES.some(c => c.value === n)) {
-      this.timeRangeMs.set(n);
+  onRangeChange(value: string): void {
+    this.rangeError.set('');
+    if (value === AROUND_MODE_ID) {
+      this.selectedRangeId.set(AROUND_MODE_ID);
+      // If no start time has been entered yet, pre-fill with "now minus 15min"
+      // so the picker has a sensible default the user can adjust.
+      if (!this.aroundStart()) {
+        this.aroundStart.set(this.toLocalInputValue(new Date(Date.now() - 15 * 60 * 1000)));
+      }
+      return;
     }
+    if (this.recentRangePresets.some(p => p.id === value)) {
+      this.selectedRangeId.set(value);
+    }
+  }
+
+  onAroundStartChange(value: string): void {
+    this.aroundStart.set(value);
+    this.rangeError.set('');
+  }
+
+  onAroundWindowChange(value: string): void {
+    if (this.aroundWindowChoices.some(w => w.id === value)) {
+      this.aroundWindowId.set(value);
+    }
+  }
+
+  /** Format a Date as the value expected by `<input type="datetime-local">`. */
+  private toLocalInputValue(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   onIndexChange(value: string): void {
