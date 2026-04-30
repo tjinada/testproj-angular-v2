@@ -238,6 +238,57 @@
         "description": "Polls the request submitted by '2a'.\n\nIf the response is 202 — still running, send again.\nIf 200 — results are ready in the body.\n\nNOTE: confirm this exact path and the response field names from your tenant's API behavior on the first run. The Akamai docs sometimes shift between query-param polling and resource-style polling. If GET on this path 404s, try GET https://{{akamai_host}}/edge-diagnostics/v1/url-health-check?requestId={{url_health_check_request_id}}"
       },
       "response": []
+    },
+    {
+      "name": "DIAG 1. Identity Management — Get user profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "https://{{akamai_host}}/identity-management/v3/user-profile",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "identity-management", "v3", "user-profile" ]
+        },
+        "description": "Permission diagnostic — most API clients have this by default.\n\n200: signing works AND client has at least basic API access. Edge Diagnostics 403 is then a SPECIFIC missing grant.\n403: client has no API services granted at all — talk to your Akamai admin about granting services in general, not just Edge Diagnostics."
+      },
+      "response": []
+    },
+    {
+      "name": "DIAG 2. Diagnostic Tools (legacy) — List ghost locations",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "https://{{akamai_host}}/diagnostic-tools/v2/ghost-locations/available",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "diagnostic-tools", "v2", "ghost-locations", "available" ]
+        },
+        "description": "Permission diagnostic — Diagnostic Tools is the older sibling of Edge Diagnostics.\n\n200: client can do diagnostics, just not via the Edge Diagnostics API. We could potentially fall back to this older API if Edge Diagnostics access is hard to get.\n403: same gap as Edge Diagnostics — your client has no diagnostic API grants."
+      },
+      "response": []
+    },
+    {
+      "name": "DIAG 3. Property Manager (PAPI) — List groups",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "https://{{akamai_host}}/papi/v1/groups",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "papi", "v1", "groups" ]
+        },
+        "description": "Permission diagnostic — also the Phase 2 (PM rule evaluator) API.\n\n200: PAPI works. If Edge Diagnostics is blocked but PAPI isn't, we may want to skip ahead to Phase 2 instead of waiting for Edge Diagnostics permissions.\n403: PAPI also blocked — same conversation with admin."
+      },
+      "response": []
     }
   ]
 }
