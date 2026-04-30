@@ -201,26 +201,63 @@ function edgeRequest<T = unknown>(
         return reject(new Error(`Akamai request failed: ${err.message}`));
       }
 
-      const status = response?.statusCode ?? 0;
-      const bodyText = typeof body === 'string' ? body : JSON.stringify(body);
+      // The akamai-edgegrid library's callback shape varies across versions:
+      // sometimes response.statusCode (Node http style), sometimes response.status
+      // (axios-like), sometimes response is undefined and only body is given.
+      // Try all known sources before giving up; treat "unknown but body parses"
+      // as 200, since a real network/auth failure goes through the err arg.
+      const rawStatus =
+        response?.statusCode ??
+        response?.status ??
+        (response && typeof response === 'object' && 'statusCode' in response ? (response as any).statusCode : undefined);
+      const bodyText = typeof body === 'string' ? body : JSON.stringify(body ?? '');
       const preview = bodyText && bodyText.length > 300
         ? bodyText.substring(0, 300) + `... (${bodyText.length - 300} more chars)`
         : bodyText;
 
-      console.log(`[Akamai] ${method} ${path} → ${status} in ${elapsedMs}ms (${bodyText?.length ?? 0} bytes)`);
-
-      if (status < 200 || status >= 300) {
-        console.error(`[Akamai] non-2xx body preview: ${preview}`);
-        return reject(new Error(`Akamai PAPI returned ${status}: ${preview}`));
-      }
-
+      // Attempt to parse the body up-front. Successful JSON parse + a body that
+      // doesn't look like an Akamai error envelope is strong evidence of success
+      // and lets us recover when statusCode is missing/0 from the library.
+      let parsed: any = null;
+      let parseError: Error | null = null;
       try {
-        const parsed = typeof body === 'string' ? JSON.parse(body) : body;
-        resolve(parsed as T);
+        parsed = typeof body === 'string' ? JSON.parse(body) : body;
       } catch (parseErr: any) {
-        console.error(`[Akamai] failed to parse response body as JSON: ${parseErr.message}`);
-        reject(new Error(`Akamai response was not valid JSON: ${parseErr.message}`));
+        parseError = parseErr;
       }
+
+      const looksLikeAkamaiError =
+        parsed && typeof parsed === 'object' &&
+        ('type' in parsed || 'errors' in parsed) &&
+        ('title' in parsed || 'detail' in parsed || 'status' in parsed);
+
+      // Decide effective status:
+      //  - If we got a number from the library, trust it.
+      //  - Else if body parsed and isn't an error envelope, treat as 200.
+      //  - Else 0 (forces failure path with the body preview).
+      let effectiveStatus: number;
+      if (typeof rawStatus === 'number' && rawStatus > 0) {
+        effectiveStatus = rawStatus;
+      } else if (parsed && !looksLikeAkamaiError && !parseError) {
+        effectiveStatus = 200;
+        console.log(`[Akamai] ${method} ${path}: library returned status=${rawStatus ?? 'undefined'} but body parses cleanly — treating as 200`);
+      } else {
+        effectiveStatus = 0;
+      }
+
+      console.log(`[Akamai] ${method} ${path} → ${effectiveStatus} in ${elapsedMs}ms (${bodyText?.length ?? 0} bytes)`);
+
+      if (effectiveStatus < 200 || effectiveStatus >= 300) {
+        console.error(`[Akamai] non-2xx body preview: ${preview}`);
+        return reject(new Error(`Akamai PAPI returned ${effectiveStatus}: ${preview}`));
+      }
+
+      if (parseError) {
+        console.error(`[Akamai] failed to parse response body as JSON: ${parseError.message}`);
+        return reject(new Error(`Akamai response was not valid JSON: ${parseError.message}`));
+      }
+
+      resolve(parsed as T);
     });
   });
 }
