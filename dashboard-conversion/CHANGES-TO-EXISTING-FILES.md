@@ -30,6 +30,7 @@ Add imports at top:
 import errorAnalyzerRoutes from './routes/error-analyzer.routes';
 import logRoutes from './routes/log.routes';
 import opensearchRoutes from './routes/opensearch.routes';
+import akamaiRoutes from './routes/akamai.routes';
 ```
 
 Add route mounts (alongside existing `app.use` lines):
@@ -38,6 +39,7 @@ Add route mounts (alongside existing `app.use` lines):
 app.use('/api/error-analyzer', errorAnalyzerRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/opensearch', opensearchRoutes);
+app.use('/api/akamai', akamaiRoutes);
 ```
 
 ## 4. backend/src/services/index.ts
@@ -87,6 +89,23 @@ OPENSEARCH_URL=https://vpc-your-domain.ca-central-1.es.amazonaws.com
 OPENSEARCH_COOKIE=security_authentication=<PASTE_FROM_BROWSER>
 OPENSEARCH_INDEX=channels-olb-*
 OPENSEARCH_INDEX_OPTIONS=CDBBOS|channels-olb-*,channels|channels-*
+
+# Akamai Flow — Property Manager (PAPI) integration
+# EdgeGrid credentials come from the .edgerc file (host, client_token,
+# client_secret, access_token). For container deployments, inject these as
+# env vars from your secrets manager rather than mounting the .edgerc file.
+AKAMAI_HOST=akab-xxxxxxxxxxxxxxxx-xxxxxxxxxxxxxxxx.luna.akamaiapis.net
+AKAMAI_CLIENT_TOKEN=akab-xxxxxxxxxxxxxxxx-xxxxxxxxxxxxxxxx
+AKAMAI_CLIENT_SECRET=<PLACEHOLDER_CLIENT_SECRET>
+AKAMAI_ACCESS_TOKEN=akab-xxxxxxxxxxxxxxxx-xxxxxxxxxxxxxxxx
+# PAPI lookups require contract + group context. Both are visible in PAPI
+# `/papi/v1/groups` response.
+AKAMAI_DEFAULT_CONTRACT_ID=ctr_C-XXXXXXX
+AKAMAI_DEFAULT_GROUP_ID=grp_XXXXX
+# Comma-separated allowlist of PM property IDs to scan. Order matters:
+# if two properties claim the same hostname, the one earlier in this list wins.
+# Properties whose productionVersion is null are skipped (logged once at startup).
+AKAMAI_PROPERTY_IDS=prp_XXXXXX,prp_XXXXXX,prp_XXXXXX
 ```
 
 ## 6. Files to Copy As-Is from V2
@@ -168,3 +187,71 @@ allows internal BMO destinations).
 **Existing error-analyzer updated again** (already in `dashboard-conversion/`):
 third tab added; `TabId` union extended to include `'opensearch'`; component
 import list updated.
+
+## 9. Akamai Flow — New Files
+
+A fourth tab alongside Trace Analysis, CDBBOS Log Search, and OpenSearch.
+The user pastes a full URL (e.g. `https://blue.www.olb-gss-QA1112.dev.bmo.com/banking/foo`).
+The backend extracts the hostname, looks it up against an allowlist of PM
+properties (`AKAMAI_PROPERTY_IDS` in `.env`), fetches that property's active
+production rule tree from PAPI, extracts default-rule baseline behaviors
+(origin, cache, CP code), and runs a naive matcher (path + hostname +
+fileExtension criteria, with `*` wildcard support, honoring `criteriaMustSatisfy`)
+to highlight matched rules. The frontend renders a collapsible rule tree with
+matched-rule highlights, plus a yellow disclaimer that this is naive matching,
+not a full PM evaluator.
+
+**Auth:** EdgeGrid v1 (host / client_token / client_secret / access_token).
+In container deployments, inject these as env vars from your secrets manager
+— do not mount the `.edgerc` file.
+
+**Property scoping:** the `AKAMAI_PROPERTY_IDS` env var is the explicit
+allowlist of properties to scan. Hostname → property mapping is built lazily
+on the first request and cached in-memory for 30 minutes. Rule trees are
+cached per (propertyId, version) for 10 minutes. Properties with
+`productionVersion: null` are skipped (logged once per property).
+
+**Hostname matching:** case-insensitive exact match against `cnameFrom`. If
+the input hostname is not on any monitored property, the response is a clear
+error including a sample of configured hostnames. On collision (same hostname
+on multiple properties), first-match-wins ordered by `AKAMAI_PROPERTY_IDS`.
+
+**Naive matcher scope (Phase 1):** path / hostname / fileExtension criteria
+with `MATCHES_ONE_OF`, `DOES_NOT_MATCH_ONE_OF`, `IS_ONE_OF`, `IS_NOT_ONE_OF`
+operators, `*` wildcard support, and `criteriaMustSatisfy: all|any`. Rules
+containing unsupported criteria (cookies, headers, geo, device, regex,
+time-of-day, etc.) are flagged "partial match — unevaluated criteria
+present". The full PAPI evaluator is parked as Phase 2.
+
+**Backend:**
+- `backend/src/services/akamai.service.ts`
+- `backend/src/services/papi-baseline-extractor.ts`
+- `backend/src/services/papi-naive-matcher.ts`
+- `backend/src/routes/akamai.routes.ts`
+
+**Frontend:**
+- `frontend/src/app/pages/error-analyzer/models/akamai.model.ts`
+- `frontend/src/app/pages/error-analyzer/services/akamai.service.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/akamai-flow.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/akamai-flow.component.html`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/akamai-flow.component.scss`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/rule-tree/rule-tree.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/rule-tree/rule-tree.component.html`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/rule-tree/rule-tree.component.scss`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/behavior-detail-panel/behavior-detail-panel.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/behavior-detail-panel/behavior-detail-panel.component.html`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/behavior-detail-panel/behavior-detail-panel.component.scss`
+
+**New backend dependency:**
+Add to `backend/package.json`:
+
+```json
+"akamai-edgegrid": "^3.5.0"
+```
+
+Run `npm install` in `backend/` after merging.
+
+**Existing error-analyzer updated again** (already in `dashboard-conversion/`):
+fourth tab added; `TabId` union extended to include `'akamai'`; component
+import list updated. The existing tab pattern (`[hidden]="activeTab !== 'xxx'"`)
+is preserved.

@@ -1,0 +1,21 @@
+ # /banking/servlet/* should hit "Non-OTP Services and Servlet"
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Fbanking%2Fservlet%2Fsomething' | jq '.matchedRules[].rulePath'
+
+# /banking/messages/* should hit whatever rule has that path criterion
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Fbanking%2Fmessages%2Finbox' | jq '.matchedRules[].rulePath'
+
+# /WebContentManager/* should hit "Non-OTP Services and Servlet" too
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2FWebContentManager%2Fsome%2Fpage' | jq '.matchedRules[].rulePath'
+
+# /netstorage/* should be EXCLUDED from "Separate origins for DPs"
+# (because that rule has path DOES_NOT_MATCH_ONE_OF /netstorage/*)
+# So a /netstorage/* URL should NOT show "Separate origins for DPs" in matchedRules
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Fnetstorage%2Ffoo' | jq '.matchedRules[].ruleName' | grep -i "Separate origins" 
+# Should return nothing (no match for that rule)
+
+# A path that doesn't match any specific rule should still hit "default"
+# but no children
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Frandom%2Fpath%2Fdoes-not-exist' | jq '.matchedRules[].ruleName'
+# Should at least show "default", and probably few/no others
+
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Fbanking%2Fservices%2Fsignin' | jq '.matchedRules[] | select(.matchStatus == "partial") | {rulePath, unevaluatedCriteria}'
