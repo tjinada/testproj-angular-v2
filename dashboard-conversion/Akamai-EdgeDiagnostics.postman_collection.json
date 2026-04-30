@@ -34,6 +34,26 @@
       "key": "url_health_check_request_id",
       "value": "",
       "description": "Auto-populated by the URL Health Check 'Submit' request. Used by the 'Poll' request."
+    },
+    {
+      "key": "papi_contract_id",
+      "value": "",
+      "description": "PAPI contract ID (e.g. ctr_C-1234567). Get from DIAG 3 response body."
+    },
+    {
+      "key": "papi_group_id",
+      "value": "",
+      "description": "PAPI group ID (e.g. grp_12345). Get from DIAG 3 response body."
+    },
+    {
+      "key": "papi_property_id",
+      "value": "",
+      "description": "Auto-populated by 'PAPI 1. List properties'. Used by PAPI 2 and PAPI 3."
+    },
+    {
+      "key": "papi_property_version",
+      "value": "",
+      "description": "Auto-populated by 'PAPI 1. List properties'. Used by PAPI 2 and PAPI 3."
     }
   ],
   "event": [
@@ -287,6 +307,94 @@
           "path": [ "papi", "v1", "groups" ]
         },
         "description": "Permission diagnostic — also the Phase 2 (PM rule evaluator) API.\n\n200: PAPI works. If Edge Diagnostics is blocked but PAPI isn't, we may want to skip ahead to Phase 2 instead of waiting for Edge Diagnostics permissions.\n403: PAPI also blocked — same conversation with admin."
+      },
+      "response": []
+    },
+    {
+      "name": "PAPI 1. List properties (in a group + contract)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Save the first propertyId we see so the next requests can chain off it.",
+              "if (pm.response.code === 200) {",
+              "  let body;",
+              "  try { body = pm.response.json(); } catch (e) { body = {}; }",
+              "  const items = body && body.properties && body.properties.items;",
+              "  if (Array.isArray(items) && items.length > 0) {",
+              "    const p = items[0];",
+              "    pm.collectionVariables.set('papi_property_id', p.propertyId || '');",
+              "    pm.collectionVariables.set('papi_property_version', String(p.productionVersion || p.latestVersion || ''));",
+              "    console.log('[PAPI] propertyId=' + p.propertyId + ' productionVersion=' + p.productionVersion);",
+              "  } else {",
+              "    console.warn('[PAPI] no properties returned for the given groupId/contractId. Update papi_group_id and papi_contract_id collection variables.');",
+              "  }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "https://{{akamai_host}}/papi/v1/properties?contractId={{papi_contract_id}}&groupId={{papi_group_id}}",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "papi", "v1", "properties" ],
+          "query": [
+            { "key": "contractId", "value": "{{papi_contract_id}}" },
+            { "key": "groupId",    "value": "{{papi_group_id}}" }
+          ]
+        },
+        "description": "Lists all properties in a given group + contract.\n\nBefore running, fill the collection variables papi_contract_id (e.g. ctr_C-1234567) and papi_group_id (e.g. grp_12345) — get these from DIAG 3's response body.\n\n200: confirms property listing works. The test script auto-stores the first propertyId + productionVersion so the next two requests chain off it.\n403: properties listing is gated separately from groups listing — flag this."
+      },
+      "response": []
+    },
+    {
+      "name": "PAPI 2. List hostnames for a property version",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "https://{{akamai_host}}/papi/v1/properties/{{papi_property_id}}/versions/{{papi_property_version}}/hostnames?contractId={{papi_contract_id}}&groupId={{papi_group_id}}",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "papi", "v1", "properties", "{{papi_property_id}}", "versions", "{{papi_property_version}}", "hostnames" ],
+          "query": [
+            { "key": "contractId", "value": "{{papi_contract_id}}" },
+            { "key": "groupId",    "value": "{{papi_group_id}}" }
+          ]
+        },
+        "description": "Returns the hostnames mapped to a specific property version. Path C uses this to populate the property dropdown labels (so users see 'CDBBOS — www.example.com' rather than just an opaque property ID).\n\n200: hostname listing works.\n403: gated separately — Path C dropdown will need to fall back to property names only."
+      },
+      "response": []
+    },
+    {
+      "name": "PAPI 3. Get rule tree for a property version",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "https://{{akamai_host}}/papi/v1/properties/{{papi_property_id}}/versions/{{papi_property_version}}/rules?contractId={{papi_contract_id}}&groupId={{papi_group_id}}&validateRules=false",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "papi", "v1", "properties", "{{papi_property_id}}", "versions", "{{papi_property_version}}", "rules" ],
+          "query": [
+            { "key": "contractId",    "value": "{{papi_contract_id}}" },
+            { "key": "groupId",       "value": "{{papi_group_id}}" },
+            { "key": "validateRules", "value": "false" }
+          ]
+        },
+        "description": "THE BIG ONE. Returns the full rule tree for the property version — this is the heart of Path C.\n\n200: you'll get a large JSON body containing rules, criteria, behaviors, options, children. Save the response — I'll need a redacted sample to design the AkamaiFlowResult interface against the real shape.\n403: rule tree access is gated separately from property metadata — Path C is blocked until permissions change."
       },
       "response": []
     }
