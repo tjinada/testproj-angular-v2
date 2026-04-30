@@ -1,7 +1,6 @@
 // Akamai Flow tab — parent container around the input row, error/loading
-// states, summary card, baseline card, disclaimer banner, and the
-// matched-rule list. Visually consistent with log-search and
-// opensearch-log-search tabs.
+// states, resolution banner, baseline card, disclaimer banner, and the
+// matched-rule sections (decisive / path-specific / always-on).
 
 .akamai-flow {
   display: flex;
@@ -118,7 +117,6 @@
   padding-top: 10px;
   border-top: 1px solid #fecaca;
   font-size: 12px;
-  color: #7f1d1d;
 }
 
 .akamai-flow__hostname-sample {
@@ -126,9 +124,7 @@
   padding-left: 18px;
   list-style: disc;
 
-  li {
-    margin: 2px 0;
-  }
+  li { margin: 2px 0; }
 
   code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -140,55 +136,200 @@
   }
 }
 
-// ── Resolution summary ────────────────────────────────────────────
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  RESOLUTION BANNER — the headline answer                        ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
-.akamai-flow__summary {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+.resolution-banner {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  &--has-partial {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #fcd34d;
+  }
 }
 
-.summary__line {
+.resolution-banner__header {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  font-size: 13px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
-.summary__label {
-  flex: 0 0 80px;
+.resolution-banner__label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
+  color: #1e3a8a;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #6b7280;
 }
 
-.summary__value {
+.resolution-banner__url-pill {
   flex: 1 1 auto;
-  font-size: 13px;
-  word-break: break-word;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    color: #1e3a8a;
+    word-break: break-all;
+  }
+}
+
+.resolution-banner__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.resolution-card {
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resolution-card__title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e3a8a;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.resolution-card__value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    word-break: break-all;
+  }
+}
+
+.resolution-card__sub {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.resolution-card__source {
+  font-size: 11px;
+  color: #6b7280;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: #374151;
     background: #f3f4f6;
-    padding: 1px 5px;
+    padding: 1px 4px;
     border-radius: 3px;
   }
 }
 
-.summary__muted {
-  color: #6b7280;
-  margin-left: 6px;
-  font-size: 12px;
+.resolution-card__details {
+  margin: 4px 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  row-gap: 2px;
+  font-size: 11px;
+
+  dt {
+    color: #6b7280;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  dd {
+    margin: 0;
+    color: #111827;
+  }
 }
 
-// ── Baseline ──────────────────────────────────────────────────────
+.resolution-card__empty {
+  font-size: 12px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.partial-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.resolution-banner__partial-warning {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  font-size: 12px;
+  color: #78350f;
+  line-height: 1.5;
+}
+
+// ── Property summary (compact line under banner) ──────────────────
+
+.property-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+  padding: 0 4px;
+
+  strong {
+    color: #111827;
+  }
+}
+
+.property-summary__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.property-summary__muted {
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.property-summary__separator {
+  color: #d1d5db;
+  margin: 0 4px;
+}
+
+// ── Baseline (less prominent now — secondary info) ────────────────
 
 .akamai-flow__baseline {
   padding: 12px 14px;
@@ -302,23 +443,117 @@
   }
 }
 
-// ── Matched rules list ────────────────────────────────────────────
+// ── Rule sections (decisive / path-specific / always-on) ──────────
 
-.akamai-flow__matches {
+.rule-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+
+  // The decisive section gets a stronger left accent
+  &--decisive {
+    border-left: 3px solid #2563eb;
+  }
+
+  &--path-specific {
+    border-left: 3px solid #6366f1;
+  }
+
+  &--always-on {
+    border-left: 3px solid #9ca3af;
+  }
+}
+
+.rule-section__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.rule-section__header--clickable {
+  width: 100%;
+  background: #f9fafb;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+  }
+}
+
+.rule-section--collapsed .rule-section__header--clickable {
+  border-bottom: 0;
+}
+
+.rule-section__chevron {
+  flex: 0 0 auto;
+  width: 14px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.rule-section__icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.rule-section__title {
+  font-weight: 600;
+  color: #111827;
+}
+
+.rule-section__count {
+  display: inline-block;
+  padding: 1px 7px;
+  background: #e5e7eb;
+  color: #374151;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rule-section--decisive .rule-section__count {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.rule-section__hint {
+  flex: 1 1 auto;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    background: #ffffff;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+}
+
+.rule-section__body {
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
 }
 
-.matches__header {
-  font-size: 12px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 8px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.matches__empty {
+.rule-section__empty {
   margin: 0;
   padding: 12px 14px;
   font-size: 13px;

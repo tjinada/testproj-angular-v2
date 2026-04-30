@@ -7,7 +7,9 @@ import {
   isHostnameError,
   type AkamaiBaseline,
   type AkamaiFlowError,
-  type AkamaiFlowResult
+  type AkamaiFlowResult,
+  type AkamaiResolution,
+  type CategorizedMatchedRule
 } from '../../models/akamai.model';
 import { MatchedRuleComponent } from './matched-rule/matched-rule.component';
 
@@ -59,6 +61,11 @@ export class AkamaiFlowComponent {
     configuredHostnamesSample: string[];
   } | null>(null);
 
+  // ── Section expand state (path-specific / always-on collapsed by default) ──
+
+  protected readonly pathSpecificExpanded = signal(true);
+  protected readonly alwaysOnExpanded = signal(false);
+
   // ── Derived state ──────────────────────────────────────────────
 
   /** True when submit is allowed (not currently loading and the input has content). */
@@ -66,6 +73,24 @@ export class AkamaiFlowComponent {
 
   /** Convenience accessor used in the template; null when no result. */
   readonly baseline = computed<AkamaiBaseline | null>(() => this.result()?.baseline ?? null);
+
+  /** Headline resolution; null when no result. */
+  readonly resolution = computed<AkamaiResolution | null>(() => this.result()?.resolution ?? null);
+
+  /** Decisive matched rules (origin / caching / cpCode). User's primary interest. */
+  readonly decisiveRules = computed<CategorizedMatchedRule[]>(() =>
+    this.result()?.matchedRules.filter(r => r.category === 'decisive') ?? []
+  );
+
+  /** Path-specific matched rules (criteria reference path or fileExtension). */
+  readonly pathSpecificRules = computed<CategorizedMatchedRule[]>(() =>
+    this.result()?.matchedRules.filter(r => r.category === 'path-specific') ?? []
+  );
+
+  /** Always-on matched rules (unconditional or hostname-only criteria). */
+  readonly alwaysOnRules = computed<CategorizedMatchedRule[]>(() =>
+    this.result()?.matchedRules.filter(r => r.category === 'always-on') ?? []
+  );
 
   // ── Event handlers ─────────────────────────────────────────────
 
@@ -140,5 +165,20 @@ export class AkamaiFlowComponent {
   display(value: string | number | undefined): string {
     if (value === undefined || value === null || value === '') return '—';
     return String(value);
+  }
+
+  // ── Section toggles ────────────────────────────────────────────
+
+  togglePathSpecific(): void {
+    this.pathSpecificExpanded.update(v => !v);
+  }
+
+  toggleAlwaysOn(): void {
+    this.alwaysOnExpanded.update(v => !v);
+  }
+
+  /** Joins a rule path for compact display (e.g. "default > X > Y"). */
+  formatRulePath(path: string[]): string {
+    return path.join(' › ');
   }
 }

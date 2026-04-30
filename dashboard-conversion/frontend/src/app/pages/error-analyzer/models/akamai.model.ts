@@ -68,6 +68,63 @@ export interface MatchedRule {
   criteriaMustSatisfy: 'all' | 'any';
 }
 
+// ── Rule categorization (mirrors RuleCategory + CategorizedMatchedRule) ──
+
+/**
+ * - "decisive":      the rule defines origin, cpCode, or caching. These
+ *                    actually determine where the URL goes and how it's
+ *                    cached. The user's primary interest.
+ * - "path-specific": the rule has at least one path or fileExtension
+ *                    criterion. Proves the matcher walked into a
+ *                    URL-specific subtree.
+ * - "always-on":     unconditional rules + rules with only hostname-level
+ *                    or unsupported criteria. Apply everywhere on the site.
+ */
+export type RuleCategory = 'decisive' | 'path-specific' | 'always-on';
+
+export interface CategorizedMatchedRule extends MatchedRule {
+  category: RuleCategory;
+}
+
+// ── Resolution outcome (mirrors AkamaiResolution in the backend) ────
+
+/**
+ * The "where did the URL go?" answer. Computed by walking matched rules
+ * in evaluation order. Each "final" field includes the rule path of the
+ * rule that contributed it, so the UI can show "final origin set by:
+ * default > Separate origins for DPs > Origin for X".
+ *
+ * fromPartialMatch is true when the contributing rule was a partial
+ * match — i.e. the value might not actually win at runtime if the
+ * unevaluated criterion (cookie/header/geo) doesn't match.
+ */
+export interface AkamaiResolution {
+  finalOrigin?: {
+    hostname?: string;
+    forwardHostHeader?: string;
+    cacheKeyHostname?: string;
+    originType?: string;
+    httpPort?: number;
+    httpsPort?: number;
+    contributedBy: string[];
+    fromPartialMatch: boolean;
+  };
+  finalCaching?: {
+    behavior?: string;
+    ttl?: string;
+    mustRevalidate?: boolean;
+    contributedBy: string[];
+    fromPartialMatch: boolean;
+  };
+  finalCpCode?: {
+    id?: number;
+    name?: string;
+    contributedBy: string[];
+    fromPartialMatch: boolean;
+  };
+  hasPartialMatchInfluence: boolean;
+}
+
 // ── Baseline (mirrors AkamaiBaseline in the backend extractor) ──────
 
 /**
@@ -120,9 +177,12 @@ export interface AkamaiFlowResult {
   url: string;
   parsedUrl: ParsedRequestUrl;
   property: AkamaiPropertySummary;
+  /** The headline "where did the URL go?" answer. */
+  resolution: AkamaiResolution;
   baseline: AkamaiBaseline;
   baselineDiagnostics: AkamaiBaselineDiagnostics;
-  matchedRules: MatchedRule[];
+  /** All matched rules, each tagged with its category for grouping. */
+  matchedRules: CategorizedMatchedRule[];
   matchedRuleCount: number;
 }
 

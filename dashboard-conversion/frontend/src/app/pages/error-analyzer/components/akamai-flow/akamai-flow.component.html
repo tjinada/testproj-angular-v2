@@ -58,31 +58,111 @@
   <!-- ── Results ─────────────────────────────────────────────── -->
   @if (result(); as res) {
 
-    <!-- Resolution summary -->
-    <section class="akamai-flow__summary">
-      <div class="summary__line">
-        <span class="summary__label">URL</span>
-        <code class="summary__value">{{ res.url }}</code>
-      </div>
-      <div class="summary__line">
-        <span class="summary__label">Property</span>
-        <span class="summary__value">
-          <strong>{{ res.property.propertyName }}</strong>
-          <span class="summary__muted">({{ res.property.propertyId }} v{{ res.property.version }})</span>
-        </span>
-      </div>
-      <div class="summary__line">
-        <span class="summary__label">Matched</span>
-        <span class="summary__value">
-          <strong>{{ res.matchedRuleCount }}</strong> rule(s)
-        </span>
-      </div>
+    <!-- ╔══════════════════════════════════════════════════════════╗ -->
+    <!-- ║  RESOLUTION BANNER — the headline answer                ║ -->
+    <!-- ╚══════════════════════════════════════════════════════════╝ -->
+    @if (resolution(); as r) {
+      <section class="resolution-banner"
+               [class.resolution-banner--has-partial]="r.hasPartialMatchInfluence">
+
+        <header class="resolution-banner__header">
+          <span class="resolution-banner__label">Resolved destination</span>
+          <span class="resolution-banner__url-pill">
+            <code>{{ res.url }}</code>
+          </span>
+        </header>
+
+        <div class="resolution-banner__grid">
+
+          <!-- Final origin -->
+          <div class="resolution-card resolution-card--origin">
+            <div class="resolution-card__title">Origin</div>
+            @if (r.finalOrigin?.hostname) {
+              <div class="resolution-card__value">
+                <code>{{ r.finalOrigin?.hostname }}</code>
+                @if (r.finalOrigin?.fromPartialMatch) {
+                  <span class="partial-tag" title="Set by a rule with one or more unevaluated criteria — actual edge result may differ">PARTIAL</span>
+                }
+              </div>
+              <div class="resolution-card__source">
+                set by <code>{{ formatRulePath(r.finalOrigin?.contributedBy ?? []) }}</code>
+              </div>
+              <dl class="resolution-card__details">
+                <dt>forwardHostHeader</dt><dd>{{ display(r.finalOrigin?.forwardHostHeader) }}</dd>
+                <dt>cacheKeyHostname</dt><dd>{{ display(r.finalOrigin?.cacheKeyHostname) }}</dd>
+              </dl>
+            } @else {
+              <div class="resolution-card__empty">No origin set by any matched rule.</div>
+            }
+          </div>
+
+          <!-- Final caching -->
+          <div class="resolution-card resolution-card--caching">
+            <div class="resolution-card__title">Caching</div>
+            @if (r.finalCaching) {
+              <div class="resolution-card__value">
+                {{ display(r.finalCaching.behavior) }}
+                @if (r.finalCaching.ttl) {
+                  <span class="resolution-card__sub">({{ r.finalCaching.ttl }})</span>
+                }
+                @if (r.finalCaching.fromPartialMatch) {
+                  <span class="partial-tag">PARTIAL</span>
+                }
+              </div>
+              <div class="resolution-card__source">
+                set by <code>{{ formatRulePath(r.finalCaching.contributedBy) }}</code>
+              </div>
+            } @else {
+              <div class="resolution-card__empty">No caching behavior set.</div>
+            }
+          </div>
+
+          <!-- Final cpCode -->
+          <div class="resolution-card resolution-card--cpcode">
+            <div class="resolution-card__title">CP code</div>
+            @if (r.finalCpCode?.id !== undefined) {
+              <div class="resolution-card__value">
+                #{{ r.finalCpCode?.id }}
+                @if (r.finalCpCode?.name) {
+                  <span class="resolution-card__sub">{{ r.finalCpCode?.name }}</span>
+                }
+                @if (r.finalCpCode?.fromPartialMatch) {
+                  <span class="partial-tag">PARTIAL</span>
+                }
+              </div>
+              <div class="resolution-card__source">
+                set by <code>{{ formatRulePath(r.finalCpCode?.contributedBy ?? []) }}</code>
+              </div>
+            } @else {
+              <div class="resolution-card__empty">No CP code set.</div>
+            }
+          </div>
+        </div>
+
+        @if (r.hasPartialMatchInfluence) {
+          <div class="resolution-banner__partial-warning">
+            ⚠ One or more values above were set by a rule with unevaluated criteria
+            (cookie / header / geo / etc.). The actual edge result may differ if those
+            criteria don't match at runtime.
+          </div>
+        }
+      </section>
+    }
+
+    <!-- ── Property + match count summary ─────────────────── -->
+    <section class="property-summary">
+      <span class="property-summary__label">Property</span>
+      <strong>{{ res.property.propertyName }}</strong>
+      <span class="property-summary__muted">({{ res.property.propertyId }} v{{ res.property.version }})</span>
+      <span class="property-summary__separator">·</span>
+      <span class="property-summary__label">Matched</span>
+      <strong>{{ res.matchedRuleCount }}</strong> rule(s)
     </section>
 
-    <!-- Baseline (default-rule extract) -->
+    <!-- ── Default-rule baseline (informational, lower priority) ─ -->
     @if (baseline(); as bl) {
       <section class="akamai-flow__baseline">
-        <header class="baseline__header">Default-rule baseline</header>
+        <header class="baseline__header">Default-rule baseline (root rule's defaults)</header>
 
         <div class="baseline__grid">
           <div class="baseline__group">
@@ -123,7 +203,7 @@
       </section>
     }
 
-    <!-- Disclaimer banner — persistent yellow warning -->
+    <!-- ── Disclaimer banner ─────────────────────────────── -->
     <aside class="akamai-flow__disclaimer">
       <strong>Naive matcher.</strong>
       Evaluates <code>path</code>, <code>hostname</code>, and <code>fileExtension</code> criteria only,
@@ -132,20 +212,74 @@
       <strong>partial</strong> rather than dropped. PAPI's actual edge evaluation may differ.
     </aside>
 
-    <!-- Matched rules list -->
-    <section class="akamai-flow__matches">
-      <header class="matches__header">Matched rules ({{ res.matchedRuleCount }})</header>
+    <!-- ╔══════════════════════════════════════════════════════════╗ -->
+    <!-- ║  Decisive rules — what determined the destination       ║ -->
+    <!-- ╚══════════════════════════════════════════════════════════╝ -->
+    @if (decisiveRules().length > 0) {
+      <section class="rule-section rule-section--decisive">
+        <header class="rule-section__header">
+          <span class="rule-section__icon" aria-hidden="true">🎯</span>
+          <span class="rule-section__title">Decisive rules</span>
+          <span class="rule-section__count">{{ decisiveRules().length }}</span>
+          <span class="rule-section__hint">Rules that set <code>origin</code>, <code>caching</code>, or <code>cpCode</code></span>
+        </header>
+        <div class="rule-section__body">
+          @for (m of decisiveRules(); track $index) {
+            <app-matched-rule
+              [rule]="m"
+              [initiallyExpanded]="$index === 0">
+            </app-matched-rule>
+          }
+        </div>
+      </section>
+    }
 
-      @if (res.matchedRules.length === 0) {
-        <p class="matches__empty">No rules matched. (This is unusual — even the default rule should always match.)</p>
-      } @else {
-        @for (m of res.matchedRules; track $index) {
-          <app-matched-rule
-            [rule]="m"
-            [initiallyExpanded]="$index === 0">
-          </app-matched-rule>
+    <!-- ── Path-specific rules ─────────────────────────────── -->
+    @if (pathSpecificRules().length > 0) {
+      <section class="rule-section rule-section--path-specific"
+               [class.rule-section--collapsed]="!pathSpecificExpanded()">
+        <button type="button" class="rule-section__header rule-section__header--clickable"
+                (click)="togglePathSpecific()">
+          <span class="rule-section__chevron" aria-hidden="true">{{ pathSpecificExpanded() ? '▾' : '▸' }}</span>
+          <span class="rule-section__icon" aria-hidden="true">🛣️</span>
+          <span class="rule-section__title">Path-specific rules</span>
+          <span class="rule-section__count">{{ pathSpecificRules().length }}</span>
+          <span class="rule-section__hint">Rules narrowed by URL <code>path</code> or file extension</span>
+        </button>
+        @if (pathSpecificExpanded()) {
+          <div class="rule-section__body">
+            @for (m of pathSpecificRules(); track $index) {
+              <app-matched-rule [rule]="m"></app-matched-rule>
+            }
+          </div>
         }
-      }
-    </section>
+      </section>
+    }
+
+    <!-- ── Always-on rules ─────────────────────────────────── -->
+    @if (alwaysOnRules().length > 0) {
+      <section class="rule-section rule-section--always-on"
+               [class.rule-section--collapsed]="!alwaysOnExpanded()">
+        <button type="button" class="rule-section__header rule-section__header--clickable"
+                (click)="toggleAlwaysOn()">
+          <span class="rule-section__chevron" aria-hidden="true">{{ alwaysOnExpanded() ? '▾' : '▸' }}</span>
+          <span class="rule-section__icon" aria-hidden="true">🌐</span>
+          <span class="rule-section__title">Always-on rules</span>
+          <span class="rule-section__count">{{ alwaysOnRules().length }}</span>
+          <span class="rule-section__hint">Unconditional or hostname-only — apply to every request</span>
+        </button>
+        @if (alwaysOnExpanded()) {
+          <div class="rule-section__body">
+            @for (m of alwaysOnRules(); track $index) {
+              <app-matched-rule [rule]="m"></app-matched-rule>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    @if (decisiveRules().length === 0 && pathSpecificRules().length === 0 && alwaysOnRules().length === 0) {
+      <p class="rule-section__empty">No rules matched. (This is unusual — even the default rule should always match.)</p>
+    }
   }
 </div>
