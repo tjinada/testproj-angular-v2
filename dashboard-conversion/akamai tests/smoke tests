@@ -19,3 +19,9 @@ curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configu
 # Should at least show "default", and probably few/no others
 
 curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Fbanking%2Fservices%2Fsignin' | jq '.matchedRules[] | select(.matchStatus == "partial") | {rulePath, unevaluatedCriteria}'
+
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2Fwww.olb-qa1.dev.bmo.com%2Fbanking%2Fservlet%2Fsomething' \
+  | jq '.matchedRules[] | {rulePath, matchStatus, unevaluatedCriteria}'
+
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2Fwww.olb-qa1.dev.bmo.com%2Fnetstorage%2Ffoo' \
+| jq '.matchedRules[].ruleName' | grep -i "Separate origins"
