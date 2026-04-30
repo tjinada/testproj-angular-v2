@@ -57,3 +57,8 @@ curl -X POST http://localhost:3000/api/akamai/flow \
 curl -X POST http://localhost:3000/api/akamai/flow \
   -H 'Content-Type: application/json' \
   -d '{"url": "https://nope.example.com/foo"}' | jq
+
+curl -X POST http://localhost:3000/api/akamai/flow \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://www.olb-qa1.dev.bmo.com/banking/services/signin/verifyCredential"}' \
+  | jq '[.matchedRules[] | select(.behaviors[].name == "origin") | {rulePath, matchStatus, originHostname: (.behaviors[] | select(.name == "origin") | .options.hostname)}]'
