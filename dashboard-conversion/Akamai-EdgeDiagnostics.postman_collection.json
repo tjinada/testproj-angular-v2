@@ -1,0 +1,243 @@
+{
+  "info": {
+    "name": "Akamai Edge Diagnostics",
+    "description": "Tests Translate URL (sync) and URL Health Check (async, poll-based) against the Akamai Edge Diagnostics API.\n\nAuth: EdgeGrid v1 — signing is performed at the COLLECTION level via a pre-request script that uses the four variables: akamai_host, akamai_client_token, akamai_client_secret, akamai_access_token.\n\nFill these variables in the collection's Variables tab from your .edgerc file before sending any request. Do not commit real credentials into a saved collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "akamai_host",
+      "value": "akab-xxxxxxxxxxxxxxxx-xxxxxxxxxxxxxxxx.luna.akamaiapis.net",
+      "description": "Host from your .edgerc, no scheme. Example: akab-xxx-xxx.luna.akamaiapis.net"
+    },
+    {
+      "key": "akamai_client_token",
+      "value": "akab-xxxxxxxxxxxxxxxx-xxxxxxxxxxxxxxxx",
+      "description": "client_token from .edgerc"
+    },
+    {
+      "key": "akamai_client_secret",
+      "value": "REPLACE_WITH_CLIENT_SECRET",
+      "description": "client_secret from .edgerc — keep this private"
+    },
+    {
+      "key": "akamai_access_token",
+      "value": "akab-xxxxxxxxxxxxxxxx-xxxxxxxxxxxxxxxx",
+      "description": "access_token from .edgerc"
+    },
+    {
+      "key": "test_url",
+      "value": "https://www.example.com/some/path",
+      "description": "URL to evaluate. Override per-request if you want."
+    },
+    {
+      "key": "url_health_check_request_id",
+      "value": "",
+      "description": "Auto-populated by the URL Health Check 'Submit' request. Used by the 'Poll' request."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// =========================================================",
+          "// Akamai EdgeGrid v1 request signer — collection-level pre-request",
+          "// Reference: Akamai EdgeGrid v1 spec (https://techdocs.akamai.com/developer/docs/authenticate-with-edgegrid)",
+          "// =========================================================",
+          "",
+          "const host         = pm.collectionVariables.get('akamai_host');",
+          "const clientToken  = pm.collectionVariables.get('akamai_client_token');",
+          "const clientSecret = pm.collectionVariables.get('akamai_client_secret');",
+          "const accessToken  = pm.collectionVariables.get('akamai_access_token');",
+          "",
+          "if (!host || !clientToken || !clientSecret || !accessToken) {",
+          "  throw new Error('Akamai EdgeGrid credentials missing — fill akamai_host, akamai_client_token, akamai_client_secret, akamai_access_token in collection variables.');",
+          "}",
+          "",
+          "// --- Build the canonical request that EdgeGrid signs ---",
+          "const method = pm.request.method.toUpperCase();",
+          "",
+          "// Resolve the URL with all variables substituted, then strip scheme+host so we get path?query",
+          "let rawUrl = pm.request.url.toString();",
+          "Object.keys(pm.variables.toObject()).forEach(k => {",
+          "  const re = new RegExp('\\\\{\\\\{' + k + '\\\\}\\\\}', 'g');",
+          "  rawUrl = rawUrl.replace(re, pm.variables.get(k));",
+          "});",
+          "",
+          "// EdgeGrid signs the path-and-query portion only",
+          "let pathAndQuery;",
+          "try {",
+          "  const u = new URL(rawUrl.startsWith('http') ? rawUrl : 'https://' + host + rawUrl.replace(/^\\/?/, '/'));",
+          "  pathAndQuery = u.pathname + (u.search || '');",
+          "} catch (e) {",
+          "  // Fallback: assume rawUrl is already a path",
+          "  pathAndQuery = rawUrl.startsWith('/') ? rawUrl : '/' + rawUrl;",
+          "}",
+          "",
+          "// --- Body (only signed for POST/PUT) ---",
+          "let bodyText = '';",
+          "if (pm.request.body && pm.request.body.raw && (method === 'POST' || method === 'PUT')) {",
+          "  bodyText = pm.request.body.raw;",
+          "  // Substitute variables in the body the same way Postman would when sending",
+          "  Object.keys(pm.variables.toObject()).forEach(k => {",
+          "    const re = new RegExp('\\\\{\\\\{' + k + '\\\\}\\\\}', 'g');",
+          "    bodyText = bodyText.replace(re, pm.variables.get(k));",
+          "  });",
+          "}",
+          "",
+          "// --- Auth header components ---",
+          "const nonce     = (() => {",
+          "  // RFC4122-ish v4 UUID without crypto.randomUUID dependency",
+          "  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {",
+          "    const r = Math.random() * 16 | 0;",
+          "    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);",
+          "  });",
+          "})();",
+          "const timestamp = (() => {",
+          "  // Akamai expects: YYYYMMDDTHH:MM:SS+0000",
+          "  const d = new Date();",
+          "  const pad = n => String(n).padStart(2, '0');",
+          "  return d.getUTCFullYear() +",
+          "         pad(d.getUTCMonth() + 1) +",
+          "         pad(d.getUTCDate()) + 'T' +",
+          "         pad(d.getUTCHours()) + ':' +",
+          "         pad(d.getUTCMinutes()) + ':' +",
+          "         pad(d.getUTCSeconds()) + '+0000';",
+          "})();",
+          "",
+          "// auth-data (everything in Authorization header EXCEPT signature= )",
+          "const authHeader = 'EG1-HMAC-SHA256 ' +",
+          "  'client_token=' + clientToken + ';' +",
+          "  'access_token='  + accessToken  + ';' +",
+          "  'timestamp='     + timestamp    + ';' +",
+          "  'nonce='         + nonce        + ';';",
+          "",
+          "// --- Body hash (POST/PUT only; max 131072 bytes per spec) ---",
+          "let contentHash = '';",
+          "if (bodyText.length > 0 && (method === 'POST' || method === 'PUT')) {",
+          "  const truncated = bodyText.length > 131072 ? bodyText.substring(0, 131072) : bodyText;",
+          "  contentHash = CryptoJS.SHA256(truncated).toString(CryptoJS.enc.Base64);",
+          "}",
+          "",
+          "// --- Data-to-sign per spec ---",
+          "// method \\t scheme \\t host \\t path?query \\t canonicalized-headers \\t content-hash \\t auth-header",
+          "// canonicalized-headers is empty unless you've explicitly listed signed headers — we don't, so leave blank",
+          "const dataToSign = [",
+          "  method,",
+          "  'https',",
+          "  host,",
+          "  pathAndQuery,",
+          "  '',           // canonicalized-headers (none)",
+          "  contentHash,  // body hash, or '' for GET/DELETE",
+          "  authHeader",
+          "].join('\\t');",
+          "",
+          "// --- Signing key = HMAC-SHA256(client_secret, timestamp), base64 ---",
+          "const signingKey = CryptoJS.HmacSHA256(timestamp, clientSecret).toString(CryptoJS.enc.Base64);",
+          "",
+          "// --- Signature = HMAC-SHA256(signingKey, dataToSign), base64 ---",
+          "const signature = CryptoJS.HmacSHA256(dataToSign, signingKey).toString(CryptoJS.enc.Base64);",
+          "",
+          "// --- Final Authorization header ---",
+          "const finalAuth = authHeader + 'signature=' + signature;",
+          "",
+          "// Replace any prior Authorization header on this request",
+          "pm.request.headers.upsert({ key: 'Authorization', value: finalAuth });",
+          "",
+          "// Echo for debugging (remove if noisy)",
+          "console.log('[EdgeGrid] ' + method + ' ' + pathAndQuery + ' (signed)');"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Translate URL (sync)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"url\": \"{{test_url}}\"\n}"
+        },
+        "url": {
+          "raw": "https://{{akamai_host}}/edge-diagnostics/v1/translated-url",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "edge-diagnostics", "v1", "translated-url" ]
+        },
+        "description": "Synchronous. Returns ARL details for the URL: typecode, cache key hostname, CP code, serial number, TTL, origin server, etc.\n\nResponse: 200 with JSON body. No polling."
+      },
+      "response": []
+    },
+    {
+      "name": "2a. URL Health Check — Submit (async)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Capture the request ID returned in the 202 response so the Poll request can use it.",
+              "if (pm.response.code === 202) {",
+              "  let body;",
+              "  try { body = pm.response.json(); } catch (e) { body = {}; }",
+              "  // Akamai async responses typically include a 'requestId' field; some endpoints use 'id'.",
+              "  const id = body.requestId || body.id || '';",
+              "  if (id) {",
+              "    pm.collectionVariables.set('url_health_check_request_id', id);",
+              "    console.log('[URL Health Check] requestId stored: ' + id);",
+              "  } else {",
+              "    console.warn('[URL Health Check] 202 received but no requestId / id field found in body. Inspect the response and update the test script.');",
+              "  }",
+              "} else {",
+              "  console.warn('[URL Health Check] expected 202, got ' + pm.response.code);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"url\": \"{{test_url}}\",\n  \"runFromSiteShieldMap\": false\n}"
+        },
+        "url": {
+          "raw": "https://{{akamai_host}}/edge-diagnostics/v1/url-health-check",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "edge-diagnostics", "v1", "url-health-check" ]
+        },
+        "description": "Asynchronous. Stitches together CURL + DIG + GREP + MTR + Translate URL.\n\nResponse: 202 Accepted with a requestId. Use the '2b. Poll' request next, or expand the body with edgeIp / edgeLocation if you want a specific edge server to run from."
+      },
+      "response": []
+    },
+    {
+      "name": "2b. URL Health Check — Poll",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "https://{{akamai_host}}/edge-diagnostics/v1/url-health-check/{{url_health_check_request_id}}",
+          "protocol": "https",
+          "host": [ "{{akamai_host}}" ],
+          "path": [ "edge-diagnostics", "v1", "url-health-check", "{{url_health_check_request_id}}" ]
+        },
+        "description": "Polls the request submitted by '2a'.\n\nIf the response is 202 — still running, send again.\nIf 200 — results are ready in the body.\n\nNOTE: confirm this exact path and the response field names from your tenant's API behavior on the first run. The Akamai docs sometimes shift between query-param polling and resource-style polling. If GET on this path 404s, try GET https://{{akamai_host}}/edge-diagnostics/v1/url-health-check?requestId={{url_health_check_request_id}}"
+      },
+      "response": []
+    }
+  ]
+}
