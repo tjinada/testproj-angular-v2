@@ -197,9 +197,11 @@ properties (`AKAMAI_PROPERTY_IDS` in `.env`), fetches that property's active
 production rule tree from PAPI, extracts default-rule baseline behaviors
 (origin, cache, CP code), and runs a naive matcher (path + hostname +
 fileExtension criteria, with `*` wildcard support, honoring `criteriaMustSatisfy`)
-to highlight matched rules. The frontend renders a collapsible rule tree with
-matched-rule highlights, plus a yellow disclaimer that this is naive matching,
-not a full PM evaluator.
+to find rules whose criteria match the URL. The frontend renders a flat
+list of matched rules — each is a collapsible card showing its criteria,
+behaviors, and (on click) full options JSON — plus a default-rule baseline
+card and a yellow disclaimer that this is naive matching, not a full PM
+evaluator.
 
 **Auth:** EdgeGrid v1 (host / client_token / client_secret / access_token).
 In container deployments, inject these as env vars from your secrets manager
@@ -235,12 +237,9 @@ present". The full PAPI evaluator is parked as Phase 2.
 - `frontend/src/app/pages/error-analyzer/components/akamai-flow/akamai-flow.component.ts`
 - `frontend/src/app/pages/error-analyzer/components/akamai-flow/akamai-flow.component.html`
 - `frontend/src/app/pages/error-analyzer/components/akamai-flow/akamai-flow.component.scss`
-- `frontend/src/app/pages/error-analyzer/components/akamai-flow/rule-tree/rule-tree.component.ts`
-- `frontend/src/app/pages/error-analyzer/components/akamai-flow/rule-tree/rule-tree.component.html`
-- `frontend/src/app/pages/error-analyzer/components/akamai-flow/rule-tree/rule-tree.component.scss`
-- `frontend/src/app/pages/error-analyzer/components/akamai-flow/behavior-detail-panel/behavior-detail-panel.component.ts`
-- `frontend/src/app/pages/error-analyzer/components/akamai-flow/behavior-detail-panel/behavior-detail-panel.component.html`
-- `frontend/src/app/pages/error-analyzer/components/akamai-flow/behavior-detail-panel/behavior-detail-panel.component.scss`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/matched-rule/matched-rule.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/matched-rule/matched-rule.component.html`
+- `frontend/src/app/pages/error-analyzer/components/akamai-flow/matched-rule/matched-rule.component.scss`
 
 **New backend dependency:**
 Add to `backend/package.json`:

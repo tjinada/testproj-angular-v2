@@ -1,0 +1,330 @@
+// Akamai Flow tab — parent container around the input row, error/loading
+// states, summary card, baseline card, disclaimer banner, and the
+// matched-rule list. Visually consistent with log-search and
+// opensearch-log-search tabs.
+
+.akamai-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  font-size: 13px;
+  color: #111827;
+}
+
+// ── Input row ─────────────────────────────────────────────────────
+
+.akamai-flow__input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.akamai-flow__url-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #111827;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  outline: none;
+
+  &:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  &:disabled {
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+  }
+}
+
+.akamai-flow__submit,
+.akamai-flow__reset {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.akamai-flow__submit {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+
+  &:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+
+  &:disabled {
+    background: #9ca3af;
+    border-color: #9ca3af;
+    cursor: not-allowed;
+  }
+}
+
+.akamai-flow__reset {
+  background: #ffffff;
+  color: #374151;
+  border-color: #d1d5db;
+
+  &:hover {
+    background: #f9fafb;
+  }
+}
+
+// ── Loading ────────────────────────────────────────────────────────
+
+.akamai-flow__loading {
+  padding: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+}
+
+// ── Error states ───────────────────────────────────────────────────
+
+.akamai-flow__error {
+  padding: 12px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 3px solid #dc2626;
+  border-radius: 6px;
+  color: #7f1d1d;
+}
+
+.akamai-flow__error-message {
+  font-weight: 500;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.akamai-flow__error-hint {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #fecaca;
+  font-size: 12px;
+  color: #7f1d1d;
+}
+
+.akamai-flow__hostname-sample {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  list-style: disc;
+
+  li {
+    margin: 2px 0;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: #ffffff;
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: #111827;
+  }
+}
+
+// ── Resolution summary ────────────────────────────────────────────
+
+.akamai-flow__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.summary__line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.summary__label {
+  flex: 0 0 80px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.summary__value {
+  flex: 1 1 auto;
+  font-size: 13px;
+  word-break: break-word;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: #f3f4f6;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+}
+
+.summary__muted {
+  color: #6b7280;
+  margin-left: 6px;
+  font-size: 12px;
+}
+
+// ── Baseline ──────────────────────────────────────────────────────
+
+.akamai-flow__baseline {
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.baseline__header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #374151;
+  margin-bottom: 10px;
+}
+
+.baseline__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.baseline__group {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+.baseline__group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.baseline__dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  row-gap: 4px;
+  font-size: 12px;
+
+  dt {
+    color: #6b7280;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+  }
+
+  dd {
+    margin: 0;
+    color: #111827;
+    word-break: break-all;
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      background: #f3f4f6;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+  }
+}
+
+.baseline__unextracted {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.baseline__unextracted-label {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.baseline__unextracted-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: #f3f4f6;
+  color: #374151;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+// ── Disclaimer banner ─────────────────────────────────────────────
+
+.akamai-flow__disclaimer {
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #78350f;
+  line-height: 1.5;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: #fef3c7;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+}
+
+// ── Matched rules list ────────────────────────────────────────────
+
+.akamai-flow__matches {
+  display: flex;
+  flex-direction: column;
+}
+
+.matches__header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.matches__empty {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-style: italic;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+}

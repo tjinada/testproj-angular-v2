@@ -1,0 +1,283 @@
+// Matched-rule card. Designed to sit in a flat vertical list inside
+// akamai-flow's results container. Visually consistent with existing
+// log-search and opensearch-log-search components: monospace for code/
+// rule data, neutral greys, subtle borders.
+
+.matched-rule {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+
+  &--expanded {
+    border-color: #9ca3af;
+  }
+
+  &--partial {
+    border-left: 3px solid #f59e0b;
+  }
+}
+
+// ── Header (toggles expansion) ────────────────────────────────────
+
+.matched-rule__header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  color: #111827;
+  gap: 10px;
+
+  &:hover {
+    background: #f9fafb;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+  }
+}
+
+.matched-rule__chevron {
+  flex: 0 0 auto;
+  width: 14px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.matched-rule__title-block {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0; // allow ellipsis if children overflow
+  gap: 2px;
+}
+
+.matched-rule__breadcrumb {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.matched-rule__name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.matched-rule__badges {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.matched-rule__counts {
+  font-size: 11px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Status badges ──────────────────────────────────────────────────
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.badge--full {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge--partial {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge--unconditional {
+  background: #e0e7ff;
+  color: #3730a3;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+// ── Body (expanded content) ────────────────────────────────────────
+
+.matched-rule__body {
+  padding: 4px 16px 12px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.matched-rule__section {
+  margin-top: 12px;
+}
+
+.section__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.section__title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.section__must-satisfy {
+  font-size: 11px;
+  color: #6b7280;
+
+  strong {
+    color: #111827;
+    font-weight: 600;
+  }
+}
+
+.section__empty {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+// ── Criteria ───────────────────────────────────────────────────────
+
+.criteria-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.criterion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #111827;
+
+  &--unevaluated {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+}
+
+.criterion__summary {
+  flex: 1 1 auto;
+  word-break: break-all;
+}
+
+.criterion__unevaluated-tag {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+
+// ── Behaviors ──────────────────────────────────────────────────────
+
+.behaviors-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.behavior {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.behavior__row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #111827;
+  gap: 8px;
+
+  &:hover {
+    background: #f9fafb;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+  }
+}
+
+.behavior__chevron {
+  flex: 0 0 auto;
+  width: 12px;
+  color: #6b7280;
+  font-size: 10px;
+}
+
+.behavior__summary {
+  flex: 1 1 auto;
+  word-break: break-all;
+}
+
+.behavior__options {
+  margin: 0;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: #374151;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+}

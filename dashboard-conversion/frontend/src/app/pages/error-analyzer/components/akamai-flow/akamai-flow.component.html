@@ -1,0 +1,151 @@
+<div class="akamai-flow">
+
+  <!-- ── Input row ───────────────────────────────────────────── -->
+  <section class="akamai-flow__input-row">
+    <input
+      type="text"
+      class="akamai-flow__url-input"
+      placeholder="Paste a full URL (e.g. https://www.example.com/banking/foo)"
+      [ngModel]="url()"
+      (ngModelChange)="url.set($event)"
+      (keydown)="onUrlKeydown($event)"
+      [disabled]="loading()"
+      autocomplete="off"
+      spellcheck="false"
+      autocapitalize="off"
+    />
+    <button
+      type="button"
+      class="akamai-flow__submit"
+      (click)="submit()"
+      [disabled]="!canSubmit()">
+      {{ loading() ? 'Resolving…' : 'Submit' }}
+    </button>
+    @if (result() || errorMessage()) {
+      <button
+        type="button"
+        class="akamai-flow__reset"
+        (click)="reset()"
+        title="Clear">
+        Clear
+      </button>
+    }
+  </section>
+
+  <!-- ── Loading spinner ─────────────────────────────────────── -->
+  @if (loading()) {
+    <div class="akamai-flow__loading">Resolving URL against PAPI…</div>
+  }
+
+  <!-- ── Error states ────────────────────────────────────────── -->
+  @if (errorMessage() && !loading()) {
+    <section class="akamai-flow__error">
+      <div class="akamai-flow__error-message">{{ errorMessage() }}</div>
+
+      @if (hostnameErrorBody(); as body) {
+        <div class="akamai-flow__error-hint">
+          <strong>{{ body.configuredHostnameCount }}</strong> hostnames are configured in total. Sample:
+          <ul class="akamai-flow__hostname-sample">
+            @for (h of body.configuredHostnamesSample; track h) {
+              <li><code>{{ h }}</code></li>
+            }
+          </ul>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- ── Results ─────────────────────────────────────────────── -->
+  @if (result(); as res) {
+
+    <!-- Resolution summary -->
+    <section class="akamai-flow__summary">
+      <div class="summary__line">
+        <span class="summary__label">URL</span>
+        <code class="summary__value">{{ res.url }}</code>
+      </div>
+      <div class="summary__line">
+        <span class="summary__label">Property</span>
+        <span class="summary__value">
+          <strong>{{ res.property.propertyName }}</strong>
+          <span class="summary__muted">({{ res.property.propertyId }} v{{ res.property.version }})</span>
+        </span>
+      </div>
+      <div class="summary__line">
+        <span class="summary__label">Matched</span>
+        <span class="summary__value">
+          <strong>{{ res.matchedRuleCount }}</strong> rule(s)
+        </span>
+      </div>
+    </section>
+
+    <!-- Baseline (default-rule extract) -->
+    @if (baseline(); as bl) {
+      <section class="akamai-flow__baseline">
+        <header class="baseline__header">Default-rule baseline</header>
+
+        <div class="baseline__grid">
+          <div class="baseline__group">
+            <div class="baseline__group-title">Origin</div>
+            <dl class="baseline__dl">
+              <dt>hostname</dt><dd><code>{{ display(bl.origin?.hostname) }}</code></dd>
+              <dt>forwardHostHeader</dt><dd>{{ display(bl.origin?.forwardHostHeader) }}</dd>
+              <dt>cacheKeyHostname</dt><dd>{{ display(bl.origin?.cacheKeyHostname) }}</dd>
+              <dt>originType</dt><dd>{{ display(bl.origin?.originType) }}</dd>
+            </dl>
+          </div>
+
+          <div class="baseline__group">
+            <div class="baseline__group-title">Caching</div>
+            <dl class="baseline__dl">
+              <dt>behavior</dt><dd>{{ display(bl.caching?.behavior) }}</dd>
+              <dt>ttl</dt><dd>{{ display(bl.caching?.ttl) }}</dd>
+            </dl>
+          </div>
+
+          <div class="baseline__group">
+            <div class="baseline__group-title">CP code</div>
+            <dl class="baseline__dl">
+              <dt>id</dt><dd>{{ display(bl.cpCode?.id) }}</dd>
+              <dt>name</dt><dd>{{ display(bl.cpCode?.name) }}</dd>
+            </dl>
+          </div>
+        </div>
+
+        @if (res.baselineDiagnostics.unextractedBehaviorNames.length > 0) {
+          <div class="baseline__unextracted">
+            <span class="baseline__unextracted-label">Other default-rule behaviors:</span>
+            @for (n of res.baselineDiagnostics.unextractedBehaviorNames; track n) {
+              <code class="baseline__unextracted-chip">{{ n }}</code>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    <!-- Disclaimer banner — persistent yellow warning -->
+    <aside class="akamai-flow__disclaimer">
+      <strong>Naive matcher.</strong>
+      Evaluates <code>path</code>, <code>hostname</code>, and <code>fileExtension</code> criteria only,
+      with <code>*</code> wildcard support and <code>criteriaMustSatisfy</code> (AND/OR) honored. Rules
+      with <em>cookie</em>, <em>header</em>, <em>geo</em>, or other unsupported criteria are flagged
+      <strong>partial</strong> rather than dropped. PAPI's actual edge evaluation may differ.
+    </aside>
+
+    <!-- Matched rules list -->
+    <section class="akamai-flow__matches">
+      <header class="matches__header">Matched rules ({{ res.matchedRuleCount }})</header>
+
+      @if (res.matchedRules.length === 0) {
+        <p class="matches__empty">No rules matched. (This is unusual — even the default rule should always match.)</p>
+      } @else {
+        @for (m of res.matchedRules; track $index) {
+          <app-matched-rule
+            [rule]="m"
+            [initiallyExpanded]="$index === 0">
+          </app-matched-rule>
+        }
+      }
+    </section>
+  }
+</div>

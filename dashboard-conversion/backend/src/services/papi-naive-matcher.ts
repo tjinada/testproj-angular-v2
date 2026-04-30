@@ -39,8 +39,13 @@ export interface ParsedRequestUrl {
 export type MatchStatus = 'full' | 'partial';
 
 /**
- * A single rule that the URL matched, with its full ancestor path and
- * a list of any criteria that couldn't be evaluated.
+ * A single rule that the URL matched, with its full ancestor path,
+ * the criteria + behaviors that define it, and a list of any criteria
+ * that couldn't be evaluated.
+ *
+ * Carries the full `behaviors` and `criteria` arrays (not just names)
+ * so the frontend can render expand-on-click rule details without
+ * needing a follow-up call to fetch the rule tree.
  */
 export interface MatchedRule {
   /** Rule names from root to this rule, e.g. ["default", "Separate origins for DPs", "Origin for X"]. */
@@ -51,8 +56,14 @@ export interface MatchedRule {
   matchStatus: MatchStatus;
   /** Names of criteria on this rule that we couldn't evaluate (unsupported type or operator). */
   unevaluatedCriteria: string[];
-  /** Names of behaviors defined on this rule (for UI display, not evaluation). */
+  /** Names of behaviors defined on this rule (kept for backward compat / quick chip rendering). */
   behaviorNames: string[];
+  /** Full behaviors array — used by the UI's expand-on-click detail view. */
+  behaviors: AkamaiRuleEntry[];
+  /** Full criteria array — same purpose as behaviors. */
+  criteria: AkamaiRuleEntry[];
+  /** Logical operator between criteria on this rule: "all" (AND) or "any" (OR). Defaults to "all" when unset. */
+  criteriaMustSatisfy: 'all' | 'any';
 }
 
 /** Supported criterion types. Adding a new type means extending evaluateCriterion(). */
@@ -130,7 +141,10 @@ function walk(
     ruleName: rule.name,
     matchStatus: evaluation.status,
     unevaluatedCriteria: evaluation.unevaluatedCriteria,
-    behaviorNames: (rule.behaviors || []).map(b => b.name)
+    behaviorNames: (rule.behaviors || []).map(b => b.name),
+    behaviors: rule.behaviors || [],
+    criteria: rule.criteria || [],
+    criteriaMustSatisfy: rule.criteriaMustSatisfy || 'all'
   });
 
   // Walk children.

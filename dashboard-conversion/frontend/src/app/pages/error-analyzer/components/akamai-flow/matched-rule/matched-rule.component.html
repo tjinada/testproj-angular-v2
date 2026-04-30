@@ -1,0 +1,89 @@
+<div class="matched-rule"
+     [class.matched-rule--expanded]="expanded()"
+     [class.matched-rule--partial]="rule().matchStatus === 'partial'">
+
+  <!-- ── Header (always visible, click to toggle expand) ───────────── -->
+  <button type="button" class="matched-rule__header" (click)="toggleExpanded()">
+    <span class="matched-rule__chevron" aria-hidden="true">{{ expanded() ? '▾' : '▸' }}</span>
+
+    <span class="matched-rule__title-block">
+      @if (ancestorPath()) {
+        <span class="matched-rule__breadcrumb">{{ ancestorPath() }} ›</span>
+      }
+      <span class="matched-rule__name">{{ rule().ruleName }}</span>
+    </span>
+
+    <span class="matched-rule__badges">
+      @if (rule().matchStatus === 'partial') {
+        <span class="badge badge--partial" title="One or more criteria couldn't be evaluated (cookies, headers, geo, etc.)">PARTIAL</span>
+      } @else {
+        <span class="badge badge--full" title="All criteria evaluated cleanly">MATCH</span>
+      }
+      @if (isUnconditional()) {
+        <span class="badge badge--unconditional" title="No criteria — always applies when reached">unconditional</span>
+      }
+      <span class="matched-rule__counts">
+        {{ rule().criteria.length }} criteria · {{ rule().behaviors.length }} behaviors
+      </span>
+    </span>
+  </button>
+
+  <!-- ── Body (expanded only) ──────────────────────────────────── -->
+  @if (expanded()) {
+    <div class="matched-rule__body">
+
+      <!-- ── Criteria ──────────────────────────────────── -->
+      <section class="matched-rule__section">
+        <header class="section__header">
+          <span class="section__title">Criteria</span>
+          @if (rule().criteria.length > 1) {
+            <span class="section__must-satisfy" title="How criteria are combined (AND vs OR)">
+              must satisfy: <strong>{{ mustSatisfyLabel() }}</strong>
+            </span>
+          }
+        </header>
+
+        @if (rule().criteria.length === 0) {
+          <p class="section__empty">No criteria — this rule applies whenever its parent matches.</p>
+        } @else {
+          <ul class="criteria-list">
+            @for (c of rule().criteria; track $index) {
+              <li class="criterion" [class.criterion--unevaluated]="isUnevaluated(c.name)">
+                <span class="criterion__summary">{{ criterionSummary(c) }}</span>
+                @if (isUnevaluated(c.name)) {
+                  <span class="criterion__unevaluated-tag" title="Naive matcher cannot evaluate this criterion type">UNEVALUATED</span>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <!-- ── Behaviors ─────────────────────────────────── -->
+      <section class="matched-rule__section">
+        <header class="section__header">
+          <span class="section__title">Behaviors</span>
+        </header>
+
+        @if (rule().behaviors.length === 0) {
+          <p class="section__empty">No behaviors defined on this rule.</p>
+        } @else {
+          <ul class="behaviors-list">
+            @for (b of rule().behaviors; track $index) {
+              <li class="behavior">
+                <button type="button" class="behavior__row" (click)="toggleBehaviorOptions($index)">
+                  <span class="behavior__chevron" aria-hidden="true">{{ isBehaviorOptionsOpen($index) ? '▾' : '▸' }}</span>
+                  <span class="behavior__summary">{{ behaviorSummary(b) }}</span>
+                </button>
+                @if (isBehaviorOptionsOpen($index)) {
+                  <pre class="behavior__options">{{ formatOptions(b.options) }}</pre>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+    </div>
+  }
+</div>
