@@ -1,4 +1,6 @@
 import EdgeGrid = require('akamai-edgegrid');
+import { extractBaseline, type AkamaiBaseline, type AkamaiBaselineDiagnostics } from './papi-baseline-extractor';
+import { matchUrl, parseRequestUrl, type MatchedRule, type ParsedRequestUrl } from './papi-naive-matcher';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -605,3 +607,115 @@ export const getRuleTree = makeKeyedTtlCache(
   RULE_TREE_TTL_MS,
   'rule-tree'
 );
+
+// ── End-to-end orchestration ────────────────────────────────────────
+
+/**
+ * Result of an end-to-end URL evaluation. Returned by evaluateUrl()
+ * for the success path. Hostname-not-found and parse errors are
+ * communicated via thrown EvaluateUrlError instances so the route
+ * layer can map them to the correct HTTP status.
+ */
+export interface EvaluateUrlResult {
+  /** The original URL string the user submitted. */
+  url: string;
+  /** The parsed components used by the matcher. */
+  parsedUrl: ParsedRequestUrl;
+  /** Identifying metadata for the property the URL resolved to. */
+  property: {
+    propertyId: string;
+    propertyName: string;
+    version: number;
+  };
+  /** Default-rule baseline (origin, caching, cpCode). */
+  baseline: AkamaiBaseline;
+  baselineDiagnostics: AkamaiBaselineDiagnostics;
+  /** All rules that matched the URL (full or partial). */
+  matchedRules: MatchedRule[];
+  matchedRuleCount: number;
+}
+
+/**
+ * Error class for evaluateUrl()'s expected failure modes. Carries an
+ * HTTP-style status the route layer can pass straight to res.status().
+ *
+ * Unexpected errors (e.g. PAPI 5xx, library bugs) propagate as plain
+ * Error instances and route to 500 in the handler.
+ */
+export class EvaluateUrlError extends Error {
+  status: number;
+  details?: Record<string, unknown>;
+  constructor(status: number, message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = 'EvaluateUrlError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
+/**
+ * Full pipeline: parse URL → resolve hostname → fetch rule tree →
+ * extract baseline → run matcher → return structured result.
+ *
+ * This is the single function that backs both POST /api/akamai/flow
+ * (the real endpoint) and GET /_debug/match (the diagnostic). Keeping
+ * one orchestrator means the diagnostic and the real endpoint are
+ * guaranteed to behave identically — if /_debug/match works, /flow
+ * works.
+ *
+ * Throws EvaluateUrlError(400) if the URL is malformed.
+ * Throws EvaluateUrlError(404) if the hostname is not configured on
+ * any monitored property. The error's `details` field contains a
+ * sample of configured hostnames for use in the response body.
+ * Other errors propagate (route layer renders 500).
+ */
+export async function evaluateUrl(urlString: string): Promise<EvaluateUrlResult> {
+  console.log(`[Akamai] evaluateUrl("${urlString}")`);
+
+  const parsed = parseRequestUrl(urlString);
+  if (!parsed) {
+    throw new EvaluateUrlError(
+      400,
+      `Could not parse URL "${urlString}". Provide a full URL including scheme (https://) and host.`,
+      { url: urlString }
+    );
+  }
+
+  const match = await resolveHostname(parsed.hostname);
+  if (!match) {
+    const hostnameMap = await getHostnameMap();
+    const sample = Array.from(hostnameMap.values())
+      .slice(0, 10)
+      .map(m => m.hostname);
+    throw new EvaluateUrlError(
+      404,
+      `Hostname "${parsed.hostname}" is not configured on any monitored property`,
+      {
+        url: urlString,
+        parsedUrl: parsed,
+        configuredHostnameCount: hostnameMap.size,
+        configuredHostnamesSample: sample
+      }
+    );
+  }
+
+  const ruleTree = await getRuleTree(match.propertyId, match.version);
+  const { baseline, diagnostics: baselineDiagnostics } = extractBaseline(ruleTree.rules);
+  const matchedRules = matchUrl(ruleTree.rules, parsed);
+
+  console.log(`[Akamai] evaluateUrl("${urlString}"): ${matchedRules.length} matched rules on ${ruleTree.propertyName} v${ruleTree.version}`);
+
+  return {
+    url: urlString,
+    parsedUrl: parsed,
+    property: {
+      propertyId: ruleTree.propertyId,
+      propertyName: ruleTree.propertyName,
+      version: ruleTree.version
+    },
+    baseline,
+    baselineDiagnostics,
+    matchedRules,
+    matchedRuleCount: matchedRules.length
+  };
+}

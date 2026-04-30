@@ -3,7 +3,9 @@ import {
   listMonitoredProperties,
   getHostnameMap,
   resolveHostname,
-  getRuleTree
+  getRuleTree,
+  evaluateUrl,
+  EvaluateUrlError
 } from '../services/akamai.service';
 import { extractBaseline } from '../services/papi-baseline-extractor';
 import { matchUrl, parseRequestUrl } from '../services/papi-naive-matcher';
@@ -256,17 +258,12 @@ router.get('/_debug/baseline', async (req: Request, res: Response) => {
 /**
  * GET /api/akamai/_debug/match?url=<full-url>
  *
- * The closest preview to what /api/akamai/flow will look like in step 7.
- * Takes a full URL, parses it, resolves the hostname against the
- * monitored property allowlist, fetches the rule tree, runs the naive
- * matcher, and returns matched rules + baseline + parsed URL.
+ * Diagnostic GET version of POST /api/akamai/flow. Same orchestration,
+ * same response shape — only the input mechanism differs (query string
+ * here, JSON body there). Both call evaluateUrl() so they cannot drift.
  *
- * Does NOT include the full rule tree in the response — that's what
- * /_debug/rule-tree is for. This endpoint focuses on what the matcher
- * decided.
- *
- * Use this to validate the matcher's output for real URLs against your
- * configs before any frontend work begins.
+ * Use this endpoint for quick curl testing during development. The
+ * frontend will use POST /flow.
  */
 router.get('/_debug/match', async (req: Request, res: Response) => {
   const url = typeof req.query.url === 'string' ? req.query.url : undefined;
@@ -277,48 +274,60 @@ router.get('/_debug/match', async (req: Request, res: Response) => {
   }
 
   try {
-    const parsed = parseRequestUrl(url);
-    if (!parsed) {
-      return res.status(400).json({
-        error: `Could not parse URL "${url}". Provide a full URL including scheme (https://) and host.`,
-        url
-      });
-    }
-
-    const match = await resolveHostname(parsed.hostname);
-    if (!match) {
-      const hostnameMap = await getHostnameMap();
-      const sample = Array.from(hostnameMap.values())
-        .slice(0, 10)
-        .map(m => m.hostname);
-      return res.status(404).json({
-        error: `Hostname "${parsed.hostname}" is not configured on any monitored property`,
-        url,
-        parsedUrl: parsed,
-        configuredHostnameCount: hostnameMap.size,
-        configuredHostnamesSample: sample
-      });
-    }
-
-    const ruleTree = await getRuleTree(match.propertyId, match.version);
-    const { baseline, diagnostics: baselineDiagnostics } = extractBaseline(ruleTree.rules);
-    const matchedRules = matchUrl(ruleTree.rules, parsed);
-
-    res.json({
-      url,
-      parsedUrl: parsed,
-      property: {
-        propertyId: ruleTree.propertyId,
-        propertyName: ruleTree.propertyName,
-        version: ruleTree.version
-      },
-      baseline,
-      baselineDiagnostics,
-      matchedRules,
-      matchedRuleCount: matchedRules.length
-    });
+    const result = await evaluateUrl(url);
+    res.json(result);
   } catch (error: any) {
+    if (error instanceof EvaluateUrlError) {
+      return res.status(error.status).json({
+        error: error.message,
+        ...(error.details || {})
+      });
+    }
     console.error(`[Akamai/route] _debug/match failed: ${error.message}`);
+    res.status(500).json({ error: error.message || 'Failed to evaluate URL' });
+  }
+});
+
+/**
+ * POST /api/akamai/flow
+ * Body: { url: string }
+ *
+ * The real endpoint the frontend calls. Pastes-URL-and-shows-result
+ * pipeline:
+ *   1. parse the URL
+ *   2. resolve hostname against the monitored property allowlist
+ *   3. fetch the property's active production rule tree (cached)
+ *   4. extract default-rule baseline (origin, caching, cpCode)
+ *   5. run the naive matcher to find rules whose criteria match the URL
+ *   6. return everything in one structured payload
+ *
+ * Errors:
+ *   400 — url missing or malformed
+ *   404 — hostname not configured on any monitored property (response
+ *         includes a sample of configured hostnames)
+ *   500 — PAPI failure or unexpected error
+ *
+ * Identical orchestration to GET /_debug/match — both call evaluateUrl().
+ */
+router.post('/flow', async (req: Request, res: Response) => {
+  const url = req.body && typeof req.body.url === 'string' ? req.body.url : undefined;
+  console.log(`[Akamai/route] POST /api/akamai/flow (url=${url ? '"' + url + '"' : 'missing'})`);
+
+  if (!url) {
+    return res.status(400).json({ error: 'Request body must include url (full URL with scheme + host)' });
+  }
+
+  try {
+    const result = await evaluateUrl(url);
+    res.json(result);
+  } catch (error: any) {
+    if (error instanceof EvaluateUrlError) {
+      return res.status(error.status).json({
+        error: error.message,
+        ...(error.details || {})
+      });
+    }
+    console.error(`[Akamai/route] /flow failed: ${error.message}`);
     res.status(500).json({ error: error.message || 'Failed to evaluate URL' });
   }
 });

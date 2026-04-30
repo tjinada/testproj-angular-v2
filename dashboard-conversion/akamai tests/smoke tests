@@ -12,7 +12,7 @@ curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configu
 # So a /netstorage/* URL should NOT show "Separate origins for DPs" in matchedRules
 curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Fnetstorage%2Ffoo' | jq '.matchedRules[].ruleName' | grep -i "Separate origins" 
 # Should return nothing (no match for that rule)
-
+1111
 # A path that doesn't match any specific rule should still hit "default"
 # but no children
 curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2F<a-configured-hostname>%2Frandom%2Fpath%2Fdoes-not-exist' | jq '.matchedRules[].ruleName'
@@ -25,3 +25,35 @@ curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2Fwww.olb-qa
 
 curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2Fwww.olb-qa1.dev.bmo.com%2Fnetstorage%2Ffoo' \
 | jq '.matchedRules[].ruleName' | grep -i "Separate origins"
+
+============
+
+
+curl http://localhost:3000/api/akamai/_debug/properties | jq '.count'
+
+# 2. Hostnames build correctly
+curl http://localhost:3000/api/akamai/_debug/hostnames | jq '.count'
+
+# 3. /_debug/match still works (was already verified)
+curl 'http://localhost:3000/api/akamai/_debug/match?url=https%3A%2F%2Fwww.olb-qa1.dev.bmo.com%2Fbanking%2Fservlet%2Fsomething' | jq '.matchedRuleCount'
+
+# 4. /flow works — the new endpoint
+curl -X POST http://localhost:3000/api/akamai/flow \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://www.olb-qa1.dev.bmo.com/banking/servlet/something"}' | jq '.matchedRuleCount'
+# Should return the same number as #3.
+
+# 5. Error paths
+curl -X POST http://localhost:3000/api/akamai/flow \
+  -H 'Content-Type: application/json' \
+  -d '{}' | jq
+# → 400, "Request body must include url"
+
+curl -X POST http://localhost:3000/api/akamai/flow \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "not-a-url"}' | jq
+# → 400, "Could not parse URL ..."
+
+curl -X POST http://localhost:3000/api/akamai/flow \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://nope.example.com/foo"}' | jq
