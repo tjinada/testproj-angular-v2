@@ -1,0 +1,119 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="LaunchDarkly Flow">
+    <mxGraphModel dx="1200" dy="800" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ── LaunchDarkly Cloud ── -->
+        <mxCell id="2" value="&lt;b&gt;LaunchDarkly Cloud&lt;/b&gt;&lt;br&gt;Stores flag rules&lt;br&gt;Receives usage events" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="440" y="40" width="200" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- ── Your App boundary ── -->
+        <mxCell id="3" value="Your App  (runs on your servers)" style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#aaaaaa;fontStyle=2;fontSize=11;fontFamily=Arial;align=left;verticalAlign=top;dashed=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="200" y="180" width="560" height="300" as="geometry"/>
+        </mxCell>
+
+        <!-- ── App Logic ── -->
+        <mxCell id="4" value="&lt;b&gt;App Logic&lt;/b&gt;&lt;br&gt;Calls variation()&lt;br&gt;Receives true / false&lt;br&gt;Renders feature or old UI" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="230" y="230" width="190" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- ── SDK ── -->
+        <mxCell id="5" value="&lt;b&gt;SDK&lt;/b&gt;&lt;br&gt;Rules cached in memory&lt;br&gt;Evaluates flags locally&lt;br&gt;Queues events&lt;br&gt;&lt;i&gt;(no network call per user)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d6b656;fontFamily=Arial;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="540" y="230" width="190" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- ── User ── -->
+        <mxCell id="6" value="&lt;b&gt;User&lt;/b&gt;&lt;br&gt;Logs into app" style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="235" width="130" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ── Key note box ── -->
+        <mxCell id="7" value="&lt;b&gt;⚡ Evaluation never leaves your app&lt;/b&gt;&lt;br&gt;variation() is a local memory lookup — under 1ms, zero calls to LaunchDarkly per user.&lt;br&gt;LaunchDarkly only gets small event batches (flag key + result). No financial data ever sent." style="rounded=1;whiteSpace=wrap;fillColor=#fffacd;strokeColor=#d6b656;fontFamily=Arial;fontSize=11;align=center;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="520" width="560" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- ══════════════════════════════════
+             ARROWS
+        ══════════════════════════════════ -->
+
+        <!-- 1. SDK → LD : SDK key on startup (OUT) -->
+        <mxCell id="10" value="→ OUT (startup)&lt;br&gt;SDK key (auth only)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#c0392b;fontColor=#c0392b;fontFamily=Arial;fontSize=10;align=center;endArrow=block;endFill=1;" edge="1" source="5" target="2" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="635" y="160"/>
+              <mxPoint x="560" y="160"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2. LD → SDK : flag rules downloaded (IN) -->
+        <mxCell id="11" value="← IN (startup)&lt;br&gt;All flag rules → cached in RAM" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#00875a;fontColor=#00875a;fontFamily=Arial;fontSize=10;align=center;endArrow=block;endFill=1;" edge="1" source="2" target="5" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="520" y="160"/>
+              <mxPoint x="490" y="160"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3. User → App : logs in -->
+        <mxCell id="12" value="logs in" style="strokeColor=#6554c0;fontColor=#6554c0;fontFamily=Arial;fontSize=10;endArrow=block;endFill=1;" edge="1" source="6" target="4" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 4. App → SDK : variation() -->
+        <mxCell id="13" value="variation()" style="strokeColor=#e67e00;fontColor=#e67e00;fontFamily=Arial;fontSize=10;endArrow=block;endFill=1;" edge="1" source="4" target="5" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="420" y="255"/>
+              <mxPoint x="540" y="255"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5. SDK → App : true / false -->
+        <mxCell id="14" value="true / false" style="strokeColor=#e67e00;fontColor=#e67e00;fontFamily=Arial;fontSize=10;endArrow=block;endFill=1;" edge="1" source="5" target="4" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="540" y="285"/>
+              <mxPoint x="420" y="285"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6. App → User : feature shown -->
+        <mxCell id="15" value="feature shown" style="strokeColor=#6554c0;fontColor=#6554c0;fontFamily=Arial;fontSize=10;endArrow=block;endFill=1;" edge="1" source="4" target="6" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 7. SDK → LD : events every 5s (OUT) -->
+        <mxCell id="16" value="→ OUT (every 5s)&lt;br&gt;{ flag, userKey, result }" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#c0392b;fontColor=#c0392b;fontFamily=Arial;fontSize=10;align=center;endArrow=block;endFill=1;" edge="1" source="5" target="2" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="280"/>
+              <mxPoint x="820" y="280"/>
+              <mxPoint x="820" y="75"/>
+              <mxPoint x="640" y="75"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 8. LD → App : real-time rule updates (IN) -->
+        <mxCell id="17" value="← IN (real-time)&lt;br&gt;Rule changes pushed live" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#0052cc;fontColor=#0052cc;fontFamily=Arial;fontSize=10;align=center;endArrow=block;endFill=1;" edge="1" source="2" target="4" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="440" y="75"/>
+              <mxPoint x="120" y="75"/>
+              <mxPoint x="120" y="265"/>
+              <mxPoint x="230" y="265"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
