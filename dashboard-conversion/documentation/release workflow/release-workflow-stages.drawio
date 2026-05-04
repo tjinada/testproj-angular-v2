@@ -1,0 +1,137 @@
+<mxfile host="app.diagrams.net" modified="2026-05-04T00:00:00.000Z" agent="Claude" version="24.0.0">
+  <diagram name="Release Workflow Stages" id="release-workflow-stages">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Release Sheriff Workflow — Stages" style="text;html=1;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="450" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Hard gates between stages (solid). Stage 6 runs in parallel with 4 and 5 (dashed)." style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontColor=#666666;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="150" y="50" width="550" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage1" value="&lt;b&gt;Stage 1 — Intake &amp;amp; Setup&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Release Confluence page, env allocation, fix version, intake tool entry, branch onboarding to Env Matrix&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="100" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage2" value="&lt;b&gt;Stage 2 — Branching &amp;amp; Configs (T-14)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Create CDB UI Configs branch, email ADMs, open master JIRA &amp;quot;CDB UI Configs - RXX&amp;quot;, run Configs Report&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="220" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage3" value="&lt;b&gt;Stage 3 — Build Stabilization (T-7)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Platform QA go/no-go, disable Sealights, run Automated Build Pipeline, generate clean QA builds&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="340" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage4" value="&lt;b&gt;Stage 4 — Mobile Build &amp;amp; Distribution (T-5 to T-4)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;package.json version, run Blue/Green/Prod mobile pipelines, upload to TestFlight + Playstore, share build links&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="460" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage5" value="&lt;b&gt;Stage 5 — WAR Promotion (T-4 to T-3)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Promote WAR via Azure pipeline (definitionId=8398)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="580" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage6" value="&lt;b&gt;Stage 6 — Documentation Prep&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Draft Pre-PROD + PROD delivery letters, close JIRA subtasks for UI Configs (parallel to Stages 4 &amp;amp; 5)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;verticalAlign=middle;align=center;arcSize=12;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="620" y="520" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage7" value="&lt;b&gt;Stage 7 — Pre-PROD Deployment&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Deploy configs to WEM servers, validate 3-4 passes, technical validation per CDB Release runbook&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="700" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage8" value="&lt;b&gt;Stage 8 — PROD Deployment&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Repeat config/WAR verification, technical validation, coordinate traffic switch per PROD delivery letter&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="820" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage9" value="&lt;b&gt;Stage 9 — Post-Go-Live&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Update F26 Deployments page, retrofit branches → master (CDB UI, Configs, Freddy), tag repos&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="940" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stage10" value="&lt;b&gt;Stage 10 — Post Mobile App Release&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Upload PROD dSYM files to Firebase Console&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1060" width="290" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="gate1to2" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage1" target="stage2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gate2to3" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage2" target="stage3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gate3to4" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="stage4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gate4to5" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="stage5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gate5to7" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage5" target="stage7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gate7to8" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage7" target="stage8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gate8to9" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage8" target="stage9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gate9to10" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage9" target="stage10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="parallel-from3" value="parallel start" style="endArrow=classic;html=1;rounded=0;strokeColor=#D79B00;strokeWidth=2;dashed=1;dashPattern=8 4;fontSize=10;fontColor=#B46E00;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="stage6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="380" />
+              <mxPoint x="600" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="parallel-to7" value="must close before Stage 7" style="endArrow=classic;html=1;rounded=0;strokeColor=#D79B00;strokeWidth=2;dashed=1;dashPattern=8 4;fontSize=10;fontColor=#B46E00;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage6" target="stage7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="560" />
+              <mxPoint x="600" y="740" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#cccccc;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1180" width="730" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="&lt;b&gt;Legend&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="1190" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-stage" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="75" y="1215" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-stage-label" value="Sequential stage" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1215" width="120" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;arcSize=12;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="230" y="1215" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel-label" value="Parallel stage" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="255" y="1215" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-hard-line" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="365" y="1225" as="sourcePoint" />
+            <mxPoint x="415" y="1225" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-hard-label" value="Hard gate" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="425" y="1215" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel-line" style="endArrow=classic;html=1;rounded=0;strokeColor=#D79B00;strokeWidth=2;dashed=1;dashPattern=8 4;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="510" y="1225" as="sourcePoint" />
+            <mxPoint x="560" y="1225" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-parallel-line-label" value="Parallel branch" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="570" y="1215" width="120" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
