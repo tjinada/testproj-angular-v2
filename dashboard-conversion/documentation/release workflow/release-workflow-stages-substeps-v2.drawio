@@ -1,0 +1,301 @@
+<mxfile host="app.diagrams.net" modified="2026-05-04T00:00:00.000Z" agent="Claude" version="24.0.0">
+  <diagram name="Release Workflow Stages with Sub-steps" id="release-workflow-stages-substeps">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="2400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Release Sheriff Workflow — Stages with Sub-steps" style="text;html=1;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Hard gates between stages (solid). Stage 6 runs in parallel with 4 and 5 (dashed). Sub-steps fan right from each stage." style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontColor=#666666;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="350" y="50" width="700" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- =================== STAGE 1 =================== -->
+        <mxCell id="stage1" value="&lt;b&gt;Stage 1 — Intake &amp;amp; Setup&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Release Confluence page, env allocation, fix version, intake tool entry, branch onboarding to Env Matrix&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="100" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s1_1" value="Add Release Confluence page link" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="40" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s1_2" value="Confirm env allocation (Self Serve link)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="90" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s1_3" value="Create Fix Version in JIRA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="140" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s1_4" value="Add Intake Checklist Page ID in Admin Portal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="190" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s1_5" value="Raise PR to onboard branch on Env Matrix" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="240" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s1_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage1" target="s1_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s1_2" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage1" target="s1_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s1_3" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage1" target="s1_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s1_4" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage1" target="s1_4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s1_5" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage1" target="s1_5"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 2 =================== -->
+        <mxCell id="stage2" value="&lt;b&gt;Stage 2 — Branching &amp;amp; Configs (T-14)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Create CDB UI Configs branch, email ADMs, open master JIRA &amp;quot;CDB UI Configs - RXX&amp;quot;, run Configs Report&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="320" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s2_1" value="Create CDB UI Configs branch off master" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="290" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s2_2" value="Email ADMs/devs from Scope Intake" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="335" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s2_3" value="Open master JIRA &quot;CDB UI Configs - RXX&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="380" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s2_4" value="Add subtasks per DA team" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="425" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s2_5" value="Run CDB_Release_Configs_Report in QA Signoff env" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="470" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s2_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage2" target="s2_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s2_2" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage2" target="s2_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s2_3" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage2" target="s2_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s2_4" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage2" target="s2_4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s2_5" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage2" target="s2_5"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 3 =================== -->
+        <mxCell id="stage3" value="&lt;b&gt;Stage 3 — Build Stabilization (T-7)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Platform QA go/no-go, disable Sealights, run Automated Build Pipeline, generate clean QA builds&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="560" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s3_1" value="Coordinate with Platform QA on stable commit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="540" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s3_2" value="Disable Sealights via config PR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="585" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s3_3" value="Run Automated Build Pipeline post-toggle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="630" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s3_4" value="Confirm clean QA deployment builds generated" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="675" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s3_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="s3_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s3_2" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="s3_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s3_3" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="s3_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s3_4" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="s3_4"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 4 =================== -->
+        <mxCell id="stage4" value="&lt;b&gt;Stage 4 — Mobile Build &amp;amp; Distribution (T-5 to T-4)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;package.json version, run Blue/Green/Prod mobile pipelines, upload to TestFlight + Playstore, share build links&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="780" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_1" value="Confirm package.json version (PROD 0/3/6, Blue 1/4/7, Green 2/5/8)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="740" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_2" value="Update Mobile App Versions Table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="795" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_3" value="Run CDB_PROD_Blue_Mobile_Build_Publish" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="840" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_4" value="Run CDB_PROD_Green_Mobile_Build_Publish" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="885" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_5" value="Run CDB_PROD_Mobile_Build_Publish" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="930" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_6" value="Upload iOS Pre-PROD → TestFlight" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="975" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_7" value="Share Android Pre-PROD build path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1020" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_8" value="Distribute PROD Android + iOS builds" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1065" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s4_9" value="Share Mobile App Build Links with Release Mgmt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1110" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s4_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_2" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_3" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_4" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_5" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_6" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_7" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_8" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_8"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s4_9" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="s4_9"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 5 =================== -->
+        <mxCell id="stage5" value="&lt;b&gt;Stage 5 — WAR Promotion (T-4 to T-3)&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Promote WAR via Azure pipeline (definitionId=8398)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1200" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s5_1" value="Promote WAR via Azure pipeline (definitionId=8398)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1220" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s5_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage5" target="s5_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 6 (parallel) =================== -->
+        <mxCell id="stage6" value="&lt;b&gt;Stage 6 — Documentation Prep&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Draft Pre-PROD + PROD delivery letters, close JIRA subtasks for UI Configs (parallel to Stages 4 &amp;amp; 5)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;verticalAlign=middle;align=center;arcSize=12;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="990" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s6_1" value="Draft Pre-PROD delivery letter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff5e6;strokeColor=#e5b56b;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="950" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s6_2" value="Draft PROD delivery letter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff5e6;strokeColor=#e5b56b;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="1000" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s6_3" value="Close JIRA subtasks + master ticket for UI Configs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff5e6;strokeColor=#e5b56b;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="1050" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s6_1" style="endArrow=none;html=1;rounded=0;strokeColor=#e5b56b;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage6" target="s6_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s6_2" style="endArrow=none;html=1;rounded=0;strokeColor=#e5b56b;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage6" target="s6_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s6_3" style="endArrow=none;html=1;rounded=0;strokeColor=#e5b56b;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage6" target="s6_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 7 =================== -->
+        <mxCell id="stage7" value="&lt;b&gt;Stage 7 — Pre-PROD Deployment&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Deploy configs to WEM servers, validate 3-4 passes, technical validation per CDB Release runbook&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1380" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s7_1" value="Deploy configs to PROD WEM server" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1360" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s7_2" value="Validate 3-4 passes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1405" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s7_3" value="Execute technical validation per CDB Release runbook" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1450" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s7_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage7" target="s7_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s7_2" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage7" target="s7_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s7_3" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage7" target="s7_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 8 =================== -->
+        <mxCell id="stage8" value="&lt;b&gt;Stage 8 — PROD Deployment&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Repeat config/WAR verification, technical validation, coordinate traffic switch per PROD delivery letter&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1560" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s8_1" value="Repeat config/WAR verification" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1540" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s8_2" value="Execute technical validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1585" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s8_3" value="Coordinate traffic switch per PROD delivery letter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1630" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s8_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage8" target="s8_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s8_2" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage8" target="s8_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s8_3" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage8" target="s8_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 9 =================== -->
+        <mxCell id="stage9" value="&lt;b&gt;Stage 9 — Post-Go-Live&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Update F26 Deployments page, retrofit branches → master (CDB UI, Configs, Freddy), tag repos&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1740" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s9_1" value="Update build versions on F26 Deployments page" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1700" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s9_2" value="Retrofit CDB UI release branch → master" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1745" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s9_3" value="Retrofit CDB Configs release branch → master" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1790" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s9_4" value="Retrofit Freddy release branch → master" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1835" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="s9_5" value="Tag repos (CDB, CDB_configs, Freddy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1880" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s9_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage9" target="s9_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s9_2" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage9" target="s9_2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s9_3" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage9" target="s9_3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s9_4" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage9" target="s9_4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_s9_5" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage9" target="s9_5"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== STAGE 10 =================== -->
+        <mxCell id="stage10" value="&lt;b&gt;Stage 10 — Post Mobile App Release&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#444444&quot;&gt;Upload PROD dSYM files to Firebase Console&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1960" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s10_1" value="Upload PROD dSYM files to Firebase Console" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;fontSize=11;verticalAlign=middle;align=center;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="1980" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s10_1" style="endArrow=none;html=1;rounded=0;strokeColor=#9bb8d9;strokeWidth=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage10" target="s10_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== HARD GATES =================== -->
+        <mxCell id="gate1to2" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage1" target="stage2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="gate2to3" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage2" target="stage3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="gate3to4" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="stage4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="gate4to5" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage4" target="stage5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="gate5to7" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage5" target="stage7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="gate7to8" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage7" target="stage8"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="gate8to9" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage8" target="stage9"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="gate9to10" value="hard gate" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;fontSize=10;fontColor=#2F5B7C;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage9" target="stage10"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- =================== PARALLEL BRANCH (Stage 6) =================== -->
+        <mxCell id="parallel-from3" value="parallel start" style="endArrow=classic;html=1;rounded=0;strokeColor=#D79B00;strokeWidth=2;dashed=1;dashPattern=8 4;fontSize=10;fontColor=#B46E00;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage3" target="stage6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="980" y="600" />
+              <mxPoint x="980" y="1030" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="parallel-to7" value="must close before Stage 7" style="endArrow=classic;html=1;rounded=0;strokeColor=#D79B00;strokeWidth=2;dashed=1;dashPattern=8 4;fontSize=10;fontColor=#B46E00;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="stage6" target="stage7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="980" y="1030" />
+              <mxPoint x="980" y="1420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- =================== LEGEND =================== -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#cccccc;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="2080" width="1100" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="&lt;b&gt;Legend&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="2090" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-stage" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="75" y="2120" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-stage-label" value="Sequential stage" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="2120" width="120" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-substep" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f9ff;strokeColor=#9bb8d9;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="230" y="2120" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-substep-label" value="Sub-step" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="255" y="2120" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;arcSize=12;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="345" y="2120" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel-label" value="Parallel stage" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="370" y="2120" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel-substep" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff5e6;strokeColor=#e5b56b;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="480" y="2120" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel-substep-label" value="Parallel sub-step" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="505" y="2120" width="120" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-hard-line" style="endArrow=classic;html=1;rounded=0;strokeColor=#2F5B7C;strokeWidth=2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="635" y="2130" as="sourcePoint" />
+            <mxPoint x="685" y="2130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-hard-label" value="Hard gate" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="695" y="2120" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-parallel-line" style="endArrow=classic;html=1;rounded=0;strokeColor=#D79B00;strokeWidth=2;dashed=1;dashPattern=8 4;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="785" y="2130" as="sourcePoint" />
+            <mxPoint x="835" y="2130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-parallel-line-label" value="Parallel branch" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="845" y="2120" width="120" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
