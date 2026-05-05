@@ -21,7 +21,7 @@
       [disabled]="!canSubmit()">
       {{ loading() ? 'Tracing…' : 'Trace' }}
     </button>
-    @if (result() || errorMessage()) {
+    @if (result() || errorMessage() || url() || headersText()) {
       <button
         type="button"
         class="url-trace__reset"
@@ -29,6 +29,53 @@
         title="Clear">
         Clear
       </button>
+    }
+  </section>
+
+  <!-- ── Headers section (collapsed by default) ──────────────── -->
+  <section class="url-trace__headers-section">
+    <button
+      type="button"
+      class="url-trace__headers-toggle"
+      (click)="toggleHeaders()">
+      <span class="url-trace__headers-toggle-caret" [class.is-expanded]="headersExpanded()">▸</span>
+      Headers &amp; cookies
+      @if (parsedHeaderCount() > 0) {
+        <span class="url-trace__headers-count">{{ parsedHeaderCount() }}</span>
+      }
+    </button>
+
+    @if (headersExpanded()) {
+      <div class="url-trace__headers-body">
+        <textarea
+          class="url-trace__headers-input"
+          rows="6"
+          placeholder="One header per line. Examples:&#10;x_bmo_csg: true&#10;Authorization: Bearer eyJhbGciOi...&#10;Cookie: JSESSIONID=abc; theme=dark&#10;# lines starting with # are ignored"
+          [ngModel]="headersText()"
+          (ngModelChange)="headersText.set($event)"
+          (keydown)="onHeadersKeydown($event)"
+          [disabled]="loading()"
+          autocomplete="off"
+          spellcheck="false"
+          autocapitalize="off"
+        ></textarea>
+
+        @if (headerParseErrors().length > 0) {
+          <div class="url-trace__headers-errors">
+            <div class="url-trace__headers-errors-title">Could not parse:</div>
+            <ul>
+              @for (err of headerParseErrors(); track err) {
+                <li>{{ err }}</li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="url-trace__headers-hint">
+          Headers are forwarded on every hop, including across host changes.
+          Cookies go in a single <code>Cookie:</code> header.
+        </div>
+      </div>
     }
   </section>
 

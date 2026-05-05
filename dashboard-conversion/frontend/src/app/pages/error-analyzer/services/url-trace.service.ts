@@ -21,8 +21,11 @@ export class UrlTraceService {
   private readonly http = inject(HttpClient);
   private readonly flowUrl = '/api/url-trace/flow';
 
-  trace(url: string): Observable<UrlTraceResponse> {
+  trace(url: string, headers?: Record<string, string>): Observable<UrlTraceResponse> {
     const body: UrlTraceRequest = { url };
+    if (headers && Object.keys(headers).length > 0) {
+      body.headers = headers;
+    }
     return this.http.post<UrlTraceResponse>(this.flowUrl, body);
   }
 }

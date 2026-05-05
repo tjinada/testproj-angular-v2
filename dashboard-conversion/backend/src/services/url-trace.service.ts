@@ -18,6 +18,17 @@ const MAX_REDIRECTS = 10;
 const REQUEST_TIMEOUT_MS = 10000;
 
 /**
+ * Headers that axios sets/manages itself. Stripping these from
+ * caller-provided overrides avoids surprises (e.g. Content-Length
+ * mismatches when the user pastes headers from a previous request).
+ */
+const RESERVED_HEADER_NAMES = new Set([
+  'host',
+  'content-length',
+  'connection'
+]);
+
+/**
  * Follows the HTTP redirect chain for a URL and returns each hop.
  * Tries HEAD first; falls back to GET on the same hop if the server
  * rejects HEAD with 405 or 501.
@@ -25,17 +36,28 @@ const REQUEST_TIMEOUT_MS = 10000;
  * `proxy: false` is set on every request so traffic goes direct (matches
  * the OpenSearch service pattern — corporate proxies otherwise interfere
  * with redirect inspection).
+ *
+ * Caller-provided headers (including any Cookie header) are forwarded on
+ * every hop verbatim. This is intentional for a debugging tool: the user
+ * is tracing what *their* request would do, so we don't want to silently
+ * strip headers across cross-host redirects. If the user wants different
+ * headers per hop, they can run multiple traces.
  */
-export async function traceUrl(originalUrl: string): Promise<UrlTraceResult> {
+export async function traceUrl(
+  originalUrl: string,
+  headers: Record<string, string> = {}
+): Promise<UrlTraceResult> {
   const hops: RedirectHop[] = [];
   let currentUrl = originalUrl;
   let error: string | null = null;
+
+  const sanitizedHeaders = sanitizeHeaders(headers);
 
   for (let i = 0; i < MAX_REDIRECTS; i++) {
     let response: AxiosResponse;
 
     try {
-      response = await requestHopWithFallback(currentUrl);
+      response = await requestHopWithFallback(currentUrl, sanitizedHeaders);
     } catch (err: any) {
       error = formatNetworkError(err, currentUrl);
       break;
@@ -78,15 +100,33 @@ export async function traceUrl(originalUrl: string): Promise<UrlTraceResult> {
 }
 
 /**
+ * Drops headers axios manages itself (Host, Content-Length, Connection).
+ * Returns a fresh object — never mutates the caller's input.
+ */
+function sanitizeHeaders(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (RESERVED_HEADER_NAMES.has(name.toLowerCase())) continue;
+    if (typeof value !== 'string') continue;
+    out[name] = value;
+  }
+  return out;
+}
+
+/**
  * Attempts HEAD first; if the server rejects HEAD (405 / 501), retries the
  * same URL with GET. Avoids downloading response bodies on most hops.
  */
-async function requestHopWithFallback(url: string): Promise<AxiosResponse> {
+async function requestHopWithFallback(
+  url: string,
+  headers: Record<string, string>
+): Promise<AxiosResponse> {
   const config = {
     maxRedirects: 0,
     validateStatus: () => true, // we inspect 3xx/4xx/5xx ourselves
     timeout: REQUEST_TIMEOUT_MS,
-    proxy: false as const
+    proxy: false as const,
+    headers
   };
 
   const headResponse = await axios.head(url, config);

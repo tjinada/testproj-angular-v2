@@ -11,6 +11,13 @@
 
 export interface UrlTraceRequest {
   url: string;
+  /**
+   * Optional headers forwarded on every hop. Cookies go in here too as
+   * a `Cookie` header (e.g. { Cookie: "JSESSIONID=abc; theme=dark" }).
+   * Keys are case-insensitive at the HTTP level but the server preserves
+   * the casing the user typed.
+   */
+  headers?: Record<string, string>;
 }
 
 // ── Hop ──────────────────────────────────────────────────────────────
@@ -50,4 +57,49 @@ export interface UrlTraceResponse {
 
 export interface UrlTraceError {
   error: string;
+}
+
+// ── Header parsing ──────────────────────────────────────────────────
+
+/**
+ * Parses a textarea blob into a header map. Each line is `Name: Value`.
+ * Blank lines and `#`-prefixed lines are ignored. Returns the parsed
+ * map and any per-line errors (so the UI can show "line 3: missing colon").
+ */
+export interface ParsedHeaders {
+  headers: Record<string, string>;
+  errors: string[];
+}
+
+export function parseHeaderBlob(raw: string): ParsedHeaders {
+  const headers: Record<string, string> = {};
+  const errors: string[] = [];
+
+  if (!raw || raw.trim() === '') {
+    return { headers, errors };
+  }
+
+  const lines = raw.split(/\r?\n/);
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#')) return;
+
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx <= 0) {
+      errors.push(`Line ${idx + 1}: expected "Name: Value"`);
+      return;
+    }
+
+    const name = trimmed.slice(0, colonIdx).trim();
+    const value = trimmed.slice(colonIdx + 1).trim();
+
+    if (name === '') {
+      errors.push(`Line ${idx + 1}: header name is empty`);
+      return;
+    }
+
+    headers[name] = value;
+  });
+
+  return { headers, errors };
 }

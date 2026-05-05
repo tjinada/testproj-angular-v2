@@ -3,13 +3,19 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { UrlTraceService } from '../../services/url-trace.service';
+import { parseHeaderBlob } from '../../models/url-trace.model';
 import type { UrlTraceError, UrlTraceResponse } from '../../models/url-trace.model';
 
 /**
  * The URL Trace tab content.
  *
- * Single URL input + Submit. Calls POST /api/url-trace/flow on submit
- * and renders the redirect chain plus the final URL.
+ * URL input + optional headers textarea + Submit. Calls
+ * POST /api/url-trace/flow on submit and renders the redirect chain
+ * plus the final URL.
+ *
+ * Headers textarea format: one header per line, "Name: Value". Cookies
+ * are just a `Cookie:` header. Lines starting with `#` are comments;
+ * blank lines are ignored.
  *
  * State machine (signals):
  *   - idle:    no submit yet, just the input
@@ -35,12 +41,16 @@ export class UrlTraceComponent {
   // ── Form state ─────────────────────────────────────────────────
 
   protected readonly url = signal('');
+  protected readonly headersText = signal('');
+  protected readonly headersExpanded = signal(false);
 
   // ── Async state ────────────────────────────────────────────────
 
   protected readonly loading = signal(false);
   protected readonly result = signal<UrlTraceResponse | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
+  /** Per-line parse errors from the headers textarea. */
+  protected readonly headerParseErrors = signal<string[]>([]);
 
   // ── Derived state ──────────────────────────────────────────────
 
@@ -50,11 +60,29 @@ export class UrlTraceComponent {
   /** True when the chain made more than one hop — drives the "redirected from" line. */
   readonly wasRedirected = computed(() => (this.result()?.totalHops ?? 0) > 1);
 
+  /**
+   * Number of headers parsed from the textarea (excluding blanks/comments).
+   * Drives the section toggle label, e.g. "Headers (3)".
+   */
+  readonly parsedHeaderCount = computed(() => {
+    const { headers } = parseHeaderBlob(this.headersText());
+    return Object.keys(headers).length;
+  });
+
   // ── Event handlers ─────────────────────────────────────────────
 
   submit(): void {
     const value = this.url().trim();
     if (!value || this.loading()) return;
+
+    // Parse headers up front so we can surface format errors before the
+    // request goes out.
+    const { headers, errors } = parseHeaderBlob(this.headersText());
+    if (errors.length > 0) {
+      this.headerParseErrors.set(errors);
+      return;
+    }
+    this.headerParseErrors.set([]);
 
     // Reset previous outcome so the UI doesn't show stale data while
     // the new request is in flight.
@@ -62,7 +90,7 @@ export class UrlTraceComponent {
     this.result.set(null);
     this.loading.set(true);
 
-    this.urlTrace.trace(value).subscribe({
+    this.urlTrace.trace(value, headers).subscribe({
       next: (res) => {
         this.result.set(res);
         this.loading.set(false);
@@ -74,7 +102,7 @@ export class UrlTraceComponent {
     });
   }
 
-  /** Submit on Enter inside the URL input. */
+  /** Submit on Ctrl/Cmd+Enter inside the headers textarea, plain Enter in the URL input. */
   onUrlKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && this.canSubmit()) {
       event.preventDefault();
@@ -82,11 +110,24 @@ export class UrlTraceComponent {
     }
   }
 
-  /** Clear results and input. */
+  onHeadersKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && this.canSubmit()) {
+      event.preventDefault();
+      this.submit();
+    }
+  }
+
+  toggleHeaders(): void {
+    this.headersExpanded.update(v => !v);
+  }
+
+  /** Clear results and inputs. */
   reset(): void {
     this.url.set('');
+    this.headersText.set('');
     this.result.set(null);
     this.errorMessage.set(null);
+    this.headerParseErrors.set([]);
   }
 
   // ── Error handling ─────────────────────────────────────────────
