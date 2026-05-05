@@ -5,35 +5,52 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AkamaiService } from '../../services/akamai.service';
 import {
   isHostnameError,
-  type AkamaiBaseline,
   type AkamaiFlowError,
   type AkamaiFlowResult,
-  type AkamaiResolution,
+  type AkamaiRuleEntry,
   type CategorizedMatchedRule
 } from '../../models/akamai.model';
-import { MatchedRuleComponent } from './matched-rule/matched-rule.component';
 
 /**
- * The Akamai Flow tab content.
+ * Simplified Akamai Flow tab.
  *
- * Single URL input + Submit. Calls POST /api/akamai/flow on submit,
- * renders the structured result: resolution summary, baseline card,
- * matcher disclaimer, and the matched-rule list.
+ * Single URL input + Submit. Calls POST /api/akamai/flow on submit.
+ * Renders only the rewrite-style behaviors found across matched rules,
+ * in rule-order — nothing about origin, caching, cpCode, or rule
+ * categorization. Intent: answer "what path does Akamai rewrite this
+ * URL to?" and nothing else.
  *
- * State machine (signals):
- *   - idle:    no submit yet, just the input
- *   - loading: request in flight
- *   - error:   request returned non-2xx (or threw)
- *   - success: request returned 2xx, results visible
- *
- * The component owns no derived URL state — it just submits whatever
- * the input contains. The backend does parsing, hostname resolution,
- * and matching.
+ * The richer original UI (resolution banner, baseline section, rule
+ * categorization) was removed at the user's request. The matched-rule
+ * sub-component is no longer used by this tab.
  */
+
+/** Behavior names treated as "rewrite-style" — i.e. they change the URL/path. */
+const REWRITE_BEHAVIOR_NAMES = new Set<string>([
+  'rewriteUrl',
+  'redirect',
+  'redirectplus',
+  'forwardRewrite'
+]);
+
+/** One row in the rewrites list. Pre-flattened for the template. */
+interface RewriteRow {
+  /** The behavior name (e.g. 'rewriteUrl', 'redirect'). */
+  behaviorName: string;
+  /** Best-effort extraction of the target path/URL from `options`. */
+  target: string | null;
+  /** Best-effort extraction of the rewrite mode (e.g. 'REWRITE', 'PREPEND'). */
+  mode: string | null;
+  /** All options as-is, for display under a "details" disclosure. */
+  options: Record<string, unknown>;
+  /** Rule path from root, e.g. ['default', 'CDB - APIC', 'CDB- Gatekeeper qa56']. */
+  rulePath: string[];
+}
+
 @Component({
   selector: 'app-akamai-flow',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatchedRuleComponent],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './akamai-flow.component.html',
   styleUrls: ['./akamai-flow.component.scss']
@@ -61,36 +78,30 @@ export class AkamaiFlowComponent {
     configuredHostnamesSample: string[];
   } | null>(null);
 
-  // ── Section expand state (path-specific / always-on collapsed by default) ──
-
-  protected readonly pathSpecificExpanded = signal(true);
-  protected readonly alwaysOnExpanded = signal(false);
-
   // ── Derived state ──────────────────────────────────────────────
 
   /** True when submit is allowed (not currently loading and the input has content). */
   readonly canSubmit = computed(() => !this.loading() && this.url().trim().length > 0);
 
-  /** Convenience accessor used in the template; null when no result. */
-  readonly baseline = computed<AkamaiBaseline | null>(() => this.result()?.baseline ?? null);
+  /**
+   * Flat list of rewrite-style behaviors across all matched rules, in
+   * rule-evaluation order (matchedRules is already in that order). Each
+   * row carries its source rule's path so the user can see which rule
+   * fired the rewrite.
+   */
+  readonly rewrites = computed<RewriteRow[]>(() => {
+    const rules = this.result()?.matchedRules ?? [];
+    const rows: RewriteRow[] = [];
 
-  /** Headline resolution; null when no result. */
-  readonly resolution = computed<AkamaiResolution | null>(() => this.result()?.resolution ?? null);
+    for (const rule of rules) {
+      for (const behavior of rule.behaviors) {
+        if (!REWRITE_BEHAVIOR_NAMES.has(behavior.name)) continue;
+        rows.push(this.toRewriteRow(behavior, rule));
+      }
+    }
 
-  /** Decisive matched rules (origin / caching / cpCode). User's primary interest. */
-  readonly decisiveRules = computed<CategorizedMatchedRule[]>(() =>
-    this.result()?.matchedRules.filter(r => r.category === 'decisive') ?? []
-  );
-
-  /** Path-specific matched rules (criteria reference path or fileExtension). */
-  readonly pathSpecificRules = computed<CategorizedMatchedRule[]>(() =>
-    this.result()?.matchedRules.filter(r => r.category === 'path-specific') ?? []
-  );
-
-  /** Always-on matched rules (unconditional or hostname-only criteria). */
-  readonly alwaysOnRules = computed<CategorizedMatchedRule[]>(() =>
-    this.result()?.matchedRules.filter(r => r.category === 'always-on') ?? []
-  );
+    return rows;
+  });
 
   // ── Event handlers ─────────────────────────────────────────────
 
@@ -125,7 +136,7 @@ export class AkamaiFlowComponent {
     }
   }
 
-  /** Clear results and input (the small "×" affordance in the header). */
+  /** Clear results and input. */
   reset(): void {
     this.url.set('');
     this.result.set(null);
@@ -136,9 +147,6 @@ export class AkamaiFlowComponent {
   // ── Error handling ─────────────────────────────────────────────
 
   private handleError(err: HttpErrorResponse): void {
-    // err.error is the parsed JSON body the backend sent (Express
-    // sends application/json on all error responses, so Angular's
-    // HttpClient gives us an object here, not a string).
     const body = err.error as AkamaiFlowError | undefined;
 
     if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') {
@@ -154,31 +162,59 @@ export class AkamaiFlowComponent {
       return;
     }
 
-    // Fallback for unexpected error shapes (network errors, proxy-served
-    // HTML, etc.). HttpErrorResponse.message is generally a useful one-liner.
     this.errorMessage.set(err.message || 'Request failed');
+  }
+
+  // ── Rewrite extraction ─────────────────────────────────────────
+
+  /**
+   * Pulls target + mode from a behavior's options. Different behavior
+   * names use different option keys, so we check the common ones:
+   *   - rewriteUrl      → options.targetUrl, options.behavior (REWRITE / PREPEND / REPLACE)
+   *   - redirect        → options.destinationPath, options.responseCode
+   *   - redirectplus    → options.destination
+   *   - forwardRewrite  → options.targetUrl
+   *
+   * Anything we can't find is shown as "—" and the raw options JSON is
+   * available below the row for the user to inspect.
+   */
+  private toRewriteRow(behavior: AkamaiRuleEntry, rule: CategorizedMatchedRule): RewriteRow {
+    const opts = behavior.options || {};
+    const pickString = (key: string): string | null => {
+      const v = opts[key];
+      return typeof v === 'string' && v.length > 0 ? v : null;
+    };
+
+    const target =
+      pickString('targetUrl') ??
+      pickString('destinationPath') ??
+      pickString('destination') ??
+      pickString('targetPath');
+
+    const mode = pickString('behavior'); // e.g. 'REWRITE', 'PREPEND', 'REPLACE'
+
+    return {
+      behaviorName: behavior.name,
+      target,
+      mode,
+      options: opts,
+      rulePath: rule.rulePath
+    };
   }
 
   // ── Template helpers ───────────────────────────────────────────
 
-  /** Friendly "—" when a baseline field is missing. Keeps the UI scannable. */
-  display(value: string | number | undefined): string {
-    if (value === undefined || value === null || value === '') return '—';
-    return String(value);
-  }
-
-  // ── Section toggles ────────────────────────────────────────────
-
-  togglePathSpecific(): void {
-    this.pathSpecificExpanded.update(v => !v);
-  }
-
-  toggleAlwaysOn(): void {
-    this.alwaysOnExpanded.update(v => !v);
-  }
-
-  /** Joins a rule path for compact display (e.g. "default > X > Y"). */
+  /** Joins a rule path for compact display (e.g. "default › X › Y"). */
   formatRulePath(path: string[]): string {
     return path.join(' › ');
+  }
+
+  /** Pretty-prints options for the details disclosure. */
+  formatOptions(options: Record<string, unknown>): string {
+    try {
+      return JSON.stringify(options, null, 2);
+    } catch {
+      return String(options);
+    }
   }
 }

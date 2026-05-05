@@ -5,7 +5,7 @@
     <input
       type="text"
       class="akamai-flow__url-input"
-      placeholder="Paste a full URL (e.g. https://www.example.com/banking/foo)"
+      placeholder="Paste a full URL (e.g. https://olb-qa1.dev.test.com/api/cdb/xys)"
       [ngModel]="url()"
       (ngModelChange)="url.set($event)"
       (keydown)="onUrlKeydown($event)"
@@ -32,12 +32,12 @@
     }
   </section>
 
-  <!-- ── Loading spinner ─────────────────────────────────────── -->
+  <!-- ── Loading ─────────────────────────────────────────────── -->
   @if (loading()) {
     <div class="akamai-flow__loading">Resolving URL against PAPI…</div>
   }
 
-  <!-- ── Error states ────────────────────────────────────────── -->
+  <!-- ── Error ───────────────────────────────────────────────── -->
   @if (errorMessage() && !loading()) {
     <section class="akamai-flow__error">
       <div class="akamai-flow__error-message">{{ errorMessage() }}</div>
@@ -58,228 +58,55 @@
   <!-- ── Results ─────────────────────────────────────────────── -->
   @if (result(); as res) {
 
-    <!-- ╔══════════════════════════════════════════════════════════╗ -->
-    <!-- ║  RESOLUTION BANNER — the headline answer                ║ -->
-    <!-- ╚══════════════════════════════════════════════════════════╝ -->
-    @if (resolution(); as r) {
-      <section class="resolution-banner"
-               [class.resolution-banner--has-partial]="r.hasPartialMatchInfluence">
-
-        <header class="resolution-banner__header">
-          <span class="resolution-banner__label">Resolved destination</span>
-          <span class="resolution-banner__url-pill">
-            <code>{{ res.url }}</code>
-          </span>
-        </header>
-
-        <div class="resolution-banner__grid">
-
-          <!-- Final origin -->
-          <div class="resolution-card resolution-card--origin">
-            <div class="resolution-card__title">Origin</div>
-            @if (r.finalOrigin?.hostname) {
-              <div class="resolution-card__value">
-                <code>{{ r.finalOrigin?.hostname }}</code>
-                @if (r.finalOrigin?.fromPartialMatch) {
-                  <span class="partial-tag" title="Set by a rule with one or more unevaluated criteria — actual edge result may differ">PARTIAL</span>
-                }
-              </div>
-              <div class="resolution-card__source">
-                set by <code>{{ formatRulePath(r.finalOrigin?.contributedBy ?? []) }}</code>
-              </div>
-              <dl class="resolution-card__details">
-                <dt>forwardHostHeader</dt><dd>{{ display(r.finalOrigin?.forwardHostHeader) }}</dd>
-                <dt>cacheKeyHostname</dt><dd>{{ display(r.finalOrigin?.cacheKeyHostname) }}</dd>
-              </dl>
-            } @else {
-              <div class="resolution-card__empty">No origin set by any matched rule.</div>
-            }
-          </div>
-
-          <!-- Final caching -->
-          <div class="resolution-card resolution-card--caching">
-            <div class="resolution-card__title">Caching</div>
-            @if (r.finalCaching) {
-              <div class="resolution-card__value">
-                {{ display(r.finalCaching.behavior) }}
-                @if (r.finalCaching.ttl) {
-                  <span class="resolution-card__sub">({{ r.finalCaching.ttl }})</span>
-                }
-                @if (r.finalCaching.fromPartialMatch) {
-                  <span class="partial-tag">PARTIAL</span>
-                }
-              </div>
-              <div class="resolution-card__source">
-                set by <code>{{ formatRulePath(r.finalCaching.contributedBy) }}</code>
-              </div>
-            } @else {
-              <div class="resolution-card__empty">No caching behavior set.</div>
-            }
-          </div>
-
-          <!-- Final cpCode -->
-          <div class="resolution-card resolution-card--cpcode">
-            <div class="resolution-card__title">CP code</div>
-            @if (r.finalCpCode?.id !== undefined) {
-              <div class="resolution-card__value">
-                #{{ r.finalCpCode?.id }}
-                @if (r.finalCpCode?.name) {
-                  <span class="resolution-card__sub">{{ r.finalCpCode?.name }}</span>
-                }
-                @if (r.finalCpCode?.fromPartialMatch) {
-                  <span class="partial-tag">PARTIAL</span>
-                }
-              </div>
-              <div class="resolution-card__source">
-                set by <code>{{ formatRulePath(r.finalCpCode?.contributedBy ?? []) }}</code>
-              </div>
-            } @else {
-              <div class="resolution-card__empty">No CP code set.</div>
-            }
-          </div>
-        </div>
-
-        @if (r.hasPartialMatchInfluence) {
-          <div class="resolution-banner__partial-warning">
-            ⚠ One or more values above were set by a rule with unevaluated criteria
-            (cookie / header / geo / etc.). The actual edge result may differ if those
-            criteria don't match at runtime.
-          </div>
-        }
-      </section>
-    }
-
-    <!-- ── Property + match count summary ─────────────────── -->
-    <section class="property-summary">
-      <span class="property-summary__label">Property</span>
-      <strong>{{ res.property.propertyName }}</strong>
-      <span class="property-summary__muted">({{ res.property.propertyId }} v{{ res.property.version }})</span>
-      <span class="property-summary__separator">·</span>
-      <span class="property-summary__label">Matched</span>
-      <strong>{{ res.matchedRuleCount }}</strong> rule(s)
+    <!-- Echoed URL header -->
+    <section class="echoed-url">
+      <span class="echoed-url__label">URL</span>
+      <code class="echoed-url__value">{{ res.url }}</code>
     </section>
 
-    <!-- ── Default-rule baseline (informational, lower priority) ─ -->
-    @if (baseline(); as bl) {
-      <section class="akamai-flow__baseline">
-        <header class="baseline__header">Default-rule baseline (root rule's defaults)</header>
-
-        <div class="baseline__grid">
-          <div class="baseline__group">
-            <div class="baseline__group-title">Origin</div>
-            <dl class="baseline__dl">
-              <dt>hostname</dt><dd><code>{{ display(bl.origin?.hostname) }}</code></dd>
-              <dt>forwardHostHeader</dt><dd>{{ display(bl.origin?.forwardHostHeader) }}</dd>
-              <dt>cacheKeyHostname</dt><dd>{{ display(bl.origin?.cacheKeyHostname) }}</dd>
-              <dt>originType</dt><dd>{{ display(bl.origin?.originType) }}</dd>
-            </dl>
-          </div>
-
-          <div class="baseline__group">
-            <div class="baseline__group-title">Caching</div>
-            <dl class="baseline__dl">
-              <dt>behavior</dt><dd>{{ display(bl.caching?.behavior) }}</dd>
-              <dt>ttl</dt><dd>{{ display(bl.caching?.ttl) }}</dd>
-            </dl>
-          </div>
-
-          <div class="baseline__group">
-            <div class="baseline__group-title">CP code</div>
-            <dl class="baseline__dl">
-              <dt>id</dt><dd>{{ display(bl.cpCode?.id) }}</dd>
-              <dt>name</dt><dd>{{ display(bl.cpCode?.name) }}</dd>
-            </dl>
-          </div>
-        </div>
-
-        @if (res.baselineDiagnostics.unextractedBehaviorNames.length > 0) {
-          <div class="baseline__unextracted">
-            <span class="baseline__unextracted-label">Other default-rule behaviors:</span>
-            @for (n of res.baselineDiagnostics.unextractedBehaviorNames; track n) {
-              <code class="baseline__unextracted-chip">{{ n }}</code>
-            }
-          </div>
-        }
-      </section>
-    }
-
-    <!-- ── Disclaimer banner ─────────────────────────────── -->
-    <aside class="akamai-flow__disclaimer">
-      <strong>Naive matcher.</strong>
-      Evaluates <code>path</code>, <code>hostname</code>, and <code>fileExtension</code> criteria only,
-      with <code>*</code> wildcard support and <code>criteriaMustSatisfy</code> (AND/OR) honored. Rules
-      with <em>cookie</em>, <em>header</em>, <em>geo</em>, or other unsupported criteria are flagged
-      <strong>partial</strong> rather than dropped. PAPI's actual edge evaluation may differ.
-    </aside>
-
-    <!-- ╔══════════════════════════════════════════════════════════╗ -->
-    <!-- ║  Decisive rules — what determined the destination       ║ -->
-    <!-- ╚══════════════════════════════════════════════════════════╝ -->
-    @if (decisiveRules().length > 0) {
-      <section class="rule-section rule-section--decisive">
-        <header class="rule-section__header">
-          <span class="rule-section__icon" aria-hidden="true">🎯</span>
-          <span class="rule-section__title">Decisive rules</span>
-          <span class="rule-section__count">{{ decisiveRules().length }}</span>
-          <span class="rule-section__hint">Rules that set <code>origin</code>, <code>caching</code>, or <code>cpCode</code></span>
+    <!-- Rewrites list — the answer. -->
+    @if (rewrites().length > 0) {
+      <section class="rewrites">
+        <header class="rewrites__header">
+          Rewrites found
+          <span class="rewrites__count">{{ rewrites().length }}</span>
         </header>
-        <div class="rule-section__body">
-          @for (m of decisiveRules(); track $index) {
-            <app-matched-rule
-              [rule]="m"
-              [initiallyExpanded]="$index === 0">
-            </app-matched-rule>
+
+        <ol class="rewrites__list">
+          @for (rw of rewrites(); track $index) {
+            <li class="rewrite">
+              <div class="rewrite__row">
+                <span class="rewrite__behavior">{{ rw.behaviorName }}</span>
+                @if (rw.mode) {
+                  <span class="rewrite__mode">{{ rw.mode }}</span>
+                }
+              </div>
+
+              <div class="rewrite__target-row">
+                <span class="rewrite__arrow">→</span>
+                @if (rw.target) {
+                  <code class="rewrite__target">{{ rw.target }}</code>
+                } @else {
+                  <span class="rewrite__target rewrite__target--missing">— (target not in standard option keys)</span>
+                }
+              </div>
+
+              <div class="rewrite__source">
+                from <code>{{ formatRulePath(rw.rulePath) }}</code>
+              </div>
+
+              <details class="rewrite__details">
+                <summary>raw options</summary>
+                <pre class="rewrite__options">{{ formatOptions(rw.options) }}</pre>
+              </details>
+            </li>
           }
-        </div>
+        </ol>
       </section>
-    }
-
-    <!-- ── Path-specific rules ─────────────────────────────── -->
-    @if (pathSpecificRules().length > 0) {
-      <section class="rule-section rule-section--path-specific"
-               [class.rule-section--collapsed]="!pathSpecificExpanded()">
-        <button type="button" class="rule-section__header rule-section__header--clickable"
-                (click)="togglePathSpecific()">
-          <span class="rule-section__chevron" aria-hidden="true">{{ pathSpecificExpanded() ? '▾' : '▸' }}</span>
-          <span class="rule-section__icon" aria-hidden="true">🛣️</span>
-          <span class="rule-section__title">Path-specific rules</span>
-          <span class="rule-section__count">{{ pathSpecificRules().length }}</span>
-          <span class="rule-section__hint">Rules narrowed by URL <code>path</code> or file extension</span>
-        </button>
-        @if (pathSpecificExpanded()) {
-          <div class="rule-section__body">
-            @for (m of pathSpecificRules(); track $index) {
-              <app-matched-rule [rule]="m"></app-matched-rule>
-            }
-          </div>
-        }
+    } @else {
+      <section class="no-rewrites">
+        No rewrite-style behaviors found on the matched rules for this URL.
       </section>
-    }
-
-    <!-- ── Always-on rules ─────────────────────────────────── -->
-    @if (alwaysOnRules().length > 0) {
-      <section class="rule-section rule-section--always-on"
-               [class.rule-section--collapsed]="!alwaysOnExpanded()">
-        <button type="button" class="rule-section__header rule-section__header--clickable"
-                (click)="toggleAlwaysOn()">
-          <span class="rule-section__chevron" aria-hidden="true">{{ alwaysOnExpanded() ? '▾' : '▸' }}</span>
-          <span class="rule-section__icon" aria-hidden="true">🌐</span>
-          <span class="rule-section__title">Always-on rules</span>
-          <span class="rule-section__count">{{ alwaysOnRules().length }}</span>
-          <span class="rule-section__hint">Unconditional or hostname-only — apply to every request</span>
-        </button>
-        @if (alwaysOnExpanded()) {
-          <div class="rule-section__body">
-            @for (m of alwaysOnRules(); track $index) {
-              <app-matched-rule [rule]="m"></app-matched-rule>
-            }
-          </div>
-        }
-      </section>
-    }
-
-    @if (decisiveRules().length === 0 && pathSpecificRules().length === 0 && alwaysOnRules().length === 0) {
-      <p class="rule-section__empty">No rules matched. (This is unusual — even the default rule should always match.)</p>
     }
   }
 </div>
