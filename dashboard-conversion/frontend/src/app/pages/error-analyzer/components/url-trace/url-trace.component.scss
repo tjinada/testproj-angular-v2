@@ -1,0 +1,250 @@
+// ── URL Trace tab ───────────────────────────────────────────────────
+// Visual style mirrors the Akamai Flow tab so both feel like part of
+// the same error-analyzer surface.
+
+.url-trace {
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// ── Input row ───────────────────────────────────────────────────────
+
+.url-trace__input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.url-trace__url-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+
+  &:focus {
+    outline: none;
+    border-color: #1B4F72;
+    box-shadow: 0 0 0 2px rgba(27, 79, 114, 0.15);
+  }
+
+  &:disabled {
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+  }
+}
+
+.url-trace__submit {
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #1B4F72;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: #154360;
+  }
+
+  &:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+  }
+}
+
+.url-trace__reset {
+  padding: 8px 14px;
+  font-size: 13px;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+}
+
+// ── Loading ─────────────────────────────────────────────────────────
+
+.url-trace__loading {
+  padding: 12px 14px;
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  color: #1e40af;
+  font-size: 13px;
+}
+
+// ── Error ──────────────────────────────────────────────────────────
+
+.url-trace__error {
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  color: #991b1b;
+  font-size: 13px;
+
+  &--soft {
+    // Soft error: chain partially completed. Use amber, not red — the
+    // user still gets useful hops above this banner.
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+  }
+}
+
+.url-trace__error-message {
+  word-break: break-word;
+}
+
+// ── Final URL banner ───────────────────────────────────────────────
+
+.final-url-card {
+  padding: 14px 16px;
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+}
+
+.final-url-card__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.final-url-card__url {
+  font-size: 15px;
+  font-weight: 600;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: #1B4F72;
+    word-break: break-all;
+    background: transparent;
+  }
+}
+
+.final-url-card__meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.final-url-card__original {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #374151;
+  background: #e5e7eb;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+// ── Hops list ──────────────────────────────────────────────────────
+
+.hops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hops__header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.hops__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hop {
+  padding: 10px 12px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #d1d5db;
+  border-radius: 0 4px 4px 0;
+}
+
+.hop__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hop__url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  color: #111827;
+  word-break: break-all;
+  background: transparent;
+}
+
+.hop__location-row {
+  margin-top: 4px;
+  margin-left: 46px;
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.hop__arrow {
+  color: #9ca3af;
+}
+
+.hop__location {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #1B4F72;
+  word-break: break-all;
+  background: transparent;
+}
+
+// ── Status pill ────────────────────────────────────────────────────
+
+.status-pill {
+  display: inline-block;
+  min-width: 36px;
+  padding: 2px 8px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 3px;
+  background: #e5e7eb;
+  color: #374151;
+
+  &--ok {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  &--redirect {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  &--err {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+}

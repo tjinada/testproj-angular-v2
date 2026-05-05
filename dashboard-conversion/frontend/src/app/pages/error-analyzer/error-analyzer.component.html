@@ -38,11 +38,22 @@
       type="button"
       class="tab-btn"
       role="tab"
+      [attr.aria-selected]="activeTab === 'urlTrace'"
+      [class.tab-btn-active]="activeTab === 'urlTrace'"
+      (click)="setTab('urlTrace')">
+      URL Trace
+    </button>
+    <!-- Akamai Flow tab unwired — replaced by URL Trace.
+    <button
+      type="button"
+      class="tab-btn"
+      role="tab"
       [attr.aria-selected]="activeTab === 'akamai'"
       [class.tab-btn-active]="activeTab === 'akamai'"
       (click)="setTab('akamai')">
       Akamai Flow
     </button>
+    -->
   </div>
 
   <!-- Tab: Trace Analysis ──────────────────────────────────────────── -->
@@ -119,7 +130,13 @@
     <app-opensearch-log-search></app-opensearch-log-search>
   </div>
 
+  <div [hidden]="activeTab !== 'urlTrace'" class="tab-panel" role="tabpanel">
+    <app-url-trace></app-url-trace>
+  </div>
+
+  <!-- Akamai Flow panel unwired — replaced by URL Trace.
   <div [hidden]="activeTab !== 'akamai'" class="tab-panel" role="tabpanel">
     <app-akamai-flow></app-akamai-flow>
   </div>
+  -->
 </div>

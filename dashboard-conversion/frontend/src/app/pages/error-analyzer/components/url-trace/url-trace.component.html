@@ -1,0 +1,93 @@
+<div class="url-trace">
+
+  <!-- ── Input row ───────────────────────────────────────────── -->
+  <section class="url-trace__input-row">
+    <input
+      type="text"
+      class="url-trace__url-input"
+      placeholder="Paste a full URL (e.g. https://olb-qa1.dev.test.com/api/cdb/xys)"
+      [ngModel]="url()"
+      (ngModelChange)="url.set($event)"
+      (keydown)="onUrlKeydown($event)"
+      [disabled]="loading()"
+      autocomplete="off"
+      spellcheck="false"
+      autocapitalize="off"
+    />
+    <button
+      type="button"
+      class="url-trace__submit"
+      (click)="submit()"
+      [disabled]="!canSubmit()">
+      {{ loading() ? 'Tracing…' : 'Trace' }}
+    </button>
+    @if (result() || errorMessage()) {
+      <button
+        type="button"
+        class="url-trace__reset"
+        (click)="reset()"
+        title="Clear">
+        Clear
+      </button>
+    }
+  </section>
+
+  <!-- ── Loading ──────────────────────────────────────────────── -->
+  @if (loading()) {
+    <div class="url-trace__loading">Following redirects…</div>
+  }
+
+  <!-- ── HTTP / network error (4xx/5xx from our API, or thrown) ─ -->
+  @if (errorMessage() && !loading()) {
+    <section class="url-trace__error">
+      <div class="url-trace__error-message">{{ errorMessage() }}</div>
+    </section>
+  }
+
+  <!-- ── Results ─────────────────────────────────────────────── -->
+  @if (result(); as res) {
+
+    <!-- Final URL banner — the headline answer. -->
+    <section class="final-url-card">
+      <div class="final-url-card__label">Final URL</div>
+      <div class="final-url-card__url"><code>{{ res.finalUrl }}</code></div>
+      <div class="final-url-card__meta">
+        {{ res.totalHops }} hop{{ res.totalHops === 1 ? '' : 's' }}
+        @if (wasRedirected()) {
+          · redirected from <code class="final-url-card__original">{{ res.originalUrl }}</code>
+        }
+      </div>
+    </section>
+
+    <!-- Soft error from the trace itself (max-redirect cap, network mid-chain). -->
+    @if (res.error) {
+      <section class="url-trace__error url-trace__error--soft">
+        <div class="url-trace__error-message">{{ res.error }}</div>
+      </section>
+    }
+
+    <!-- Hop list. -->
+    @if (res.hops.length > 0) {
+      <section class="hops">
+        <header class="hops__header">Redirect chain</header>
+        <ol class="hops__list">
+          @for (hop of res.hops; track $index) {
+            <li class="hop">
+              <div class="hop__row">
+                <span class="status-pill" [class]="statusClass(hop.status)">{{ hop.status }}</span>
+                <code class="hop__url">{{ hop.url }}</code>
+              </div>
+              @if (hop.location) {
+                <div class="hop__location-row">
+                  <span class="hop__arrow">→</span>
+                  <code class="hop__location">{{ hop.location }}</code>
+                </div>
+              }
+            </li>
+          }
+        </ol>
+      </section>
+    }
+  }
+
+</div>

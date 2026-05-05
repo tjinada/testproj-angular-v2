@@ -7,17 +7,19 @@ import { TraceResultsTableComponent } from './components/trace-results-table/tra
 import { SessionResultsComponent } from './components/session-results/session-results.component';
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { OpenSearchLogSearchComponent } from './components/opensearch-log-search/opensearch-log-search.component';
-import { AkamaiFlowComponent } from './components/akamai-flow/akamai-flow.component';
+// Akamai tab unwired — replaced by URL Trace. Component left in tree for reference.
+// import { AkamaiFlowComponent } from './components/akamai-flow/akamai-flow.component';
+import { UrlTraceComponent } from './components/url-trace/url-trace.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
 import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
-type TabId = 'trace' | 'opensearch' | 'akamai';
+type TabId = 'trace' | 'opensearch' | 'urlTrace';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, AkamaiFlowComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
