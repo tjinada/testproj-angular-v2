@@ -18,6 +18,7 @@
 
 import artifactoryService from './artifactory.service';
 import { cloneStageTemplate } from './release-workflow.template';
+import { STAGE1_CHECK_RUNNERS } from './release-workflow.stage1-checks';
 import {
   Release,
   ReleaseMetadata,
@@ -173,9 +174,14 @@ class ReleaseWorkflowService {
   /**
    * Trigger automated checks for a stage.
    *
-   * SKELETON: returns the stage's existing automatedChecks array unchanged.
-   * Per-stage owners replace this with real GitHub / JIRA / Confluence /
-   * Artifactory calls and update each check's status, lastRunAt, result.
+   * Dispatches by stageId to the per-stage check module. Each module
+   * exports a `*_CHECK_RUNNERS` map keyed by check ID; we run them in
+   * parallel, write the results back onto the stage's automatedChecks,
+   * auto-tick any sub-step whose autoTickedBy includes a passing check,
+   * and persist.
+   *
+   * Stages whose runners aren't yet implemented return their existing
+   * automatedChecks unchanged (no fabricated data).
    */
   async runChecks(releaseId: string, stageId: string): Promise<AutomatedCheck[]> {
     const release = this.releases[releaseId];
@@ -184,8 +190,86 @@ class ReleaseWorkflowService {
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
 
-    // No-op for skeleton. Per-stage teams will replace this with real calls.
+    const runners = this.getRunnersForStage(stageId);
+    if (!runners) {
+      // No runners registered for this stage yet — return the existing checks unchanged.
+      return stage.automatedChecks;
+    }
+
+    // Run all checks in parallel; failures inside one check don't fail the whole batch.
+    const updated = await Promise.all(
+      stage.automatedChecks.map(async (check) => {
+        const runner = runners[check.id];
+        if (!runner) return check;
+        // mark as running so the response (or a refetch mid-flight) reflects activity
+        check.status = 'running';
+        try {
+          return await runner(release, check);
+        } catch (err: any) {
+          return {
+            ...check,
+            status: 'failed' as const,
+            lastRunAt: new Date().toISOString(),
+            result: null,
+            errorMessage: err?.message ?? 'Unexpected error running check',
+          };
+        }
+      }),
+    );
+
+    // Write results back into the stage and auto-tick linked sub-steps.
+    stage.automatedChecks = updated;
+    this.applyAutoTicks(stage, updated);
+
+    release.updatedAt = new Date().toISOString();
+    await this.save();
     return stage.automatedChecks;
+  }
+
+  /**
+   * Returns the check-runner map for the given stage, or null if no
+   * runners are registered for that stage yet.
+   *
+   * Per-stage owners: import your STAGE_N_CHECK_RUNNERS at the top of
+   * this file and add a case here when your stage's checks are ready.
+   */
+  private getRunnersForStage(
+    stageId: string,
+  ): Record<string, (release: Release, check: AutomatedCheck) => Promise<AutomatedCheck>> | null {
+    switch (stageId) {
+      case 'stage1-intake':
+        return STAGE1_CHECK_RUNNERS;
+      // case 'stage2-branching':            return STAGE2_CHECK_RUNNERS;
+      // case 'stage3-build-stabilization':  return STAGE3_CHECK_RUNNERS;
+      // ...
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * For each passing check, auto-tick any sub-step that lists this check
+   * in its autoTickedBy array, unless the sub-step has already been
+   * manually checked (we don't want to clobber a 'manual' source with
+   * 'auto').
+   */
+  private applyAutoTicks(stage: Stage, checks: AutomatedCheck[]): void {
+    const now = new Date().toISOString();
+
+    for (const check of checks) {
+      if (check.status !== 'passed') continue;
+
+      for (const subStep of stage.subSteps) {
+        if (!subStep.autoTickedBy.includes(check.id)) continue;
+        if (subStep.state === 'checked' && subStep.source === 'manual') continue;  // preserve manual override
+        if (subStep.state === 'n_a') continue;                                     // preserve N/A
+
+        subStep.state = 'checked';
+        subStep.source = 'auto';
+        subStep.completedAt = now;
+        subStep.completedBy = 'system';
+      }
+    }
   }
 
   // ----- delete -----

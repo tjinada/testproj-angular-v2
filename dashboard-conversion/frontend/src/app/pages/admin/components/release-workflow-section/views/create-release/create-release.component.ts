@@ -35,6 +35,7 @@ export class CreateReleaseComponent {
   preProdDate = '';
   prodDate = '';
   jiraTracker = '';
+  intakePageId = '';
 
   readonly submitting = signal<boolean>(false);
   readonly error = signal<string | null>(null);
@@ -66,6 +67,7 @@ export class CreateReleaseComponent {
           preProdDate: this.preProdDate || null,
           prodDate: this.prodDate || null,
           jiraTracker: this.jiraTracker.trim() || null,
+          intakePageId: this.intakePageId.trim() || null,
         },
       })
       .subscribe({

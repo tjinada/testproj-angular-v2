@@ -1,37 +1,120 @@
-<div class="stage-placeholder">
-  <h3 class="stage-placeholder__title">Stage 1 — Intake &amp; Setup</h3>
-  <p class="stage-placeholder__hint">
-    Placeholder content. The real sub-step UI for this stage will be
-    implemented by the per-stage owner. The stage's sub-steps and automated
-    checks are already declared in the backend template.
-  </p>
+<div class="stage1">
 
-  <div class="stage-placeholder__inventory">
-    <div class="inventory-block">
-      <div class="inventory-label">Sub-steps ({{ stage.subSteps.length }})</div>
-      <ul>
+  <!-- top action bar -->
+  <div class="stage1__bar">
+    <div class="stage1__bar-meta">
+      <span>Started {{ stage.startedAt ? (stage.startedAt | date:'mediumDate') : '—' }}</span>
+      <span class="sep">·</span>
+      <span>{{ stage.subSteps.length }} sub-steps</span>
+      <span class="sep">·</span>
+      <span>{{ stage.automatedChecks.length }} automated checks</span>
+    </div>
+    <button class="primary-btn" type="button" (click)="onRunChecks()" [disabled]="running()">
+      {{ running() ? 'Running…' : 'Run checks' }}
+    </button>
+  </div>
+
+  @if (error()) {
+    <div class="stage1__error">{{ error() }}</div>
+  }
+
+  <div class="stage1__cols">
+
+    <!-- LEFT: sub-steps -->
+    <div class="stage1__col">
+      <h4 class="stage1__col-title">Sub-steps</h4>
+
+      <ul class="substeps">
         @for (s of stage.subSteps; track s.id) {
-          <li>
-            <code>{{ s.id }}</code> — {{ s.label }}
-            <span class="state state--{{ s.state }}">{{ s.state }}</span>
+          <li class="substep substep--{{ s.state }}">
+
+            <!-- main row -->
+            <div class="substep__row">
+              <!-- icon: auto-tickable items show a status pill, manual items show a checkbox -->
+              @if (isAutoTickable(s)) {
+                @switch (s.state) {
+                  @case ('checked') { <span class="dot dot--complete">✓</span> }
+                  @case ('n_a')     { <span class="dot dot--na">N/A</span> }
+                  @default          { <span class="dot dot--pending"></span> }
+                }
+              } @else {
+                <input
+                  type="checkbox"
+                  class="substep__cb"
+                  [checked]="s.state === 'checked'"
+                  (change)="toggleManual(s)" />
+              }
+
+              <div class="substep__main">
+                <div class="substep__label">{{ s.label }}</div>
+                <div class="substep__meta">
+                  {{ subStepStateLabel(s) }}
+                  @if (s.completedAt) {
+                    · {{ s.completedBy }} · {{ s.completedAt | date:'short' }}
+                  }
+                </div>
+              </div>
+
+              <div class="substep__actions">
+                @if (isAutoTickable(s)) {
+                  <a class="link" (click)="toggleOverride(s)">
+                    {{ hasOverrideOpen(s) ? 'Close' : 'Override' }}
+                  </a>
+                }
+                <a class="link link--muted" (click)="toggleNa(s)">
+                  {{ s.state === 'n_a' ? 'Un-N/A' : 'N/A' }}
+                </a>
+              </div>
+            </div>
+
+            <!-- override panel (only for auto-tickable items) -->
+            @if (isAutoTickable(s) && hasOverrideOpen(s)) {
+              <div class="substep__override">
+                <label class="override-row">
+                  <input
+                    type="checkbox"
+                    [checked]="s.state === 'checked'"
+                    (change)="toggleManual(s)" />
+                  <span>Manually mark this sub-step as
+                    <strong>{{ s.state === 'checked' ? 'checked' : 'unchecked' }}</strong>
+                    (overrides automated check)</span>
+                </label>
+              </div>
+            }
           </li>
         }
       </ul>
     </div>
 
-    @if (stage.automatedChecks.length > 0) {
-      <div class="inventory-block">
-        <div class="inventory-label">Automated checks ({{ stage.automatedChecks.length }})</div>
-        <ul>
-          @for (c of stage.automatedChecks; track c.id) {
-            <li>
-              <code>{{ c.id }}</code> — {{ c.label }}
-              <span class="source">[{{ c.source }}]</span>
-              <span class="state state--{{ c.status }}">{{ c.status }}</span>
-            </li>
-          }
-        </ul>
-      </div>
-    }
+    <!-- RIGHT: automated checks -->
+    <div class="stage1__col">
+      <h4 class="stage1__col-title">Automated checks</h4>
+
+      <ul class="checks">
+        @for (c of stage.automatedChecks; track c.id) {
+          <li [class]="checkStatusClass(c)">
+            <div class="check-card__head">
+              @switch (c.status) {
+                @case ('passed')  { <span class="dot dot--complete">✓</span> }
+                @case ('failed')  { <span class="dot dot--failed">!</span> }
+                @case ('partial') { <span class="dot dot--partial">~</span> }
+                @case ('running') { <span class="dot dot--running">…</span> }
+                @default          { <span class="dot dot--pending"></span> }
+              }
+              <div class="check-card__title">{{ c.label }}</div>
+              <div class="check-card__source">[{{ c.source }}]</div>
+            </div>
+
+            <div class="check-card__sub">
+              {{ formatRelative(c.lastRunAt) }}
+              <span class="sep">·</span>
+              <span class="check-card__status">{{ c.status }}</span>
+            </div>
+
+            <div class="check-card__summary">{{ resultSummary(c) }}</div>
+          </li>
+        }
+      </ul>
+    </div>
   </div>
 </div>
