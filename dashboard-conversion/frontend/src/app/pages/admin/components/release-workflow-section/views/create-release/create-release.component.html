@@ -83,8 +83,28 @@
       </div>
 
       <div class="form-row">
+        <label for="fixVersion">Fix Version</label>
+        <input id="fixVersion" type="text" [(ngModel)]="fixVersion" placeholder="e.g. R85.0.0-103052" />
+      </div>
+
+      <div class="form-row">
         <label for="intakePageId">Intake page ID</label>
         <input id="intakePageId" type="text" [(ngModel)]="intakePageId" placeholder="Confluence page ID, e.g. 1110606115" />
+      </div>
+
+      <div class="form-row">
+        <label for="intakeSheetUrl">Intake sheet URL</label>
+        <input id="intakeSheetUrl" type="text" [(ngModel)]="intakeSheetUrl" placeholder="Confluence URL of the scope intake sheet" />
+      </div>
+
+      <div class="form-row">
+        <label for="branchCdbUi">CDB UI branch</label>
+        <input id="branchCdbUi" type="text" [(ngModel)]="branchCdbUi" placeholder="e.g. release/r85.0.0" />
+      </div>
+
+      <div class="form-row">
+        <label for="branchFreddy">Freddy branch</label>
+        <input id="branchFreddy" type="text" [(ngModel)]="branchFreddy" placeholder="e.g. release/r85.0.0" />
       </div>
     </div>
 

@@ -48,6 +48,18 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
   prodDate = '';
   jiraTracker = '';
   intakePageId = '';
+  intakeSheetUrl = '';
+  fixVersion = '';
+  branchCdbUi = '';
+  branchFreddy = '';
+
+  /**
+   * Preserved across edit so we don't clobber it when sending a metadata patch.
+   * cdbUiConfigs is populated mid-flight by Stage 2 and isn't editable here,
+   * but the backend's metadata merge is shallow at the branches level so we
+   * have to round-trip it.
+   */
+  private existingBranchCdbUiConfigs: string | null = null;
 
   readonly submitting = signal<boolean>(false);
   readonly loading = signal<boolean>(false);
@@ -71,14 +83,19 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
     this.error.set(null);
     this.api.getById(releaseId).subscribe({
       next: (release: Release) => {
-        this.releaseId    = release.releaseId;
-        this.title        = release.title;
+        this.releaseId      = release.releaseId;
+        this.title          = release.title;
         this.type.set(release.type);
-        this.sheriff      = release.sheriff;
-        this.preProdDate  = release.metadata.preProdDate ?? '';
-        this.prodDate     = release.metadata.prodDate ?? '';
-        this.jiraTracker  = release.metadata.jiraTracker ?? '';
-        this.intakePageId = release.metadata.intakePageId ?? '';
+        this.sheriff        = release.sheriff;
+        this.preProdDate    = release.metadata.preProdDate ?? '';
+        this.prodDate       = release.metadata.prodDate ?? '';
+        this.jiraTracker    = release.metadata.jiraTracker ?? '';
+        this.intakePageId   = release.metadata.intakePageId ?? '';
+        this.intakeSheetUrl = release.metadata.intakeSheetUrl ?? '';
+        this.fixVersion     = release.metadata.fixVersion ?? '';
+        this.branchCdbUi    = release.metadata.branches?.cdbUi ?? '';
+        this.branchFreddy   = release.metadata.branches?.freddy ?? '';
+        this.existingBranchCdbUiConfigs = release.metadata.branches?.cdbUiConfigs ?? null;
         this.loading.set(false);
         this.cdr.detectChanges();
       },
@@ -118,10 +135,19 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
     this.submitting.set(true);
 
     const metadata = {
-      preProdDate:  this.preProdDate || null,
-      prodDate:     this.prodDate || null,
-      jiraTracker:  this.jiraTracker.trim() || null,
-      intakePageId: this.intakePageId.trim() || null,
+      preProdDate:    this.preProdDate || null,
+      prodDate:       this.prodDate || null,
+      jiraTracker:    this.jiraTracker.trim() || null,
+      intakePageId:   this.intakePageId.trim() || null,
+      intakeSheetUrl: this.intakeSheetUrl.trim() || null,
+      fixVersion:     this.fixVersion.trim() || null,
+      branches: {
+        cdbUi:        this.branchCdbUi.trim() || null,
+        freddy:       this.branchFreddy.trim() || null,
+        // cdbUiConfigs is populated mid-flight by Stage 2, not editable here.
+        // We round-trip the existing value so the wizard doesn't clobber it.
+        cdbUiConfigs: this.existingBranchCdbUiConfigs,
+      },
     };
 
     const obs$ = this.mode === 'create'
