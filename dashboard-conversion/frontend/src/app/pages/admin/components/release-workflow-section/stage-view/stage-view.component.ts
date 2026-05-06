@@ -17,7 +17,7 @@ import {
   SubStep,
   SubStepState,
 } from '../../../models/release-workflow.model';
-import { formatCheckResult } from '../../../services/release-workflow.check-formatters';
+import { formatCheckResult } from './check-result-display';
 
 /**
  * Generic stage view. One component for all 10 stages.
@@ -33,8 +33,8 @@ import { formatCheckResult } from '../../../services/release-workflow.check-form
  * Per-stage uniqueness is data-driven:
  *   - Sub-steps and checks come from the Stage object (seeded by the
  *     backend template).
- *   - Check result strings come from CHECK_RESULT_FORMATTERS (frontend
- *     services/release-workflow.check-formatters.ts).
+ *   - Check result strings come from check-result-display.ts (sibling file,
+ *     keyed by result shape so it doesn't grow per check).
  *   - Auto-tick links come from each sub-step's autoTickedBy array.
  *
  * If a stage genuinely needs a custom UI later, this generic view becomes
@@ -152,7 +152,6 @@ export class StageViewComponent {
 
   resultSummary(c: AutomatedCheck): string {
     return formatCheckResult({
-      id: c.id,
       status: c.status,
       result: c.result,
       errorMessage: c.errorMessage,

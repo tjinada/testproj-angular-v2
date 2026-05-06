@@ -1,71 +1,21 @@
 /**
- * Release Workflow — check result formatters (frontend)
+ * DELETED — DO NOT USE.
  *
- * One-line summary strings for each automated check ID. The generic
- * stage-view component reads from this map to display passed-check details
- * without needing to know anything about specific check IDs.
+ * Check result formatting moved to:
+ *   components/release-workflow-section/stage-view/check-result-display.ts
  *
- * Adding a new check ID:
- *   - If the result shape has nothing interesting to surface, omit the entry
- *     entirely; the default formatter ('Passed') is fine.
- *   - Otherwise, add `'check-id': (result) => '...'` below.
+ * It's now keyed by result shape (5 entries) instead of check ID, so it
+ * doesn't grow as new checks are wired. Co-located with stage-view because
+ * that's the only consumer.
  *
- * The check's `result` field is whatever the backend primitive populated.
- * See backend/src/services/release-workflow.check-primitives.ts for the
- * shapes returned by each primitive.
+ * Delete this file from the production repo when convenient. The dashboard-
+ * conversion staging workspace doesn't expose a delete operation; this stub
+ * is intentionally inert and throws on import to flag any straggler imports.
  */
 
-export type CheckResultFormatter = (result: any) => string;
+throw new Error(
+  'release-workflow.check-formatters.ts is deprecated. ' +
+  "Use formatCheckResult from '.../stage-view/check-result-display' instead.",
+);
 
-export const CHECK_RESULT_FORMATTERS: Record<string, CheckResultFormatter> = {
-  // Confluence primitive returns: { pageId, title, webui }
-  'check-confluence-page-resolves': (r) => r?.title ? `Page found: ${r.title}` : 'Passed',
-  'check-self-serve-link-resolves': (r) => r?.title ? `Page found: ${r.title}` : 'Passed',
-  'check-pre-prod-letter-page':     (r) => r?.title ? `Page found: ${r.title}` : 'Passed',
-  'check-prod-letter-page':         (r) => r?.title ? `Page found: ${r.title}` : 'Passed',
-  'check-f26-deployments-page':     (r) => r?.title ? `Page found: ${r.title}` : 'Passed',
-  'check-mobile-versions-table':    (r) => r?.title ? `Page found: ${r.title}` : 'Passed',
-
-  // JIRA fix-version primitive returns: { id, name, projectKey, released }
-  'check-fix-version-exists': (r) => r?.name ? `Fix Version: ${r.name}` : 'Passed',
-
-  // JIRA issue primitive returns: { key, summary, status }
-  'check-master-jira-exists': (r) =>
-    r?.key ? `${r.key}${r.status ? ' (' + r.status + ')' : ''}` : 'Passed',
-
-  // valueIsSet primitive returns: { [fieldName]: value }
-  'check-intake-page-id-set': (r) => r?.intakePageId ? `Set: ${r.intakePageId}` : 'Passed',
-
-  // GitHub PR primitive returns: { prNumber, title, state, url, matchCount }
-  'check-env-matrix-pr':           (r) => r?.prNumber ? `PR #${r.prNumber} (${r.state})` : 'Passed',
-  'check-sealights-disable-pr':    (r) => r?.prNumber ? `PR #${r.prNumber} (${r.state})` : 'Passed',
-  'check-retrofit-cdb-ui-pr':      (r) => r?.prNumber ? `PR #${r.prNumber} (${r.state})` : 'Passed',
-  'check-retrofit-cdb-configs-pr': (r) => r?.prNumber ? `PR #${r.prNumber} (${r.state})` : 'Passed',
-  'check-retrofit-freddy-pr':      (r) => r?.prNumber ? `PR #${r.prNumber} (${r.state})` : 'Passed',
-};
-
-/**
- * Get the display string for a check given its current state.
- * Handles non-passed statuses (failed/pending/running) before falling
- * through to the per-check formatter.
- */
-export function formatCheckResult(check: {
-  id: string;
-  status: string;
-  result: any;
-  errorMessage: string | null;
-}): string {
-  if (check.status === 'failed')  return check.errorMessage ?? 'Failed';
-  if (check.status === 'pending') return 'Not yet run';
-  if (check.status === 'running') return 'Running…';
-
-  const formatter = CHECK_RESULT_FORMATTERS[check.id];
-  if (formatter) {
-    try {
-      return formatter(check.result);
-    } catch {
-      return 'Passed';
-    }
-  }
-  return 'Passed';
-}
+export {};
