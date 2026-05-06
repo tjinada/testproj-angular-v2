@@ -3,14 +3,20 @@ import {
   ChangeDetectorRef,
   Component,
   EventEmitter,
+  Input,
+  OnChanges,
+  OnInit,
   Output,
+  SimpleChanges,
   inject,
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReleaseWorkflowService } from '../../../../services/release-workflow.service';
-import { ReleaseType } from '../../../../models/release-workflow.model';
+import { Release, ReleaseType } from '../../../../models/release-workflow.model';
+
+type Mode = 'create' | 'edit';
 
 @Component({
   selector: 'app-create-release',
@@ -20,17 +26,23 @@ import { ReleaseType } from '../../../../models/release-workflow.model';
   styleUrl: './create-release.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CreateReleaseComponent {
+export class CreateReleaseComponent implements OnInit, OnChanges {
+  @Input() mode: Mode = 'create';
+  /** Required when mode === 'edit'. Release will be fetched and form pre-populated. */
+  @Input() editingReleaseId: string | null = null;
+
+  /** Emitted when the user cancels. */
   @Output() cancel = new EventEmitter<void>();
-  @Output() created = new EventEmitter<string>();
+  /** Emitted with the releaseId after a successful create or update. */
+  @Output() saved = new EventEmitter<string>();
 
   private readonly api = inject(ReleaseWorkflowService);
   private readonly cdr = inject(ChangeDetectorRef);
 
-  // form fields
-  releaseId = '';
+  // form fields (editable in both modes unless noted)
+  releaseId = '';            // read-only in edit mode
   title = '';
-  type = signal<ReleaseType>('bundle');
+  type = signal<ReleaseType>('bundle');   // read-only in edit mode
   sheriff = '';
   preProdDate = '';
   prodDate = '';
@@ -38,9 +50,49 @@ export class CreateReleaseComponent {
   intakePageId = '';
 
   readonly submitting = signal<boolean>(false);
+  readonly loading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
 
+  ngOnInit(): void {
+    if (this.mode === 'edit' && this.editingReleaseId) {
+      this.loadForEdit(this.editingReleaseId);
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Re-fetch if the parent changes the editingReleaseId after init
+    if (changes['editingReleaseId'] && !changes['editingReleaseId'].firstChange && this.mode === 'edit' && this.editingReleaseId) {
+      this.loadForEdit(this.editingReleaseId);
+    }
+  }
+
+  private loadForEdit(releaseId: string): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.api.getById(releaseId).subscribe({
+      next: (release: Release) => {
+        this.releaseId    = release.releaseId;
+        this.title        = release.title;
+        this.type.set(release.type);
+        this.sheriff      = release.sheriff;
+        this.preProdDate  = release.metadata.preProdDate ?? '';
+        this.prodDate     = release.metadata.prodDate ?? '';
+        this.jiraTracker  = release.metadata.jiraTracker ?? '';
+        this.intakePageId = release.metadata.intakePageId ?? '';
+        this.loading.set(false);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to load release for edit', err);
+        this.error.set(err?.error?.error ?? 'Failed to load release');
+        this.loading.set(false);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
   setType(t: ReleaseType): void {
+    if (this.mode === 'edit') return;   // type is locked in edit mode
     this.type.set(t);
   }
 
@@ -51,41 +103,82 @@ export class CreateReleaseComponent {
   onSubmit(): void {
     this.error.set(null);
 
-    if (!this.releaseId.trim() || !this.title.trim() || !this.sheriff.trim()) {
-      this.error.set('Release ID, Title, and Sheriff are required.');
-      return;
+    if (this.mode === 'create') {
+      if (!this.releaseId.trim() || !this.title.trim() || !this.sheriff.trim()) {
+        this.error.set('Release ID, Title, and Sheriff are required.');
+        return;
+      }
+    } else {
+      if (!this.title.trim() || !this.sheriff.trim()) {
+        this.error.set('Title and Sheriff are required.');
+        return;
+      }
     }
 
     this.submitting.set(true);
-    this.api
-      .create({
-        releaseId: this.releaseId.trim(),
-        title: this.title.trim(),
-        type: this.type(),
-        sheriff: this.sheriff.trim(),
-        metadata: {
-          preProdDate: this.preProdDate || null,
-          prodDate: this.prodDate || null,
-          jiraTracker: this.jiraTracker.trim() || null,
-          intakePageId: this.intakePageId.trim() || null,
-        },
-      })
-      .subscribe({
-        next: (resp) => {
-          this.submitting.set(false);
-          this.created.emit(resp.release.releaseId);
-          this.cdr.detectChanges();
-        },
-        error: (err) => {
-          console.error('Create release failed', err);
-          const msg =
-            err?.error?.error
-            ?? err?.message
-            ?? 'Failed to create release';
-          this.error.set(msg);
-          this.submitting.set(false);
-          this.cdr.detectChanges();
-        },
-      });
+
+    const metadata = {
+      preProdDate:  this.preProdDate || null,
+      prodDate:     this.prodDate || null,
+      jiraTracker:  this.jiraTracker.trim() || null,
+      intakePageId: this.intakePageId.trim() || null,
+    };
+
+    const obs$ = this.mode === 'create'
+      ? this.api.create({
+          releaseId: this.releaseId.trim(),
+          title: this.title.trim(),
+          type: this.type(),
+          sheriff: this.sheriff.trim(),
+          metadata,
+        })
+      : this.api.update(this.releaseId, {
+          title: this.title.trim(),
+          sheriff: this.sheriff.trim(),
+          metadata,
+        });
+
+    obs$.subscribe({
+      next: (resp) => {
+        this.submitting.set(false);
+        this.saved.emit(resp.release.releaseId);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(`${this.mode} release failed`, err);
+        const msg =
+          err?.error?.error
+          ?? err?.message
+          ?? `Failed to ${this.mode === 'create' ? 'create' : 'update'} release`;
+        this.error.set(msg);
+        this.submitting.set(false);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  // ---------- presentational helpers ----------
+
+  isEdit(): boolean {
+    return this.mode === 'edit';
+  }
+
+  pageTitle(): string {
+    return this.isEdit() ? `Edit ${this.releaseId || 'release'}` : 'Start a new release';
+  }
+
+  pageSubtitle(): string {
+    return this.isEdit()
+      ? 'Update title, sheriff, dates, and tracker references. Release ID and type are fixed once created.'
+      : `Enter the basics. Stage 1 will run the API checks to validate links and IDs once the release is created.`;
+  }
+
+  submitLabel(): string {
+    if (this.submitting()) return this.isEdit() ? 'Saving…' : 'Creating…';
+    return this.isEdit() ? 'Save changes' : 'Start release';
+  }
+
+  breadcrumbCurrent(): string {
+    return this.isEdit() ? `Edit ${this.releaseId || ''}`.trim() : 'New release';
   }
 }

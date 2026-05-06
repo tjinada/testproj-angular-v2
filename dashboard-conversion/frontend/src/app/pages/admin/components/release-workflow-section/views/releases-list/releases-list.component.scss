@@ -104,9 +104,17 @@
   border: none;
   cursor: pointer;
   padding: 4px 6px;
+  margin-left: 2px;
   font-size: 14px;
   color: #888;
-  &:hover { color: #1a1a1a; }
+  &:hover:not(:disabled) { color: #1a1a1a; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+  &--danger:hover:not(:disabled) { color: #791F1F; }
+}
+
+.row-deleting {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .actions-row {

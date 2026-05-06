@@ -23,6 +23,7 @@ import { Release, ReleaseStatus } from '../../../../models/release-workflow.mode
 export class ReleasesListComponent implements OnInit {
   @Output() newRelease = new EventEmitter<void>();
   @Output() openRelease = new EventEmitter<string>();
+  @Output() editRelease = new EventEmitter<string>();
 
   private readonly api = inject(ReleaseWorkflowService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -30,6 +31,7 @@ export class ReleasesListComponent implements OnInit {
   readonly releases = signal<Release[]>([]);
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
+  readonly deletingId = signal<string | null>(null);
 
   ngOnInit(): void {
     this.load();
@@ -103,5 +105,38 @@ export class ReleasesListComponent implements OnInit {
 
   onRowClick(releaseId: string): void {
     this.openRelease.emit(releaseId);
+  }
+
+  onEdit(releaseId: string, ev: Event): void {
+    ev.stopPropagation();
+    this.editRelease.emit(releaseId);
+  }
+
+  onDelete(release: Release, ev: Event): void {
+    ev.stopPropagation();
+    const ok = window.confirm(
+      `Delete release ${release.releaseId}?\n\nThis removes "${release.title}" and all its stage state. This cannot be undone.`,
+    );
+    if (!ok) return;
+
+    this.deletingId.set(release.releaseId);
+    this.error.set(null);
+
+    this.api.delete(release.releaseId).subscribe({
+      next: () => {
+        this.deletingId.set(null);
+        this.load();   // reload list; load() will call detectChanges
+      },
+      error: (err) => {
+        console.error('Failed to delete release', err);
+        this.error.set(err?.error?.error ?? `Failed to delete ${release.releaseId}`);
+        this.deletingId.set(null);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  isDeleting(releaseId: string): boolean {
+    return this.deletingId() === releaseId;
   }
 }

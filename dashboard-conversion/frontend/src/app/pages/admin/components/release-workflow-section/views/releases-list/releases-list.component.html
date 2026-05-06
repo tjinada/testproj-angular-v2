@@ -24,7 +24,7 @@
         </thead>
         <tbody>
           @for (r of releases(); track r.releaseId) {
-            <tr (click)="onRowClick(r.releaseId)" class="row-clickable">
+            <tr (click)="onRowClick(r.releaseId)" class="row-clickable" [class.row-deleting]="isDeleting(r.releaseId)">
               <td>
                 <div class="release-id">{{ r.releaseId }}</div>
                 <div class="release-title">{{ r.title }}</div>
@@ -46,7 +46,15 @@
                 <div class="muted small">{{ stagesComplete(r) }} / {{ totalStages(r) }} stages</div>
               </td>
               <td class="col-actions">
-                <button class="icon-btn" type="button" title="View" (click)="onRowClick(r.releaseId); $event.stopPropagation()">👁</button>
+                <button class="icon-btn" type="button" title="View"
+                        (click)="onRowClick(r.releaseId); $event.stopPropagation()"
+                        [disabled]="isDeleting(r.releaseId)">👁</button>
+                <button class="icon-btn" type="button" title="Edit"
+                        (click)="onEdit(r.releaseId, $event)"
+                        [disabled]="isDeleting(r.releaseId)">✎</button>
+                <button class="icon-btn icon-btn--danger" type="button" title="Delete"
+                        (click)="onDelete(r, $event)"
+                        [disabled]="isDeleting(r.releaseId)">🗑</button>
               </td>
             </tr>
           }
