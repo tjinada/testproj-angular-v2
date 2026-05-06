@@ -1,0 +1,80 @@
+<div class="release-workflow-page">
+  <div class="breadcrumb">
+    <a (click)="onCancel()" class="bc-link">Release Workflow</a>
+    <span class="bc-sep">›</span>
+    <span class="bc-current">New release</span>
+  </div>
+
+  <h1 class="page-title">Start a new release</h1>
+  <p class="page-subtitle">Enter the basics. Stage 1 will run the API checks to validate links and IDs once the release is created.</p>
+
+  @if (error()) {
+    <div class="form-error">{{ error() }}</div>
+  }
+
+  <div class="form-section">
+    <h2 class="section-title">1. Choose release</h2>
+
+    <div class="form-row">
+      <label for="releaseId">Release ID</label>
+      <input id="releaseId" type="text" [(ngModel)]="releaseId" placeholder="e.g. R80.0.1" />
+    </div>
+
+    <div class="form-row">
+      <label for="title">Title</label>
+      <input id="title" type="text" [(ngModel)]="title" placeholder="e.g. 2026 SS Channels Bundle" />
+    </div>
+
+    <div class="form-row">
+      <label>Release type</label>
+      <div class="segmented">
+        <button type="button"
+                [class.active]="type() === 'bundle'"
+                (click)="setType('bundle')">Bundle</button>
+        <button type="button"
+                [class.active]="type() === 'independent'"
+                (click)="setType('independent')">Independent</button>
+        <button type="button"
+                [class.active]="type() === 'hotfix'"
+                (click)="setType('hotfix')">Hotfix</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h2 class="section-title">2. Metadata (optional)</h2>
+    <p class="muted small">These fields can be filled in now or auto-populated by Stage 1's API checks later.</p>
+
+    <div class="form-row">
+      <label for="preProdDate">Pre-PROD date</label>
+      <input id="preProdDate" type="date" [(ngModel)]="preProdDate" />
+    </div>
+
+    <div class="form-row">
+      <label for="prodDate">PROD date</label>
+      <input id="prodDate" type="date" [(ngModel)]="prodDate" />
+    </div>
+
+    <div class="form-row">
+      <label for="jiraTracker">JIRA tracker</label>
+      <input id="jiraTracker" type="text" [(ngModel)]="jiraTracker" placeholder="e.g. SSRELEASE-6688" />
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h2 class="section-title">3. Confirm</h2>
+    <p class="muted small">Starting will create the release seeded with all 10 stages and open Stage 1.</p>
+
+    <div class="form-row">
+      <label for="sheriff">Sheriff</label>
+      <input id="sheriff" type="text" [(ngModel)]="sheriff" placeholder="username" />
+    </div>
+
+    <div class="actions-row">
+      <button type="button" class="secondary-btn" (click)="onCancel()" [disabled]="submitting()">Cancel</button>
+      <button type="button" class="primary-btn" (click)="onSubmit()" [disabled]="submitting()">
+        {{ submitting() ? 'Creating…' : 'Start release' }}
+      </button>
+    </div>
+  </div>
+</div>

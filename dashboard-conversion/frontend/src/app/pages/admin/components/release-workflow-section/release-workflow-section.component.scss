@@ -1,0 +1,4 @@
+// Section root has no chrome of its own — child views own their layout.
+:host {
+  display: block;
+}

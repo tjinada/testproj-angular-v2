@@ -1,0 +1,133 @@
+:host { display: block; }
+
+.release-workflow-page { padding: 0; }
+
+.breadcrumb {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 8px;
+
+  .bc-link { color: #888; cursor: pointer; }
+  .bc-link:hover { color: #0079C1; text-decoration: underline; }
+  .bc-sep { margin: 0 6px; color: #bbb; }
+  .bc-current { color: #1a1a1a; }
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 4px;
+}
+.page-subtitle {
+  font-size: 12px;
+  color: #666;
+  margin: 0 0 24px;
+}
+
+.form-section {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+  margin-top: 24px;
+
+  &:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 8px;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+
+  label {
+    flex: 0 0 140px;
+    font-size: 12px;
+    color: #555;
+  }
+  input[type="text"], input[type="date"] {
+    flex: 0 1 280px;
+    padding: 6px 10px;
+    border: 1px solid #cfcfcf;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: inherit;
+    color: #1a1a1a;
+  }
+  input[type="text"]:focus, input[type="date"]:focus {
+    outline: none;
+    border-color: #0079C1;
+  }
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 6px;
+
+  button {
+    padding: 6px 18px;
+    border: 1px solid #cfcfcf;
+    background: #fff;
+    color: #666;
+    font-size: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  button.active {
+    background: #0079C1;
+    color: #fff;
+    font-weight: 500;
+    border-color: #0079C1;
+  }
+  button:hover:not(.active) { background: #f7f8fa; }
+}
+
+.actions-row {
+  margin-top: 20px;
+  display: flex;
+  gap: 8px;
+}
+
+.primary-btn {
+  background: #0079C1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 3px;
+  padding: 8px 18px;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: #006AAB; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.secondary-btn {
+  background: #fff;
+  color: #666;
+  font-size: 13px;
+  border: 1px solid #cfcfcf;
+  border-radius: 3px;
+  padding: 8px 18px;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: #f7f8fa; color: #1a1a1a; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.form-error {
+  background: #FCEBEB;
+  border: 1px solid #F4D0D0;
+  color: #791F1F;
+  padding: 10px 14px;
+  border-radius: 3px;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.muted { color: #888; }
+.small { font-size: 11px; }

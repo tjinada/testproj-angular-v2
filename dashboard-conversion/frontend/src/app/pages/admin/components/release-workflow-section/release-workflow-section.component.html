@@ -1,0 +1,17 @@
+@if (view() === 'list') {
+  <app-releases-list
+    (newRelease)="goToCreate()"
+    (openRelease)="goToDetail($event)" />
+}
+
+@if (view() === 'create') {
+  <app-create-release
+    (cancel)="goToList()"
+    (created)="goToDetail($event)" />
+}
+
+@if (view() === 'detail' && selectedReleaseId()) {
+  <app-release-detail
+    [releaseId]="selectedReleaseId()!"
+    (back)="goToList()" />
+}

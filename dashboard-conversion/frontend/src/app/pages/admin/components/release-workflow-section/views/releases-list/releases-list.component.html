@@ -1,0 +1,61 @@
+<div class="release-workflow-page">
+  <h1 class="page-title">Release Workflow Management</h1>
+
+  <div class="releases-section">
+    <h2 class="section-title">Releases ({{ releases().length }})</h2>
+
+    @if (loading()) {
+      <div class="state-message">Loading releases…</div>
+    } @else if (error()) {
+      <div class="state-message state-message--error">{{ error() }}</div>
+    } @else if (releases().length === 0) {
+      <div class="state-message">No releases yet. Click "+ New Release" to start one.</div>
+    } @else {
+      <table class="releases-table">
+        <thead>
+          <tr>
+            <th>RELEASE</th>
+            <th>STATUS</th>
+            <th>CURRENT STAGE</th>
+            <th>DATES</th>
+            <th>PROGRESS</th>
+            <th class="col-actions">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of releases(); track r.releaseId) {
+            <tr (click)="onRowClick(r.releaseId)" class="row-clickable">
+              <td>
+                <div class="release-id">{{ r.releaseId }}</div>
+                <div class="release-title">{{ r.title }}</div>
+              </td>
+              <td>
+                <span [class]="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+              </td>
+              <td>
+                <div>{{ currentStageName(r) }}</div>
+              </td>
+              <td>
+                <div>Pre-PROD: {{ formatDate(r.metadata.preProdDate) }}</div>
+                <div class="muted">PROD: {{ formatDate(r.metadata.prodDate) }}</div>
+              </td>
+              <td>
+                <div class="progress-bar">
+                  <div class="progress-bar__fill" [style.width.%]="progressPct(r)"></div>
+                </div>
+                <div class="muted small">{{ stagesComplete(r) }} / {{ totalStages(r) }} stages</div>
+              </td>
+              <td class="col-actions">
+                <button class="icon-btn" type="button" title="View" (click)="onRowClick(r.releaseId); $event.stopPropagation()">👁</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <div class="actions-row">
+      <button class="primary-btn" type="button" (click)="onNewRelease()">+ New Release</button>
+    </div>
+  </div>
+</div>

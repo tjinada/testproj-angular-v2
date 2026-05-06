@@ -1,0 +1,126 @@
+:host { display: block; }
+
+.release-workflow-page {
+  padding: 0;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 24px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 16px;
+}
+
+.state-message {
+  padding: 24px;
+  color: #666;
+  text-align: center;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background: #fafafa;
+  &--error { color: #791F1F; background: #FCEBEB; border-color: #F4D0D0; }
+}
+
+.releases-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  overflow: hidden;
+
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: #777;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e5e5;
+    background: #fafafa;
+  }
+  tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  .row-clickable { cursor: pointer; }
+  .row-clickable:hover { background: #f7f8fa; }
+  .col-actions { text-align: right; width: 80px; }
+}
+
+.release-id {
+  color: #0079C1;
+  font-weight: 500;
+}
+.release-title {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+.muted { color: #888; }
+.small { font-size: 11px; }
+
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &--not-started { background: #EAEAEA; color: #555; }
+  &--in-progress { background: #E6F1FB; color: #0C447C; }
+  &--blocked     { background: #FAEEDA; color: #633806; }
+  &--complete    { background: #EAF3DE; color: #27500A; }
+  &--aborted     { background: #FCEBEB; color: #791F1F; }
+}
+
+.progress-bar {
+  width: 80px;
+  height: 6px;
+  background: #eaeaea;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+  &__fill {
+    height: 100%;
+    background: #0079C1;
+    transition: width 0.2s ease;
+  }
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 14px;
+  color: #888;
+  &:hover { color: #1a1a1a; }
+}
+
+.actions-row {
+  margin-top: 16px;
+}
+
+.primary-btn {
+  background: #0079C1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 3px;
+  padding: 8px 18px;
+  cursor: pointer;
+  &:hover { background: #006AAB; }
+}

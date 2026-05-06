@@ -1,0 +1,209 @@
+:host { display: block; }
+
+.release-workflow-page { padding: 0; }
+
+.breadcrumb {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 8px;
+
+  .bc-link { color: #888; cursor: pointer; }
+  .bc-link:hover { color: #0079C1; text-decoration: underline; }
+  .bc-sep { margin: 0 6px; color: #bbb; }
+  .bc-current { color: #1a1a1a; }
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 24px;
+
+  .meta-sep { color: #bbb; }
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 500;
+  &--not-started { background: #EAEAEA; color: #555; }
+  &--in-progress { background: #E6F1FB; color: #0C447C; }
+  &--blocked     { background: #FAEEDA; color: #633806; }
+  &--complete    { background: #EAF3DE; color: #27500A; }
+  &--aborted     { background: #FCEBEB; color: #791F1F; }
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  background: #F7F8FA;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  padding: 14px 16px;
+
+  &__label { font-size: 11px; color: #888; margin-bottom: 4px; }
+  &__value { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+  &__value--sm { font-size: 14px; }
+  &__sub { font-size: 11px; color: #888; margin-top: 2px; }
+}
+
+.progress-bar {
+  margin-top: 8px;
+  width: 100%;
+  height: 5px;
+  background: #eaeaea;
+  border-radius: 2.5px;
+  overflow: hidden;
+  &__fill {
+    height: 100%;
+    background: #0079C1;
+    transition: width 0.2s ease;
+  }
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+}
+
+// ----- stage rows -----
+
+.stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stage-row {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  &__header:hover { background: #fafafa; }
+
+  &__indicator {
+    flex: 0 0 24px;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__main { flex: 1 1 auto; min-width: 0; }
+
+  &__title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  &__sub {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  &__meta {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #888;
+  }
+
+  &__chev {
+    flex: 0 0 16px;
+    text-align: center;
+    color: #888;
+    font-size: 10px;
+  }
+
+  &__body {
+    border-top: 1px solid #f0f0f0;
+    padding: 16px;
+    background: #fafbfc;
+  }
+
+  // status variants
+  &--in_progress {
+    border-color: #0079C1;
+    background: #F7FAFD;
+    .stage-row__title { color: #0079C1; font-weight: 700; }
+  }
+  &--complete .stage-row__title { color: #1a1a1a; }
+  &--locked   .stage-row__title { color: #888; font-weight: 400; }
+  &--locked   .stage-row__sub   { color: #aaa; }
+  &--locked   .stage-row__header { cursor: default; }
+  &--locked   .stage-row__header:hover { background: transparent; }
+
+  // parallel variant
+  &--parallel {
+    background: #FFF8EE;
+    border-color: #EFC36C;
+    border-style: dashed;
+    .stage-row__title { color: #854F0B; }
+    .stage-row__sub   { color: #854F0B; }
+  }
+}
+
+.dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  color: #fff;
+  font-weight: 700;
+
+  &--complete { background: #27500A; }
+  &--active   { background: #0079C1; }
+  &--ready    { background: #fff; border: 1px solid #0079C1; }
+  &--locked   { background: #fff; border: 1px solid #cfcfcf; }
+  &--skipped  { background: #aaa; }
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 500;
+  &--parallel { background: #FFF5E6; color: #854F0B; border: 1px solid #EFC36C; }
+}
+
+.state-message {
+  padding: 24px;
+  text-align: center;
+  color: #666;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  &--error { color: #791F1F; background: #FCEBEB; border-color: #F4D0D0; }
+}
