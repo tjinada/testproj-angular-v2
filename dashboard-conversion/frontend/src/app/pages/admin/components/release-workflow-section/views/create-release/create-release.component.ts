@@ -50,6 +50,7 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
   intakePageId = '';
   intakeSheetUrl = '';
   fixVersion = '';
+  envMatrixPrUrl = '';
   branchCdbUi = '';
   branchFreddy = '';
 
@@ -93,6 +94,7 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
         this.intakePageId   = release.metadata.intakePageId ?? '';
         this.intakeSheetUrl = release.metadata.intakeSheetUrl ?? '';
         this.fixVersion     = release.metadata.fixVersion ?? '';
+        this.envMatrixPrUrl = release.metadata.envMatrixPrUrl ?? '';
         this.branchCdbUi    = release.metadata.branches?.cdbUi ?? '';
         this.branchFreddy   = release.metadata.branches?.freddy ?? '';
         this.existingBranchCdbUiConfigs = release.metadata.branches?.cdbUiConfigs ?? null;
@@ -141,6 +143,7 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
       intakePageId:   this.intakePageId.trim() || null,
       intakeSheetUrl: this.intakeSheetUrl.trim() || null,
       fixVersion:     this.fixVersion.trim() || null,
+      envMatrixPrUrl: this.envMatrixPrUrl.trim() || null,
       branches: {
         cdbUi:        this.branchCdbUi.trim() || null,
         freddy:       this.branchFreddy.trim() || null,

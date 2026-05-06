@@ -14,8 +14,6 @@
  */
 
 import confluenceService from './confluence.service';
-// The two services below exist in the production CDB Dashboard repo.
-// If your method names differ, this is the only file you need to adjust.
 import jiraService from './jira.service';
 import githubService from './github.service';
 import { AutomatedCheck } from '../models/release-workflow.model';
@@ -88,13 +86,9 @@ export async function confluencePageExists(
 /**
  * Pass if the given JIRA fix version exists.
  *
- * Expected production method:
- *   jiraService.getFixVersionByName(versionName: string): Promise<{ id, name, projectKey?, released? } | null>
- *
- * If your jira.service.ts exposes this differently (e.g. searchVersions(projectKey),
- * getVersions(projectKey), getProjectVersions(projectKey)), replace the call below.
- * If you need to look up versions by project key, source the project key from
- * config or a release metadata field.
+ * Calls jiraService.getFixVersionByName(name) which returns null if not
+ * found. The project key is sourced from config.jira.projectKey inside
+ * the JIRA service — this primitive doesn't need to know about it.
  */
 export async function jiraFixVersionExists(
   versionName: string | null | undefined,
@@ -105,8 +99,7 @@ export async function jiraFixVersionExists(
   }
 
   try {
-    // Adjust this one line if your JIRA service exposes a different shape.
-    const version = await (jiraService as any).getFixVersionByName(versionName);
+    const version = await jiraService.getFixVersionByName(versionName);
     if (!version || !version.id) {
       return withFailure(check, `JIRA Fix Version '${versionName}' not found`);
     }
@@ -127,8 +120,7 @@ export async function jiraFixVersionExists(
 /**
  * Pass if the given JIRA issue key exists.
  *
- * Expected production method:
- *   jiraService.getIssue(issueKey: string): Promise<{ key, fields: { status, summary, ... } } | null>
+ * Calls jiraService.getIssue(key) which returns null if not found.
  */
 export async function jiraIssueExists(
   issueKey: string | null | undefined,
@@ -139,7 +131,7 @@ export async function jiraIssueExists(
   }
 
   try {
-    const issue = await (jiraService as any).getIssue(issueKey);
+    const issue = await jiraService.getIssue(issueKey);
     if (!issue || !issue.key) {
       return withFailure(check, `JIRA issue '${issueKey}' not found`);
     }
@@ -159,49 +151,60 @@ export async function jiraIssueExists(
 // ---------- GitHub ----------
 
 /**
- * Pass if a PR exists in the given repo matching the search criteria.
+ * Pass if the given GitHub PR URL resolves to a real PR.
  *
- * Expected production method:
- *   githubService.searchPullRequests(args: {
- *     repo: string;       // e.g. "owner/env-matrix" or just "env-matrix" depending on your service
- *     query?: string;     // free-text query that narrows by title/body
- *     state?: 'open' | 'closed' | 'all';
- *   }): Promise<Array<{ number, title, state, html_url, ... }>>
+ * Parses owner / repo / number out of the URL, calls
+ * githubService.getPullRequest. Records prNumber, title, state, and url
+ * in result.
  *
- * Pass criteria: at least one PR returned.
- *
- * Adjust the call signature if your githubService exposes search differently.
+ * Accepts both github.com and Enterprise URLs; the path shape is the
+ * same: `.../{owner}/{repo}/pull/{number}`.
  */
-export async function githubPullRequestExists(
-  args: {
-    repo: string;
-    query: string;          // typically the release ID or branch name
-    state?: 'open' | 'closed' | 'all';
-  },
+export async function githubPullRequestUrlExists(
+  prUrl: string | null | undefined,
   check: AutomatedCheck,
 ): Promise<AutomatedCheck> {
-  const { repo, query, state = 'all' } = args;
+  if (!prUrl || !prUrl.trim()) {
+    return withFailure(check, 'PR URL is not set on this release');
+  }
 
-  if (!repo || !query) {
-    return withFailure(check, 'GitHub PR check is missing repo or query');
+  const parsed = parseGithubPrUrl(prUrl);
+  if (!parsed) {
+    return withFailure(check, `Could not parse owner/repo/number from PR URL: ${prUrl}`);
   }
 
   try {
-    const prs: any[] = await (githubService as any).searchPullRequests({ repo, query, state });
-    if (!Array.isArray(prs) || prs.length === 0) {
-      return withFailure(check, `No GitHub PR found in '${repo}' matching '${query}'`);
+    const pr = await githubService.getPullRequest(parsed.owner, parsed.repo, parsed.number);
+    if (!pr || !pr.number) {
+      return withFailure(
+        check,
+        `GitHub PR not found: ${parsed.owner}/${parsed.repo}#${parsed.number}`,
+      );
     }
-    const pr = prs[0];
     return withPass(check, {
       prNumber: pr.number,
       title: pr.title ?? null,
-      state: pr.state ?? null,
-      url: pr.html_url ?? pr.url ?? null,
-      matchCount: prs.length,
+      state: pr.merged_at ? 'merged' : (pr.state ?? null),
+      url: pr.html_url ?? prUrl,
     });
   } catch (err: any) {
     return withFailure(check, err?.message ?? 'GitHub API call failed');
   }
+}
+
+/**
+ * Pull owner, repo, and PR number from a GitHub PR URL.
+ *   https://github.com/your-org/env-matrix/pull/1234              → ok
+ *   https://github.example.com/your-org/env-matrix/pull/1234/files → ok
+ *   anything else                                                  → null
+ */
+function parseGithubPrUrl(url: string): { owner: string; repo: string; number: number } | null {
+  // Tolerate enterprise hostnames and trailing path segments (/files, /commits, etc.)
+  const m = url.match(/\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+  if (!m) return null;
+  const num = parseInt(m[3], 10);
+  if (!Number.isFinite(num)) return null;
+  return { owner: m[1], repo: m[2], number: num };
 }
 
 // ---------- internal / sanity-check primitives ----------

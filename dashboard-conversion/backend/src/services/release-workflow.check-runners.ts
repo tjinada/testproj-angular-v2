@@ -20,7 +20,7 @@ import { AutomatedCheck, Release } from '../models/release-workflow.model';
 import {
   confluencePageExists,
   jiraFixVersionExists,
-  githubPullRequestExists,
+  githubPullRequestUrlExists,
   valueIsSet,
 } from './release-workflow.check-primitives';
 
@@ -48,15 +48,7 @@ const STAGE1_RUNNERS: StageRunnerMap = {
     valueIsSet(release.metadata.intakePageId, check, { fieldName: 'intakePageId' }),
 
   'check-env-matrix-pr': (release, check) =>
-    githubPullRequestExists(
-      {
-        // Adjust 'env-matrix' to whatever your repo identifier is.
-        repo: 'env-matrix',
-        query: release.releaseId,
-        state: 'all',
-      },
-      check,
-    ),
+    githubPullRequestUrlExists(release.metadata.envMatrixPrUrl, check),
 };
 
 // ============================================================================

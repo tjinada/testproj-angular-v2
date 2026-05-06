@@ -98,6 +98,11 @@
       </div>
 
       <div class="form-row">
+        <label for="envMatrixPrUrl">Env Matrix PR URL</label>
+        <input id="envMatrixPrUrl" type="text" [(ngModel)]="envMatrixPrUrl" placeholder="Full GitHub PR URL, e.g. https://github.com/your-org/env-matrix/pull/1234" />
+      </div>
+
+      <div class="form-row">
         <label for="branchCdbUi">CDB UI branch</label>
         <input id="branchCdbUi" type="text" [(ngModel)]="branchCdbUi" placeholder="e.g. release/r85.0.0" />
       </div>
