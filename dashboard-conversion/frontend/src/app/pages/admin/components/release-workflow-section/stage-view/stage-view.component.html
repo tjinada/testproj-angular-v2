@@ -6,19 +6,23 @@
       <span>Started {{ stage.startedAt ? (stage.startedAt | date:'mediumDate') : '—' }}</span>
       <span class="sep">·</span>
       <span>{{ stage.subSteps.length }} sub-steps</span>
-      <span class="sep">·</span>
-      <span>{{ stage.automatedChecks.length }} automated checks</span>
+      @if (hasChecks()) {
+        <span class="sep">·</span>
+        <span>{{ stage.automatedChecks.length }} automated checks</span>
+      }
     </div>
-    <button class="primary-btn" type="button" (click)="onRunChecks()" [disabled]="running()">
-      {{ running() ? 'Running…' : 'Run checks' }}
-    </button>
+    @if (hasChecks()) {
+      <button class="primary-btn" type="button" (click)="onRunChecks()" [disabled]="running()">
+        {{ running() ? 'Running…' : 'Run checks' }}
+      </button>
+    }
   </div>
 
   @if (error()) {
     <div class="stage1__error">{{ error() }}</div>
   }
 
-  <div class="stage1__cols">
+  <div class="stage1__cols" [class.stage1__cols--single]="!hasChecks()">
 
     <!-- LEFT: sub-steps -->
     <div class="stage1__col">
@@ -30,7 +34,6 @@
 
             <!-- main row -->
             <div class="substep__row">
-              <!-- icon: auto-tickable items show a status pill, manual items show a checkbox -->
               @if (isAutoTickable(s)) {
                 @switch (s.state) {
                   @case ('checked') { <span class="dot dot--complete">✓</span> }
@@ -86,35 +89,37 @@
       </ul>
     </div>
 
-    <!-- RIGHT: automated checks -->
-    <div class="stage1__col">
-      <h4 class="stage1__col-title">Automated checks</h4>
+    <!-- RIGHT: automated checks (omitted entirely if the stage has none) -->
+    @if (hasChecks()) {
+      <div class="stage1__col">
+        <h4 class="stage1__col-title">Automated checks</h4>
 
-      <ul class="checks">
-        @for (c of stage.automatedChecks; track c.id) {
-          <li [class]="checkStatusClass(c)">
-            <div class="check-card__head">
-              @switch (c.status) {
-                @case ('passed')  { <span class="dot dot--complete">✓</span> }
-                @case ('failed')  { <span class="dot dot--failed">!</span> }
-                @case ('partial') { <span class="dot dot--partial">~</span> }
-                @case ('running') { <span class="dot dot--running">…</span> }
-                @default          { <span class="dot dot--pending"></span> }
-              }
-              <div class="check-card__title">{{ c.label }}</div>
-              <div class="check-card__source">[{{ c.source }}]</div>
-            </div>
+        <ul class="checks">
+          @for (c of stage.automatedChecks; track c.id) {
+            <li [class]="checkStatusClass(c)">
+              <div class="check-card__head">
+                @switch (c.status) {
+                  @case ('passed')  { <span class="dot dot--complete">✓</span> }
+                  @case ('failed')  { <span class="dot dot--failed">!</span> }
+                  @case ('partial') { <span class="dot dot--partial">~</span> }
+                  @case ('running') { <span class="dot dot--running">…</span> }
+                  @default          { <span class="dot dot--pending"></span> }
+                }
+                <div class="check-card__title">{{ c.label }}</div>
+                <div class="check-card__source">[{{ c.source }}]</div>
+              </div>
 
-            <div class="check-card__sub">
-              {{ formatRelative(c.lastRunAt) }}
-              <span class="sep">·</span>
-              <span class="check-card__status">{{ c.status }}</span>
-            </div>
+              <div class="check-card__sub">
+                {{ formatRelative(c.lastRunAt) }}
+                <span class="sep">·</span>
+                <span class="check-card__status">{{ c.status }}</span>
+              </div>
 
-            <div class="check-card__summary">{{ resultSummary(c) }}</div>
-          </li>
-        }
-      </ul>
-    </div>
+              <div class="check-card__summary">{{ resultSummary(c) }}</div>
+            </li>
+          }
+        </ul>
+      </div>
+    }
   </div>
 </div>

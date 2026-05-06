@@ -18,7 +18,7 @@
 
 import artifactoryService from './artifactory.service';
 import { cloneStageTemplate } from './release-workflow.template';
-import { STAGE1_CHECK_RUNNERS } from './release-workflow.stage1-checks';
+import { STAGE_RUNNERS, StageRunnerMap } from './release-workflow.check-runners';
 import {
   Release,
   ReleaseMetadata,
@@ -230,21 +230,11 @@ class ReleaseWorkflowService {
    * Returns the check-runner map for the given stage, or null if no
    * runners are registered for that stage yet.
    *
-   * Per-stage owners: import your STAGE_N_CHECK_RUNNERS at the top of
-   * this file and add a case here when your stage's checks are ready.
+   * Runners live in release-workflow.check-runners.ts. Per-stage owners
+   * add their stage's entries to that file's STAGE_RUNNERS map.
    */
-  private getRunnersForStage(
-    stageId: string,
-  ): Record<string, (release: Release, check: AutomatedCheck) => Promise<AutomatedCheck>> | null {
-    switch (stageId) {
-      case 'stage1-intake':
-        return STAGE1_CHECK_RUNNERS;
-      // case 'stage2-branching':            return STAGE2_CHECK_RUNNERS;
-      // case 'stage3-build-stabilization':  return STAGE3_CHECK_RUNNERS;
-      // ...
-      default:
-        return null;
-    }
+  private getRunnersForStage(stageId: string): StageRunnerMap | null {
+    return STAGE_RUNNERS[stageId] ?? null;
   }
 
   /**

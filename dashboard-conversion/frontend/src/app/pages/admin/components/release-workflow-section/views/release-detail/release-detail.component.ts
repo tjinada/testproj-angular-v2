@@ -12,34 +12,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { ReleaseWorkflowService } from '../../../../services/release-workflow.service';
 import { Release, Stage, StageStatus } from '../../../../models/release-workflow.model';
-
-import { Stage1IntakeComponent } from '../../stages/stage1-intake/stage1-intake.component';
-import { Stage2BranchingComponent } from '../../stages/stage2-branching/stage2-branching.component';
-import { Stage3BuildStabilizationComponent } from '../../stages/stage3-build-stabilization/stage3-build-stabilization.component';
-import { Stage4MobileBuildComponent } from '../../stages/stage4-mobile-build/stage4-mobile-build.component';
-import { Stage5WarPromotionComponent } from '../../stages/stage5-war-promotion/stage5-war-promotion.component';
-import { Stage6DocPrepComponent } from '../../stages/stage6-doc-prep/stage6-doc-prep.component';
-import { Stage7PreProdComponent } from '../../stages/stage7-pre-prod/stage7-pre-prod.component';
-import { Stage8ProdComponent } from '../../stages/stage8-prod/stage8-prod.component';
-import { Stage9PostGoLiveComponent } from '../../stages/stage9-post-go-live/stage9-post-go-live.component';
-import { Stage10PostMobileComponent } from '../../stages/stage10-post-mobile/stage10-post-mobile.component';
+import { StageViewComponent } from '../../stage-view/stage-view.component';
 
 @Component({
   selector: 'app-release-detail',
   standalone: true,
-  imports: [
-    CommonModule,
-    Stage1IntakeComponent,
-    Stage2BranchingComponent,
-    Stage3BuildStabilizationComponent,
-    Stage4MobileBuildComponent,
-    Stage5WarPromotionComponent,
-    Stage6DocPrepComponent,
-    Stage7PreProdComponent,
-    Stage8ProdComponent,
-    Stage9PostGoLiveComponent,
-    Stage10PostMobileComponent,
-  ],
+  imports: [CommonModule, StageViewComponent],
   templateUrl: './release-detail.component.html',
   styleUrl: './release-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,7 +33,7 @@ export class ReleaseDetailComponent implements OnInit {
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
 
-  /** Stage ID that is currently expanded into its placeholder component. */
+  /** Stage ID that is currently expanded into its body component. */
   readonly openStageId = signal<string | null>(null);
 
   ngOnInit(): void {

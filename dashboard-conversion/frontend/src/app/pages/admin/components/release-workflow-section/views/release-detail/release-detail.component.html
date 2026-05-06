@@ -98,18 +98,7 @@
 
           @if (isOpen(stage.id)) {
             <div class="stage-row__body">
-              @switch (stage.id) {
-                @case ('stage1-intake')               { <app-stage1-intake [stage]="stage" [release]="r" (refresh)="load()" /> }
-                @case ('stage2-branching')            { <app-stage2-branching [stage]="stage" [release]="r" /> }
-                @case ('stage3-build-stabilization')  { <app-stage3-build-stabilization [stage]="stage" [release]="r" /> }
-                @case ('stage4-mobile-build')         { <app-stage4-mobile-build [stage]="stage" [release]="r" /> }
-                @case ('stage5-war-promotion')        { <app-stage5-war-promotion [stage]="stage" [release]="r" /> }
-                @case ('stage6-doc-prep')             { <app-stage6-doc-prep [stage]="stage" [release]="r" /> }
-                @case ('stage7-pre-prod')             { <app-stage7-pre-prod [stage]="stage" [release]="r" /> }
-                @case ('stage8-prod')                 { <app-stage8-prod [stage]="stage" [release]="r" /> }
-                @case ('stage9-post-go-live')         { <app-stage9-post-go-live [stage]="stage" [release]="r" /> }
-                @case ('stage10-post-mobile')         { <app-stage10-post-mobile [stage]="stage" [release]="r" /> }
-              }
+              <app-stage-view [stage]="stage" [release]="r" (refresh)="load()" />
             </div>
           }
         </div>

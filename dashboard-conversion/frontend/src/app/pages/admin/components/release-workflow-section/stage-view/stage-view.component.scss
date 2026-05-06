@@ -50,6 +50,10 @@
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   gap: 18px;
+
+  &--single {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stage1__col-title {

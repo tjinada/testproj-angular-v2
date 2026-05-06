@@ -9,40 +9,47 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReleaseWorkflowService } from '../../../../services/release-workflow.service';
+import { ReleaseWorkflowService } from '../../../services/release-workflow.service';
 import {
   AutomatedCheck,
   Release,
   Stage,
   SubStep,
   SubStepState,
-} from '../../../../models/release-workflow.model';
+} from '../../../models/release-workflow.model';
+import { formatCheckResult } from '../../../services/release-workflow.check-formatters';
 
 /**
- * Stage 1 — Intake & Setup
+ * Generic stage view. One component for all 10 stages.
  *
- * Two-column layout:
- *   - Left:  the 5 sub-steps. Auto-tickable items show their auto state and
- *            an Override link; explicit checkbox is hidden by default.
- *            Manual-only items show a checkbox directly.
- *   - Right: the 5 automated checks (Confluence x2, JIRA x2, GitHub).
+ * Layout:
+ *   - Top action bar with stage metadata and "Run checks" button
+ *     (button is hidden when the stage has no automated checks).
+ *   - Two-column body:
+ *     * Left:  sub-steps. Auto-tickable items show a status pill and an
+ *              Override link; manual-only items show a checkbox.
+ *     * Right: automated checks rail (omitted if the stage has none).
  *
- * Actions:
- *   - "Run checks" button at top runs all stage checks server-side, which
- *     auto-ticks linked sub-steps when checks pass. The parent reloads the
- *     release after the call returns (via the (refresh) emitter).
- *   - Per sub-step: Override link reveals manual checkbox; N/A link toggles
- *     the n_a state. Both round-trip through the backend.
+ * Per-stage uniqueness is data-driven:
+ *   - Sub-steps and checks come from the Stage object (seeded by the
+ *     backend template).
+ *   - Check result strings come from CHECK_RESULT_FORMATTERS (frontend
+ *     services/release-workflow.check-formatters.ts).
+ *   - Auto-tick links come from each sub-step's autoTickedBy array.
+ *
+ * If a stage genuinely needs a custom UI later, this generic view becomes
+ * the default and a per-stage override component can be added back at the
+ * release-detail switch site. For now: one component, all stages.
  */
 @Component({
-  selector: 'app-stage1-intake',
+  selector: 'app-stage-view',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './stage1-intake.component.html',
-  styleUrl: './stage1-intake.component.scss',
+  templateUrl: './stage-view.component.html',
+  styleUrl: './stage-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Stage1IntakeComponent {
+export class StageViewComponent {
   @Input({ required: true }) stage!: Stage;
   @Input({ required: true }) release!: Release;
 
@@ -59,6 +66,10 @@ export class Stage1IntakeComponent {
   readonly overrideOpen = signal<Set<string>>(new Set());
 
   // ---------- run all checks ----------
+
+  hasChecks(): boolean {
+    return this.stage.automatedChecks.length > 0;
+  }
 
   onRunChecks(): void {
     if (this.running()) return;
@@ -98,19 +109,13 @@ export class Stage1IntakeComponent {
     });
   }
 
-  /**
-   * Manual override: toggle between unchecked and checked (with source: manual).
-   * Used both for non-auto-tickable items and for Override rows.
-   */
   toggleManual(s: SubStep): void {
     const nextState: SubStepState = s.state === 'checked' ? 'unchecked' : 'checked';
     this.updateSubStep(s, nextState, nextState === 'unchecked' ? null : 'manual');
   }
 
-  /** N/A toggle. From any state, sets n_a; from n_a, returns to unchecked. */
   toggleNa(s: SubStep): void {
     const nextState: SubStepState = s.state === 'n_a' ? 'unchecked' : 'n_a';
-    // n_a is a "completion" state but didn't come from a check, so source = manual.
     this.updateSubStep(s, nextState, nextState === 'unchecked' ? null : 'manual');
   }
 
@@ -145,29 +150,13 @@ export class Stage1IntakeComponent {
     return `${d}d ago`;
   }
 
-  /** Build a one-line summary string from the check's free-form result JSON. */
   resultSummary(c: AutomatedCheck): string {
-    if (c.status === 'failed') return c.errorMessage ?? 'Failed';
-    if (c.status === 'pending') return 'Not yet run';
-    if (c.status === 'running') return 'Running…';
-    if (!c.result) return c.status;
-
-    // Per-check pretty-printers. Free to extend as more checks come online.
-    if (c.id === 'check-confluence-page-resolves' || c.id === 'check-self-serve-link-resolves') {
-      const title = (c.result as any).title;
-      return title ? `Page found: ${title}` : 'Passed';
-    }
-    if (c.id === 'check-fix-version-exists') {
-      const name = (c.result as any).name;
-      return name ? `Fix Version: ${name}` : 'Passed';
-    }
-    if (c.id === 'check-env-matrix-pr') {
-      const num = (c.result as any).prNumber;
-      const state = (c.result as any).state;
-      return num ? `PR #${num} (${state})` : 'Passed';
-    }
-
-    return 'Passed';
+    return formatCheckResult({
+      id: c.id,
+      status: c.status,
+      result: c.result,
+      errorMessage: c.errorMessage,
+    });
   }
 
   checkStatusClass(c: AutomatedCheck): string {
