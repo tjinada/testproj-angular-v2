@@ -50,12 +50,12 @@
   tbody td {
     padding: 14px 16px;
     border-bottom: 1px solid #f0f0f0;
-    vertical-align: top;
+    vertical-align: middle;
   }
   tbody tr:last-child td { border-bottom: none; }
   .row-clickable { cursor: pointer; }
   .row-clickable:hover { background: #f7f8fa; }
-  .col-actions { text-align: right; width: 80px; }
+  .col-actions { text-align: right; width: 120px; white-space: nowrap; }
 }
 
 .release-id {
@@ -99,17 +99,35 @@
   }
 }
 
+.actions-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
+  border-radius: 3px;
   cursor: pointer;
-  padding: 4px 6px;
-  margin-left: 2px;
-  font-size: 14px;
+  padding: 6px;
+  width: 28px;
+  height: 28px;
   color: #888;
-  &:hover:not(:disabled) { color: #1a1a1a; }
+  transition: background-color 0.1s ease, color 0.1s ease;
+  &:hover:not(:disabled) {
+    color: #1a1a1a;
+    background: #f0f0f0;
+  }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
-  &--danger:hover:not(:disabled) { color: #791F1F; }
+  &--danger:hover:not(:disabled) {
+    color: #791F1F;
+    background: #FCEBEB;
+  }
+  svg { display: block; }
 }
 
 .row-deleting {
