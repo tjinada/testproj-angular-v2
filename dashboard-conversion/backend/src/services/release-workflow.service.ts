@@ -18,7 +18,7 @@
 
 import artifactoryService from './artifactory.service';
 import { cloneStageTemplate, STAGE_TEMPLATE } from './release-workflow.template';
-import { STAGE_RUNNERS, StageRunnerMap } from './release-workflow.check-runners';
+import { STAGE_RUNNERS, StageRunnerMap } from './release-workflow.checks';
 import {
   Release,
   ReleaseMetadata,
@@ -251,27 +251,59 @@ class ReleaseWorkflowService {
   }
 
   /**
-   * For each passing check, auto-tick any sub-step that lists this check
-   * in its autoTickedBy array, unless the sub-step has already been
-   * manually checked (we don't want to clobber a 'manual' source with
-   * 'auto').
+   * Reconcile sub-step ticks with the latest check results.
+   *
+   * Rules:
+   *   - Manually-checked sub-steps are sticky — never auto-modified, in
+   *     either direction. source: 'manual' is sacred.
+   *   - N/A sub-steps are sticky — never auto-modified.
+   *   - For an auto-tickable sub-step (autoTickedBy non-empty):
+   *     • If ALL linked checks PASSED → auto-tick (set 'checked' / 'auto')
+   *     • If ANY linked check FAILED → auto-untick (back to 'unchecked')
+   *       but only if currently 'auto' (don't clobber a manual tick)
+   *     • Otherwise (partial / pending / running mix) → leave unchanged
+   *
+   * The asymmetry matters: a manual tick is a human attestation that the
+   * sub-step is genuinely done; we don't reverse it just because an API
+   * happened to fail. An auto tick, on the other hand, is purely derived
+   * from the check results, so it should track the current results.
    */
   private applyAutoTicks(stage: Stage, checks: AutomatedCheck[]): void {
     const now = new Date().toISOString();
+    const checkById = new Map(checks.map((c) => [c.id, c]));
 
-    for (const check of checks) {
-      if (check.status !== 'passed') continue;
+    for (const subStep of stage.subSteps) {
+      if (subStep.autoTickedBy.length === 0) continue;     // purely manual sub-step
+      if (subStep.state === 'n_a') continue;               // sticky
+      if (subStep.state === 'checked' && subStep.source === 'manual') continue;  // sticky
 
-      for (const subStep of stage.subSteps) {
-        if (!subStep.autoTickedBy.includes(check.id)) continue;
-        if (subStep.state === 'checked' && subStep.source === 'manual') continue;  // preserve manual override
-        if (subStep.state === 'n_a') continue;                                     // preserve N/A
+      const linked = subStep.autoTickedBy
+        .map((id) => checkById.get(id))
+        .filter((c): c is AutomatedCheck => !!c);
 
-        subStep.state = 'checked';
-        subStep.source = 'auto';
-        subStep.completedAt = now;
-        subStep.completedBy = 'system';
+      if (linked.length === 0) continue;                   // nothing to evaluate
+
+      const allPassed = linked.every((c) => c.status === 'passed');
+      const anyFailed = linked.some((c) => c.status === 'failed');
+
+      if (allPassed) {
+        // (re-)tick from auto. No-op if already in this state.
+        if (subStep.state !== 'checked' || subStep.source !== 'auto') {
+          subStep.state = 'checked';
+          subStep.source = 'auto';
+          subStep.completedAt = now;
+          subStep.completedBy = 'system';
+        }
+      } else if (anyFailed) {
+        // un-tick — but only if it was auto-ticked. Manual was filtered above.
+        if (subStep.state === 'checked' && subStep.source === 'auto') {
+          subStep.state = 'unchecked';
+          subStep.source = null;
+          subStep.completedAt = null;
+          subStep.completedBy = null;
+        }
       }
+      // else: partial / pending / running mix — leave whatever state we have
     }
   }
 
