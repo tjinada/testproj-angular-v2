@@ -41,11 +41,16 @@
                   @default          { <span class="dot dot--pending"></span> }
                 }
               } @else {
-                <input
-                  type="checkbox"
-                  class="substep__cb"
-                  [checked]="s.state === 'checked'"
-                  (change)="toggleManual(s)" />
+                <label class="substep__check" [class.substep__check--checked]="s.state === 'checked'">
+                  <input
+                    type="checkbox"
+                    class="substep__check-input"
+                    [checked]="s.state === 'checked'"
+                    (change)="toggleManual(s)" />
+                  <span class="substep__check-visual" aria-hidden="true">
+                    @if (s.state === 'checked') { ✓ }
+                  </span>
+                </label>
               }
 
               <div class="substep__main">

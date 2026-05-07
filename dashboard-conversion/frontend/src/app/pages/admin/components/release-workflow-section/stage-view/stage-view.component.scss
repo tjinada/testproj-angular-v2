@@ -91,11 +91,54 @@
   padding: 10px 12px;
 }
 
-.substep__cb {
-  margin-top: 1px;
-  width: 14px;
-  height: 14px;
+.substep__check {
+  // Wrapper label — click anywhere on it toggles the input.
+  flex: 0 0 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  position: relative;
+  margin-top: 1px;
+}
+
+.substep__check-input {
+  // Visually hidden but still focusable + clickable for accessibility.
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.substep__check-visual {
+  // Mirrors .dot dimensions so manual + auto sub-steps line up pixel-for-pixel.
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #cfcfcf;
+  color: #fff;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+// Checked state — same green as .dot--complete.
+.substep__check--checked .substep__check-visual {
+  background: #27500A;
+  border-color: #27500A;
+}
+
+// Keyboard focus ring — only visible when navigating via keyboard.
+.substep__check-input:focus-visible + .substep__check-visual {
+  outline: 2px solid #0079C1;
+  outline-offset: 2px;
 }
 
 .substep__main {
