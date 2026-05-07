@@ -114,6 +114,8 @@ class ReleaseWorkflowService {
       stage1.startedAt = now;
     }
 
+    this.recomputeStatuses(release);
+
     this.releases[releaseId] = release;
     await this.save();
     return release;
@@ -140,6 +142,8 @@ class ReleaseWorkflowService {
       metadata: patch.metadata ? { ...existing.metadata, ...patch.metadata } : existing.metadata,
       updatedAt: new Date().toISOString(),
     };
+
+    this.recomputeStatuses(updated);
 
     this.releases[releaseId] = updated;
     await this.save();
@@ -170,6 +174,8 @@ class ReleaseWorkflowService {
     subStep.source = patch.state === 'unchecked' ? null : patch.source;
     subStep.completedAt = patch.state === 'unchecked' ? null : now;
     subStep.completedBy = patch.state === 'unchecked' ? null : (patch.actor ?? 'unknown');
+
+    this.recomputeStatuses(release);
 
     release.updatedAt = now;
     await this.save();
@@ -225,6 +231,8 @@ class ReleaseWorkflowService {
     // Write results back into the stage and auto-tick linked sub-steps.
     stage.automatedChecks = updated;
     this.applyAutoTicks(stage, updated);
+
+    this.recomputeStatuses(release);
 
     release.updatedAt = new Date().toISOString();
     await this.save();
@@ -301,6 +309,102 @@ class ReleaseWorkflowService {
     return this.releases[releaseId]?.stages.find((s) => s.id === stageId);
   }
 
+  // ----- status auto-advance -----
+
+  /**
+   * Recompute every stage's status and the release's status from the
+   * current sub-step state. Called after every mutation that could affect
+   * stage completion (sub-step toggles, runChecks, create, update).
+   *
+   * Stage rules:
+   *   - locked      : a dependsOn stage is not yet complete
+   *   - complete    : all sub-steps are 'checked' or 'n_a'
+   *   - in_progress : any sub-step is 'checked' or 'n_a' (some progress made)
+   *   - ready       : eligible to start, no progress yet
+   *
+   * Release rules:
+   *   - complete    : every stage complete
+   *   - in_progress : at least one stage in_progress or ready
+   *   - not_started : every stage locked (no progress anywhere)
+   *
+   * Idempotent. Sets startedAt/closedAt the first time a stage transitions
+   * into in_progress / complete, but never overwrites an existing value.
+   * Side-effects: mutates the release in place.
+   */
+  private recomputeStatuses(release: Release): void {
+    const now = new Date().toISOString();
+
+    // Map for O(1) status lookup of dependency stages.
+    const stageStatusById = new Map<string, Stage['status']>();
+    for (const s of release.stages) stageStatusById.set(s.id, s.status);
+
+    // Walk in displayOrder so dependsOn lookups see already-computed predecessors.
+    const ordered = [...release.stages].sort((a, b) => a.displayOrder - b.displayOrder);
+
+    for (const stage of ordered) {
+      const newStatus = this.computeStageStatus(stage, stageStatusById);
+
+      if (newStatus !== stage.status) {
+        // Side-effect timestamps on transitions.
+        if (newStatus === 'in_progress' && !stage.startedAt) {
+          stage.startedAt = now;
+        }
+        if (newStatus === 'complete' && !stage.closedAt) {
+          stage.closedAt = now;
+        }
+        if (newStatus === 'ready' || newStatus === 'locked') {
+          // If a stage drops back from in_progress (e.g. a sub-step was un-checked),
+          // do NOT clear startedAt — it records when work began, regardless of
+          // current state. closedAt likewise stays null until re-completed.
+        }
+        stage.status = newStatus;
+      }
+
+      stageStatusById.set(stage.id, newStatus);
+    }
+
+    // Roll up to release-level status.
+    release.status = this.computeReleaseStatus(release.stages);
+  }
+
+  private computeStageStatus(
+    stage: Stage,
+    stageStatusById: Map<string, Stage['status']>,
+  ): Stage['status'] {
+    // Dependencies must all be complete to leave the locked state.
+    if (stage.dependsOn && stage.dependsOn.length > 0) {
+      const allDepsComplete = stage.dependsOn.every(
+        (depId) => stageStatusById.get(depId) === 'complete',
+      );
+      if (!allDepsComplete) return 'locked';
+    }
+
+    if (stage.subSteps.length === 0) {
+      // Stage has no sub-steps (shouldn't happen with current template, but guard
+      // anyway). Treat as ready until something else marks it complete.
+      return 'ready';
+    }
+
+    const allDone = stage.subSteps.every(
+      (s) => s.state === 'checked' || s.state === 'n_a',
+    );
+    if (allDone) return 'complete';
+
+    const anyDone = stage.subSteps.some(
+      (s) => s.state === 'checked' || s.state === 'n_a',
+    );
+    if (anyDone) return 'in_progress';
+
+    return 'ready';
+  }
+
+  private computeReleaseStatus(stages: Stage[]): Release['status'] {
+    if (stages.length === 0) return 'not_started';
+    if (stages.every((s) => s.status === 'complete')) return 'complete';
+    if (stages.every((s) => s.status === 'locked')) return 'not_started';
+    return 'in_progress';
+  }
+
   // ----- template reconciliation -----
 
   /**
@@ -326,6 +430,19 @@ class ReleaseWorkflowService {
     for (const releaseId of Object.keys(this.releases)) {
       const release = this.releases[releaseId];
       const releaseChanges = this.reconcileRelease(release);
+
+      // Always recompute statuses on boot. This catches releases whose
+      // sub-steps are all checked but whose stage.status is stale (e.g.
+      // releases that pre-date the auto-advance logic). recomputeStatuses
+      // is idempotent — a no-op when statuses already match — so the
+      // call is safe even when no structural changes were made.
+      const statusBefore = JSON.stringify(release.stages.map((s) => s.status)) + '|' + release.status;
+      this.recomputeStatuses(release);
+      const statusAfter = JSON.stringify(release.stages.map((s) => s.status)) + '|' + release.status;
+      if (statusBefore !== statusAfter) {
+        releaseChanges.push('recomputed stage and release statuses from current sub-step state');
+      }
+
       if (releaseChanges.length > 0) {
         totalChanges += releaseChanges.length;
         changedReleaseIds.push(releaseId);
