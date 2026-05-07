@@ -17,7 +17,7 @@
  */
 
 import artifactoryService from './artifactory.service';
-import { cloneStageTemplate } from './release-workflow.template';
+import { cloneStageTemplate, STAGE_TEMPLATE } from './release-workflow.template';
 import { STAGE_RUNNERS, StageRunnerMap } from './release-workflow.check-runners';
 import {
   Release,
@@ -49,6 +49,11 @@ class ReleaseWorkflowService {
     } catch (error) {
       console.log('No existing release_workflow_data found in artifactory');
     }
+
+    // Reconcile every existing release against the current STAGE_TEMPLATE.
+    // Idempotent: no-op if release structure already matches the template.
+    // Persists only if anything actually changed.
+    await this.reconcileWithTemplate();
   }
 
   private async save(): Promise<void> {
@@ -295,7 +300,161 @@ class ReleaseWorkflowService {
   findStage(releaseId: string, stageId: string): Stage | undefined {
     return this.releases[releaseId]?.stages.find((s) => s.id === stageId);
   }
+
+  // ----- template reconciliation -----
+
+  /**
+   * Reconcile every persisted release against the current STAGE_TEMPLATE.
+   *
+   * For each stage on each release:
+   *   - Drop sub-steps whose ID is no longer in the template stage
+   *   - Add sub-steps from the template that don't exist on the release
+   *   - Update label + autoTickedBy on existing sub-steps to match template
+   *     (these are template-controlled; user-controlled state is preserved)
+   *   - Same three operations for automatedChecks
+   *
+   * What is preserved: sub-step state/source/completedAt/completedBy;
+   * check status/lastRunAt/result/errorMessage. User progress and runtime
+   * state survive; only structural fields get re-synced.
+   *
+   * Runs once on boot. Logs only when changes are made.
+   */
+  private async reconcileWithTemplate(): Promise<void> {
+    let totalChanges = 0;
+    const changedReleaseIds: string[] = [];
+
+    for (const releaseId of Object.keys(this.releases)) {
+      const release = this.releases[releaseId];
+      const releaseChanges = this.reconcileRelease(release);
+      if (releaseChanges.length > 0) {
+        totalChanges += releaseChanges.length;
+        changedReleaseIds.push(releaseId);
+        console.log(
+          `[release-workflow] reconciled ${releaseId}: ${releaseChanges.length} change(s)`,
+        );
+        for (const change of releaseChanges) {
+          console.log(`[release-workflow]   - ${change}`);
+        }
+      }
+    }
+
+    if (totalChanges > 0) {
+      console.log(
+        `[release-workflow] template reconciliation: ${totalChanges} change(s) across ${changedReleaseIds.length} release(s); persisting`,
+      );
+      await this.save();
+    }
+  }
+
+  /**
+   * Apply template reconciliation to a single release IN PLACE.
+   * Returns a list of human-readable change descriptions for logging.
+   * Empty list = no changes made.
+   */
+  private reconcileRelease(release: Release): string[] {
+    const changes: string[] = [];
+
+    for (const tplStage of STAGE_TEMPLATE) {
+      const stage = release.stages.find((s) => s.id === tplStage.id);
+      if (!stage) {
+        // Whole stage missing on the release — unlikely, but possible if a
+        // stage was added to the template after this release was created.
+        // Clone the template stage and append.
+        const cloned: Stage = JSON.parse(JSON.stringify(tplStage));
+        release.stages.push(cloned);
+        changes.push(`added missing stage '${tplStage.id}'`);
+        continue;
+      }
+
+      // ----- sub-steps -----
+      const tplSubStepIds = new Set(tplStage.subSteps.map((s) => s.id));
+
+      // drop sub-steps no longer in template
+      const droppedSubSteps = stage.subSteps.filter((s) => !tplSubStepIds.has(s.id));
+      if (droppedSubSteps.length > 0) {
+        stage.subSteps = stage.subSteps.filter((s) => tplSubStepIds.has(s.id));
+        for (const dropped of droppedSubSteps) {
+          changes.push(`${tplStage.id}: dropped orphan sub-step '${dropped.id}'`);
+        }
+      }
+
+      // add sub-steps from template that aren't on the release
+      for (const tplSub of tplStage.subSteps) {
+        const existing = stage.subSteps.find((s) => s.id === tplSub.id);
+        if (!existing) {
+          stage.subSteps.push(JSON.parse(JSON.stringify(tplSub)));
+          changes.push(`${tplStage.id}: added missing sub-step '${tplSub.id}'`);
+        } else {
+          // sync template-controlled fields
+          if (existing.label !== tplSub.label) {
+            existing.label = tplSub.label;
+            changes.push(`${tplStage.id}: updated label on sub-step '${tplSub.id}'`);
+          }
+          if (!arraysEqual(existing.autoTickedBy, tplSub.autoTickedBy)) {
+            existing.autoTickedBy = [...tplSub.autoTickedBy];
+            changes.push(`${tplStage.id}: updated autoTickedBy on sub-step '${tplSub.id}'`);
+          }
+        }
+      }
+
+      // restore template ordering
+      stage.subSteps.sort(
+        (a, b) => indexOf(tplStage.subSteps, (s) => s.id === a.id) - indexOf(tplStage.subSteps, (s) => s.id === b.id),
+      );
+
+      // ----- automated checks -----
+      const tplCheckIds = new Set(tplStage.automatedChecks.map((c) => c.id));
+
+      const droppedChecks = stage.automatedChecks.filter((c) => !tplCheckIds.has(c.id));
+      if (droppedChecks.length > 0) {
+        stage.automatedChecks = stage.automatedChecks.filter((c) => tplCheckIds.has(c.id));
+        for (const dropped of droppedChecks) {
+          changes.push(`${tplStage.id}: dropped orphan check '${dropped.id}'`);
+        }
+      }
+
+      for (const tplCheck of tplStage.automatedChecks) {
+        const existing = stage.automatedChecks.find((c) => c.id === tplCheck.id);
+        if (!existing) {
+          stage.automatedChecks.push(JSON.parse(JSON.stringify(tplCheck)));
+          changes.push(`${tplStage.id}: added missing check '${tplCheck.id}'`);
+        } else {
+          if (existing.label !== tplCheck.label) {
+            existing.label = tplCheck.label;
+            changes.push(`${tplStage.id}: updated label on check '${tplCheck.id}'`);
+          }
+          if (existing.source !== tplCheck.source) {
+            existing.source = tplCheck.source;
+            changes.push(`${tplStage.id}: updated source on check '${tplCheck.id}'`);
+          }
+        }
+      }
+
+      stage.automatedChecks.sort(
+        (a, b) => indexOf(tplStage.automatedChecks, (c) => c.id === a.id) - indexOf(tplStage.automatedChecks, (c) => c.id === b.id),
+      );
+    }
+
+    return changes;
+  }
 }
 
 const releaseWorkflowService = new ReleaseWorkflowService();
 export default releaseWorkflowService;
+
+// ---------- module-level helpers (used by reconcile) ----------
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function indexOf<T>(arr: T[], pred: (item: T) => boolean): number {
+  for (let i = 0; i < arr.length; i++) {
+    if (pred(arr[i])) return i;
+  }
+  return arr.length; // unmatched items sort to the end
+}
