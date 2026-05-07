@@ -72,6 +72,33 @@ class GitHubService {
       throw err;
     }
   }
+
+  /**
+   * Fetch a single branch by name.
+   *
+   * Hits GET /repos/{owner}/{repo}/branches/{branch}. Returns the branch
+   * object (with .name and .commit.sha) or null if it doesn't exist (404).
+   * Throws on other errors.
+   *
+   * Branch names containing slashes (e.g. 'release/r85.0.0') must be
+   * URL-encoded; encodeURIComponent handles that.
+   */
+  async getBranch(owner: string, repo: string, branch: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(
+        `/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`,
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+          },
+        },
+      );
+      return response.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) return null;
+      throw err;
+    }
+  }
 }
 
 export default new GitHubService();

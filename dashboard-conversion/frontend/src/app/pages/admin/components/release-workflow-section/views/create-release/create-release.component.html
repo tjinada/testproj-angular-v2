@@ -103,13 +103,20 @@
       </div>
 
       <div class="form-row">
-        <label for="branchCdbUi">CDB UI branch</label>
-        <input id="branchCdbUi" type="text" [(ngModel)]="branchCdbUi" placeholder="e.g. release/r85.0.0" />
+        <label for="branchCdbUi">CDB UI branch URL</label>
+        <input id="branchCdbUi" type="text" [(ngModel)]="branchCdbUi" placeholder="Full GitHub branch URL, e.g. https://github.com/your-org/cdb-ui/tree/release/r85.0.0" />
       </div>
 
+      @if (isEdit()) {
+        <div class="form-row">
+          <label for="branchCdbUiConfigs">CDB UI Configs branch URL</label>
+          <input id="branchCdbUiConfigs" type="text" [(ngModel)]="branchCdbUiConfigs" placeholder="Paste once Stage 2 creates the branch, e.g. https://github.com/your-org/cdb-ui-configs/tree/release/r85.0.0" />
+        </div>
+      }
+
       <div class="form-row">
-        <label for="branchFreddy">Freddy branch</label>
-        <input id="branchFreddy" type="text" [(ngModel)]="branchFreddy" placeholder="e.g. release/r85.0.0" />
+        <label for="branchFreddy">Freddy branch URL</label>
+        <input id="branchFreddy" type="text" [(ngModel)]="branchFreddy" placeholder="Full GitHub branch URL, e.g. https://github.com/your-org/freddy/tree/release/r85.0.0" />
       </div>
     </div>
 

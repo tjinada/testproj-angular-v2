@@ -52,15 +52,18 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
   fixVersion = '';
   envMatrixPrUrl = '';
   branchCdbUi = '';
+  branchCdbUiConfigs = '';   // editable in EDIT mode only — populated mid-flight by Stage 2
   branchFreddy = '';
 
   /**
-   * Preserved across edit so we don't clobber it when sending a metadata patch.
-   * cdbUiConfigs is populated mid-flight by Stage 2 and isn't editable here,
-   * but the backend's metadata merge is shallow at the branches level so we
-   * have to round-trip it.
+   * cdbUiConfigs is populated mid-flight by Stage 2 (the sub-step "create CDB
+   * UI Configs branch off master"). It's not part of the create wizard — the
+   * branch doesn't exist yet at intake. The edit wizard exposes it so the
+   * sheriff can paste the URL after creating the branch in GitHub.
+   *
+   * In edit mode, branchCdbUiConfigs is the form field. In create mode this
+   * stays empty and the value goes to the backend as null.
    */
-  private existingBranchCdbUiConfigs: string | null = null;
 
   readonly submitting = signal<boolean>(false);
   readonly loading = signal<boolean>(false);
@@ -95,9 +98,9 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
         this.intakeSheetUrl = release.metadata.intakeSheetUrl ?? '';
         this.fixVersion     = release.metadata.fixVersion ?? '';
         this.envMatrixPrUrl = release.metadata.envMatrixPrUrl ?? '';
-        this.branchCdbUi    = release.metadata.branches?.cdbUi ?? '';
-        this.branchFreddy   = release.metadata.branches?.freddy ?? '';
-        this.existingBranchCdbUiConfigs = release.metadata.branches?.cdbUiConfigs ?? null;
+        this.branchCdbUi          = release.metadata.branches?.cdbUi ?? '';
+        this.branchCdbUiConfigs   = release.metadata.branches?.cdbUiConfigs ?? '';
+        this.branchFreddy         = release.metadata.branches?.freddy ?? '';
         this.loading.set(false);
         this.cdr.detectChanges();
       },
@@ -147,9 +150,10 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
       branches: {
         cdbUi:        this.branchCdbUi.trim() || null,
         freddy:       this.branchFreddy.trim() || null,
-        // cdbUiConfigs is populated mid-flight by Stage 2, not editable here.
-        // We round-trip the existing value so the wizard doesn't clobber it.
-        cdbUiConfigs: this.existingBranchCdbUiConfigs,
+        // cdbUiConfigs is editable in EDIT mode only. In CREATE mode the
+        // form field stays empty (the branch doesn't exist yet at intake;
+        // it's created during Stage 2 and pasted in via edit afterward).
+        cdbUiConfigs: this.branchCdbUiConfigs.trim() || null,
       },
     };
 

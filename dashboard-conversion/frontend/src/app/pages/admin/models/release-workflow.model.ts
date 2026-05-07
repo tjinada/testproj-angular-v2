@@ -11,7 +11,6 @@ export type StageKind     = 'sequential' | 'parallel';
 export type StageStatus   = 'locked' | 'ready' | 'in_progress' | 'complete' | 'skipped';
 export type SubStepState  = 'unchecked' | 'checked' | 'n_a';
 export type SubStepSource = 'manual' | 'auto' | null;
-export type CheckSource   = 'github' | 'jira' | 'confluence' | 'artifactory';
 export type CheckStatus   = 'pending' | 'running' | 'passed' | 'failed' | 'partial';
 
 export interface SubStep {
@@ -27,7 +26,6 @@ export interface SubStep {
 export interface AutomatedCheck {
   id: string;
   label: string;
-  source: CheckSource;
   status: CheckStatus;
   lastRunAt: string | null;
   result: Record<string, unknown> | null;

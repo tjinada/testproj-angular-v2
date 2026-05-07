@@ -17,8 +17,12 @@
  */
 
 import artifactoryService from './artifactory.service';
-import { cloneStageTemplate, STAGE_TEMPLATE } from './release-workflow.template';
-import { STAGE_RUNNERS, StageRunnerMap } from './release-workflow.checks';
+import {
+  cloneStageTemplate,
+  STAGE_TEMPLATE,
+  STAGE_RUNNERS,
+  StageRunnerMap,
+} from './release-workflow.checks';
 import {
   Release,
   ReleaseMetadata,
@@ -571,10 +575,6 @@ class ReleaseWorkflowService {
           if (existing.label !== tplCheck.label) {
             existing.label = tplCheck.label;
             changes.push(`${tplStage.id}: updated label on check '${tplCheck.id}'`);
-          }
-          if (existing.source !== tplCheck.source) {
-            existing.source = tplCheck.source;
-            changes.push(`${tplStage.id}: updated source on check '${tplCheck.id}'`);
           }
         }
       }
