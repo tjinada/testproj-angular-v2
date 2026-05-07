@@ -26,6 +26,12 @@ export interface SubStep {
   state: SubStepState;
   source: SubStepSource;
   autoTickedBy: string[];        // check IDs that auto-tick this sub-step; [] for manual-only
+  /**
+   * If set, names the metadata field this sub-step's inline input writes to.
+   * Format: 'fieldName' for top-level fields, or 'branches.fieldName' for
+   * nested branch fields. Null for manual-only sub-steps with no input.
+   */
+  editableField: string | null;
   completedAt: string | null;    // ISO 8601
   completedBy: string | null;    // username, or "system" for auto-ticks
 }

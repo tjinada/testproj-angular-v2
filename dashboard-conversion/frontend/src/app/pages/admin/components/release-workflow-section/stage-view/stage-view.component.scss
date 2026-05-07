@@ -1,110 +1,229 @@
 :host { display: block; }
 
-// ---------- top bar ----------
-
-.stage1 {
+.sp {
   display: block;
 }
 
-.stage1__bar {
+// ---------- top bar ----------
+
+.sp__bar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 4px 0 14px;
+  padding: 0 0 14px;
   border-bottom: 1px solid #f0f0f0;
   margin-bottom: 16px;
+  gap: 12px;
 }
 
-.stage1__bar-meta {
+.sp__title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #1a1a1a;
+}
+
+.sp__meta {
   font-size: 11px;
   color: #888;
   .sep { margin: 0 6px; color: #ccc; }
 }
 
-.stage1__error {
+.sp__error {
   background: #FCEBEB;
   border: 1px solid #F4D0D0;
   color: #791F1F;
   padding: 8px 12px;
-  border-radius: 3px;
+  border-radius: 4px;
   font-size: 12px;
   margin-bottom: 12px;
 }
 
-.primary-btn {
+.sp__run {
   background: #0079C1;
   color: #fff;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
-  padding: 7px 16px;
+  padding: 7px 14px;
   cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
   &:hover:not(:disabled) { background: #006AAB; }
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
-// ---------- two-column layout ----------
+// ---------- sub-step rows ----------
 
-.stage1__cols {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 18px;
-
-  &--single {
-    grid-template-columns: 1fr;
-  }
+.ss-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.stage1__col-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #555;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin: 0 0 10px;
-}
-
-// ---------- sub-steps ----------
-
-.substeps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.substep {
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 3px;
-  margin-bottom: 6px;
-  overflow: hidden;
-
-  &--checked { background: #fafef5; }
-  &--n_a     { background: #fafafa; opacity: 0.85; }
-}
-
-.substep__row {
+.ss-row {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background: #fff;
+
+  &--passed  { background: #FAFEF5; border-color: #C0DD97; }
+  &--failed  { background: #FFF8F8; border-color: #F09595; }
+  &--na      { background: #fafafa; opacity: 0.85; }
+  &--running { background: #f7fafd; border-color: #B5D4F4; }
+
+  &__icon {
+    flex: 0 0 20px;
+    margin-top: 1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__main { flex: 1 1 auto; min-width: 0; }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  &__value {
+    font-size: 11px;
+    color: #444;
+    margin-top: 4px;
+    word-break: break-all;
+  }
+
+  &__field {
+    color: #888;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+  }
+
+  &__field-val {
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    color: #1a1a1a;
+    margin-left: 4px;
+  }
+
+  &__result {
+    font-size: 11px;
+    margin-top: 4px;
+    word-break: break-word;
+
+    &--passed { color: #27500A; }
+    &--failed { color: #791F1F; }
+  }
+
+  &__sub {
+    font-size: 10px;
+    color: #888;
+    margin-top: 3px;
+
+    &--running { color: #185FA5; }
+  }
+
+  &__edit {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  &__actions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    align-items: center;
+    padding-top: 1px;
+  }
 }
 
-.substep__check {
-  // Wrapper label — click anywhere on it toggles the input.
-  flex: 0 0 18px;
-  height: 18px;
+// ---------- input + buttons inside row ----------
+
+.ss-input {
+  flex: 1 1 auto;
+  height: 28px;
+  font-size: 11px;
+  font-family: 'SF Mono', Consolas, Monaco, monospace;
+  padding: 0 8px;
+  border: 1px solid #cfcfcf;
+  border-radius: 3px;
+  background: #fff;
+  min-width: 0;
+  &:focus { outline: 2px solid #0079C1; outline-offset: -1px; border-color: transparent; }
+  &:disabled { opacity: 0.6; }
+}
+
+.ss-btn {
+  font-size: 11px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  &--primary {
+    background: #0079C1;
+    color: #fff;
+    border: none;
+    &:hover:not(:disabled) { background: #006AAB; }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: #666;
+    border: 1px solid #cfcfcf;
+    &:hover:not(:disabled) { background: #f7f8fa; border-color: #888; }
+  }
+}
+
+// ---------- links ----------
+
+.ss-link {
+  color: #0079C1;
+  cursor: pointer;
+  user-select: none;
+  &:hover { text-decoration: underline; }
+  &--muted { color: #888; }
+}
+
+// ---------- status indicators ----------
+
+.dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  position: relative;
-  margin-top: 1px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  color: #fff;
+  font-weight: 700;
+
+  &--passed  { background: #27500A; }
+  &--failed  { background: #791F1F; }
+  &--pending { background: #fff; border: 1px solid #cfcfcf; }
+  &--na      { background: #888; font-size: 8px; padding: 0 1px; }
 }
 
-.substep__check-input {
-  // Visually hidden but still focusable + clickable for accessibility.
+// manual checkbox (for sub-steps with no editableField)
+.ss-cb {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.ss-cb input {
   position: absolute;
   width: 100%;
   height: 100%;
@@ -113,11 +232,10 @@
   cursor: pointer;
 }
 
-.substep__check-visual {
-  // Mirrors .dot dimensions so manual + auto sub-steps line up pixel-for-pixel.
+.ss-cb__visual {
   width: 18px;
   height: 18px;
-  border-radius: 50%;
+  border-radius: 3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -126,145 +244,28 @@
   background: #fff;
   border: 1px solid #cfcfcf;
   color: #fff;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.1s;
 }
 
-// Checked state — same green as .dot--complete.
-.substep__check--checked .substep__check-visual {
+.ss-cb--checked .ss-cb__visual {
   background: #27500A;
   border-color: #27500A;
 }
 
-// Keyboard focus ring — only visible when navigating via keyboard.
-.substep__check-input:focus-visible + .substep__check-visual {
+.ss-cb input:focus-visible + .ss-cb__visual {
   outline: 2px solid #0079C1;
   outline-offset: 2px;
 }
 
-.substep__main {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.substep__label {
-  font-size: 12px;
-  color: #1a1a1a;
-  font-weight: 500;
-}
-
-.substep__meta {
-  font-size: 10px;
-  color: #888;
-  margin-top: 2px;
-}
-
-.substep__actions {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 10px;
-  font-size: 11px;
-}
-
-.link {
-  color: #0079C1;
-  cursor: pointer;
-  user-select: none;
-  &:hover { text-decoration: underline; }
-  &--muted { color: #888; }
-}
-
-.substep__override {
-  border-top: 1px solid #f0f0f0;
-  background: #FFF8EE;
-  padding: 8px 12px;
-  font-size: 11px;
-  color: #5a3a08;
-}
-
-.override-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  cursor: pointer;
-  input[type="checkbox"] { margin-top: 1px; }
-}
-
-// ---------- check cards ----------
-
-.checks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.check-card {
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 3px;
-  padding: 10px 12px;
-  margin-bottom: 6px;
-
-  &--passed   { border-left: 3px solid #27500A; }
-  &--failed   { border-left: 3px solid #791F1F; background: #fff8f8; }
-  &--partial  { border-left: 3px solid #BA7517; background: #fffaf2; }
-  &--running  { border-left: 3px solid #0079C1; background: #f7fafd; }
-  &--pending  { border-left: 3px solid #ddd; }
-
-  &__head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  &__title {
-    flex: 1 1 auto;
-    font-size: 12px;
-    font-weight: 500;
-    color: #1a1a1a;
-  }
-
-  &__sub {
-    font-size: 10px;
-    color: #888;
-    margin-top: 4px;
-    padding-left: 26px;
-    .sep { margin: 0 4px; color: #ccc; }
-  }
-
-  &__status {
-    text-transform: capitalize;
-  }
-
-  &__summary {
-    font-size: 11px;
-    color: #555;
-    margin-top: 4px;
-    padding-left: 26px;
-  }
-
-  &--failed  &__summary { color: #791F1F; }
-  &--partial &__summary { color: #633806; }
-  &--passed  &__summary { color: #27500A; }
-}
-
-// ---------- shared dots ----------
-
-.dot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
+// spinner
+.ss-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #B5D4F4;
+  border-top-color: #185FA5;
   border-radius: 50%;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-
-  &--complete { background: #27500A; }
-  &--failed   { background: #791F1F; }
-  &--partial  { background: #BA7517; }
-  &--running  { background: #0079C1; }
-  &--pending  { background: #fff; border: 1px solid #cfcfcf; }
-  &--na       { background: #888; font-size: 8px; padding: 0 1px; }
+  animation: ss-spin 0.7s linear infinite;
 }
+
+@keyframes ss-spin { to { transform: rotate(360deg); } }

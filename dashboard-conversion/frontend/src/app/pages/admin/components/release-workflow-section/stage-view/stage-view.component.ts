@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ReleaseWorkflowService } from '../../../services/release-workflow.service';
 import {
   AutomatedCheck,
@@ -20,31 +21,32 @@ import {
 import { formatCheckResult } from './check-result-display';
 
 /**
- * Generic stage view. One component for all 10 stages.
+ * Stage pane — renders one stage's sub-step rows with integrated check status
+ * and inline metadata editing.
  *
- * Layout:
- *   - Top action bar with stage metadata and "Run checks" button
- *     (button is hidden when the stage has no automated checks).
- *   - Two-column body:
- *     * Left:  sub-steps. Auto-tickable items show a status pill and an
- *              Override link; manual-only items show a checkbox.
- *     * Right: automated checks rail (omitted if the stage has none).
+ * Each sub-step row carries:
+ *   - Status indicator (passed / failed / running / unchecked / N/A)
+ *   - Sub-step label
+ *   - Linked check's result summary or error message inline
+ *   - One of four interaction modes:
+ *       (a) read-only display when the linked check is passing
+ *       (b) input field when the linked check is failing or pending
+ *       (c) running spinner while a save-and-run is in flight
+ *       (d) plain checkbox when the sub-step has no editableField
  *
- * Per-stage uniqueness is data-driven:
- *   - Sub-steps and checks come from the Stage object (seeded by the
- *     backend template).
- *   - Check result strings come from check-result-display.ts (sibling file,
- *     keyed by result shape so it doesn't grow per check).
- *   - Auto-tick links come from each sub-step's autoTickedBy array.
+ * "Save & run" persists the field via PATCH /metadata, which the backend
+ * handles atomically — it saves, then re-runs the affected stages' checks,
+ * then returns the updated release. We mark the row as running, fire the
+ * patch, and refetch on completion.
  *
- * If a stage genuinely needs a custom UI later, this generic view becomes
- * the default and a per-stage override component can be added back at the
- * release-detail switch site. For now: one component, all stages.
+ * Override is always available regardless of check state — it directly
+ * mutates the sub-step's state via PUT /sub-steps. Manual ticks are sticky
+ * against subsequent auto-tick reconciliation.
  */
 @Component({
   selector: 'app-stage-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './stage-view.component.html',
   styleUrl: './stage-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,69 +55,196 @@ export class StageViewComponent {
   @Input({ required: true }) stage!: Stage;
   @Input({ required: true }) release!: Release;
 
-  /** Emitted whenever the parent should refetch the release (after any mutation). */
   @Output() refresh = new EventEmitter<void>();
 
   private readonly api = inject(ReleaseWorkflowService);
   private readonly cdr = inject(ChangeDetectorRef);
 
-  readonly running = signal<boolean>(false);
+  /** Sub-step IDs whose row is in edit mode (input visible, populated with current value). */
+  readonly editingIds = signal<Set<string>>(new Set());
+
+  /** Sub-step IDs whose row is currently running (spinner shown, actions disabled). */
+  readonly runningIds = signal<Set<string>>(new Set());
+
+  /** Per-row staged input value, keyed by sub-step ID. Cleared on submit/cancel. */
+  readonly inputValues = signal<Record<string, string>>({});
+
   readonly error = signal<string | null>(null);
 
-  /** Sub-step IDs whose Override row is currently expanded. */
-  readonly overrideOpen = signal<Set<string>>(new Set());
+  // ----- linked check resolution -----
 
-  // ---------- run all checks ----------
-
-  hasChecks(): boolean {
-    return this.stage.automatedChecks.length > 0;
+  /**
+   * The check linked to a sub-step (the first one in autoTickedBy that exists
+   * on the stage, since today every auto-tickable sub-step has exactly one
+   * linked check). Returns null for manual-only sub-steps.
+   */
+  linkedCheck(s: SubStep): AutomatedCheck | null {
+    if (!s.autoTickedBy || s.autoTickedBy.length === 0) return null;
+    return this.stage.automatedChecks.find((c) => s.autoTickedBy.includes(c.id)) ?? null;
   }
 
-  onRunChecks(): void {
-    if (this.running()) return;
-    this.running.set(true);
-    this.error.set(null);
-
-    this.api.runChecks(this.release.releaseId, this.stage.id).subscribe({
-      next: () => {
-        this.running.set(false);
-        this.refresh.emit();
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        this.error.set(err?.error?.error ?? err?.message ?? 'Failed to run checks');
-        this.running.set(false);
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
-  // ---------- sub-step actions ----------
+  // ----- row state classification -----
 
   isAutoTickable(s: SubStep): boolean {
     return s.autoTickedBy.length > 0;
   }
 
-  hasOverrideOpen(s: SubStep): boolean {
-    return this.overrideOpen().has(s.id);
+  hasEditableField(s: SubStep): boolean {
+    return !!s.editableField;
   }
 
-  toggleOverride(s: SubStep): void {
-    this.overrideOpen.update((set) => {
+  isRunning(s: SubStep): boolean {
+    return this.runningIds().has(s.id);
+  }
+
+  isEditing(s: SubStep): boolean {
+    return this.editingIds().has(s.id);
+  }
+
+  /**
+   * True if the row should display the input field. Either the sheriff
+   * explicitly opened it via "Edit", or the linked check is failing/pending
+   * and there's no value yet to show in read-only form.
+   */
+  showInput(s: SubStep): boolean {
+    if (!this.hasEditableField(s)) return false;
+    if (this.isRunning(s)) return false;
+    if (this.isEditing(s)) return true;
+    const check = this.linkedCheck(s);
+    if (!check) return false;
+    return check.status === 'failed' || check.status === 'pending';
+  }
+
+  // ----- value display -----
+
+  /** The current persisted value of the sub-step's editable field. */
+  fieldValue(s: SubStep): string | null {
+    if (!s.editableField) return null;
+    if (s.editableField.startsWith('branches.')) {
+      const key = s.editableField.slice('branches.'.length) as keyof Release['metadata']['branches'];
+      return this.release.metadata.branches?.[key] ?? null;
+    }
+    return (this.release.metadata as any)[s.editableField] ?? null;
+  }
+
+  /** Pretty result string from the linked check (passing or failing). */
+  resultLine(s: SubStep): string {
+    const check = this.linkedCheck(s);
+    if (!check) return '';
+    return formatCheckResult({
+      status: check.status,
+      result: check.result,
+      errorMessage: check.errorMessage,
+    });
+  }
+
+  // ----- input value -----
+
+  inputValue(s: SubStep): string {
+    return this.inputValues()[s.id] ?? this.fieldValue(s) ?? '';
+  }
+
+  onInputChange(s: SubStep, val: string): void {
+    this.inputValues.update((v) => ({ ...v, [s.id]: val }));
+  }
+
+  // ----- actions: edit, save, cancel -----
+
+  beginEdit(s: SubStep): void {
+    if (!s.editableField) return;
+    this.editingIds.update((set) => {
       const next = new Set(set);
-      if (next.has(s.id)) next.delete(s.id);
-      else next.add(s.id);
+      next.add(s.id);
+      return next;
+    });
+    // Pre-populate the input with the current persisted value.
+    this.inputValues.update((v) => ({ ...v, [s.id]: this.fieldValue(s) ?? '' }));
+  }
+
+  cancelEdit(s: SubStep): void {
+    this.editingIds.update((set) => {
+      const next = new Set(set);
+      next.delete(s.id);
+      return next;
+    });
+    this.inputValues.update((v) => {
+      const next = { ...v };
+      delete next[s.id];
       return next;
     });
   }
 
-  toggleManual(s: SubStep): void {
+  saveAndRun(s: SubStep): void {
+    if (!s.editableField) return;
+    const newValue = (this.inputValues()[s.id] ?? '').trim();
+
+    this.error.set(null);
+    this.runningIds.update((set) => {
+      const next = new Set(set);
+      next.add(s.id);
+      return next;
+    });
+    // Close the editor optimistically — the row enters the running state.
+    this.editingIds.update((set) => {
+      const next = new Set(set);
+      next.delete(s.id);
+      return next;
+    });
+
+    const patch: Record<string, string | null> = {
+      [s.editableField]: newValue || null,
+    };
+
+    this.api.updateMetadata(this.release.releaseId, patch).subscribe({
+      next: () => {
+        this.runningIds.update((set) => {
+          const next = new Set(set);
+          next.delete(s.id);
+          return next;
+        });
+        this.inputValues.update((v) => {
+          const next = { ...v };
+          delete next[s.id];
+          return next;
+        });
+        this.refresh.emit();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.runningIds.update((set) => {
+          const next = new Set(set);
+          next.delete(s.id);
+          return next;
+        });
+        this.error.set(err?.error?.error ?? err?.message ?? 'Failed to save and run check');
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  // ----- actions: override, N/A, manual checkbox -----
+
+  /**
+   * Flip the sub-step's tick state with a manual source.
+   * - Currently checked? Un-check (manually).
+   * - Currently unchecked or N/A? Check (manually).
+   *
+   * Manual override is sticky against subsequent auto-tick runs.
+   */
+  override(s: SubStep): void {
     const nextState: SubStepState = s.state === 'checked' ? 'unchecked' : 'checked';
     this.updateSubStep(s, nextState, nextState === 'unchecked' ? null : 'manual');
   }
 
+  /** Toggle N/A on/off. Going off-N/A returns the sub-step to unchecked. */
   toggleNa(s: SubStep): void {
     const nextState: SubStepState = s.state === 'n_a' ? 'unchecked' : 'n_a';
+    this.updateSubStep(s, nextState, nextState === 'unchecked' ? null : 'manual');
+  }
+
+  /** Plain manual checkbox toggle for sub-steps with no editableField. */
+  toggleManualCheckbox(s: SubStep): void {
+    const nextState: SubStepState = s.state === 'checked' ? 'unchecked' : 'checked';
     this.updateSubStep(s, nextState, nextState === 'unchecked' ? null : 'manual');
   }
 
@@ -135,36 +264,69 @@ export class StageViewComponent {
       });
   }
 
-  // ---------- presentational helpers ----------
+  // ----- presentational helpers -----
 
-  formatRelative(iso: string | null): string {
-    if (!iso) return 'never';
-    const ms = Date.now() - new Date(iso).getTime();
-    const s = Math.round(ms / 1000);
-    if (s < 60)    return `${s}s ago`;
-    const m = Math.round(s / 60);
-    if (m < 60)    return `${m}m ago`;
-    const h = Math.round(m / 60);
-    if (h < 24)    return `${h}h ago`;
-    const d = Math.round(h / 24);
-    return `${d}d ago`;
+  /** Status indicator class for the row's left dot. */
+  rowStatus(s: SubStep): 'passed' | 'failed' | 'running' | 'pending' | 'na' {
+    if (this.isRunning(s)) return 'running';
+    if (s.state === 'n_a') return 'na';
+    if (s.state === 'checked') return 'passed';
+    if (this.isAutoTickable(s)) {
+      const c = this.linkedCheck(s);
+      if (c?.status === 'failed') return 'failed';
+    }
+    return 'pending';
   }
 
-  resultSummary(c: AutomatedCheck): string {
-    return formatCheckResult({
-      status: c.status,
-      result: c.result,
-      errorMessage: c.errorMessage,
-    });
+  /** CSS class for the row's container. */
+  rowClass(s: SubStep): string {
+    const status = this.rowStatus(s);
+    return `ss-row ss-row--${status}`;
   }
 
-  checkStatusClass(c: AutomatedCheck): string {
-    return `check-card check-card--${c.status}`;
-  }
-
-  subStepStateLabel(s: SubStep): string {
-    if (s.state === 'n_a')      return 'N/A';
-    if (s.state === 'checked')  return s.source === 'auto' ? 'auto-checked' : 'checked';
+  /** Subtitle line under the sub-step label. e.g. "auto-checked · system · 5/7/26". */
+  subTitle(s: SubStep): string {
+    if (s.state === 'n_a') return 'N/A';
+    if (s.state === 'checked') {
+      const who = s.completedBy ?? 'unknown';
+      const when = s.completedAt ? new Date(s.completedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      return `${s.source === 'manual' ? 'manually checked' : 'auto-checked'}${when ? ' · ' + who + ' · ' + when : ''}`;
+    }
     return 'unchecked';
+  }
+
+  /** Placeholder text for the input based on the field name. */
+  inputPlaceholder(s: SubStep): string {
+    if (!s.editableField) return '';
+    if (s.editableField.endsWith('Url') || s.editableField.includes('Sheet')) return 'Paste URL...';
+    if (s.editableField.startsWith('branches.')) return 'Paste GitHub branch URL...';
+    if (s.editableField.endsWith('Id')) return 'Paste page ID...';
+    return 'Paste value...';
+  }
+
+  // ----- run-all-checks button -----
+
+  hasChecks(): boolean {
+    return this.stage.automatedChecks.length > 0;
+  }
+
+  readonly runningAll = signal<boolean>(false);
+
+  runAllChecks(): void {
+    if (this.runningAll()) return;
+    this.runningAll.set(true);
+    this.error.set(null);
+    this.api.runChecks(this.release.releaseId, this.stage.id).subscribe({
+      next: () => {
+        this.runningAll.set(false);
+        this.refresh.emit();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.runningAll.set(false);
+        this.error.set(err?.error?.error ?? err?.message ?? 'Failed to run checks');
+        this.cdr.detectChanges();
+      },
+    });
   }
 }

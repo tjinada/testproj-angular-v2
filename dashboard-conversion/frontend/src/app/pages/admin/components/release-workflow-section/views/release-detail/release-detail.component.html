@@ -21,88 +21,72 @@
         <span class="meta-sep">·</span>
         <span class="meta-item">JIRA: {{ r.metadata.jiraTracker }}</span>
       }
+      <span class="meta-sep">·</span>
+      <span class="meta-item">Sheriff: {{ r.sheriff }}</span>
+      <span class="meta-sep">·</span>
+      <span class="meta-item">{{ stagesComplete() }} / {{ totalStages() }} stages complete</span>
     </div>
 
-    <!-- summary cards -->
-    <div class="summary-cards">
-      <div class="summary-card">
-        <div class="summary-card__label">Overall progress</div>
-        <div class="summary-card__value">{{ stagesComplete() }} / {{ totalStages() }}</div>
-        <div class="summary-card__sub">stages complete</div>
-        <div class="progress-bar">
-          <div class="progress-bar__fill"
-               [style.width.%]="(stagesComplete() / totalStages()) * 100"></div>
-        </div>
-      </div>
+    <div class="rd-shell">
 
-      <div class="summary-card">
-        <div class="summary-card__label">Sheriff</div>
-        <div class="summary-card__value summary-card__value--sm">{{ r.sheriff }}</div>
-      </div>
-
-      <div class="summary-card">
-        <div class="summary-card__label">Current stage</div>
-        @if (currentStage(); as cs) {
-          <div class="summary-card__value summary-card__value--sm">{{ cs.name }}</div>
-          <div class="summary-card__sub">{{ subStepsComplete(cs) }} of {{ cs.subSteps.length }} sub-steps complete</div>
-        } @else {
-          <div class="summary-card__value summary-card__value--sm">—</div>
-        }
-      </div>
-    </div>
-
-    <h2 class="section-title">Stages</h2>
-
-    <div class="stages-list">
-      @for (stage of r.stages; track stage.id) {
-        <div [class]="stageRowClass(stage)">
-          <div class="stage-row__header" (click)="toggleOpen(stage.id)">
-            <div class="stage-row__indicator">
-              @switch (stage.status) {
-                @case ('complete')    { <span class="dot dot--complete">✓</span> }
-                @case ('in_progress') { <span class="dot dot--active"></span> }
-                @case ('ready')       { <span class="dot dot--ready"></span> }
-                @case ('locked')      { <span class="dot dot--locked"></span> }
-                @case ('skipped')     { <span class="dot dot--skipped">↷</span> }
-              }
-            </div>
-
-            <div class="stage-row__main">
-              <div class="stage-row__title">
-                Stage {{ stage.displayOrder }} — {{ stage.name }}
+      <!-- LEFT RAIL -->
+      <aside class="rd-rail">
+        <h3 class="rd-rail__title">Stages</h3>
+        @for (stage of r.stages; track stage.id) {
+          <div [class]="stageRailClass(stage)" (click)="selectStage(stage.id)">
+            <span class="rail-stage__dot"
+                  [class.rail-stage__dot--complete]="stage.status === 'complete'"
+                  [class.rail-stage__dot--active]="stage.status === 'in_progress'"
+                  [class.rail-stage__dot--ready]="stage.status === 'ready'"
+                  [class.rail-stage__dot--locked]="stage.status === 'locked'">
+              @if (stage.status === 'complete') { ✓ }
+            </span>
+            <div class="rail-stage__main">
+              <div class="rail-stage__head">
+                <span class="rail-stage__name">{{ stage.displayOrder }}. {{ stage.name }}</span>
                 @if (stage.kind === 'parallel') {
-                  <span class="badge badge--parallel">parallel</span>
+                  <span class="rail-stage__pll">parallel</span>
                 }
               </div>
-              <div class="stage-row__sub">
-                {{ subStepsComplete(stage) }} of {{ stage.subSteps.length }} sub-steps
-                @if (stage.automatedChecks.length > 0) {
-                  · {{ stage.automatedChecks.length }} automated check(s)
-                }
-                · {{ stageStatusLabel(stage.status) }}
+              <div class="rail-stage__meta">
+                {{ subStepsComplete(stage) }} / {{ stage.subSteps.length }} · {{ stageStatusLabel(stage.status) }}
               </div>
-            </div>
-
-            <div class="stage-row__meta">
-              @if (stage.closedAt) {
-                Closed {{ formatDate(stage.closedAt) }}
-              } @else if (stage.startedAt) {
-                Started {{ formatDate(stage.startedAt) }}
-              } @else {
-                —
+              @if (stage.status !== 'locked' && stageProgressPct(stage) > 0) {
+                <div class="rail-stage__bar">
+                  <div class="rail-stage__bar-fill" [style.width.%]="stageProgressPct(stage)"></div>
+                </div>
               }
             </div>
-
-            <div class="stage-row__chev">{{ isOpen(stage.id) ? '▾' : '▸' }}</div>
           </div>
+        }
+      </aside>
 
-          @if (isOpen(stage.id)) {
-            <div class="stage-row__body">
-              <app-stage-view [stage]="stage" [release]="r" (refresh)="load()" />
+      <!-- RIGHT PANE -->
+      <section class="rd-pane">
+        @if (activeStage(); as s) {
+          @if (s.status === 'locked') {
+            <div class="rd-pane__head">
+              <h2 class="rd-pane__title">Stage {{ s.displayOrder }} — {{ s.name }}</h2>
+              <div class="rd-pane__meta">{{ stageStatusLabel(s.status) }}</div>
             </div>
+            <div class="rd-locked">
+              <div class="rd-locked__icon">🔒</div>
+              <div class="rd-locked__msg">
+                This stage is locked.
+                @if (blockingStageNames().length > 0) {
+                  <br/>
+                  <span class="rd-locked__sub">
+                    Complete <strong>{{ blockingStageNames().join(', ') }}</strong> first.
+                  </span>
+                }
+              </div>
+            </div>
+          } @else {
+            <app-stage-view [stage]="s" [release]="r" (refresh)="load()" />
           }
-        </div>
-      }
+        }
+      </section>
+
     </div>
   }
 </div>

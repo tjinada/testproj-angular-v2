@@ -19,6 +19,7 @@ export interface SubStep {
   state: SubStepState;
   source: SubStepSource;
   autoTickedBy: string[];
+  editableField: string | null;
   completedAt: string | null;
   completedBy: string | null;
 }

@@ -157,6 +157,47 @@ router.put(
   },
 );
 
+// ----- PATCH /api/release-workflow/:releaseId/metadata -----
+
+/**
+ * PATCH /api/release-workflow/:releaseId/metadata
+ * Body: a flat record of { fieldPath: value | null }, e.g.
+ *   { "intakePageId": "1110606115", "branches.cdbUiConfigs": "https://github.com/..." }
+ *
+ * Persists each field then re-runs the checks for any stages that reference
+ * any of the changed fields. Returns the updated release.
+ */
+router.patch(
+  '/:releaseId/metadata',
+  requireAuth,
+  async (req: Request<ReleaseParams>, res: Response) => {
+    try {
+      const { releaseId } = req.params;
+      const patch = req.body ?? {};
+      if (typeof patch !== 'object' || Array.isArray(patch)) {
+        return badRequest(res, 'Body must be an object of { fieldPath: value }');
+      }
+      // Sanity-check value types.
+      for (const [key, value] of Object.entries(patch)) {
+        if (value !== null && typeof value !== 'string') {
+          return badRequest(res, `Field '${key}' must be a string or null`);
+        }
+      }
+      const release = await releaseWorkflowService.updateMetadata(releaseId, patch);
+      res.json({ message: 'Metadata updated', release });
+    } catch (error: any) {
+      if (error?.message?.includes('not found')) {
+        return notFound(res, error.message);
+      }
+      if (error?.message?.includes('Unknown')) {
+        return badRequest(res, error.message);
+      }
+      console.error('Error updating metadata:', error);
+      res.status(500).json({ error: 'Failed to update metadata' });
+    }
+  },
+);
+
 // ----- POST /api/release-workflow/:releaseId/stages/:stageId/run-checks -----
 
 /**

@@ -1,129 +1,137 @@
-<div class="stage1">
+<div class="sp">
 
   <!-- top action bar -->
-  <div class="stage1__bar">
-    <div class="stage1__bar-meta">
-      <span>Started {{ stage.startedAt ? (stage.startedAt | date:'mediumDate') : '—' }}</span>
-      <span class="sep">·</span>
-      <span>{{ stage.subSteps.length }} sub-steps</span>
-      @if (hasChecks()) {
-        <span class="sep">·</span>
-        <span>{{ stage.automatedChecks.length }} automated checks</span>
-      }
+  <div class="sp__bar">
+    <div>
+      <h2 class="sp__title">Stage {{ stage.displayOrder }} — {{ stage.name }}</h2>
+      <div class="sp__meta">
+        @if (stage.startedAt) {
+          Started {{ stage.startedAt | date:'mediumDate' }}
+          <span class="sep">·</span>
+        }
+        {{ stage.subSteps.length }} sub-steps
+        @if (hasChecks()) {
+          <span class="sep">·</span>
+          {{ stage.automatedChecks.length }} automated check(s)
+        }
+      </div>
     </div>
     @if (hasChecks()) {
-      <button class="primary-btn" type="button" (click)="onRunChecks()" [disabled]="running()">
-        {{ running() ? 'Running…' : 'Run checks' }}
+      <button class="sp__run" type="button" (click)="runAllChecks()" [disabled]="runningAll()">
+        {{ runningAll() ? 'Running…' : 'Run all checks' }}
       </button>
     }
   </div>
 
   @if (error()) {
-    <div class="stage1__error">{{ error() }}</div>
+    <div class="sp__error">{{ error() }}</div>
   }
 
-  <div class="stage1__cols" [class.stage1__cols--single]="!hasChecks()">
+  <!-- sub-step rows -->
+  <div class="ss-list">
+    @for (s of stage.subSteps; track s.id) {
 
-    <!-- LEFT: sub-steps -->
-    <div class="stage1__col">
-      <h4 class="stage1__col-title">Sub-steps</h4>
+      @let status = rowStatus(s);
+      @let check = linkedCheck(s);
+      @let editable = hasEditableField(s);
+      @let autoTickable = isAutoTickable(s);
+      @let running = isRunning(s);
 
-      <ul class="substeps">
-        @for (s of stage.subSteps; track s.id) {
-          <li class="substep substep--{{ s.state }}">
+      <div [class]="rowClass(s)">
 
-            <!-- main row -->
-            <div class="substep__row">
-              @if (isAutoTickable(s)) {
-                @switch (s.state) {
-                  @case ('checked') { <span class="dot dot--complete">✓</span> }
-                  @case ('n_a')     { <span class="dot dot--na">N/A</span> }
-                  @default          { <span class="dot dot--pending"></span> }
-                }
-              } @else {
-                <label class="substep__check" [class.substep__check--checked]="s.state === 'checked'">
-                  <input
-                    type="checkbox"
-                    class="substep__check-input"
-                    [checked]="s.state === 'checked'"
-                    (change)="toggleManual(s)" />
-                  <span class="substep__check-visual" aria-hidden="true">
-                    @if (s.state === 'checked') { ✓ }
-                  </span>
-                </label>
-              }
-
-              <div class="substep__main">
-                <div class="substep__label">{{ s.label }}</div>
-                <div class="substep__meta">
-                  {{ subStepStateLabel(s) }}
-                  @if (s.completedAt) {
-                    · {{ s.completedBy }} · {{ s.completedAt | date:'short' }}
-                  }
-                </div>
-              </div>
-
-              <div class="substep__actions">
-                @if (isAutoTickable(s)) {
-                  <a class="link" (click)="toggleOverride(s)">
-                    {{ hasOverrideOpen(s) ? 'Close' : 'Override' }}
-                  </a>
-                }
-                <a class="link link--muted" (click)="toggleNa(s)">
-                  {{ s.state === 'n_a' ? 'Un-N/A' : 'N/A' }}
-                </a>
-              </div>
-            </div>
-
-            <!-- override panel (only for auto-tickable items) -->
-            @if (isAutoTickable(s) && hasOverrideOpen(s)) {
-              <div class="substep__override">
-                <label class="override-row">
-                  <input
-                    type="checkbox"
-                    [checked]="s.state === 'checked'"
-                    (change)="toggleManual(s)" />
-                  <span>Manually mark this sub-step as
-                    <strong>{{ s.state === 'checked' ? 'checked' : 'unchecked' }}</strong>
-                    (overrides automated check)</span>
-                </label>
-              </div>
+        <!-- status dot / checkbox / spinner -->
+        <div class="ss-row__icon">
+          @if (running) {
+            <span class="ss-spinner" aria-label="running"></span>
+          } @else if (!autoTickable) {
+            <!-- manual-only sub-step: a real checkbox -->
+            <label class="ss-cb" [class.ss-cb--checked]="s.state === 'checked'">
+              <input type="checkbox" [checked]="s.state === 'checked'" (change)="toggleManualCheckbox(s)" />
+              <span class="ss-cb__visual" aria-hidden="true">
+                @if (s.state === 'checked') { ✓ }
+              </span>
+            </label>
+          } @else {
+            @switch (status) {
+              @case ('passed')  { <span class="dot dot--passed">✓</span> }
+              @case ('failed')  { <span class="dot dot--failed">!</span> }
+              @case ('na')      { <span class="dot dot--na">N/A</span> }
+              @default          { <span class="dot dot--pending"></span> }
             }
-          </li>
-        }
-      </ul>
-    </div>
-
-    <!-- RIGHT: automated checks (omitted entirely if the stage has none) -->
-    @if (hasChecks()) {
-      <div class="stage1__col">
-        <h4 class="stage1__col-title">Automated checks</h4>
-
-        <ul class="checks">
-          @for (c of stage.automatedChecks; track c.id) {
-            <li [class]="checkStatusClass(c)">
-              <div class="check-card__head">
-                @switch (c.status) {
-                  @case ('passed')  { <span class="dot dot--complete">✓</span> }
-                  @case ('failed')  { <span class="dot dot--failed">!</span> }
-                  @case ('partial') { <span class="dot dot--partial">~</span> }
-                  @case ('running') { <span class="dot dot--running">…</span> }
-                  @default          { <span class="dot dot--pending"></span> }
-                }
-                <div class="check-card__title">{{ c.label }}</div>
-              </div>
-
-              <div class="check-card__sub">
-                {{ formatRelative(c.lastRunAt) }}
-                <span class="sep">·</span>
-                <span class="check-card__status">{{ c.status }}</span>
-              </div>
-
-              <div class="check-card__summary">{{ resultSummary(c) }}</div>
-            </li>
           }
-        </ul>
+        </div>
+
+        <!-- main content -->
+        <div class="ss-row__main">
+          <div class="ss-row__label">{{ s.label }}</div>
+
+          <!-- read-only value when passing -->
+          @if (editable && status === 'passed' && fieldValue(s)) {
+            <div class="ss-row__value">
+              <span class="ss-row__field">{{ s.editableField }}:</span>
+              <span class="ss-row__field-val">{{ fieldValue(s) }}</span>
+            </div>
+          }
+
+          <!-- result line: passing summary OR failure error message -->
+          @if (autoTickable && check && !running) {
+            @if (status === 'passed' && check.result) {
+              <div class="ss-row__result ss-row__result--passed">{{ resultLine(s) }}</div>
+            } @else if (status === 'failed') {
+              <div class="ss-row__result ss-row__result--failed">{{ check.errorMessage ?? 'Check failed' }}</div>
+            }
+          }
+
+          <!-- sub-title (state info) -->
+          @if (!running) {
+            <div class="ss-row__sub">{{ subTitle(s) }}</div>
+          } @else {
+            <div class="ss-row__sub ss-row__sub--running">Saving and running check…</div>
+          }
+
+          <!-- inline input -->
+          @if (showInput(s)) {
+            <div class="ss-row__edit">
+              <input
+                type="text"
+                class="ss-input"
+                [placeholder]="inputPlaceholder(s)"
+                [value]="inputValue(s)"
+                (input)="onInputChange(s, $any($event.target).value)"
+                (keydown.enter)="saveAndRun(s)"
+                [disabled]="running"
+              />
+              <button class="ss-btn ss-btn--primary" type="button" (click)="saveAndRun(s)" [disabled]="running">
+                Save & run
+              </button>
+              @if (isEditing(s)) {
+                <button class="ss-btn ss-btn--ghost" type="button" (click)="cancelEdit(s)" [disabled]="running">
+                  Cancel
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- right-side actions -->
+        @if (!running) {
+          <div class="ss-row__actions">
+            @if (editable && status === 'passed') {
+              <a class="ss-link" (click)="beginEdit(s)">Edit</a>
+            }
+            @if (autoTickable) {
+              <a class="ss-link ss-link--muted" (click)="override(s)">
+                {{ s.state === 'checked' ? 'Un-tick' : 'Tick' }}
+              </a>
+            }
+            <a class="ss-link ss-link--muted" (click)="toggleNa(s)">
+              {{ s.state === 'n_a' ? 'Un-N/A' : 'N/A' }}
+            </a>
+          </div>
+        }
+
       </div>
     }
   </div>
+
 </div>

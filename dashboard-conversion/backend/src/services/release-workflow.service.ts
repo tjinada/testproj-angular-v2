@@ -22,6 +22,7 @@ import {
   STAGE_TEMPLATE,
   STAGE_RUNNERS,
   StageRunnerMap,
+  stagesUsingField,
 } from './release-workflow.checks';
 import {
   Release,
@@ -340,6 +341,88 @@ class ReleaseWorkflowService {
     };
   }
 
+  /**
+   * Patch the metadata of a release with a partial object, then immediately
+   * run any checks that reference fields that changed.
+   *
+   * Field-driven re-runs use the editableField map: any sub-step that
+   * declares editableField='foo' marks the parent stage as needing its
+   * checks re-run when 'foo' changes. We compute the affected stage IDs
+   * and call runChecks on each.
+   *
+   * Body shape: a flat partial of ReleaseMetadata, OR a 'branches.*' path
+   * accepted as a key like { 'branches.cdbUiConfigs': 'https://...' } for
+   * convenience from the frontend's perspective. Both are normalised here.
+   */
+  async updateMetadata(
+    releaseId: string,
+    patch: Record<string, string | null>,
+  ): Promise<Release> {
+    const release = this.releases[releaseId];
+    if (!release) throw new Error(`Release '${releaseId}' not found`);
+
+    const changedFields: string[] = [];
+
+    for (const [key, rawValue] of Object.entries(patch)) {
+      // Coerce empty strings to null so the stored shape is consistent.
+      const value = rawValue === '' ? null : rawValue;
+
+      if (key.startsWith('branches.')) {
+        const branchKey = key.slice('branches.'.length) as keyof ReleaseMetadata['branches'];
+        if (!(branchKey in release.metadata.branches)) {
+          throw new Error(`Unknown branches field: ${key}`);
+        }
+        const before = release.metadata.branches[branchKey];
+        if (before !== value) {
+          release.metadata.branches[branchKey] = value;
+          changedFields.push(key);
+        }
+      } else {
+        if (!(key in release.metadata)) {
+          throw new Error(`Unknown metadata field: ${key}`);
+        }
+        if (key === 'branches') continue; // can't replace whole branches object via this path
+        const before = (release.metadata as any)[key];
+        if (before !== value) {
+          (release.metadata as any)[key] = value;
+          changedFields.push(key);
+        }
+      }
+    }
+
+    // Persist field changes immediately so a check run that throws still
+    // leaves the field saved.
+    release.updatedAt = new Date().toISOString();
+    await this.save();
+
+    // Re-run checks for every stage that uses any changed field, but only
+    // for stages that aren't locked. runChecks() persists internally on
+    // each call.
+    const affectedStages = new Set<string>();
+    for (const field of changedFields) {
+      for (const stageId of stagesUsingField(field)) {
+        affectedStages.add(stageId);
+      }
+    }
+
+    for (const stageId of affectedStages) {
+      const stage = release.stages.find((s) => s.id === stageId);
+      if (!stage || stage.status === 'locked') continue;
+      try {
+        await this.runChecks(releaseId, stageId);
+      } catch (err: any) {
+        // Don't abort the whole patch if one stage's checks fail catastrophically;
+        // the field is already saved. Log and continue.
+        console.error(
+          `[release-workflow] runChecks failed for ${releaseId}/${stageId} after metadata update:`,
+          err?.message ?? err,
+        );
+      }
+    }
+
+    return this.releases[releaseId];
+  }
+
   /** Find a stage on a release by stage ID. Used by routes for validation. */
   findStage(releaseId: string, stageId: string): Stage | undefined {
     return this.releases[releaseId]?.stages.find((s) => s.id === stageId);
@@ -546,6 +629,10 @@ class ReleaseWorkflowService {
           if (!arraysEqual(existing.autoTickedBy, tplSub.autoTickedBy)) {
             existing.autoTickedBy = [...tplSub.autoTickedBy];
             changes.push(`${tplStage.id}: updated autoTickedBy on sub-step '${tplSub.id}'`);
+          }
+          if ((existing.editableField ?? null) !== (tplSub.editableField ?? null)) {
+            existing.editableField = tplSub.editableField ?? null;
+            changes.push(`${tplStage.id}: updated editableField on sub-step '${tplSub.id}'`);
           }
         }
       }

@@ -63,6 +63,26 @@ export class ReleaseWorkflowService {
     );
   }
 
+  /**
+   * Patch one or more metadata fields. Backend persists then re-runs checks
+   * for any stages that reference the changed fields. Returns the updated
+   * release.
+   *
+   * Patch shape:
+   *   { 'intakePageId': '1110606115' }
+   *   { 'branches.cdbUiConfigs': 'https://github.com/.../tree/release/r85.0.0' }
+   *   { 'fixVersion': null }    // clear the field
+   */
+  updateMetadata(
+    releaseId: string,
+    patch: Record<string, string | null>,
+  ): Observable<{ message: string; release: Release }> {
+    return this.http.patch<{ message: string; release: Release }>(
+      `${this.base}/${encodeURIComponent(releaseId)}/metadata`,
+      patch,
+    );
+  }
+
   delete(releaseId: string): Observable<{ message: string; releaseId: string }> {
     return this.http.delete<{ message: string; releaseId: string }>(
       `${this.base}/${encodeURIComponent(releaseId)}`,

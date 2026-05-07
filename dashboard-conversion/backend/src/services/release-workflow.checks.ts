@@ -80,6 +80,12 @@ interface SubStepDef {
   label: string;
   /** Check IDs that auto-tick this sub-step. Empty = manual-only. */
   autoTickedBy?: string[];
+  /**
+   * Names the metadata field this sub-step's inline input writes to.
+   * Format matches FieldPath: top-level key (e.g. 'intakePageId') or
+   * 'branches.{key}'. Omit for manual-only sub-steps with no input.
+   */
+  editableField?: FieldPath;
 }
 
 interface CheckDef {
@@ -117,11 +123,11 @@ const STAGE_DEFINITIONS: StageDef[] = [
     initialStatus: 'ready',                 // first stage starts ready, not locked
     dependsOn: [],
     subSteps: [
-      { id: 'add-confluence-page-link',     label: 'Add Release Confluence page link',                autoTickedBy: ['check-confluence-page-resolves'] },
-      { id: 'confirm-env-allocation',       label: 'Confirm env allocation (Self Serve link)',         autoTickedBy: ['check-self-serve-link-resolves'] },
-      { id: 'create-fix-version',           label: 'Create Fix Version in JIRA',                       autoTickedBy: ['check-fix-version-exists'] },
-      { id: 'add-intake-checklist-page-id', label: 'Add Intake Checklist Page ID in Admin Portal',     autoTickedBy: ['check-intake-page-id-set'] },
-      { id: 'raise-env-matrix-pr',          label: 'Raise PR to onboard branch on Env Matrix',         autoTickedBy: ['check-env-matrix-pr'] },
+      { id: 'add-confluence-page-link',     label: 'Add Release Confluence page link',                autoTickedBy: ['check-confluence-page-resolves'], editableField: 'intakePageId' },
+      { id: 'confirm-env-allocation',       label: 'Confirm env allocation (Self Serve link)',         autoTickedBy: ['check-self-serve-link-resolves'], editableField: 'intakeSheetUrl' },
+      { id: 'create-fix-version',           label: 'Create Fix Version in JIRA',                       autoTickedBy: ['check-fix-version-exists'],       editableField: 'fixVersion' },
+      { id: 'add-intake-checklist-page-id', label: 'Add Intake Checklist Page ID in Admin Portal',     autoTickedBy: ['check-intake-page-id-set'],       editableField: 'intakePageId' },
+      { id: 'raise-env-matrix-pr',          label: 'Raise PR to onboard branch on Env Matrix',         autoTickedBy: ['check-env-matrix-pr'],            editableField: 'envMatrixPrUrl' },
     ],
     checks: [
       { id: 'check-confluence-page-resolves', label: 'Confluence API: validate Release page link resolves',   runner: confluencePageCheck({ field: 'intakePageId' }) },
@@ -139,7 +145,7 @@ const STAGE_DEFINITIONS: StageDef[] = [
     initialStatus: 'locked',
     dependsOn: ['stage1-intake'],
     subSteps: [
-      { id: 'create-cdb-ui-configs-branch', label: 'Create CDB UI Configs branch off master',         autoTickedBy: ['check-cdb-ui-configs-branch-exists'] },
+      { id: 'create-cdb-ui-configs-branch', label: 'Create CDB UI Configs branch off master',         autoTickedBy: ['check-cdb-ui-configs-branch-exists'], editableField: 'branches.cdbUiConfigs' },
       { id: 'email-adms',                   label: 'Email ADMs/devs from Scope Intake' },
       { id: 'open-master-jira',             label: 'Open master JIRA "CDB UI Configs - RXX"' },
       { id: 'add-da-team-subtasks',         label: 'Add subtasks per DA team' },
@@ -478,6 +484,7 @@ export const STAGE_TEMPLATE: Stage[] = STAGE_DEFINITIONS.map((def, idx) => ({
     state: 'unchecked' as const,
     source: null,
     autoTickedBy: s.autoTickedBy ?? [],
+    editableField: s.editableField ?? null,
     completedAt: null,
     completedBy: null,
   })),
@@ -514,4 +521,23 @@ export const STAGE_RUNNERS: Record<string, StageRunnerMap> = Object.fromEntries(
  */
 export function cloneStageTemplate(): Stage[] {
   return JSON.parse(JSON.stringify(STAGE_TEMPLATE));
+}
+
+/**
+ * For a given metadata field path, returns the IDs of stages whose sub-steps
+ * declare that field as their `editableField`. Used by the metadata-patch
+ * endpoint to figure out which stages need their checks re-run after a field
+ * is updated.
+ *
+ * A field can drive checks in multiple stages (e.g. if Stage 1 and Stage 4
+ * both reference the same field), so this returns an array.
+ */
+export function stagesUsingField(field: string): string[] {
+  const stages = new Set<string>();
+  for (const def of STAGE_DEFINITIONS) {
+    if (def.subSteps.some((s) => s.editableField === field)) {
+      stages.add(def.id);
+    }
+  }
+  return [...stages];
 }
