@@ -95,19 +95,21 @@ type StageYaml = z.infer<typeof StageSchema>;
 
 function resolveYamlPath(): string {
   const envPath = process.env.RELEASE_WORKFLOW_CONFIG_PATH;
-  if (envPath && fs.existsSync(envPath)) return envPath;
+  if (envPath) {
+    // Resolve against cwd if it's relative, then check existence.
+    const resolved = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+    if (fs.existsSync(resolved)) return resolved;
+  }
 
-  const cwdPath = path.resolve(process.cwd(), 'backend/config/release-workflow.yaml');
-  if (fs.existsSync(cwdPath)) return cwdPath;
-
-  // Fallback: relative to this file (works when running compiled JS or ts-node).
-  // From src/services/, walk up two levels to backend/, then into config/.
-  const bundled = path.resolve(__dirname, '..', '..', 'config', 'release-workflow.yaml');
+  // Fallback: relative to this file (works whether running compiled JS from
+  // dist/ or ts-node from src/). From src/services/ we walk one level up to
+  // src/, then into config/.
+  const bundled = path.resolve(__dirname, '..', 'config', 'release-workflow.yaml');
   if (fs.existsSync(bundled)) return bundled;
 
   throw new Error(
     `Release workflow YAML not found. Looked in: ` +
-    `RELEASE_WORKFLOW_CONFIG_PATH (${envPath ?? 'unset'}), ${cwdPath}, ${bundled}`,
+    `RELEASE_WORKFLOW_CONFIG_PATH (${envPath ?? 'unset'}), ${bundled}`,
   );
 }
 
