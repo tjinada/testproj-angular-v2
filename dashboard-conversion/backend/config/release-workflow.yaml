@@ -1,0 +1,251 @@
+# =============================================================================
+# Release Workflow — workflow definition
+# =============================================================================
+#
+# This file defines the entire CDB release workflow: 10 stages, their
+# sub-steps, automated checks, and dependencies.
+#
+# Editing this file:
+#   - Locally: edit the bundled file at backend/config/release-workflow.yaml
+#     and restart the backend.
+#   - Deployed (OpenShift): edit the ConfigMap mounted at the same path
+#     and restart the pod.
+#
+# At boot, the loader:
+#   1. Reads this file
+#   2. Validates structure against the schema
+#   3. Looks up runner names against the registered factory library
+#   4. Builds STAGE_TEMPLATE and STAGE_RUNNERS
+#   5. Existing releases reconcile against the new template structure
+#
+# If validation fails, the pod fails to start with a clear error message.
+#
+# -----------------------------------------------------------------------------
+#  Schema reference
+# -----------------------------------------------------------------------------
+#
+#  stages:
+#    - id: <slug>                  (required, stable identifier)
+#      name: <human-readable>      (required, displayed in UI)
+#      kind: <sequential|parallel> (default: 'sequential'; parallel runs alongside
+#                                   other stages once dependsOn is met)
+#      initialStatus: <ready|locked>
+#                                  (default: 'locked'; first stage uses 'ready')
+#      dependsOn: [stageId, ...]   (default: []; empty for first stage)
+#      blocks: [stageId, ...]      (parallel stages only; sequential stages they
+#                                   must close before. Optional.)
+#      subSteps:
+#        - id: <slug>              (required, scoped to stage)
+#          label: <human-readable> (required)
+#          autoTickedBy: [checkId, ...]
+#                                  (optional; empty/omit = manual-only checkbox)
+#          editableField: <fieldPath>
+#                                  (optional; names the metadata field this
+#                                   sub-step's inline input writes to)
+#      checks:
+#        - id: <slug>              (required, scoped to stage)
+#          label: <human-readable> (required)
+#          runner: <factoryName>   (required, must match a registered factory)
+#          config: { ... }         (required, shape depends on runner)
+#
+#  Available runners (and their config shape):
+#    confluencePageCheck   { field: <fieldPath>, isUrl?: boolean }
+#    githubPrUrlCheck      { field: <fieldPath> }
+#    githubBranchUrlCheck  { field: <fieldPath> }
+#    jiraFixVersionCheck   { field: <fieldPath> }
+#    valueIsSetCheck       { field: <fieldPath> }
+#
+#  fieldPath is either a top-level metadata field (e.g. 'intakePageId') or
+#  a nested branches path (e.g. 'branches.cdbUiConfigs').
+#
+# =============================================================================
+
+stages:
+
+  # ===========================================================================
+  - id: stage1-intake
+    name: Intake & Setup
+    initialStatus: ready
+    dependsOn: []
+    subSteps:
+      - id: add-confluence-page-link
+        label: Add Release Confluence page link
+        autoTickedBy: [check-confluence-page-resolves]
+        editableField: intakePageId
+      - id: confirm-env-allocation
+        label: Confirm env allocation (Self Serve link)
+        autoTickedBy: [check-self-serve-link-resolves]
+        editableField: intakeSheetUrl
+      - id: create-fix-version
+        label: Create Fix Version in JIRA
+        autoTickedBy: [check-fix-version-exists]
+        editableField: fixVersion
+      - id: add-intake-checklist-page-id
+        label: Add Intake Checklist Page ID in Admin Portal
+        autoTickedBy: [check-intake-page-id-set]
+        editableField: intakePageId
+      - id: raise-env-matrix-pr
+        label: Raise PR to onboard branch on Env Matrix
+        autoTickedBy: [check-env-matrix-pr]
+        editableField: envMatrixPrUrl
+    checks:
+      - id: check-confluence-page-resolves
+        label: 'Confluence API: validate Release page link resolves'
+        runner: confluencePageCheck
+        config:
+          field: intakePageId
+      - id: check-self-serve-link-resolves
+        label: 'Confluence API: validate Self Serve env link resolves'
+        runner: confluencePageCheck
+        config:
+          field: intakeSheetUrl
+          isUrl: true
+      - id: check-fix-version-exists
+        label: 'JIRA API: confirm Fix Version exists'
+        runner: jiraFixVersionCheck
+        config:
+          field: fixVersion
+      - id: check-intake-page-id-set
+        label: 'Internal: validate Checklist Page ID is set'
+        runner: valueIsSetCheck
+        config:
+          field: intakePageId
+      - id: check-env-matrix-pr
+        label: 'GitHub API: confirm Env Matrix onboarding PR exists'
+        runner: githubPrUrlCheck
+        config:
+          field: envMatrixPrUrl
+
+  # ===========================================================================
+  - id: stage2-branching
+    name: Branching & Configs (T-14)
+    dependsOn: [stage1-intake]
+    subSteps:
+      - id: create-cdb-ui-configs-branch
+        label: Create CDB UI Configs branch off master
+        autoTickedBy: [check-cdb-ui-configs-branch-exists]
+        editableField: branches.cdbUiConfigs
+      - id: email-adms
+        label: Email ADMs/devs from Scope Intake
+      - id: open-master-jira
+        label: Open master JIRA "CDB UI Configs - RXX"
+      - id: add-da-team-subtasks
+        label: Add subtasks per DA team
+      - id: run-configs-report
+        label: Run CDB_Release_Configs_Report in QA Signoff env
+    checks:
+      - id: check-cdb-ui-configs-branch-exists
+        label: 'GitHub API: CDB UI Configs branch exists'
+        runner: githubBranchUrlCheck
+        config:
+          field: branches.cdbUiConfigs
+
+  # ===========================================================================
+  - id: stage3-build-stabilization
+    name: Build Stabilization (T-7)
+    dependsOn: [stage2-branching]
+    subSteps:
+      - id: coordinate-platform-qa-go-no-go
+        label: Coordinate with Platform QA on stable commit
+      - id: disable-sealights-pr
+        label: Disable Sealights via config PR
+      - id: run-automated-build-pipeline
+        label: Run Automated Build Pipeline post-toggle
+      - id: confirm-clean-qa-builds
+        label: Confirm clean QA deployment builds generated
+
+  # ===========================================================================
+  - id: stage4-mobile-build
+    name: Mobile Build & Distribution (T-5 to T-4)
+    dependsOn: [stage3-build-stabilization]
+    subSteps:
+      - id: confirm-package-json-version
+        label: Confirm package.json version (PROD 0/3/6, Blue 1/4/7, Green 2/5/8)
+      - id: update-mobile-versions-table
+        label: Update Mobile App Versions Table
+      - id: run-blue-mobile-build
+        label: Run CDB_PROD_Blue_Mobile_Build_Publish
+      - id: run-green-mobile-build
+        label: Run CDB_PROD_Green_Mobile_Build_Publish
+      - id: run-prod-mobile-build
+        label: Run CDB_PROD_Mobile_Build_Publish
+      - id: upload-ios-pre-prod
+        label: Upload iOS Pre-PROD → TestFlight
+      - id: share-android-pre-prod-path
+        label: Share Android Pre-PROD build path
+      - id: distribute-prod-builds
+        label: Distribute PROD Android + iOS builds
+      - id: share-build-links
+        label: Share Mobile App Build Links with Release Mgmt
+
+  # ===========================================================================
+  - id: stage5-war-promotion
+    name: WAR Promotion (T-4 to T-3)
+    dependsOn: [stage4-mobile-build]
+    subSteps:
+      - id: promote-war-azure
+        label: Promote WAR via Azure pipeline (definitionId=8398)
+
+  # ===========================================================================
+  # Stage 6 unlocks as soon as Stage 3 completes; runs alongside Stages 4 & 5.
+  # Stage 7 lists this in its own dependsOn, so Stage 7 can't open until 6 closes.
+  - id: stage6-doc-prep
+    name: Documentation Prep
+    kind: parallel
+    dependsOn: [stage3-build-stabilization]
+    blocks: [stage7-pre-prod]
+    subSteps:
+      - id: draft-pre-prod-letter
+        label: Draft Pre-PROD delivery letter
+      - id: draft-prod-letter
+        label: Draft PROD delivery letter
+      - id: close-jira-subtasks
+        label: Close JIRA subtasks + master ticket for UI Configs
+
+  # ===========================================================================
+  - id: stage7-pre-prod
+    name: Pre-PROD Deployment
+    dependsOn: [stage5-war-promotion, stage6-doc-prep]
+    subSteps:
+      - id: deploy-configs-wem
+        label: Deploy configs to PROD WEM server
+      - id: validate-3-4-passes
+        label: Validate 3-4 passes
+      - id: execute-tech-validation
+        label: Execute technical validation per CDB Release runbook
+
+  # ===========================================================================
+  - id: stage8-prod
+    name: PROD Deployment
+    dependsOn: [stage7-pre-prod]
+    subSteps:
+      - id: repeat-config-war-verification
+        label: Repeat config/WAR verification
+      - id: execute-tech-validation-prod
+        label: Execute technical validation
+      - id: coordinate-traffic-switch
+        label: Coordinate traffic switch per PROD delivery letter
+
+  # ===========================================================================
+  - id: stage9-post-go-live
+    name: Post-Go-Live
+    dependsOn: [stage8-prod]
+    subSteps:
+      - id: update-f26-deployments-page
+        label: Update build versions on F26 Deployments page
+      - id: retrofit-cdb-ui-branch
+        label: Retrofit CDB UI release branch → master
+      - id: retrofit-cdb-configs-branch
+        label: Retrofit CDB Configs release branch → master
+      - id: retrofit-freddy-branch
+        label: Retrofit Freddy release branch → master
+      - id: tag-repos
+        label: Tag repos (CDB, CDB_configs, Freddy)
+
+  # ===========================================================================
+  - id: stage10-post-mobile
+    name: Post Mobile App Release
+    dependsOn: [stage9-post-go-live]
+    subSteps:
+      - id: upload-prod-dsym-firebase
+        label: Upload PROD dSYM files to Firebase Console

@@ -23,7 +23,7 @@ import {
   STAGE_RUNNERS,
   StageRunnerMap,
   stagesUsingField,
-} from './release-workflow.checks';
+} from './release-workflow.loader';
 import {
   Release,
   ReleaseMetadata,
