@@ -3,10 +3,10 @@
 # =============================================================================
 #
 # This file defines the entire CDB release workflow: 10 stages, their
-# sub-steps, automated checks, and dependencies.
+# sub-steps, and the runners that auto-tick those sub-steps.
 #
 # Editing this file:
-#   - Locally: edit the bundled file at backend/config/release-workflow.yaml
+#   - Locally: edit the bundled file at backend/src/config/release-workflow.yaml
 #     and restart the backend.
 #   - Deployed (OpenShift): edit the ConfigMap mounted at the same path
 #     and restart the pod.
@@ -15,8 +15,9 @@
 #   1. Reads this file
 #   2. Validates structure against the schema
 #   3. Looks up runner names against the registered factory library
-#   4. Builds STAGE_TEMPLATE and STAGE_RUNNERS
-#   5. Existing releases reconcile against the new template structure
+#   4. Synthesizes per-sub-step automated checks
+#   5. Builds STAGE_TEMPLATE and STAGE_RUNNERS
+#   6. Existing releases reconcile against the new template structure
 #
 # If validation fails, the pod fails to start with a clear error message.
 #
@@ -37,23 +38,24 @@
 #      subSteps:
 #        - id: <slug>              (required, scoped to stage)
 #          label: <human-readable> (required)
-#          autoTickedBy: [checkId, ...]
-#                                  (optional; empty/omit = manual-only checkbox)
 #          editableField: <fieldPath>
-#                                  (optional; names the metadata field this
-#                                   sub-step's inline input writes to)
-#      checks:
-#        - id: <slug>              (required, scoped to stage)
-#          label: <human-readable> (required)
-#          runner: <factoryName>   (required, must match a registered factory)
-#          config: { ... }         (required, shape depends on runner)
+#                                  (required if `runner` is set; names the
+#                                   metadata field this sub-step's inline input
+#                                   writes to)
+#          runner: <factoryName>   (optional; if set, this sub-step is
+#                                   auto-tickable. Must match a registered
+#                                   factory in FACTORY_REGISTRY. The runner
+#                                   is invoked with field=editableField.)
+#                                  (omit `runner` for purely manual sub-steps —
+#                                   they render as a checkbox)
 #
-#  Available runners (and their config shape):
-#    confluencePageCheck   { field: <fieldPath>, isUrl?: boolean }
-#    githubPrUrlCheck      { field: <fieldPath> }
-#    githubBranchUrlCheck  { field: <fieldPath> }
-#    jiraFixVersionCheck   { field: <fieldPath> }
-#    valueIsSetCheck       { field: <fieldPath> }
+#  Available runners (all take `field` implicitly from the sub-step):
+#    confluencePageIdCheck    — field holds a Confluence page ID
+#    confluencePageUrlCheck   — field holds a Confluence page URL
+#    githubPrUrlCheck         — field holds a GitHub PR URL
+#    githubBranchUrlCheck     — field holds a GitHub branch URL (in /tree/ form)
+#    jiraFixVersionCheck      — field holds a JIRA Fix Version name
+#    valueIsSetCheck          — field is non-empty (any value passes)
 #
 #  fieldPath is either a top-level metadata field (e.g. 'intakePageId') or
 #  a nested branches path (e.g. 'branches.cdbUiConfigs').
@@ -70,51 +72,24 @@ stages:
     subSteps:
       - id: add-confluence-page-link
         label: Add Release Confluence page link
-        autoTickedBy: [check-confluence-page-resolves]
         editableField: intakePageId
+        runner: confluencePageIdCheck
       - id: confirm-env-allocation
         label: Confirm env allocation (Self Serve link)
-        autoTickedBy: [check-self-serve-link-resolves]
         editableField: intakeSheetUrl
+        runner: confluencePageUrlCheck
       - id: create-fix-version
         label: Create Fix Version in JIRA
-        autoTickedBy: [check-fix-version-exists]
         editableField: fixVersion
+        runner: jiraFixVersionCheck
       - id: add-intake-checklist-page-id
         label: Add Intake Checklist Page ID in Admin Portal
-        autoTickedBy: [check-intake-page-id-set]
         editableField: intakePageId
+        runner: valueIsSetCheck
       - id: raise-env-matrix-pr
         label: Raise PR to onboard branch on Env Matrix
-        autoTickedBy: [check-env-matrix-pr]
         editableField: envMatrixPrUrl
-    checks:
-      - id: check-confluence-page-resolves
-        label: 'Confluence API: validate Release page link resolves'
-        runner: confluencePageCheck
-        config:
-          field: intakePageId
-      - id: check-self-serve-link-resolves
-        label: 'Confluence API: validate Self Serve env link resolves'
-        runner: confluencePageCheck
-        config:
-          field: intakeSheetUrl
-          isUrl: true
-      - id: check-fix-version-exists
-        label: 'JIRA API: confirm Fix Version exists'
-        runner: jiraFixVersionCheck
-        config:
-          field: fixVersion
-      - id: check-intake-page-id-set
-        label: 'Internal: validate Checklist Page ID is set'
-        runner: valueIsSetCheck
-        config:
-          field: intakePageId
-      - id: check-env-matrix-pr
-        label: 'GitHub API: confirm Env Matrix onboarding PR exists'
         runner: githubPrUrlCheck
-        config:
-          field: envMatrixPrUrl
 
   # ===========================================================================
   - id: stage2-branching
@@ -123,8 +98,8 @@ stages:
     subSteps:
       - id: create-cdb-ui-configs-branch
         label: Create CDB UI Configs branch off master
-        autoTickedBy: [check-cdb-ui-configs-branch-exists]
         editableField: branches.cdbUiConfigs
+        runner: githubBranchUrlCheck
       - id: email-adms
         label: Email ADMs/devs from Scope Intake
       - id: open-master-jira
@@ -133,12 +108,6 @@ stages:
         label: Add subtasks per DA team
       - id: run-configs-report
         label: Run CDB_Release_Configs_Report in QA Signoff env
-    checks:
-      - id: check-cdb-ui-configs-branch-exists
-        label: 'GitHub API: CDB UI Configs branch exists'
-        runner: githubBranchUrlCheck
-        config:
-          field: branches.cdbUiConfigs
 
   # ===========================================================================
   - id: stage3-build-stabilization

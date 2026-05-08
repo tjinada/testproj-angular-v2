@@ -14,15 +14,26 @@
  *
  * ─────────────────────────────────────────────────────────────────────────
  *  Lookup priority for the YAML file:
- *    1. $RELEASE_WORKFLOW_CONFIG_PATH env var, if set
- *    2. ./backend/config/release-workflow.yaml (relative to cwd)
- *    3. <this-dir>/../../config/release-workflow.yaml (bundled fallback)
+ *    1. $RELEASE_WORKFLOW_CONFIG_PATH env var, if set (resolved against cwd)
+ *    2. <this-dir>/../config/release-workflow.yaml (bundled fallback)
  *
  *  The first existing file wins. This lets ConfigMap mounts override the
  *  bundled default by setting the env var to the mount path.
  *
  *  Schema strictness: lenient. Unknown fields are ignored. Missing optional
  *  fields get sensible defaults. Wrong types still fail.
+ *
+ *  Sub-step → check synthesis:
+ *    A sub-step with `runner: someCheck` becomes BOTH a sub-step entry AND
+ *    a synthesized AutomatedCheck entry. The check inherits the sub-step's
+ *    label and is given a derived ID. The runner factory is invoked with
+ *    `{ field: subStep.editableField }`. The sub-step is wired to its
+ *    synthesized check via autoTickedBy.
+ *
+ *    A sub-step without a runner is purely manual — no check is synthesized.
+ *
+ *    A sub-step with a runner but no editableField is a YAML error and the
+ *    loader rejects loudly at boot.
  * ─────────────────────────────────────────────────────────────────────────
  */
 
@@ -44,32 +55,20 @@ import {
 // ============================================================================
 
 /**
- * Sub-step in YAML.
- *
- * `autoTickedBy` defaults to []. `editableField` is optional. Unknown fields
- * are silently ignored (lenient mode).
+ * Sub-step in YAML. `runner` is optional — sub-steps without it are
+ * purely manual. `editableField` is optional in the schema, but cross-
+ * validation requires it when `runner` is set.
  */
 const SubStepSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  autoTickedBy: z.array(z.string()).default([]),
   editableField: z.string().optional(),
-});
-
-/**
- * Check in YAML. The runner string is validated against FACTORY_REGISTRY at
- * build time, not in the schema (better error messages).
- */
-const CheckSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  runner: z.string().min(1),
-  config: z.record(z.string(), z.any()).default({}),
+  runner: z.string().optional(),
 });
 
 /**
  * Stage in YAML. Defaults: kind='sequential', initialStatus='locked',
- * dependsOn=[], subSteps=[], checks=[]. blocks is optional (parallel only).
+ * dependsOn=[], subSteps=[]. blocks is optional (parallel only).
  */
 const StageSchema = z.object({
   id: z.string().min(1),
@@ -79,7 +78,6 @@ const StageSchema = z.object({
   dependsOn: z.array(z.string()).default([]),
   blocks: z.array(z.string()).optional(),
   subSteps: z.array(SubStepSchema).default([]),
-  checks: z.array(CheckSchema).default([]),
 });
 
 const WorkflowSchema = z.object({
@@ -87,7 +85,6 @@ const WorkflowSchema = z.object({
 });
 
 type WorkflowYaml = z.infer<typeof WorkflowSchema>;
-type StageYaml = z.infer<typeof StageSchema>;
 
 // ============================================================================
 // Path resolution
@@ -136,10 +133,10 @@ function loadAndParse(): WorkflowYaml {
  * Cross-validation that Zod can't easily express:
  *   - Stage IDs are unique
  *   - Sub-step IDs unique within their stage
- *   - Check IDs unique within their stage
  *   - dependsOn references real stage IDs
- *   - autoTickedBy references real check IDs in the same stage
+ *   - blocks references real stage IDs
  *   - runner names exist in FACTORY_REGISTRY
+ *   - sub-step with `runner` MUST also have `editableField`
  */
 function crossValidate(workflow: WorkflowYaml): void {
   const errors: string[] = [];
@@ -152,15 +149,25 @@ function crossValidate(workflow: WorkflowYaml): void {
 
   for (const stage of workflow.stages) {
     const subStepIds = new Set<string>();
-    const checkIds = new Set<string>();
 
     for (const sub of stage.subSteps) {
       if (subStepIds.has(sub.id)) errors.push(`${stage.id}: duplicate sub-step ID '${sub.id}'`);
       subStepIds.add(sub.id);
-    }
-    for (const check of stage.checks) {
-      if (checkIds.has(check.id)) errors.push(`${stage.id}: duplicate check ID '${check.id}'`);
-      checkIds.add(check.id);
+
+      if (sub.runner) {
+        if (!FACTORY_REGISTRY[sub.runner]) {
+          errors.push(
+            `${stage.id}.${sub.id}: unknown runner '${sub.runner}' ` +
+            `(available: ${Object.keys(FACTORY_REGISTRY).join(', ')})`,
+          );
+        }
+        if (!sub.editableField) {
+          errors.push(
+            `${stage.id}.${sub.id}: sub-step has runner '${sub.runner}' but no editableField. ` +
+            `Runners need a field to read from.`,
+          );
+        }
+      }
     }
 
     for (const dep of stage.dependsOn) {
@@ -174,23 +181,6 @@ function crossValidate(workflow: WorkflowYaml): void {
         }
       }
     }
-
-    for (const sub of stage.subSteps) {
-      for (const ref of sub.autoTickedBy) {
-        if (!checkIds.has(ref)) {
-          errors.push(`${stage.id}.${sub.id}: autoTickedBy references unknown check '${ref}'`);
-        }
-      }
-    }
-
-    for (const check of stage.checks) {
-      if (!FACTORY_REGISTRY[check.runner]) {
-        errors.push(
-          `${stage.id}.${check.id}: unknown runner '${check.runner}' ` +
-          `(available: ${Object.keys(FACTORY_REGISTRY).join(', ')})`,
-        );
-      }
-    }
   }
 
   if (errors.length > 0) {
@@ -199,61 +189,87 @@ function crossValidate(workflow: WorkflowYaml): void {
 }
 
 /**
- * Build a Stage[] (the canonical template) from validated YAML.
- * Each stage gets a fresh "blank slate" state — sub-steps unchecked, checks
- * pending, timestamps null.
+ * Synthesize a check ID from a sub-step ID. Used for both the persisted
+ * AutomatedCheck.id and the autoTickedBy reference. Sub-step IDs are unique
+ * within a stage, so the resulting check IDs are also unique within a stage.
  */
-function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
-  return workflow.stages.map((def, idx) => ({
-    id: def.id,
-    displayOrder: idx + 1,
-    name: def.name,
-    kind: def.kind as StageKind,
-    status: def.initialStatus as StageStatus,
-    startedAt: null,
-    closedAt: null,
-    subSteps: def.subSteps.map((s) => ({
-      id: s.id,
-      label: s.label,
-      state: 'unchecked' as const,
-      source: null,
-      autoTickedBy: s.autoTickedBy,
-      editableField: s.editableField ?? null,
-      completedAt: null,
-      completedBy: null,
-    })),
-    automatedChecks: def.checks.map((c) => ({
-      id: c.id,
-      label: c.label,
-      status: 'pending' as const,
-      lastRunAt: null,
-      result: null,
-      errorMessage: null,
-    })),
-    notes: [],
-    override: null,
-    dependsOn: def.dependsOn,
-    ...(def.blocks ? { blocks: def.blocks } : {}),
-  }));
+function synthesizeCheckId(subStepId: string): string {
+  return `check-${subStepId}`;
 }
 
 /**
- * Build the per-stage runner map from validated YAML by looking up each
- * check's runner name in FACTORY_REGISTRY and instantiating with its config.
- * Cross-validation has already confirmed every runner name exists.
+ * Build a Stage[] (the canonical template) from validated YAML. For each
+ * sub-step with a runner, synthesize a corresponding AutomatedCheck entry
+ * and wire the sub-step's autoTickedBy to it.
+ */
+function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
+  return workflow.stages.map((def, idx) => {
+    const subSteps = def.subSteps.map((s) => {
+      const autoTickedBy = s.runner ? [synthesizeCheckId(s.id)] : [];
+      return {
+        id: s.id,
+        label: s.label,
+        state: 'unchecked' as const,
+        source: null,
+        autoTickedBy,
+        editableField: s.editableField ?? null,
+        completedAt: null,
+        completedBy: null,
+      };
+    });
+
+    // Synthesize one AutomatedCheck per sub-step that has a runner.
+    const automatedChecks = def.subSteps
+      .filter((s) => !!s.runner)
+      .map((s) => ({
+        id: synthesizeCheckId(s.id),
+        label: s.label,                      // share the sub-step's label
+        status: 'pending' as const,
+        lastRunAt: null,
+        result: null,
+        errorMessage: null,
+      }));
+
+    return {
+      id: def.id,
+      displayOrder: idx + 1,
+      name: def.name,
+      kind: def.kind as StageKind,
+      status: def.initialStatus as StageStatus,
+      startedAt: null,
+      closedAt: null,
+      subSteps,
+      automatedChecks,
+      notes: [],
+      override: null,
+      dependsOn: def.dependsOn,
+      ...(def.blocks ? { blocks: def.blocks } : {}),
+    };
+  });
+}
+
+/**
+ * Build the per-stage runner map by walking sub-steps with a runner and
+ * instantiating each runner factory with `{ field: editableField }`.
+ *
+ * Cross-validation has already confirmed every runner name exists and every
+ * sub-step with a runner has an editableField.
  */
 function buildStageRunners(workflow: WorkflowYaml): Record<string, StageRunnerMap> {
   const runners: Record<string, StageRunnerMap> = {};
 
   for (const stage of workflow.stages) {
     const stageMap: StageRunnerMap = {};
-    for (const check of stage.checks) {
-      const factory = FACTORY_REGISTRY[check.runner] as FactoryFn;
+    for (const sub of stage.subSteps) {
+      if (!sub.runner) continue;
+
+      const factory = FACTORY_REGISTRY[sub.runner] as FactoryFn;
+      const checkId = synthesizeCheckId(sub.id);
       try {
-        stageMap[check.id] = factory(check.config);
+        stageMap[checkId] = factory({ field: sub.editableField });
       } catch (err: any) {
         throw new Error(
-          `Failed to build runner '${check.runner}' for ${stage.id}.${check.id}: ` +
+          `Failed to build runner '${sub.runner}' for ${stage.id}.${sub.id}: ` +
           `${err?.message ?? err}`,
         );
       }
@@ -271,14 +287,20 @@ function buildStageRunners(workflow: WorkflowYaml): Record<string, StageRunnerMa
 const workflow = loadAndParse();
 crossValidate(workflow);
 
+const totalSubSteps = workflow.stages.reduce((n, s) => n + s.subSteps.length, 0);
+const totalRunners = workflow.stages.reduce(
+  (n, s) => n + s.subSteps.filter((sub) => !!sub.runner).length,
+  0,
+);
+
 console.log(
   `[release-workflow] Validated ${workflow.stages.length} stage(s); ` +
-  `${workflow.stages.reduce((n, s) => n + s.subSteps.length, 0)} sub-step(s); ` +
-  `${workflow.stages.reduce((n, s) => n + s.checks.length, 0)} check(s) wired`,
+  `${totalSubSteps} sub-step(s); ` +
+  `${totalRunners} runner(s) wired`,
 );
 
 // ============================================================================
-// Exports — same surface as the previous hardcoded module
+// Exports — same surface as before
 // ============================================================================
 
 export const STAGE_TEMPLATE: Stage[] = buildStageTemplate(workflow);

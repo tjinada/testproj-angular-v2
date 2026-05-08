@@ -111,14 +111,45 @@ function parseGithubBranchUrl(url: string): { owner: string; repo: string; branc
 // Factories — referenced from YAML by their function name
 // ============================================================================
 
-export function confluencePageCheck(config: { field: FieldPath; isUrl?: boolean }): CheckRunner {
-  const { field, isUrl } = config;
+/**
+ * Pass if the configured field holds a Confluence page ID that resolves.
+ * The field value is treated as the page ID directly.
+ */
+export function confluencePageIdCheck(config: { field: FieldPath }): CheckRunner {
+  const { field } = config;
   return async (release, check) => {
-    const raw = readField(release, field);
-    if (!raw || !raw.trim()) return fail(check, `${field} is not set on this release`);
+    const pageId = readField(release, field);
+    if (!pageId || !pageId.trim()) return fail(check, `${field} is not set on this release`);
 
-    const pageId = isUrl ? parseConfluencePageIdFromUrl(raw) : raw;
-    if (!pageId) return fail(check, `Could not parse pageId from ${field}: ${raw}`);
+    try {
+      const page: any = await confluenceService.getPageContent(pageId);
+      if (!page || !page.id) return fail(check, `Confluence page '${pageId}' not found`);
+      return pass(check, {
+        pageId: page.id,
+        title: page.title ?? '(untitled)',
+        webui: page._links?.webui ?? null,
+      });
+    } catch (err: any) {
+      const msg = err?.response?.status === 404
+        ? `Confluence page '${pageId}' not found (404)`
+        : (err?.message ?? 'Confluence API call failed');
+      return fail(check, msg);
+    }
+  };
+}
+
+/**
+ * Pass if the configured field holds a Confluence page URL that resolves.
+ * The field value is parsed for a page ID.
+ */
+export function confluencePageUrlCheck(config: { field: FieldPath }): CheckRunner {
+  const { field } = config;
+  return async (release, check) => {
+    const url = readField(release, field);
+    if (!url || !url.trim()) return fail(check, `${field} is not set on this release`);
+
+    const pageId = parseConfluencePageIdFromUrl(url);
+    if (!pageId) return fail(check, `Could not parse pageId from URL: ${url}`);
 
     try {
       const page: any = await confluenceService.getPageContent(pageId);
@@ -229,7 +260,8 @@ export function valueIsSetCheck(config: { field: FieldPath }): CheckRunner {
 export type FactoryFn = (config: any) => CheckRunner;
 
 export const FACTORY_REGISTRY: Record<string, FactoryFn> = {
-  confluencePageCheck,
+  confluencePageIdCheck,
+  confluencePageUrlCheck,
   githubPrUrlCheck,
   githubBranchUrlCheck,
   jiraFixVersionCheck,
