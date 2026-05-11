@@ -52,18 +52,8 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
   fixVersion = '';
   envMatrixPrUrl = '';
   branchCdbUi = '';
-  branchCdbUiConfigs = '';   // editable in EDIT mode only — populated mid-flight by Stage 2
+  branchCdbUiConfigs = '';
   branchFreddy = '';
-
-  /**
-   * cdbUiConfigs is populated mid-flight by Stage 2 (the sub-step "create CDB
-   * UI Configs branch off master"). It's not part of the create wizard — the
-   * branch doesn't exist yet at intake. The edit wizard exposes it so the
-   * sheriff can paste the URL after creating the branch in GitHub.
-   *
-   * In edit mode, branchCdbUiConfigs is the form field. In create mode this
-   * stays empty and the value goes to the backend as null.
-   */
 
   readonly submitting = signal<boolean>(false);
   readonly loading = signal<boolean>(false);
@@ -149,11 +139,8 @@ export class CreateReleaseComponent implements OnInit, OnChanges {
       envMatrixPrUrl: this.envMatrixPrUrl.trim() || null,
       branches: {
         cdbUi:        this.branchCdbUi.trim() || null,
-        freddy:       this.branchFreddy.trim() || null,
-        // cdbUiConfigs is editable in EDIT mode only. In CREATE mode the
-        // form field stays empty (the branch doesn't exist yet at intake;
-        // it's created during Stage 2 and pasted in via edit afterward).
         cdbUiConfigs: this.branchCdbUiConfigs.trim() || null,
+        freddy:       this.branchFreddy.trim() || null,
       },
     };
 
