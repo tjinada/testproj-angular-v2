@@ -20,6 +20,7 @@ export interface SubStep {
   source: SubStepSource;
   autoTickedBy: string[];
   editableField: string | null;
+  placeholder: string | null;
   completedAt: string | null;
   completedBy: string | null;
 }

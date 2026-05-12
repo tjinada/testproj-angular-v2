@@ -295,13 +295,14 @@ export class StageViewComponent {
     return 'unchecked';
   }
 
-  /** Placeholder text for the input based on the field name. */
+  /**
+   * Placeholder text for the inline input. The persisted `placeholder` was
+   * resolved at boot time by the loader — either from the runner's default
+   * placeholder table or from an explicit `placeholder:` in YAML. We just
+   * read it here, with a generic fallback for unusual cases.
+   */
   inputPlaceholder(s: SubStep): string {
-    if (!s.editableField) return '';
-    if (s.editableField.endsWith('Url') || s.editableField.includes('Sheet')) return 'Paste URL...';
-    if (s.editableField.startsWith('branches.')) return 'Paste GitHub branch URL...';
-    if (s.editableField.endsWith('Id')) return 'Paste page ID...';
-    return 'Paste value...';
+    return s.placeholder ?? 'Paste value';
   }
 
   // ----- run-all-checks button -----

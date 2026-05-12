@@ -267,3 +267,20 @@ export const FACTORY_REGISTRY: Record<string, FactoryFn> = {
   jiraFixVersionCheck,
   valueIsSetCheck,
 };
+
+/**
+ * Default placeholder text shown in the inline edit input when a sub-step
+ * with this runner is being edited. Sub-steps can override this via
+ * `placeholder:` in YAML; if no override is set, this is what shows.
+ *
+ * Keep keys in sync with FACTORY_REGISTRY above. The loader looks up by
+ * runner name to fill in the default when YAML doesn't specify one.
+ */
+export const RUNNER_PLACEHOLDERS: Record<string, string> = {
+  confluencePageIdCheck:  'Paste Confluence page ID, e.g. 1160085900',
+  confluencePageUrlCheck: 'Paste Confluence page URL, e.g. https://bmo.atlassian.net/wiki/spaces/.../pages/1234567/...',
+  githubPrUrlCheck:       'Paste Pull Request URL, e.g. https://github.com/your-org/repo/pull/123',
+  githubBranchUrlCheck:   'Paste GitHub branch URL, e.g. https://github.com/your-org/repo/tree/release/r86.0.0',
+  jiraFixVersionCheck:    'Paste JIRA Fix Version name, e.g. R86.0.0-103052',
+  valueIsSetCheck:        'Paste value',
+};

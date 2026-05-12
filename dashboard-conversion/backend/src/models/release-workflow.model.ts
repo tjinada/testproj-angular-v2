@@ -32,6 +32,12 @@ export interface SubStep {
    * nested branch fields. Null for manual-only sub-steps with no input.
    */
   editableField: string | null;
+  /**
+   * Placeholder text shown in the inline edit input. Null = use the
+   * default placeholder for the sub-step's runner (or a generic one if
+   * there's no runner). Set explicitly in YAML to override.
+   */
+  placeholder: string | null;
   completedAt: string | null;    // ISO 8601
   completedBy: string | null;    // username, or "system" for auto-ticks
 }

@@ -48,6 +48,10 @@
 #                                   is invoked with field=editableField.)
 #                                  (omit `runner` for purely manual sub-steps —
 #                                   they render as a checkbox)
+#          placeholder: <string>   (optional; placeholder text for the inline
+#                                   input field. Overrides the runner's
+#                                   default. Useful for custom phrasing or
+#                                   to provide an example value.)
 #
 #  Available runners (all take `field` implicitly from the sub-step):
 #    confluencePageIdCheck    — field holds a Confluence page ID

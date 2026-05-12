@@ -48,6 +48,7 @@ import {
   StageRunnerMap,
   FACTORY_REGISTRY,
   FactoryFn,
+  RUNNER_PLACEHOLDERS,
 } from './release-workflow.runners';
 
 // ============================================================================
@@ -57,13 +58,15 @@ import {
 /**
  * Sub-step in YAML. `runner` is optional — sub-steps without it are
  * purely manual. `editableField` is optional in the schema, but cross-
- * validation requires it when `runner` is set.
+ * validation requires it when `runner` is set. `placeholder` overrides
+ * the runner's default placeholder text.
  */
 const SubStepSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   editableField: z.string().optional(),
   runner: z.string().optional(),
+  placeholder: z.string().optional(),
 });
 
 /**
@@ -206,6 +209,12 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
   return workflow.stages.map((def, idx) => {
     const subSteps = def.subSteps.map((s) => {
       const autoTickedBy = s.runner ? [synthesizeCheckId(s.id)] : [];
+      // Resolve placeholder: explicit YAML value wins; otherwise the runner's
+      // declared default; otherwise null (the frontend falls back to a generic
+      // "Paste value" for manual-only sub-steps without a runner).
+      const placeholder =
+        s.placeholder ??
+        (s.runner ? RUNNER_PLACEHOLDERS[s.runner] ?? null : null);
       return {
         id: s.id,
         label: s.label,
@@ -213,6 +222,7 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
         source: null,
         autoTickedBy,
         editableField: s.editableField ?? null,
+        placeholder,
         completedAt: null,
         completedBy: null,
       };

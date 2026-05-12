@@ -634,6 +634,10 @@ class ReleaseWorkflowService {
             existing.editableField = tplSub.editableField ?? null;
             changes.push(`${tplStage.id}: updated editableField on sub-step '${tplSub.id}'`);
           }
+          if ((existing.placeholder ?? null) !== (tplSub.placeholder ?? null)) {
+            existing.placeholder = tplSub.placeholder ?? null;
+            changes.push(`${tplStage.id}: updated placeholder on sub-step '${tplSub.id}'`);
+          }
         }
       }
 
