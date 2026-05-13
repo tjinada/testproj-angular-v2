@@ -52,6 +52,12 @@
 #                                   input field. Overrides the runner's
 #                                   default. Useful for custom phrasing or
 #                                   to provide an example value.)
+#          helpUrl: <url>          (optional; outbound link shown next to the
+#                                   sub-step label. Same value for every
+#                                   release. Use for static reference links
+#                                   like ADO pipelines or runbooks.)
+#          helpUrlLabel: <string>  (optional; display text for helpUrl.
+#                                   Defaults to "Open link".)
 #
 #  Available runners (all take `field` implicitly from the sub-step):
 #    confluencePageIdCheck    — field holds a Confluence page ID
@@ -129,6 +135,8 @@ stages:
         runner: githubPrUrlCheck
       - id: run-automated-build-pipeline
         label: Run Automated Build Pipeline post-toggle
+        helpUrl: https://dev.azure.com/your-org/_build?definitionId=8398
+        helpUrlLabel: Open ADO pipeline
       - id: confirm-clean-qa-builds
         label: Confirm clean QA deployment builds generated
 

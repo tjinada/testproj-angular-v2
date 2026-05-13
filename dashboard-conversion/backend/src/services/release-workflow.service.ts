@@ -655,6 +655,14 @@ class ReleaseWorkflowService {
             existing.placeholder = tplSub.placeholder ?? null;
             changes.push(`${tplStage.id}: updated placeholder on sub-step '${tplSub.id}'`);
           }
+          if ((existing.helpUrl ?? null) !== (tplSub.helpUrl ?? null)) {
+            existing.helpUrl = tplSub.helpUrl ?? null;
+            changes.push(`${tplStage.id}: updated helpUrl on sub-step '${tplSub.id}'`);
+          }
+          if ((existing.helpUrlLabel ?? null) !== (tplSub.helpUrlLabel ?? null)) {
+            existing.helpUrlLabel = tplSub.helpUrlLabel ?? null;
+            changes.push(`${tplStage.id}: updated helpUrlLabel on sub-step '${tplSub.id}'`);
+          }
         }
       }
 

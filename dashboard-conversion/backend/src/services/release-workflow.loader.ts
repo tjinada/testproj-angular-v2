@@ -67,6 +67,8 @@ const SubStepSchema = z.object({
   editableField: z.string().optional(),
   runner: z.string().optional(),
   placeholder: z.string().optional(),
+  helpUrl: z.string().optional(),
+  helpUrlLabel: z.string().optional(),
 });
 
 /**
@@ -215,6 +217,11 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
       const placeholder =
         s.placeholder ??
         (s.runner ? RUNNER_PLACEHOLDERS[s.runner] ?? null : null);
+      // Resolve helpUrl + helpUrlLabel: both come from YAML; if helpUrl is
+      // set but helpUrlLabel isn't, fall back to a generic label so the UI
+      // always has something to show.
+      const helpUrl = s.helpUrl ?? null;
+      const helpUrlLabel = helpUrl ? (s.helpUrlLabel ?? 'Open link') : null;
       return {
         id: s.id,
         label: s.label,
@@ -223,6 +230,8 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
         autoTickedBy,
         editableField: s.editableField ?? null,
         placeholder,
+        helpUrl,
+        helpUrlLabel,
         completedAt: null,
         completedBy: null,
       };

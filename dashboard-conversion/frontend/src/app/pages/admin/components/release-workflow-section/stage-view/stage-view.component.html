@@ -63,7 +63,17 @@
 
         <!-- main content -->
         <div class="ss-row__main">
-          <div class="ss-row__label">{{ s.label }}</div>
+          <div class="ss-row__label">
+            {{ s.label }}
+            @if (s.helpUrl) {
+              <a class="ss-row__helplink"
+                 [href]="s.helpUrl"
+                 target="_blank"
+                 rel="noopener noreferrer">
+                {{ s.helpUrlLabel ?? 'Open link' }} ↗
+              </a>
+            }
+          </div>
 
           <!-- read-only value when passing -->
           @if (editable && status === 'passed' && fieldValue(s)) {

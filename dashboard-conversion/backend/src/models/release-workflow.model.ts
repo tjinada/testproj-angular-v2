@@ -38,6 +38,14 @@ export interface SubStep {
    * there's no runner). Set explicitly in YAML to override.
    */
   placeholder: string | null;
+  /**
+   * Optional outbound link shown next to the sub-step label (e.g. a link
+   * to an ADO pipeline the sheriff needs to run). Opens in a new tab.
+   * Same value for every release — it's per-stage-definition, not per-release.
+   */
+  helpUrl: string | null;
+  /** Display text for helpUrl; defaults to "Open link" if URL set but label not. */
+  helpUrlLabel: string | null;
   completedAt: string | null;    // ISO 8601
   completedBy: string | null;    // username, or "system" for auto-ticks
 }

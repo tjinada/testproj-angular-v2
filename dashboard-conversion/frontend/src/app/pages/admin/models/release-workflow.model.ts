@@ -21,6 +21,8 @@ export interface SubStep {
   autoTickedBy: string[];
   editableField: string | null;
   placeholder: string | null;
+  helpUrl: string | null;
+  helpUrlLabel: string | null;
   completedAt: string | null;
   completedBy: string | null;
 }
