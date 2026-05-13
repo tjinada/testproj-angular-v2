@@ -591,6 +591,21 @@ class ReleaseWorkflowService {
   private reconcileRelease(release: Release): string[] {
     const changes: string[] = [];
 
+    // ----- metadata: backfill missing fields -----
+    // The model can gain new fields over time (e.g. cdbUiConfigJiraUrl).
+    // Existing release JSON in Artifactory was saved with the older shape,
+    // so any new field is literally absent on the persisted object. Run the
+    // existing metadata through buildMetadata, which is the canonical source
+    // of truth for which fields should exist and what their defaults are.
+    const beforeKeys = Object.keys(release.metadata).sort().join(',');
+    const beforeBranchKeys = Object.keys(release.metadata.branches ?? {}).sort().join(',');
+    release.metadata = this.buildMetadata(release.metadata);
+    const afterKeys = Object.keys(release.metadata).sort().join(',');
+    const afterBranchKeys = Object.keys(release.metadata.branches).sort().join(',');
+    if (beforeKeys !== afterKeys || beforeBranchKeys !== afterBranchKeys) {
+      changes.push('backfilled metadata to match current model shape');
+    }
+
     for (const tplStage of STAGE_TEMPLATE) {
       const stage = release.stages.find((s) => s.id === tplStage.id);
       if (!stage) {
