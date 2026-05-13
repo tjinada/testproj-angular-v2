@@ -106,6 +106,9 @@ export interface ReleaseMetadata {
   sealightsDisablePrUrl: string | null;   // Stage 3: PR that disables Sealights via config
   preProdLetterUrl: string | null;   // Stage 6: Pre-PROD delivery letter Confluence page
   prodLetterUrl: string | null;   // Stage 6: PROD delivery letter Confluence page
+  retrofitCdbUiPrUrl: string | null;   // Stage 9: retrofit CDB UI release branch → master PR
+  retrofitCdbConfigsPrUrl: string | null;   // Stage 9: retrofit CDB Configs release branch → master PR
+  retrofitFreddyPrUrl: string | null;   // Stage 9: retrofit Freddy release branch → master PR
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

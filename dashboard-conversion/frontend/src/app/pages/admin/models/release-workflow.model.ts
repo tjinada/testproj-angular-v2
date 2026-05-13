@@ -79,6 +79,9 @@ export interface ReleaseMetadata {
   sealightsDisablePrUrl: string | null;
   preProdLetterUrl: string | null;
   prodLetterUrl: string | null;
+  retrofitCdbUiPrUrl: string | null;
+  retrofitCdbConfigsPrUrl: string | null;
+  retrofitFreddyPrUrl: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;
