@@ -107,6 +107,27 @@ function parseGithubBranchUrl(url: string): { owner: string; repo: string; branc
   return { owner: m[1], repo: m[2], branch };
 }
 
+/**
+ * Extract a JIRA issue key from a URL like:
+ *   https://bmo.atlassian.net/browse/SSRELEASE-7001
+ *   https://bmo.atlassian.net/browse/SSRELEASE-7001?atlOrigin=...
+ *   https://bmo.atlassian.net/jira/software/c/projects/SSRELEASE/issues/SSRELEASE-7001
+ *
+ * Also accepts a bare issue key (e.g. "SSRELEASE-7001") for the case where
+ * the sheriff pastes just the key without a URL.
+ *
+ * Returns the key string or null if neither pattern matches.
+ */
+function parseJiraIssueKey(raw: string): string | null {
+  const trimmed = raw.trim();
+  // /browse/KEY  or  /issues/KEY (anywhere in the URL path)
+  const m = trimmed.match(/\/(?:browse|issues)\/([A-Z][A-Z0-9_]+-\d+)/);
+  if (m) return m[1];
+  // Bare issue key, e.g. SSRELEASE-7001
+  if (/^[A-Z][A-Z0-9_]+-\d+$/.test(trimmed)) return trimmed;
+  return null;
+}
+
 // ============================================================================
 // Factories — referenced from YAML by their function name
 // ============================================================================
@@ -240,6 +261,41 @@ export function jiraFixVersionCheck(config: { field: FieldPath }): CheckRunner {
   };
 }
 
+/**
+ * Pass if the configured field holds a JIRA ticket URL (or bare issue key)
+ * that resolves to an existing issue.
+ *
+ * Accepts:
+ *   - Full URL: https://bmo.atlassian.net/browse/SSRELEASE-7001
+ *   - Bare key: SSRELEASE-7001
+ */
+export function jiraTicketUrlCheck(config: { field: FieldPath }): CheckRunner {
+  const { field } = config;
+  return async (release, check) => {
+    const raw = readField(release, field);
+    if (!raw || !raw.trim()) return fail(check, `${field} is not set on this release`);
+
+    const issueKey = parseJiraIssueKey(raw);
+    if (!issueKey) return fail(check, `Could not parse JIRA issue key from: ${raw}`);
+
+    try {
+      const issue: any = await jiraService.getIssue(issueKey);
+      if (!issue || !issue.key) return fail(check, `JIRA ticket '${issueKey}' not found`);
+      return pass(check, {
+        key: issue.key,
+        summary: issue.fields?.summary ?? null,
+        status: issue.fields?.status?.name ?? null,
+        url: raw.includes('://') ? raw : null,
+      });
+    } catch (err: any) {
+      const msg = err?.response?.status === 404
+        ? `JIRA ticket '${issueKey}' not found (404)`
+        : (err?.message ?? 'JIRA API call failed');
+      return fail(check, msg);
+    }
+  };
+}
+
 export function valueIsSetCheck(config: { field: FieldPath }): CheckRunner {
   const { field } = config;
   return async (release, check) => {
@@ -265,6 +321,7 @@ export const FACTORY_REGISTRY: Record<string, FactoryFn> = {
   githubPrUrlCheck,
   githubBranchUrlCheck,
   jiraFixVersionCheck,
+  jiraTicketUrlCheck,
   valueIsSetCheck,
 };
 
@@ -282,5 +339,6 @@ export const RUNNER_PLACEHOLDERS: Record<string, string> = {
   githubPrUrlCheck:       'Paste Pull Request URL, e.g. https://github.com/your-org/repo/pull/123',
   githubBranchUrlCheck:   'Paste GitHub branch URL, e.g. https://github.com/your-org/repo/tree/release/r86.0.0',
   jiraFixVersionCheck:    'Paste JIRA Fix Version name, e.g. R86.0.0-103052',
+  jiraTicketUrlCheck:     'Paste JIRA ticket URL, e.g. https://bmo.atlassian.net/browse/SSRELEASE-7001',
   valueIsSetCheck:        'Paste value',
 };

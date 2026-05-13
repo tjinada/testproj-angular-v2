@@ -59,6 +59,7 @@
 #    githubPrUrlCheck         — field holds a GitHub PR URL
 #    githubBranchUrlCheck     — field holds a GitHub branch URL (in /tree/ form)
 #    jiraFixVersionCheck      — field holds a JIRA Fix Version name
+#    jiraTicketUrlCheck       — field holds a JIRA ticket URL (or bare key)
 #    valueIsSetCheck          — field is non-empty (any value passes)
 #
 #  fieldPath is either a top-level metadata field (e.g. 'intakePageId') or
