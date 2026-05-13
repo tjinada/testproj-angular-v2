@@ -340,6 +340,9 @@ class ReleaseWorkflowService {
       retrofitCdbUiPrUrl: input?.retrofitCdbUiPrUrl ?? null,
       retrofitCdbConfigsPrUrl: input?.retrofitCdbConfigsPrUrl ?? null,
       retrofitFreddyPrUrl: input?.retrofitFreddyPrUrl ?? null,
+      tagCdbUiUrl: input?.tagCdbUiUrl ?? null,
+      tagCdbConfigsUrl: input?.tagCdbConfigsUrl ?? null,
+      tagFreddyUrl: input?.tagFreddyUrl ?? null,
       branches: {
         cdbUi: input?.branches?.cdbUi ?? null,
         cdbUiConfigs: input?.branches?.cdbUiConfigs ?? null,

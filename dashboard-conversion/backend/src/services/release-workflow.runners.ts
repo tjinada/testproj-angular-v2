@@ -108,6 +108,23 @@ function parseGithubBranchUrl(url: string): { owner: string; repo: string; branc
 }
 
 /**
+ * Parse owner/repo/tag from a GitHub tag URL.
+ *
+ * Accepts the `/releases/tag/{name}` form, which is what GitHub's UI
+ * gives you from the tag page or release page:
+ *   https://github.com/your-org/cdb-ui/releases/tag/v85.0.0
+ *
+ * Returns null if the URL doesn't match.
+ */
+function parseGithubTagUrl(url: string): { owner: string; repo: string; tag: string } | null {
+  const m = url.match(/\/([^\/]+)\/([^\/]+)\/releases\/tag\/([^?#]+?)\/?(?:[?#]|$)/);
+  if (!m) return null;
+  const tag = m[3];
+  if (!tag) return null;
+  return { owner: m[1], repo: m[2], tag };
+}
+
+/**
  * Extract a JIRA issue key from a URL like:
  *   https://bmo.atlassian.net/browse/SSRELEASE-7001
  *   https://bmo.atlassian.net/browse/SSRELEASE-7001?atlOrigin=...
@@ -237,6 +254,39 @@ export function githubBranchUrlCheck(config: { field: FieldPath }): CheckRunner 
   };
 }
 
+/**
+ * Pass if the configured field holds a GitHub tag URL whose tag exists.
+ *
+ * Expects the URL form GitHub gives from a tag/release page:
+ *   https://github.com/{owner}/{repo}/releases/tag/{name}
+ *
+ * Verifies the underlying Git tag (not the GitHub Release). Passes
+ * whether the tag was created via `git push --tags` or as a full Release.
+ */
+export function githubTagUrlCheck(config: { field: FieldPath }): CheckRunner {
+  const { field } = config;
+  return async (release, check) => {
+    const url = readField(release, field);
+    if (!url || !url.trim()) return fail(check, `${field} is not set on this release`);
+
+    const parsed = parseGithubTagUrl(url);
+    if (!parsed) return fail(check, `Could not parse owner/repo/tag from URL: ${url}`);
+
+    try {
+      const ref: any = await githubService.getTag(parsed.owner, parsed.repo, parsed.tag);
+      if (!ref || !ref.ref) return fail(check, `GitHub tag not found: ${parsed.owner}/${parsed.repo}@${parsed.tag}`);
+      return pass(check, {
+        tagName: parsed.tag,
+        owner: parsed.owner,
+        repo: parsed.repo,
+        sha: ref.object?.sha ?? null,
+      });
+    } catch (err: any) {
+      return fail(check, err?.message ?? 'GitHub API call failed');
+    }
+  };
+}
+
 export function jiraFixVersionCheck(config: { field: FieldPath }): CheckRunner {
   const { field } = config;
   return async (release, check) => {
@@ -320,6 +370,7 @@ export const FACTORY_REGISTRY: Record<string, FactoryFn> = {
   confluencePageUrlCheck,
   githubPrUrlCheck,
   githubBranchUrlCheck,
+  githubTagUrlCheck,
   jiraFixVersionCheck,
   jiraTicketUrlCheck,
   valueIsSetCheck,
@@ -338,6 +389,7 @@ export const RUNNER_PLACEHOLDERS: Record<string, string> = {
   confluencePageUrlCheck: 'Paste Confluence page URL, e.g. https://bmo.atlassian.net/wiki/spaces/.../pages/1234567/...',
   githubPrUrlCheck:       'Paste Pull Request URL, e.g. https://github.com/your-org/repo/pull/123',
   githubBranchUrlCheck:   'Paste GitHub branch URL, e.g. https://github.com/your-org/repo/tree/release/r86.0.0',
+  githubTagUrlCheck:      'Paste GitHub tag URL, e.g. https://github.com/your-org/repo/releases/tag/v86.0.0',
   jiraFixVersionCheck:    'Paste JIRA Fix Version name, e.g. R86.0.0-103052',
   jiraTicketUrlCheck:     'Paste JIRA ticket URL, e.g. https://bmo.atlassian.net/browse/SSRELEASE-7001',
   valueIsSetCheck:        'Paste value',

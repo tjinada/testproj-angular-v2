@@ -235,8 +235,18 @@ stages:
         label: Retrofit Freddy release branch → master
         editableField: retrofitFreddyPrUrl
         runner: githubPrUrlCheck
-      - id: tag-repos
-        label: Tag repos (CDB, CDB_configs, Freddy)
+      - id: tag-cdb-ui
+        label: Tag CDB UI repo
+        editableField: tagCdbUiUrl
+        runner: githubTagUrlCheck
+      - id: tag-cdb-configs
+        label: Tag CDB Configs repo
+        editableField: tagCdbConfigsUrl
+        runner: githubTagUrlCheck
+      - id: tag-freddy
+        label: Tag Freddy repo
+        editableField: tagFreddyUrl
+        runner: githubTagUrlCheck
 
   # ===========================================================================
   - id: stage10-post-mobile

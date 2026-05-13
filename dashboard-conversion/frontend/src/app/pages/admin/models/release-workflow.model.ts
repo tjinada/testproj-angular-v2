@@ -82,6 +82,9 @@ export interface ReleaseMetadata {
   retrofitCdbUiPrUrl: string | null;
   retrofitCdbConfigsPrUrl: string | null;
   retrofitFreddyPrUrl: string | null;
+  tagCdbUiUrl: string | null;
+  tagCdbConfigsUrl: string | null;
+  tagFreddyUrl: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

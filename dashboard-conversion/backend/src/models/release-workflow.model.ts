@@ -109,6 +109,9 @@ export interface ReleaseMetadata {
   retrofitCdbUiPrUrl: string | null;   // Stage 9: retrofit CDB UI release branch → master PR
   retrofitCdbConfigsPrUrl: string | null;   // Stage 9: retrofit CDB Configs release branch → master PR
   retrofitFreddyPrUrl: string | null;   // Stage 9: retrofit Freddy release branch → master PR
+  tagCdbUiUrl: string | null;   // Stage 9: CDB UI repo Git tag URL
+  tagCdbConfigsUrl: string | null;   // Stage 9: CDB Configs repo Git tag URL
+  tagFreddyUrl: string | null;   // Stage 9: Freddy repo Git tag URL
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

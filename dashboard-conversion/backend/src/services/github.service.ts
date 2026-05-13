@@ -99,6 +99,36 @@ class GitHubService {
       throw err;
     }
   }
+
+  /**
+   * Fetch a single Git tag by name.
+   *
+   * Hits GET /repos/{owner}/{repo}/git/ref/tags/{tag}. Returns the ref
+   * object (with .ref like 'refs/tags/v1.0.0' and .object.sha) or null
+   * if the tag doesn't exist (404). Throws on other errors.
+   *
+   * Works for both lightweight and annotated tags. Doesn't require a
+   * GitHub Release to exist for the tag.
+   *
+   * Tag names containing slashes (e.g. 'release/v1.0.0') must be
+   * URL-encoded; encodeURIComponent handles that.
+   */
+  async getTag(owner: string, repo: string, tag: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(
+        `/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`,
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+          },
+        },
+      );
+      return response.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) return null;
+      throw err;
+    }
+  }
 }
 
 export default new GitHubService();
