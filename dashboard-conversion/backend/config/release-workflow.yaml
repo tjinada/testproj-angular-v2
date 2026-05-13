@@ -183,8 +183,12 @@ stages:
     subSteps:
       - id: draft-pre-prod-letter
         label: Draft Pre-PROD delivery letter
+        editableField: preProdLetterUrl
+        runner: confluencePageUrlCheck
       - id: draft-prod-letter
         label: Draft PROD delivery letter
+        editableField: prodLetterUrl
+        runner: confluencePageUrlCheck
       - id: close-jira-subtasks
         label: Close JIRA subtasks + master ticket for UI Configs
 

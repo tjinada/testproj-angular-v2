@@ -77,6 +77,8 @@ export interface ReleaseMetadata {
   envMatrixPrUrl: string | null;
   cdbUiConfigJiraUrl: string | null;
   sealightsDisablePrUrl: string | null;
+  preProdLetterUrl: string | null;
+  prodLetterUrl: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

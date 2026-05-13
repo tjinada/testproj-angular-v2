@@ -104,6 +104,8 @@ export interface ReleaseMetadata {
   envMatrixPrUrl: string | null;
   cdbUiConfigJiraUrl: string | null;   // Stage 2: master JIRA ticket for the CDB UI Configs branch work
   sealightsDisablePrUrl: string | null;   // Stage 3: PR that disables Sealights via config
+  preProdLetterUrl: string | null;   // Stage 6: Pre-PROD delivery letter Confluence page
+  prodLetterUrl: string | null;   // Stage 6: PROD delivery letter Confluence page
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;
