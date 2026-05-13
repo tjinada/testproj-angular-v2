@@ -74,6 +74,7 @@ export interface ReleaseMetadata {
   fixVersion: string | null;
   envMatrixPrUrl: string | null;
   cdbUiConfigJiraUrl: string | null;
+  sealightsDisablePrUrl: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

@@ -334,6 +334,7 @@ class ReleaseWorkflowService {
       fixVersion: input?.fixVersion ?? null,
       envMatrixPrUrl: input?.envMatrixPrUrl ?? null,
       cdbUiConfigJiraUrl: input?.cdbUiConfigJiraUrl ?? null,
+      sealightsDisablePrUrl: input?.sealightsDisablePrUrl ?? null,
       branches: {
         cdbUi: input?.branches?.cdbUi ?? null,
         cdbUiConfigs: input?.branches?.cdbUiConfigs ?? null,

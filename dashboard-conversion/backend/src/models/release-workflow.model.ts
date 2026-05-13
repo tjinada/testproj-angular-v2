@@ -95,6 +95,7 @@ export interface ReleaseMetadata {
   fixVersion: string | null;
   envMatrixPrUrl: string | null;
   cdbUiConfigJiraUrl: string | null;   // Stage 2: master JIRA ticket for the CDB UI Configs branch work
+  sealightsDisablePrUrl: string | null;   // Stage 3: PR that disables Sealights via config
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

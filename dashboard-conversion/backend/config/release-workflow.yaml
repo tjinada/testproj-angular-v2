@@ -125,6 +125,8 @@ stages:
         label: Coordinate with Platform QA on stable commit
       - id: disable-sealights-pr
         label: Disable Sealights via config PR
+        editableField: sealightsDisablePrUrl
+        runner: githubPrUrlCheck
       - id: run-automated-build-pipeline
         label: Run Automated Build Pipeline post-toggle
       - id: confirm-clean-qa-builds
