@@ -94,6 +94,7 @@ export interface ReleaseMetadata {
   confluencePageId: string | null;
   fixVersion: string | null;
   envMatrixPrUrl: string | null;
+  cdbUiConfigJiraUrl: string | null;   // Stage 2: master JIRA ticket for the CDB UI Configs branch work
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

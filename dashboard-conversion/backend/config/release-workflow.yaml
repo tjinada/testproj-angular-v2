@@ -109,6 +109,8 @@ stages:
         label: Email ADMs/devs from Scope Intake
       - id: open-master-jira
         label: Open master JIRA "CDB UI Configs - RXX"
+        editableField: cdbUiConfigJiraUrl
+        runner: jiraTicketUrlCheck
       - id: add-da-team-subtasks
         label: Add subtasks per DA team
       - id: run-configs-report

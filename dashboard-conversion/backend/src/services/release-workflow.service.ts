@@ -333,6 +333,7 @@ class ReleaseWorkflowService {
       confluencePageId: input?.confluencePageId ?? null,
       fixVersion: input?.fixVersion ?? null,
       envMatrixPrUrl: input?.envMatrixPrUrl ?? null,
+      cdbUiConfigJiraUrl: input?.cdbUiConfigJiraUrl ?? null,
       branches: {
         cdbUi: input?.branches?.cdbUi ?? null,
         cdbUiConfigs: input?.branches?.cdbUiConfigs ?? null,

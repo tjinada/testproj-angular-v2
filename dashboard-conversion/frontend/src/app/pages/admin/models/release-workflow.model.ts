@@ -73,6 +73,7 @@ export interface ReleaseMetadata {
   confluencePageId: string | null;
   fixVersion: string | null;
   envMatrixPrUrl: string | null;
+  cdbUiConfigJiraUrl: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;
