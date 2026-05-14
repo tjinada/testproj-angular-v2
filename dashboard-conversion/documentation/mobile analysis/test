@@ -1,0 +1,9 @@
+-- Test in User Sessions Query screen
+SELECT COUNT(*) FROM useraction 
+WHERE name LIKE "%initializenativeonetrust%"
+  AND (usersession.useraction.name = "Loading BMO" 
+       OR usersession.useraction.name = "Loading App")
+
+SELECT COUNT(*) FROM useraction 
+WHERE name LIKE "%initializenativeonetrust%"
+  AND applicationType = "MOBILE_APPLICATION"
