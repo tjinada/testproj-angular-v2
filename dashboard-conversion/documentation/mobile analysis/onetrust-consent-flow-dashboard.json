@@ -155,20 +155,173 @@
       "isAutoRefreshDisabled": false
     },
     {
-      "name": "OneTrust Method Scorecard",
+      "name": "Init Native",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
         "top": 608,
         "left": 0,
-        "width": 1216,
-        "height": 266
+        "width": 243,
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "customName": "OneTrust Method Scorecard (by OS)",
-      "query": "SELECT usersession.osFamily as \"OS\", COUNT(CASE WHEN name LIKE \"%initializenativeonetrust%\" THEN 1 END) as \"Init Native\", COUNT(CASE WHEN name LIKE \"%startonetrustsdk%\" THEN 1 END) as \"Start SDK\", COUNT(CASE WHEN name LIKE \"%handlesdkinitsuccess%\" THEN 1 END) as \"Init Success\", COUNT(CASE WHEN name LIKE \"%startsdk failure%\" THEN 1 END) as \"Init Failure\", COUNT(CASE WHEN name LIKE \"%registeroteventlisteners%\" THEN 1 END) as \"Register Listeners\", COUNT(CASE WHEN name LIKE \"%getconsentstatusforcategory%\" THEN 1 END) as \"Get Consent\", COUNT(CASE WHEN name LIKE \"%syncotwebviewwithmobconsent%\" THEN 1 END) as \"Sync Webview\", COUNT(CASE WHEN name LIKE \"%syncconsentandstartwebot%\" THEN 1 END) as \"Sync + Start Web\", COUNT(CASE WHEN name LIKE \"%updateotconsentsplugins%\" THEN 1 END) as \"Update Plugins\", COUNT(CASE WHEN name LIKE \"%dead flow%\" THEN 1 END) as \"Dead Flows\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily ORDER BY usersession.osFamily ASC",
-      "type": "TABLE",
+      "customName": "Init Native",
+      "query": "SELECT COUNT(*) as \"Init Native\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%initializenativeonetrust%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Start SDK",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 243,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Start SDK",
+      "query": "SELECT COUNT(*) as \"Start SDK\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startonetrustsdk%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Init Success",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 486,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Success",
+      "query": "SELECT COUNT(*) as \"Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%handlesdkinitsuccess%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Init Failure",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 729,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Failure",
+      "query": "SELECT COUNT(*) as \"Init Failure\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startsdk failure%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Register Listeners",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 972,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Register Listeners",
+      "query": "SELECT COUNT(*) as \"Register Listeners\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%registeroteventlisteners%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Get Consent",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 760,
+        "left": 0,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Get Consent",
+      "query": "SELECT COUNT(*) as \"Get Consent\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%getconsentstatusforcategory%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Sync Webview",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 760,
+        "left": 243,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Sync Webview",
+      "query": "SELECT COUNT(*) as \"Sync Webview\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncotwebviewwithmobconsent%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Sync+Start Web",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 760,
+        "left": 486,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Sync+Start Web",
+      "query": "SELECT COUNT(*) as \"Sync+Start Web\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncconsentandstartwebot%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Update Plugins",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 760,
+        "left": 729,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Update Plugins",
+      "query": "SELECT COUNT(*) as \"Update Plugins\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%updateotconsentsplugins%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Dead Flows",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 760,
+        "left": 972,
+        "width": 243,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Dead Flows",
+      "query": "SELECT COUNT(*) as \"Dead Flows\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\"",
+      "type": "SINGLE_VALUE",
       "limit": 50
     },
     {
@@ -176,7 +329,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 874,
+        "top": 912,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -189,7 +342,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 950,
         "left": 0,
         "width": 608,
         "height": 380
@@ -206,7 +359,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 950,
         "left": 608,
         "width": 304,
         "height": 380
@@ -223,7 +376,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 950,
         "left": 912,
         "width": 304,
         "height": 380
@@ -240,7 +393,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1292,
+        "top": 1330,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -253,7 +406,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1330,
+        "top": 1368,
         "left": 0,
         "width": 1216,
         "height": 380
