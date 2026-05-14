@@ -41,23 +41,7 @@
       "customName": "Total OneTrust Events",
       "query": "SELECT COUNT(*) as \"Total Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \"",
       "type": "SINGLE_VALUE",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "SINGLE_VALUE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        },
-        "singleValueSettings": {
-          "showTrend": true,
-          "showSparkLine": true,
-          "linkTileColorToThreshold": false
-        }
-      }
+      "limit": 50
     },
     {
       "name": "OneTrust Failures",
@@ -74,35 +58,7 @@
       "customName": "Failures + Dead Flows",
       "query": "SELECT COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\")",
       "type": "SINGLE_VALUE",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "SINGLE_VALUE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        },
-        "singleValueSettings": {
-          "showTrend": true,
-          "showSparkLine": true,
-          "linkTileColorToThreshold": true
-        },
-        "thresholds": [
-          {
-            "axisTarget": "LEFT",
-            "rules": [
-              { "color": "#7dc540" },
-              { "color": "#f5d30f" },
-              { "color": "#dc172a" }
-            ],
-            "queryId": "A",
-            "visible": true
-          }
-        ]
-      }
+      "limit": 50
     },
     {
       "name": "SDK Init Success",
@@ -119,23 +75,7 @@
       "customName": "SDK Init Success",
       "query": "SELECT COUNT(*) as \"SDK Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name CONTAINS \"handlesdkinitsuccess\"",
       "type": "SINGLE_VALUE",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "SINGLE_VALUE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        },
-        "singleValueSettings": {
-          "showTrend": true,
-          "showSparkLine": true,
-          "linkTileColorToThreshold": false
-        }
-      }
+      "limit": 50
     },
     {
       "name": "SDK Init Failures",
@@ -152,35 +92,7 @@
       "customName": "SDK Init Failures",
       "query": "SELECT COUNT(*) as \"SDK Init Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name CONTAINS \"startsdk failure callback\"",
       "type": "SINGLE_VALUE",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "SINGLE_VALUE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        },
-        "singleValueSettings": {
-          "showTrend": true,
-          "showSparkLine": true,
-          "linkTileColorToThreshold": true
-        },
-        "thresholds": [
-          {
-            "axisTarget": "LEFT",
-            "rules": [
-              { "color": "#7dc540" },
-              { "color": "#f5d30f" },
-              { "color": "#dc172a" }
-            ],
-            "queryId": "A",
-            "visible": true
-          }
-        ]
-      }
+      "limit": 50
     },
     {
       "name": "Volume Trends",
@@ -210,18 +122,7 @@
       "customName": "OneTrust Events Over Time (by OS)",
       "query": "SELECT usersession.osFamily, COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily, startTime",
       "type": "TIMESERIES",
-      "limit": 100,
-      "visualizationConfig": {
-        "type": "TIMESERIES",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        }
-      }
+      "limit": 100
     },
     {
       "name": "Failures Over Time",
@@ -238,18 +139,7 @@
       "customName": "Failures + Dead Flows Over Time",
       "query": "SELECT usersession.osFamily, COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\") AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily, startTime",
       "type": "TIMESERIES",
-      "limit": 100,
-      "visualizationConfig": {
-        "type": "TIMESERIES",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        }
-      }
+      "limit": 100
     },
     {
       "name": "Flow Breakdown",
@@ -279,18 +169,7 @@
       "customName": "OneTrust Method Scorecard (by OS)",
       "query": "SELECT usersession.osFamily as \"OS\", COUNT(CASE WHEN name CONTAINS \"initializenativeonetrust\" THEN 1 END) as \"Init Native\", COUNT(CASE WHEN name CONTAINS \"startonetrustsdk\" THEN 1 END) as \"Start SDK\", COUNT(CASE WHEN name CONTAINS \"handlesdkinitsuccess\" THEN 1 END) as \"Init Success\", COUNT(CASE WHEN name CONTAINS \"startsdk failure\" THEN 1 END) as \"Init Failure\", COUNT(CASE WHEN name CONTAINS \"registeroteventlisteners\" THEN 1 END) as \"Register Listeners\", COUNT(CASE WHEN name CONTAINS \"getconsentstatusforcategory\" THEN 1 END) as \"Get Consent\", COUNT(CASE WHEN name CONTAINS \"syncotwebviewwithmobconsent\" THEN 1 END) as \"Sync Webview\", COUNT(CASE WHEN name CONTAINS \"syncconsentandstartwebot\" THEN 1 END) as \"Sync + Start Web\", COUNT(CASE WHEN name CONTAINS \"updateotconsentsplugins\" THEN 1 END) as \"Update Plugins\", COUNT(CASE WHEN name CONTAINS \"dead flow\" THEN 1 END) as \"Dead Flows\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily ORDER BY usersession.osFamily ASC",
       "type": "TABLE",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "TABLE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        }
-      }
+      "limit": 50
     },
     {
       "name": "Top Events",
@@ -320,18 +199,7 @@
       "customName": "Top OneTrust Events (all)",
       "query": "SELECT name as \"Event\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY name ORDER BY COUNT(*) DESC",
       "type": "TABLE",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "TABLE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        }
-      }
+      "limit": 50
     },
     {
       "name": "OS Family Split",
@@ -348,18 +216,7 @@
       "customName": "Events by OS Family",
       "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily",
       "type": "PIE_CHART",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "PIE_CHART",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        }
-      }
+      "limit": 50
     },
     {
       "name": "Events by App Version",
@@ -376,18 +233,7 @@
       "customName": "Events by App Version",
       "query": "SELECT appVersion as \"App Version\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
-      "limit": 20,
-      "visualizationConfig": {
-        "type": "TABLE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        }
-      }
+      "limit": 20
     },
     {
       "name": "Failure Drill-Down",
@@ -417,18 +263,7 @@
       "customName": "Failure & Dead-Flow Drill-Down",
       "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\") GROUP BY name, usersession.osFamily, appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
-      "limit": 50,
-      "visualizationConfig": {
-        "type": "TABLE",
-        "rules": [],
-        "axes": {
-          "xAxis": {
-            "displayName": "",
-            "visible": true
-          },
-          "yAxes": []
-        }
-      }
+      "limit": 50
     }
   ]
 }
