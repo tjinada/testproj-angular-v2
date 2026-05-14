@@ -33,7 +33,7 @@
       "bounds": {
         "top": 38,
         "left": 0,
-        "width": 380,
+        "width": 304,
         "height": 152
       },
       "tileFilter": {},
@@ -49,8 +49,8 @@
       "configured": true,
       "bounds": {
         "top": 38,
-        "left": 380,
-        "width": 380,
+        "left": 304,
+        "width": 304,
         "height": 152
       },
       "tileFilter": {},
@@ -66,8 +66,8 @@
       "configured": true,
       "bounds": {
         "top": 38,
-        "left": 760,
-        "width": 380,
+        "left": 608,
+        "width": 304,
         "height": 152
       },
       "tileFilter": {},
@@ -84,7 +84,7 @@
       "bounds": {
         "top": 190,
         "left": 0,
-        "width": 380,
+        "width": 304,
         "height": 152
       },
       "tileFilter": {},
@@ -97,8 +97,8 @@
       "configured": true,
       "bounds": {
         "top": 190,
-        "left": 380,
-        "width": 380,
+        "left": 304,
+        "width": 304,
         "height": 190
       },
       "tileFilter": {},
@@ -111,8 +111,8 @@
       "configured": true,
       "bounds": {
         "top": 190,
-        "left": 760,
-        "width": 380,
+        "left": 608,
+        "width": 304,
         "height": 190
       },
       "tileFilter": {},
@@ -947,6 +947,37 @@
       "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 50
+    },
+    {
+      "name": "Dead Flow Events",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 912,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Dead Flow Events",
+      "query": "SELECT COUNT(*) as \"Dead Flow Events\" FROM useraction WHERE name LIKE \"%dead flow%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Dead Flow Events - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 912,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%dead flow%"
     }
   ]
 }
