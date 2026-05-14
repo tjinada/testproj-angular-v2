@@ -78,11 +78,53 @@
       "limit": 50
     },
     {
+      "name": "App Init Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 0,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%getappconfig timed out%\n%checkversion request failed%\n%appiniteffect%catcherror%\n%loadgeolocation%catcherror%"
+    },
+    {
+      "name": "BioCatch Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 380,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%\n%biocatch.service.ts requestpermissions failed%\n%biocatch caninit timeout%\n%biocatch readiness timeout%"
+    },
+    {
+      "name": "OneTrust Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 760,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%\n%startsdk failure callback%\n%updateotconsentsplugins - error%"
+    },
+    {
       "name": "Error Breakdown",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 418,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -95,7 +137,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 646,
+        "top": 456,
         "left": 0,
         "width": 380,
         "height": 152
@@ -112,7 +154,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 646,
+        "top": 456,
         "left": 380,
         "width": 380,
         "height": 152
@@ -129,7 +171,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 646,
+        "top": 456,
         "left": 760,
         "width": 380,
         "height": 152
@@ -146,7 +188,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 874,
+        "top": 684,
         "left": 0,
         "width": 380,
         "height": 152
@@ -163,7 +205,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 874,
+        "top": 684,
         "left": 380,
         "width": 380,
         "height": 152
@@ -180,7 +222,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 874,
+        "top": 684,
         "left": 760,
         "width": 380,
         "height": 152
@@ -197,7 +239,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1102,
+        "top": 912,
         "left": 0,
         "width": 380,
         "height": 152
@@ -214,7 +256,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1102,
+        "top": 912,
         "left": 380,
         "width": 380,
         "height": 152
@@ -231,7 +273,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1102,
+        "top": 912,
         "left": 760,
         "width": 380,
         "height": 152
@@ -244,11 +286,137 @@
       "limit": 50
     },
     {
+      "name": "GetAppConfig Timeout - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 0,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%getappconfig timed out%"
+    },
+    {
+      "name": "CheckVersion Failed - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 380,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%checkversion request failed%"
+    },
+    {
+      "name": "App Init catchErrors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 760,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%appiniteffect%catcherror%\n%loadgeolocation%catcherror%"
+    },
+    {
+      "name": "BioCatch Init Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 836,
+        "left": 0,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%"
+    },
+    {
+      "name": "BioCatch Runtime Timeouts - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 836,
+        "left": 380,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch caninit timeout%\n%biocatch readiness timeout%"
+    },
+    {
+      "name": "BioCatch Permissions - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 836,
+        "left": 760,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch.service.ts requestpermissions failed%"
+    },
+    {
+      "name": "OneTrust Timeouts - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1064,
+        "left": 0,
+        "width": 380,
+        "height": 114
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%"
+    },
+    {
+      "name": "OneTrust SDK Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1064,
+        "left": 380,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%startsdk failure callback%"
+    },
+    {
+      "name": "OneTrust Plugin Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1064,
+        "left": 760,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%updateotconsentsplugins - error%"
+    },
+    {
       "name": "OneTrust Flow Overview",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1672,
+        "top": 1216,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -261,7 +429,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 1254,
         "left": 0,
         "width": 304,
         "height": 152
@@ -278,7 +446,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 1254,
         "left": 304,
         "width": 304,
         "height": 152
@@ -295,7 +463,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 1254,
         "left": 608,
         "width": 304,
         "height": 152
@@ -312,7 +480,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 1254,
         "left": 912,
         "width": 304,
         "height": 152
@@ -325,11 +493,67 @@
       "limit": 50
     },
     {
+      "name": "Total OneTrust Events - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1406,
+        "left": 0,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts"
+    },
+    {
+      "name": "OneTrust Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1406,
+        "left": 304,
+        "width": 304,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%failure%\n%error%"
+    },
+    {
+      "name": "SDK Init Success - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1406,
+        "left": 608,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%handlesdkinitsuccess%"
+    },
+    {
+      "name": "SDK Init Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1406,
+        "left": 912,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%startsdk failure callback%"
+    },
+    {
       "name": "Flow Breakdown",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 2090,
+        "top": 1520,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -342,7 +566,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2128,
+        "top": 1558,
         "left": 0,
         "width": 304,
         "height": 152
@@ -359,7 +583,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2128,
+        "top": 1558,
         "left": 304,
         "width": 304,
         "height": 152
@@ -376,7 +600,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2128,
+        "top": 1558,
         "left": 608,
         "width": 304,
         "height": 152
@@ -393,7 +617,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2128,
+        "top": 1558,
         "left": 912,
         "width": 304,
         "height": 152
@@ -410,7 +634,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2318,
+        "top": 1748,
         "left": 0,
         "width": 304,
         "height": 152
@@ -427,7 +651,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2318,
+        "top": 1748,
         "left": 304,
         "width": 304,
         "height": 152
@@ -444,7 +668,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2318,
+        "top": 1748,
         "left": 608,
         "width": 304,
         "height": 152
@@ -461,7 +685,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2318,
+        "top": 1748,
         "left": 912,
         "width": 304,
         "height": 152
@@ -478,7 +702,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2508,
+        "top": 1938,
         "left": 0,
         "width": 304,
         "height": 152
@@ -495,7 +719,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2508,
+        "top": 1938,
         "left": 304,
         "width": 304,
         "height": 152
@@ -508,11 +732,151 @@
       "limit": 50
     },
     {
+      "name": "Init Native - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1710,
+        "left": 0,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%initializenativeonetrust%"
+    },
+    {
+      "name": "Start SDK - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1710,
+        "left": 304,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%startonetrustsdk%"
+    },
+    {
+      "name": "Init Success - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1710,
+        "left": 608,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%handlesdkinitsuccess%"
+    },
+    {
+      "name": "Init Failure - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1710,
+        "left": 912,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%startsdk failure%"
+    },
+    {
+      "name": "Register Listeners - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1900,
+        "left": 0,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%registeroteventlisteners%"
+    },
+    {
+      "name": "Get Consent - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1900,
+        "left": 304,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%getconsentstatusforcategory%"
+    },
+    {
+      "name": "Sync Webview - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1900,
+        "left": 608,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%syncotwebviewwithmobconsent%"
+    },
+    {
+      "name": "Sync+Start Web - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1900,
+        "left": 912,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%syncconsentandstartwebot%"
+    },
+    {
+      "name": "Update Plugins - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2090,
+        "left": 0,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%updateotconsentsplugins%"
+    },
+    {
+      "name": "Dead Flows - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2090,
+        "left": 304,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%dead flow%"
+    },
+    {
       "name": "Top Events",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 3002,
+        "top": 2166,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -525,7 +889,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 3040,
+        "top": 2204,
         "left": 0,
         "width": 912,
         "height": 380
@@ -542,7 +906,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 3040,
+        "top": 2204,
         "left": 912,
         "width": 304,
         "height": 380
@@ -559,7 +923,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 3420,
+        "top": 2622,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -572,7 +936,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 3458,
+        "top": 2660,
         "left": 0,
         "width": 1216,
         "height": 380
@@ -583,370 +947,6 @@
       "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 50
-    },
-    {
-      "name": "Update Plugins - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2660,
-        "left": 0,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%updateotconsentsplugins%`"
-    },
-    {
-      "name": "Dead Flows - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2660,
-        "left": 304,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%dead flow%`"
-    },
-    {
-      "name": "Register Listeners - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2470,
-        "left": 0,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%registeroteventlisteners%`"
-    },
-    {
-      "name": "Get Consent - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2470,
-        "left": 304,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%getconsentstatusforcategory%`"
-    },
-    {
-      "name": "Sync Webview - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2470,
-        "left": 608,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%syncotwebviewwithmobconsent%`"
-    },
-    {
-      "name": "Sync+Start Web - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2470,
-        "left": 912,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%syncconsentandstartwebot%`"
-    },
-    {
-      "name": "Init Native - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2280,
-        "left": 0,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%initializenativeonetrust%`"
-    },
-    {
-      "name": "Start SDK - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2280,
-        "left": 304,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%startonetrustsdk%`"
-    },
-    {
-      "name": "Init Success - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2280,
-        "left": 608,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%handlesdkinitsuccess%`"
-    },
-    {
-      "name": "Init Failure - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2280,
-        "left": 912,
-        "width": 304,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%startsdk failure%`"
-    },
-    {
-      "name": "Total OneTrust Events - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1862,
-        "left": 0,
-        "width": 304,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "STARTSWITH `\"one-trust.service.ts \"`"
-    },
-    {
-      "name": "OneTrust Failures - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1862,
-        "left": 304,
-        "width": 304,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%failure%`\n`%error%`"
-    },
-    {
-      "name": "SDK Init Success - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1862,
-        "left": 608,
-        "width": 304,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%handlesdkinitsuccess%`"
-    },
-    {
-      "name": "SDK Init Failures - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1862,
-        "left": 912,
-        "width": 304,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%startsdk failure callback%`"
-    },
-    {
-      "name": "OneTrust Timeouts - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1254,
-        "left": 0,
-        "width": 380,
-        "height": 114
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%androidconsenttimeout%`\n`%otsdktimeout%`\n`%otconsentcallbacktimeout%`"
-    },
-    {
-      "name": "OneTrust SDK Failures - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1254,
-        "left": 380,
-        "width": 380,
-        "height": 114
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%startsdk failure callback%`"
-    },
-    {
-      "name": "OneTrust Plugin Errors - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1254,
-        "left": 760,
-        "width": 380,
-        "height": 114
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%updateotconsentsplugins - error%`"
-    },
-    {
-      "name": "BioCatch Init Failures - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1026,
-        "left": 0,
-        "width": 380,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%biocatch.service.ts init failed%`\n`%biocatch.service.ts startnative failed%`"
-    },
-    {
-      "name": "BioCatch Runtime Timeouts - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1026,
-        "left": 380,
-        "width": 380,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%biocatch caninit timeout%`\n`%biocatch readiness timeout%`"
-    },
-    {
-      "name": "BioCatch Permissions - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1026,
-        "left": 760,
-        "width": 380,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%biocatch.service.ts requestpermissions failed%`"
-    },
-    {
-      "name": "GetAppConfig Timeout - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 798,
-        "left": 0,
-        "width": 380,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%getappconfig timed out%`"
-    },
-    {
-      "name": "CheckVersion Failed - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 798,
-        "left": 380,
-        "width": 380,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%checkversion request failed%`"
-    },
-    {
-      "name": "App Init catchErrors - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 798,
-        "left": 760,
-        "width": 380,
-        "height": 76
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%appiniteffect%catcherror%`\n`%loadgeolocation%catcherror%`"
-    },
-    {
-      "name": "App Init Errors - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 190,
-        "left": 0,
-        "width": 380,
-        "height": 190
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%getappconfig timed out%`\n`%checkversion request failed%`\n`%appiniteffect%catcherror%`\n`%loadgeolocation%catcherror%`"
-    },
-    {
-      "name": "BioCatch Errors - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 190,
-        "left": 380,
-        "width": 380,
-        "height": 190
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%biocatch.service.ts init failed%`\n`%biocatch.service.ts startnative failed%`\n`%biocatch.service.ts requestpermissions failed%`\n`%biocatch caninit timeout%`\n`%biocatch readiness timeout%`"
-    },
-    {
-      "name": "OneTrust Errors - patterns",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 190,
-        "left": 760,
-        "width": 380,
-        "height": 190
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "markdown": "`%androidconsenttimeout%`\n`%otsdktimeout%`\n`%otconsentcallbacktimeout%`\n`%startsdk failure callback%`\n`%updateotconsentsplugins - error%`"
     }
   ]
 }
