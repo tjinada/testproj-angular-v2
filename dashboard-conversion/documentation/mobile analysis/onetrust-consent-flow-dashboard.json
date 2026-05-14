@@ -56,7 +56,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Failures + Dead Flows",
-      "query": "SELECT COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%dead flow%\" OR name LIKE \"%error%\")",
+      "query": "SELECT COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%error%\")",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -95,7 +95,7 @@
       "limit": 50
     },
     {
-      "name": "Volume Trends",
+      "name": "Flow Breakdown",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
@@ -108,58 +108,11 @@
       "isAutoRefreshDisabled": false
     },
     {
-      "name": "OneTrust Events Over Time",
-      "tileType": "DTAQL",
-      "configured": true,
-      "bounds": {
-        "top": 228,
-        "left": 0,
-        "width": 608,
-        "height": 342
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "customName": "OneTrust Events Over Time (by OS)",
-      "query": "SELECT usersession.osFamily, COUNT(*) FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily",
-      "type": "LINE_CHART",
-      "limit": 100
-    },
-    {
-      "name": "Failures Over Time",
-      "tileType": "DTAQL",
-      "configured": true,
-      "bounds": {
-        "top": 228,
-        "left": 608,
-        "width": 608,
-        "height": 342
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "customName": "Failures + Dead Flows Over Time",
-      "query": "SELECT usersession.osFamily, COUNT(*) FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%dead flow%\" OR name LIKE \"%error%\") AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily",
-      "type": "LINE_CHART",
-      "limit": 100
-    },
-    {
-      "name": "Flow Breakdown",
-      "tileType": "HEADER",
-      "configured": true,
-      "bounds": {
-        "top": 570,
-        "left": 0,
-        "width": 1216,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false
-    },
-    {
       "name": "Init Native",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 228,
         "left": 0,
         "width": 304,
         "height": 152
@@ -176,7 +129,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 228,
         "left": 304,
         "width": 304,
         "height": 152
@@ -193,7 +146,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 228,
         "left": 608,
         "width": 304,
         "height": 152
@@ -210,7 +163,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 228,
         "left": 912,
         "width": 304,
         "height": 152
@@ -227,7 +180,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 760,
+        "top": 380,
         "left": 0,
         "width": 304,
         "height": 152
@@ -244,7 +197,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 760,
+        "top": 380,
         "left": 304,
         "width": 304,
         "height": 152
@@ -261,7 +214,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 760,
+        "top": 380,
         "left": 608,
         "width": 304,
         "height": 152
@@ -278,7 +231,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 760,
+        "top": 380,
         "left": 912,
         "width": 304,
         "height": 152
@@ -295,7 +248,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 532,
         "left": 0,
         "width": 304,
         "height": 152
@@ -312,7 +265,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 532,
         "left": 304,
         "width": 304,
         "height": 152
@@ -329,7 +282,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1064,
+        "top": 684,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -342,9 +295,9 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1102,
+        "top": 722,
         "left": 0,
-        "width": 608,
+        "width": 912,
         "height": 380
       },
       "tileFilter": {},
@@ -355,28 +308,11 @@
       "limit": 50
     },
     {
-      "name": "OS Family Split",
-      "tileType": "DTAQL",
-      "configured": true,
-      "bounds": {
-        "top": 1102,
-        "left": 608,
-        "width": 304,
-        "height": 380
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "customName": "Events by OS Family",
-      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily",
-      "type": "PIE_CHART",
-      "limit": 50
-    },
-    {
       "name": "Events by App Version",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1102,
+        "top": 722,
         "left": 912,
         "width": 304,
         "height": 380
@@ -389,11 +325,11 @@
       "limit": 20
     },
     {
-      "name": "Failure Drill-Down",
+      "name": "Dead Flow Drill-Down",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1482,
+        "top": 1102,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -402,19 +338,19 @@
       "isAutoRefreshDisabled": false
     },
     {
-      "name": "All Failure / Dead Flow Events",
+      "name": "Dead Flow Drill-Down",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1520,
+        "top": 1140,
         "left": 0,
         "width": 1216,
         "height": 380
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "customName": "Failure & Dead-Flow Drill-Down",
-      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%dead flow%\" OR name LIKE \"%error%\") GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
+      "customName": "Dead Flow Drill-Down",
+      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 50
     }
