@@ -120,8 +120,8 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "OneTrust Events Over Time (by OS)",
-      "query": "SELECT usersession.osFamily, COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily, startTime",
-      "type": "TIMESERIES",
+      "query": "SELECT usersession.osFamily, COUNT(*) FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily",
+      "type": "LINE_CHART",
       "limit": 100
     },
     {
@@ -137,8 +137,8 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Failures + Dead Flows Over Time",
-      "query": "SELECT usersession.osFamily, COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\") AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily, startTime",
-      "type": "TIMESERIES",
+      "query": "SELECT usersession.osFamily, COUNT(*) FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\") AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily",
+      "type": "LINE_CHART",
       "limit": 100
     },
     {
