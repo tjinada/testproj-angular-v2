@@ -1,0 +1,605 @@
+{
+  "dashboardMetadata": {
+    "name": "OneTrust Consent Flow - Mobile Health",
+    "shared": true,
+    "tags": [
+      "Mobile",
+      "OneTrust",
+      "Custom Events",
+      "CDB"
+    ],
+    "popularity": 1,
+    "tilesNameSize": "large",
+    "hasConsistentColors": false
+  },
+  "tiles": [
+    {
+      "name": "Errors Overview",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 0,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Total Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 0,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Total Errors",
+      "query": "SELECT COUNT(*) as \"Total Errors\" FROM useraction WHERE ((name LIKE \"%getappconfig timed out%\" OR name LIKE \"%checkversion request failed%\" OR name LIKE \"%appiniteffect%catcherror%\" OR name LIKE \"%loadgeolocation%catcherror%\") OR (name LIKE \"%biocatch.service.ts init failed%\" OR name LIKE \"%biocatch.service.ts startnative failed%\" OR name LIKE \"%biocatch caninit timeout%\" OR name LIKE \"%biocatch readiness timeout%\" OR name LIKE \"%biocatch.service.ts requestpermissions failed%\") OR (name LIKE \"%androidconsenttimeout%\" OR name LIKE \"%otsdktimeout%\" OR name LIKE \"%otconsentcallbacktimeout%\" OR name LIKE \"%startsdk failure callback%\" OR name LIKE \"%updateotconsentsplugins - error%\"))",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "App Init Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 304,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "App Init Errors",
+      "query": "SELECT COUNT(*) as \"App Init Errors\" FROM useraction WHERE (name LIKE \"%getappconfig timed out%\" OR name LIKE \"%checkversion request failed%\" OR name LIKE \"%appiniteffect%catcherror%\" OR name LIKE \"%loadgeolocation%catcherror%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 608,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Errors",
+      "query": "SELECT COUNT(*) as \"BioCatch Errors\" FROM useraction WHERE (name LIKE \"%biocatch.service.ts init failed%\" OR name LIKE \"%biocatch.service.ts startnative failed%\" OR name LIKE \"%biocatch caninit timeout%\" OR name LIKE \"%biocatch readiness timeout%\" OR name LIKE \"%biocatch.service.ts requestpermissions failed%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 912,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Errors",
+      "query": "SELECT COUNT(*) as \"OneTrust Errors\" FROM useraction WHERE (name LIKE \"%androidconsenttimeout%\" OR name LIKE \"%otsdktimeout%\" OR name LIKE \"%otconsentcallbacktimeout%\" OR name LIKE \"%startsdk failure callback%\" OR name LIKE \"%updateotconsentsplugins - error%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Error Breakdown",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "GetAppConfig Timeout",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 0,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "GetAppConfig Timeout",
+      "query": "SELECT COUNT(*) as \"GetAppConfig Timeout\" FROM useraction WHERE name LIKE \"%getappconfig timed out%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "CheckVersion Failed",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 380,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "CheckVersion Failed",
+      "query": "SELECT COUNT(*) as \"CheckVersion Failed\" FROM useraction WHERE name LIKE \"%checkversion request failed%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "App Init catchErrors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 760,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "App Init catchErrors",
+      "query": "SELECT COUNT(*) as \"App Init catchErrors\" FROM useraction WHERE (name LIKE \"%appiniteffect%catcherror%\" OR name LIKE \"%loadgeolocation%catcherror%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Init Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 380,
+        "left": 0,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Init Failures",
+      "query": "SELECT COUNT(*) as \"BioCatch Init Failures\" FROM useraction WHERE (name LIKE \"%biocatch.service.ts init failed%\" OR name LIKE \"%biocatch.service.ts startnative failed%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Runtime Timeouts",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 380,
+        "left": 380,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Runtime Timeouts",
+      "query": "SELECT COUNT(*) as \"BioCatch Runtime Timeouts\" FROM useraction WHERE (name LIKE \"%biocatch caninit timeout%\" OR name LIKE \"%biocatch readiness timeout%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Permissions",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 380,
+        "left": 760,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Permissions",
+      "query": "SELECT COUNT(*) as \"BioCatch Permissions\" FROM useraction WHERE name LIKE \"%biocatch.service.ts requestpermissions failed%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Timeouts",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 532,
+        "left": 0,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Timeouts",
+      "query": "SELECT COUNT(*) as \"OneTrust Timeouts\" FROM useraction WHERE (name LIKE \"%androidconsenttimeout%\" OR name LIKE \"%otsdktimeout%\" OR name LIKE \"%otconsentcallbacktimeout%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust SDK Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 532,
+        "left": 380,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust SDK Failures",
+      "query": "SELECT COUNT(*) as \"OneTrust SDK Failures\" FROM useraction WHERE name LIKE \"%startsdk failure callback%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Plugin Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 532,
+        "left": 760,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Plugin Errors",
+      "query": "SELECT COUNT(*) as \"OneTrust Plugin Errors\" FROM useraction WHERE name LIKE \"%updateotconsentsplugins - error%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Flow Overview",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 684,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Total OneTrust Events",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 722,
+        "left": 0,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Total OneTrust Events",
+      "query": "SELECT COUNT(*) as \"Total Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 722,
+        "left": 304,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Failures + Errors",
+      "query": "SELECT COUNT(*) as \"Failures + Errors\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%error%\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "SDK Init Success",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 722,
+        "left": 608,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "SDK Init Success",
+      "query": "SELECT COUNT(*) as \"SDK Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%handlesdkinitsuccess%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "SDK Init Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 722,
+        "left": 912,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "SDK Init Failures",
+      "query": "SELECT COUNT(*) as \"SDK Init Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startsdk failure callback%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Flow Breakdown",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 874,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Init Native",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 912,
+        "left": 0,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Native",
+      "query": "SELECT COUNT(*) as \"Init Native\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%initializenativeonetrust%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Start SDK",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 912,
+        "left": 304,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Start SDK",
+      "query": "SELECT COUNT(*) as \"Start SDK\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startonetrustsdk%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Init Success",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 912,
+        "left": 608,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Success",
+      "query": "SELECT COUNT(*) as \"Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%handlesdkinitsuccess%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Init Failure",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 912,
+        "left": 912,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Failure",
+      "query": "SELECT COUNT(*) as \"Init Failure\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startsdk failure%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Register Listeners",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1064,
+        "left": 0,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Register Listeners",
+      "query": "SELECT COUNT(*) as \"Register Listeners\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%registeroteventlisteners%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Get Consent",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1064,
+        "left": 304,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Get Consent",
+      "query": "SELECT COUNT(*) as \"Get Consent\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%getconsentstatusforcategory%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Sync Webview",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1064,
+        "left": 608,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Sync Webview",
+      "query": "SELECT COUNT(*) as \"Sync Webview\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncotwebviewwithmobconsent%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Sync+Start Web",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1064,
+        "left": 912,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Sync+Start Web",
+      "query": "SELECT COUNT(*) as \"Sync+Start Web\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncconsentandstartwebot%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Update Plugins",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1216,
+        "left": 0,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Update Plugins",
+      "query": "SELECT COUNT(*) as \"Update Plugins\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%updateotconsentsplugins%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Dead Flows",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1216,
+        "left": 304,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Dead Flows",
+      "query": "SELECT COUNT(*) as \"Dead Flows\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50
+    },
+    {
+      "name": "Top Events",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 1368,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Top OneTrust Events by Count",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1406,
+        "left": 0,
+        "width": 912,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Top OneTrust Events (all)",
+      "query": "SELECT name as \"Event\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY name ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Events by App Version",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1406,
+        "left": 912,
+        "width": 304,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Events by App Version",
+      "query": "SELECT usersession.appVersion as \"App Version\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY usersession.appVersion ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 20
+    },
+    {
+      "name": "Dead Flow Drill-Down",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 1786,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Dead Flow Drill-Down",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1824,
+        "left": 0,
+        "width": 1216,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Dead Flow Drill-Down",
+      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    }
+  ]
+}
