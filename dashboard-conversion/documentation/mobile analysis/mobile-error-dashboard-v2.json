@@ -82,7 +82,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 418,
+        "top": 608,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -95,7 +95,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 456,
+        "top": 646,
         "left": 0,
         "width": 380,
         "height": 152
@@ -112,7 +112,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 456,
+        "top": 646,
         "left": 380,
         "width": 380,
         "height": 152
@@ -129,7 +129,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 456,
+        "top": 646,
         "left": 760,
         "width": 380,
         "height": 152
@@ -146,7 +146,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 874,
         "left": 0,
         "width": 380,
         "height": 152
@@ -163,7 +163,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 874,
         "left": 380,
         "width": 380,
         "height": 152
@@ -180,7 +180,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 874,
         "left": 760,
         "width": 380,
         "height": 152
@@ -197,7 +197,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 760,
+        "top": 1102,
         "left": 0,
         "width": 380,
         "height": 152
@@ -214,7 +214,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 760,
+        "top": 1102,
         "left": 380,
         "width": 380,
         "height": 152
@@ -231,7 +231,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 760,
+        "top": 1102,
         "left": 760,
         "width": 380,
         "height": 152
@@ -248,7 +248,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1216,
+        "top": 1672,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -261,7 +261,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 0,
         "width": 304,
         "height": 152
@@ -278,7 +278,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 304,
         "width": 304,
         "height": 152
@@ -295,7 +295,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 608,
         "width": 304,
         "height": 152
@@ -312,7 +312,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 912,
         "width": 304,
         "height": 152
@@ -329,7 +329,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1558,
+        "top": 2090,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -342,7 +342,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1596,
+        "top": 2128,
         "left": 0,
         "width": 304,
         "height": 152
@@ -359,7 +359,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1596,
+        "top": 2128,
         "left": 304,
         "width": 304,
         "height": 152
@@ -376,7 +376,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1596,
+        "top": 2128,
         "left": 608,
         "width": 304,
         "height": 152
@@ -393,7 +393,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1596,
+        "top": 2128,
         "left": 912,
         "width": 304,
         "height": 152
@@ -410,7 +410,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2318,
         "left": 0,
         "width": 304,
         "height": 152
@@ -427,7 +427,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2318,
         "left": 304,
         "width": 304,
         "height": 152
@@ -444,7 +444,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2318,
         "left": 608,
         "width": 304,
         "height": 152
@@ -461,7 +461,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2318,
         "left": 912,
         "width": 304,
         "height": 152
@@ -478,7 +478,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1900,
+        "top": 2508,
         "left": 0,
         "width": 304,
         "height": 152
@@ -495,7 +495,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1900,
+        "top": 2508,
         "left": 304,
         "width": 304,
         "height": 152
@@ -512,7 +512,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 2356,
+        "top": 3002,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -525,7 +525,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2394,
+        "top": 3040,
         "left": 0,
         "width": 912,
         "height": 380
@@ -542,7 +542,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2394,
+        "top": 3040,
         "left": 912,
         "width": 304,
         "height": 380
@@ -559,7 +559,7 @@
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 2774,
+        "top": 3420,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -572,7 +572,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2812,
+        "top": 3458,
         "left": 0,
         "width": 1216,
         "height": 380
@@ -585,60 +585,368 @@
       "limit": 50
     },
     {
-      "name": "Flow Breakdown Legend",
+      "name": "Update Plugins - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2052,
+        "top": 2660,
         "left": 0,
-        "width": 1216,
-        "height": 304
+        "width": 304,
+        "height": 38
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "### Flow Breakdown - Match Patterns\n\nAll tiles scope to `one-trust.service.ts ` and match the patterns below.\n\n| Tile | Pattern |\n|---|---|\n| Init Native | `%initializenativeonetrust%` |\n| Start SDK | `%startonetrustsdk%` |\n| Init Success | `%handlesdkinitsuccess%` |\n| Init Failure | `%startsdk failure%` |\n| Register Listeners | `%registeroteventlisteners%` |\n| Get Consent | `%getconsentstatusforcategory%` |\n| Sync Webview | `%syncotwebviewwithmobconsent%` |\n| Sync+Start Web | `%syncconsentandstartwebot%` |\n| Update Plugins | `%updateotconsentsplugins%` |\n| Dead Flows | `%dead flow%` |\n"
+      "markdown": "`%updateotconsentsplugins%`"
     },
     {
-      "name": "OneTrust Flow Legend",
+      "name": "Dead Flows - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1406,
-        "left": 0,
-        "width": 1216,
-        "height": 152
+        "top": 2660,
+        "left": 304,
+        "width": 304,
+        "height": 38
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "### OneTrust Flow Overview - What's Counted\n\nAll tiles in this section scope to events starting with `one-trust.service.ts ` (note trailing space).\n\n- **Total OneTrust Events** = all events from `one-trust.service.ts`\n- **Failures + Errors** = matches `%failure%` OR `%error%`\n- **SDK Init Success** = matches `%handlesdkinitsuccess%`\n- **SDK Init Failures** = matches `%startsdk failure callback%`\n"
+      "markdown": "`%dead flow%`"
     },
     {
-      "name": "Error Breakdown Legend",
+      "name": "Register Listeners - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 2470,
         "left": 0,
-        "width": 1216,
-        "height": 304
+        "width": 304,
+        "height": 38
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "### Error Breakdown - Match Patterns\n\n**App Initialization**\n- `GetAppConfig Timeout` \u2192 matches `%getappconfig timed out%`\n- `CheckVersion Failed` \u2192 matches `%checkversion request failed%`\n- `App Init catchErrors` \u2192 matches `%appiniteffect%catcherror%` OR `%loadgeolocation%catcherror%`\n\n**BioCatch**\n- `BioCatch Init Failures` \u2192 matches `%biocatch.service.ts init failed%` OR `%biocatch.service.ts startnative failed%`\n- `BioCatch Runtime Timeouts` \u2192 matches `%biocatch caninit timeout%` OR `%biocatch readiness timeout%`\n- `BioCatch Permissions` \u2192 matches `%biocatch.service.ts requestpermissions failed%`\n\n**OneTrust**\n- `OneTrust Timeouts` \u2192 matches `%androidconsenttimeout%` OR `%otsdktimeout%` OR `%otconsentcallbacktimeout%`\n- `OneTrust SDK Failures` \u2192 matches `%startsdk failure callback%`\n- `OneTrust Plugin Errors` \u2192 matches `%updateotconsentsplugins - error%`\n"
+      "markdown": "`%registeroteventlisteners%`"
     },
     {
-      "name": "Errors Overview Legend",
+      "name": "Get Consent - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2470,
+        "left": 304,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%getconsentstatusforcategory%`"
+    },
+    {
+      "name": "Sync Webview - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2470,
+        "left": 608,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%syncotwebviewwithmobconsent%`"
+    },
+    {
+      "name": "Sync+Start Web - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2470,
+        "left": 912,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%syncconsentandstartwebot%`"
+    },
+    {
+      "name": "Init Native - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2280,
+        "left": 0,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%initializenativeonetrust%`"
+    },
+    {
+      "name": "Start SDK - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2280,
+        "left": 304,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%startonetrustsdk%`"
+    },
+    {
+      "name": "Init Success - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2280,
+        "left": 608,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%handlesdkinitsuccess%`"
+    },
+    {
+      "name": "Init Failure - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2280,
+        "left": 912,
+        "width": 304,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%startsdk failure%`"
+    },
+    {
+      "name": "Total OneTrust Events - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 0,
+        "width": 304,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH `\"one-trust.service.ts \"`"
+    },
+    {
+      "name": "OneTrust Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 304,
+        "width": 304,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%failure%`\n`%error%`"
+    },
+    {
+      "name": "SDK Init Success - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 608,
+        "width": 304,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%handlesdkinitsuccess%`"
+    },
+    {
+      "name": "SDK Init Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 912,
+        "width": 304,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%startsdk failure callback%`"
+    },
+    {
+      "name": "OneTrust Timeouts - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1254,
+        "left": 0,
+        "width": 380,
+        "height": 114
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%androidconsenttimeout%`\n`%otsdktimeout%`\n`%otconsentcallbacktimeout%`"
+    },
+    {
+      "name": "OneTrust SDK Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1254,
+        "left": 380,
+        "width": 380,
+        "height": 114
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%startsdk failure callback%`"
+    },
+    {
+      "name": "OneTrust Plugin Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1254,
+        "left": 760,
+        "width": 380,
+        "height": 114
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%updateotconsentsplugins - error%`"
+    },
+    {
+      "name": "BioCatch Init Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1026,
+        "left": 0,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%biocatch.service.ts init failed%`\n`%biocatch.service.ts startnative failed%`"
+    },
+    {
+      "name": "BioCatch Runtime Timeouts - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1026,
+        "left": 380,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%biocatch caninit timeout%`\n`%biocatch readiness timeout%`"
+    },
+    {
+      "name": "BioCatch Permissions - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1026,
+        "left": 760,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%biocatch.service.ts requestpermissions failed%`"
+    },
+    {
+      "name": "GetAppConfig Timeout - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 0,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%getappconfig timed out%`"
+    },
+    {
+      "name": "CheckVersion Failed - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 380,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%checkversion request failed%`"
+    },
+    {
+      "name": "App Init catchErrors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 760,
+        "width": 380,
+        "height": 76
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%appiniteffect%catcherror%`\n`%loadgeolocation%catcherror%`"
+    },
+    {
+      "name": "App Init Errors - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
         "top": 190,
         "left": 0,
-        "width": 1216,
-        "height": 228
+        "width": 380,
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "### Errors Overview - What's Counted\n\n**App Init Errors** = `GetAppConfig timed out` + `CheckVersion request failed` + `app.effects.ts appInitEffect$ catchError` + `app.effects.ts loadGeolocation$ catchError`\n\n**BioCatch Errors** = `biocatch.service.ts init failed` + `biocatch.service.ts startNative failed` + `biocatch.service.ts requestPermissions failed` + `BioCatch canInit timeout` + `BioCatch readiness timeout`\n\n**OneTrust Errors** = `androidConsentTimeout` + `otSdkTimeout` + `otConsentCallbackTimeout` (both flavors) + `startSDK failure callback` + `updateOTConsentsPlugins - Error`\n"
+      "markdown": "`%getappconfig timed out%`\n`%checkversion request failed%`\n`%appiniteffect%catcherror%`\n`%loadgeolocation%catcherror%`"
+    },
+    {
+      "name": "BioCatch Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 380,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%biocatch.service.ts init failed%`\n`%biocatch.service.ts startnative failed%`\n`%biocatch.service.ts requestpermissions failed%`\n`%biocatch caninit timeout%`\n`%biocatch readiness timeout%`"
+    },
+    {
+      "name": "OneTrust Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 760,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "`%androidconsenttimeout%`\n`%otsdktimeout%`\n`%otconsentcallbacktimeout%`\n`%startsdk failure callback%`\n`%updateotconsentsplugins - error%`"
     }
   ]
 }
