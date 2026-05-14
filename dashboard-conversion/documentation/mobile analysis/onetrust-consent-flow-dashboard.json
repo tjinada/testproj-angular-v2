@@ -384,7 +384,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Events by App Version",
-      "query": "SELECT appVersion as \"App Version\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY appVersion ORDER BY COUNT(*) DESC",
+      "query": "SELECT usersession.appVersion as \"App Version\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 20
     },
@@ -414,7 +414,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Failure & Dead-Flow Drill-Down",
-      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%dead flow%\" OR name LIKE \"%error%\") GROUP BY name, usersession.osFamily, appVersion ORDER BY COUNT(*) DESC",
+      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%dead flow%\" OR name LIKE \"%error%\") GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 50
     }
