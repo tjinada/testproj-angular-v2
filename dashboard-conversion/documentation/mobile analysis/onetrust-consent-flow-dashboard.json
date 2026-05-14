@@ -1,0 +1,434 @@
+{
+  "dashboardMetadata": {
+    "name": "OneTrust Consent Flow - Mobile Health",
+    "shared": true,
+    "tags": [
+      "Mobile",
+      "OneTrust",
+      "Custom Events",
+      "CDB"
+    ],
+    "popularity": 1,
+    "tilesNameSize": "large",
+    "hasConsistentColors": false
+  },
+  "tiles": [
+    {
+      "name": "Overview",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 0,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Total OneTrust Events",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 0,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Total OneTrust Events",
+      "query": "SELECT COUNT(*) as \"Total Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \"",
+      "type": "SINGLE_VALUE",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "SINGLE_VALUE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        },
+        "singleValueSettings": {
+          "showTrend": true,
+          "showSparkLine": true,
+          "linkTileColorToThreshold": false
+        }
+      }
+    },
+    {
+      "name": "OneTrust Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 304,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Failures + Dead Flows",
+      "query": "SELECT COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\")",
+      "type": "SINGLE_VALUE",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "SINGLE_VALUE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        },
+        "singleValueSettings": {
+          "showTrend": true,
+          "showSparkLine": true,
+          "linkTileColorToThreshold": true
+        },
+        "thresholds": [
+          {
+            "axisTarget": "LEFT",
+            "rules": [
+              { "color": "#7dc540" },
+              { "color": "#f5d30f" },
+              { "color": "#dc172a" }
+            ],
+            "queryId": "A",
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "SDK Init Success",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 608,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "SDK Init Success",
+      "query": "SELECT COUNT(*) as \"SDK Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name CONTAINS \"handlesdkinitsuccess\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "SINGLE_VALUE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        },
+        "singleValueSettings": {
+          "showTrend": true,
+          "showSparkLine": true,
+          "linkTileColorToThreshold": false
+        }
+      }
+    },
+    {
+      "name": "SDK Init Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 912,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "SDK Init Failures",
+      "query": "SELECT COUNT(*) as \"SDK Init Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name CONTAINS \"startsdk failure callback\"",
+      "type": "SINGLE_VALUE",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "SINGLE_VALUE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        },
+        "singleValueSettings": {
+          "showTrend": true,
+          "showSparkLine": true,
+          "linkTileColorToThreshold": true
+        },
+        "thresholds": [
+          {
+            "axisTarget": "LEFT",
+            "rules": [
+              { "color": "#7dc540" },
+              { "color": "#f5d30f" },
+              { "color": "#dc172a" }
+            ],
+            "queryId": "A",
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Volume Trends",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 190,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "OneTrust Events Over Time",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 0,
+        "width": 608,
+        "height": 342
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Events Over Time (by OS)",
+      "query": "SELECT usersession.osFamily, COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily, startTime",
+      "type": "TIMESERIES",
+      "limit": 100,
+      "visualizationConfig": {
+        "type": "TIMESERIES",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        }
+      }
+    },
+    {
+      "name": "Failures Over Time",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 608,
+        "width": 608,
+        "height": 342
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Failures + Dead Flows Over Time",
+      "query": "SELECT usersession.osFamily, COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\") AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily, startTime",
+      "type": "TIMESERIES",
+      "limit": 100,
+      "visualizationConfig": {
+        "type": "TIMESERIES",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        }
+      }
+    },
+    {
+      "name": "Flow Breakdown",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 570,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "OneTrust Method Scorecard",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 0,
+        "width": 1216,
+        "height": 266
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Method Scorecard (by OS)",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(CASE WHEN name CONTAINS \"initializenativeonetrust\" THEN 1 END) as \"Init Native\", COUNT(CASE WHEN name CONTAINS \"startonetrustsdk\" THEN 1 END) as \"Start SDK\", COUNT(CASE WHEN name CONTAINS \"handlesdkinitsuccess\" THEN 1 END) as \"Init Success\", COUNT(CASE WHEN name CONTAINS \"startsdk failure\" THEN 1 END) as \"Init Failure\", COUNT(CASE WHEN name CONTAINS \"registeroteventlisteners\" THEN 1 END) as \"Register Listeners\", COUNT(CASE WHEN name CONTAINS \"getconsentstatusforcategory\" THEN 1 END) as \"Get Consent\", COUNT(CASE WHEN name CONTAINS \"syncotwebviewwithmobconsent\" THEN 1 END) as \"Sync Webview\", COUNT(CASE WHEN name CONTAINS \"syncconsentandstartwebot\" THEN 1 END) as \"Sync + Start Web\", COUNT(CASE WHEN name CONTAINS \"updateotconsentsplugins\" THEN 1 END) as \"Update Plugins\", COUNT(CASE WHEN name CONTAINS \"dead flow\" THEN 1 END) as \"Dead Flows\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily ORDER BY usersession.osFamily ASC",
+      "type": "TABLE",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "TABLE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        }
+      }
+    },
+    {
+      "name": "Top Events",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 874,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Top OneTrust Events by Count",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 912,
+        "left": 0,
+        "width": 608,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Top OneTrust Events (all)",
+      "query": "SELECT name as \"Event\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY name ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "TABLE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        }
+      }
+    },
+    {
+      "name": "OS Family Split",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 912,
+        "left": 608,
+        "width": 304,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Events by OS Family",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND usersession.osFamily IN (\"iOS\", \"Android\") GROUP BY usersession.osFamily",
+      "type": "PIE_CHART",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "PIE_CHART",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        }
+      }
+    },
+    {
+      "name": "Events by App Version",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 912,
+        "left": 912,
+        "width": 304,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Events by App Version",
+      "query": "SELECT appVersion as \"App Version\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY appVersion ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 20,
+      "visualizationConfig": {
+        "type": "TABLE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        }
+      }
+    },
+    {
+      "name": "Failure Drill-Down",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 1292,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "All Failure / Dead Flow Events",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1330,
+        "left": 0,
+        "width": 1216,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Failure & Dead-Flow Drill-Down",
+      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name CONTAINS \"failure\" OR name CONTAINS \"dead flow\" OR name CONTAINS \"error\") GROUP BY name, usersession.osFamily, appVersion ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50,
+      "visualizationConfig": {
+        "type": "TABLE",
+        "rules": [],
+        "axes": {
+          "xAxis": {
+            "displayName": "",
+            "visible": true
+          },
+          "yAxes": []
+        }
+      }
+    }
+  ]
+}
