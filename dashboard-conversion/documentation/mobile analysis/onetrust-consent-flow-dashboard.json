@@ -55,8 +55,8 @@
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "customName": "Failures + Dead Flows",
-      "query": "SELECT COUNT(*) as \"Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%error%\")",
+      "customName": "Failures + Errors",
+      "query": "SELECT COUNT(*) as \"Failures + Errors\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%error%\")",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
