@@ -1,12 +1,13 @@
 {
   "dashboardMetadata": {
-    "name": "OneTrust Consent Flow - Mobile Health",
+    "name": "CDB-Native - OneTrust + Mobile Errors",
     "shared": true,
     "tags": [
       "Mobile",
       "OneTrust",
       "Custom Events",
-      "CDB"
+      "CDB",
+      "CDB-Native"
     ],
     "popularity": 1,
     "tilesNameSize": "large",
@@ -39,7 +40,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "App Init Errors",
-      "query": "SELECT COUNT(*) as \"App Init Errors\" FROM useraction WHERE (name LIKE \"%getappconfig timed out%\" OR name LIKE \"%checkversion request failed%\" OR name LIKE \"%appiniteffect%catcherror%\" OR name LIKE \"%loadgeolocation%catcherror%\")",
+      "query": "SELECT COUNT(*) as \"App Init Errors\" FROM useraction WHERE (name LIKE \"%getappconfig timed out%\" OR name LIKE \"%checkversion request failed%\" OR name LIKE \"%appiniteffect%catcherror%\" OR name LIKE \"%loadgeolocation%catcherror%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -56,7 +57,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "BioCatch Errors",
-      "query": "SELECT COUNT(*) as \"BioCatch Errors\" FROM useraction WHERE (name LIKE \"%biocatch.service.ts init failed%\" OR name LIKE \"%biocatch.service.ts startnative failed%\" OR name LIKE \"%biocatch caninit timeout%\" OR name LIKE \"%biocatch readiness timeout%\" OR name LIKE \"%biocatch.service.ts requestpermissions failed%\")",
+      "query": "SELECT COUNT(*) as \"BioCatch Errors\" FROM useraction WHERE (name LIKE \"%biocatch.service.ts init failed%\" OR name LIKE \"%biocatch.service.ts startnative failed%\" OR name LIKE \"%biocatch caninit timeout%\" OR name LIKE \"%biocatch readiness timeout%\" OR name LIKE \"%biocatch.service.ts requestpermissions failed%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -73,7 +74,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "OneTrust Errors",
-      "query": "SELECT COUNT(*) as \"OneTrust Errors\" FROM useraction WHERE (name LIKE \"%androidconsenttimeout%\" OR name LIKE \"%otsdktimeout%\" OR name LIKE \"%otconsentcallbacktimeout%\" OR name LIKE \"%startsdk failure callback%\" OR name LIKE \"%updateotconsentsplugins - error%\")",
+      "query": "SELECT COUNT(*) as \"OneTrust Errors\" FROM useraction WHERE (name LIKE \"%androidconsenttimeout%\" OR name LIKE \"%otsdktimeout%\" OR name LIKE \"%otconsentcallbacktimeout%\" OR name LIKE \"%startsdk failure callback%\" OR name LIKE \"%updateotconsentsplugins - error%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -145,7 +146,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "GetAppConfig Timeout",
-      "query": "SELECT COUNT(*) as \"GetAppConfig Timeout\" FROM useraction WHERE name LIKE \"%getappconfig timed out%\"",
+      "query": "SELECT COUNT(*) as \"GetAppConfig Timeout\" FROM useraction WHERE name LIKE \"%getappconfig timed out%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -162,7 +163,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "CheckVersion Failed",
-      "query": "SELECT COUNT(*) as \"CheckVersion Failed\" FROM useraction WHERE name LIKE \"%checkversion request failed%\"",
+      "query": "SELECT COUNT(*) as \"CheckVersion Failed\" FROM useraction WHERE name LIKE \"%checkversion request failed%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -179,7 +180,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "App Init catchErrors",
-      "query": "SELECT COUNT(*) as \"App Init catchErrors\" FROM useraction WHERE (name LIKE \"%appiniteffect%catcherror%\" OR name LIKE \"%loadgeolocation%catcherror%\")",
+      "query": "SELECT COUNT(*) as \"App Init catchErrors\" FROM useraction WHERE (name LIKE \"%appiniteffect%catcherror%\" OR name LIKE \"%loadgeolocation%catcherror%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -196,7 +197,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "BioCatch Init Failures",
-      "query": "SELECT COUNT(*) as \"BioCatch Init Failures\" FROM useraction WHERE (name LIKE \"%biocatch.service.ts init failed%\" OR name LIKE \"%biocatch.service.ts startnative failed%\")",
+      "query": "SELECT COUNT(*) as \"BioCatch Init Failures\" FROM useraction WHERE (name LIKE \"%biocatch.service.ts init failed%\" OR name LIKE \"%biocatch.service.ts startnative failed%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -213,7 +214,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "BioCatch Runtime Timeouts",
-      "query": "SELECT COUNT(*) as \"BioCatch Runtime Timeouts\" FROM useraction WHERE (name LIKE \"%biocatch caninit timeout%\" OR name LIKE \"%biocatch readiness timeout%\")",
+      "query": "SELECT COUNT(*) as \"BioCatch Runtime Timeouts\" FROM useraction WHERE (name LIKE \"%biocatch caninit timeout%\" OR name LIKE \"%biocatch readiness timeout%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -230,7 +231,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "BioCatch Permissions",
-      "query": "SELECT COUNT(*) as \"BioCatch Permissions\" FROM useraction WHERE name LIKE \"%biocatch.service.ts requestpermissions failed%\"",
+      "query": "SELECT COUNT(*) as \"BioCatch Permissions\" FROM useraction WHERE name LIKE \"%biocatch.service.ts requestpermissions failed%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -247,7 +248,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "OneTrust Timeouts",
-      "query": "SELECT COUNT(*) as \"OneTrust Timeouts\" FROM useraction WHERE (name LIKE \"%androidconsenttimeout%\" OR name LIKE \"%otsdktimeout%\" OR name LIKE \"%otconsentcallbacktimeout%\")",
+      "query": "SELECT COUNT(*) as \"OneTrust Timeouts\" FROM useraction WHERE (name LIKE \"%androidconsenttimeout%\" OR name LIKE \"%otsdktimeout%\" OR name LIKE \"%otconsentcallbacktimeout%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -264,7 +265,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "OneTrust SDK Failures",
-      "query": "SELECT COUNT(*) as \"OneTrust SDK Failures\" FROM useraction WHERE name LIKE \"%startsdk failure callback%\"",
+      "query": "SELECT COUNT(*) as \"OneTrust SDK Failures\" FROM useraction WHERE name LIKE \"%startsdk failure callback%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -281,7 +282,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "OneTrust Plugin Errors",
-      "query": "SELECT COUNT(*) as \"OneTrust Plugin Errors\" FROM useraction WHERE name LIKE \"%updateotconsentsplugins - error%\"",
+      "query": "SELECT COUNT(*) as \"OneTrust Plugin Errors\" FROM useraction WHERE name LIKE \"%updateotconsentsplugins - error%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -437,7 +438,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Total OneTrust Events",
-      "query": "SELECT COUNT(*) as \"Total Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \"",
+      "query": "SELECT COUNT(*) as \"Total Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -454,7 +455,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Failures + Errors",
-      "query": "SELECT COUNT(*) as \"Failures + Errors\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%error%\")",
+      "query": "SELECT COUNT(*) as \"Failures + Errors\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND (name LIKE \"%failure%\" OR name LIKE \"%error%\") AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -471,7 +472,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "SDK Init Success",
-      "query": "SELECT COUNT(*) as \"SDK Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%handlesdkinitsuccess%\"",
+      "query": "SELECT COUNT(*) as \"SDK Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%handlesdkinitsuccess%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -488,7 +489,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "SDK Init Failures",
-      "query": "SELECT COUNT(*) as \"SDK Init Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startsdk failure callback%\"",
+      "query": "SELECT COUNT(*) as \"SDK Init Failures\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startsdk failure callback%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -574,7 +575,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Init Native",
-      "query": "SELECT COUNT(*) as \"Init Native\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%initializenativeonetrust%\"",
+      "query": "SELECT COUNT(*) as \"Init Native\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%initializenativeonetrust%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -591,7 +592,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Start SDK",
-      "query": "SELECT COUNT(*) as \"Start SDK\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startonetrustsdk%\"",
+      "query": "SELECT COUNT(*) as \"Start SDK\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startonetrustsdk%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -608,7 +609,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Init Success",
-      "query": "SELECT COUNT(*) as \"Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%handlesdkinitsuccess%\"",
+      "query": "SELECT COUNT(*) as \"Init Success\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%handlesdkinitsuccess%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -625,7 +626,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Init Failure",
-      "query": "SELECT COUNT(*) as \"Init Failure\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startsdk failure%\"",
+      "query": "SELECT COUNT(*) as \"Init Failure\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%startsdk failure%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -642,7 +643,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Register Listeners",
-      "query": "SELECT COUNT(*) as \"Register Listeners\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%registeroteventlisteners%\"",
+      "query": "SELECT COUNT(*) as \"Register Listeners\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%registeroteventlisteners%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -659,7 +660,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Get Consent",
-      "query": "SELECT COUNT(*) as \"Get Consent\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%getconsentstatusforcategory%\"",
+      "query": "SELECT COUNT(*) as \"Get Consent\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%getconsentstatusforcategory%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -676,7 +677,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Sync Webview",
-      "query": "SELECT COUNT(*) as \"Sync Webview\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncotwebviewwithmobconsent%\"",
+      "query": "SELECT COUNT(*) as \"Sync Webview\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncotwebviewwithmobconsent%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -693,7 +694,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Sync+Start Web",
-      "query": "SELECT COUNT(*) as \"Sync+Start Web\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncconsentandstartwebot%\"",
+      "query": "SELECT COUNT(*) as \"Sync+Start Web\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%syncconsentandstartwebot%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -710,7 +711,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Update Plugins",
-      "query": "SELECT COUNT(*) as \"Update Plugins\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%updateotconsentsplugins%\"",
+      "query": "SELECT COUNT(*) as \"Update Plugins\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%updateotconsentsplugins%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -727,7 +728,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Dead Flows",
-      "query": "SELECT COUNT(*) as \"Dead Flows\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\"",
+      "query": "SELECT COUNT(*) as \"Dead Flows\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
@@ -897,7 +898,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Top OneTrust Events (all)",
-      "query": "SELECT name as \"Event\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY name ORDER BY COUNT(*) DESC",
+      "query": "SELECT name as \"Event\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND application.name = \"CDB-Native (63623)\" GROUP BY name ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 50
     },
@@ -914,7 +915,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Events by App Version",
-      "query": "SELECT usersession.appVersion as \"App Version\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" GROUP BY usersession.appVersion ORDER BY COUNT(*) DESC",
+      "query": "SELECT usersession.appVersion as \"App Version\", COUNT(*) as \"Events\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND application.name = \"CDB-Native (63623)\" GROUP BY usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 20
     },
@@ -944,7 +945,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Dead Flow Drill-Down",
-      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
+      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" AND application.name = \"CDB-Native (63623)\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 50
     },
@@ -961,7 +962,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Dead Flow Events",
-      "query": "SELECT COUNT(*) as \"Dead Flow Events\" FROM useraction WHERE name LIKE \"%dead flow%\"",
+      "query": "SELECT COUNT(*) as \"Dead Flow Events\" FROM useraction WHERE name LIKE \"%dead flow%\" AND application.name = \"CDB-Native (63623)\"",
       "type": "SINGLE_VALUE",
       "limit": 50
     },
