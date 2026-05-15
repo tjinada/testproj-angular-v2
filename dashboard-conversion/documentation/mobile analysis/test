@@ -40,3 +40,12 @@ FROM useraction
 WHERE name STARTSWITH "one-trust.service.ts " 
   AND name LIKE "%dead flow%"
   AND usersession.applicationType = "MOBILE_APPLICATION"
+
+SELECT usersession.osFamily as "OS",
+       COUNT(*) as "Dead Flow Actions" 
+FROM useraction 
+WHERE name STARTSWITH "one-trust.service.ts " 
+  AND name LIKE "%dead flow%"
+  AND usersession.applicationType = "MOBILE_APPLICATION"
+GROUP BY usersession.osFamily 
+ORDER BY COUNT(*) DESC
