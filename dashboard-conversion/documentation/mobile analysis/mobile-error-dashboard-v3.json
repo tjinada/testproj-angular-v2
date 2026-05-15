@@ -86,11 +86,11 @@
         "top": 190,
         "left": 0,
         "width": 304,
-        "height": 152
+        "height": 266
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%getappconfig timed out%\n%checkversion request failed%\n%appiniteffect%catcherror%\n%loadgeolocation%catcherror%"
+      "markdown": "%getappconfig timed out%\n%checkversion request failed%\n%appiniteffect%catcherror%\n%loadgeolocation%catcherror%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "BioCatch Errors - patterns",
@@ -100,11 +100,11 @@
         "top": 190,
         "left": 304,
         "width": 304,
-        "height": 190
+        "height": 304
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%\n%biocatch.service.ts requestpermissions failed%\n%biocatch caninit timeout%\n%biocatch readiness timeout%"
+      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%\n%biocatch.service.ts requestpermissions failed%\n%biocatch caninit timeout%\n%biocatch readiness timeout%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "OneTrust Errors - patterns",
@@ -114,18 +114,18 @@
         "top": 190,
         "left": 608,
         "width": 304,
-        "height": 190
+        "height": 304
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%\n%startsdk failure callback%\n%updateotconsentsplugins - error%"
+      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%\n%startsdk failure callback%\n%updateotconsentsplugins - error%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Error Breakdown",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 418,
+        "top": 532,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -138,7 +138,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 456,
+        "top": 570,
         "left": 0,
         "width": 380,
         "height": 152
@@ -155,7 +155,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 456,
+        "top": 570,
         "left": 380,
         "width": 380,
         "height": 152
@@ -172,7 +172,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 456,
+        "top": 570,
         "left": 760,
         "width": 380,
         "height": 152
@@ -189,7 +189,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 684,
+        "top": 912,
         "left": 0,
         "width": 380,
         "height": 152
@@ -206,7 +206,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 684,
+        "top": 912,
         "left": 380,
         "width": 380,
         "height": 152
@@ -223,7 +223,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 684,
+        "top": 912,
         "left": 760,
         "width": 380,
         "height": 152
@@ -240,7 +240,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 1254,
         "left": 0,
         "width": 380,
         "height": 152
@@ -257,7 +257,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 1254,
         "left": 380,
         "width": 380,
         "height": 152
@@ -274,7 +274,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 912,
+        "top": 1254,
         "left": 760,
         "width": 380,
         "height": 152
@@ -291,133 +291,133 @@
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 722,
         "left": 0,
         "width": 380,
-        "height": 38
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%getappconfig timed out%"
+      "markdown": "%getappconfig timed out%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "CheckVersion Failed - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 722,
         "left": 380,
         "width": 380,
-        "height": 38
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%checkversion request failed%"
+      "markdown": "%checkversion request failed%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "App Init catchErrors - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 608,
+        "top": 722,
         "left": 760,
         "width": 380,
-        "height": 76
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%appiniteffect%catcherror%\n%loadgeolocation%catcherror%"
+      "markdown": "%appiniteffect%catcherror%\n%loadgeolocation%catcherror%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "BioCatch Init Failures - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 836,
+        "top": 1064,
         "left": 0,
         "width": 380,
-        "height": 76
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%"
+      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "BioCatch Runtime Timeouts - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 836,
+        "top": 1064,
         "left": 380,
         "width": 380,
-        "height": 76
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%biocatch caninit timeout%\n%biocatch readiness timeout%"
+      "markdown": "%biocatch caninit timeout%\n%biocatch readiness timeout%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "BioCatch Permissions - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 836,
+        "top": 1064,
         "left": 760,
         "width": 380,
-        "height": 38
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%biocatch.service.ts requestpermissions failed%"
+      "markdown": "%biocatch.service.ts requestpermissions failed%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "OneTrust Timeouts - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1064,
+        "top": 1406,
         "left": 0,
         "width": 380,
-        "height": 114
+        "height": 228
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%"
+      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "OneTrust SDK Failures - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1064,
+        "top": 1406,
         "left": 380,
         "width": 380,
-        "height": 38
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%startsdk failure callback%"
+      "markdown": "%startsdk failure callback%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "OneTrust Plugin Errors - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1064,
+        "top": 1406,
         "left": 760,
         "width": 380,
-        "height": 38
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%updateotconsentsplugins - error%"
+      "markdown": "%updateotconsentsplugins - error%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "OneTrust Flow Overview",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1216,
+        "top": 1672,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -430,7 +430,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 0,
         "width": 304,
         "height": 152
@@ -447,7 +447,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 304,
         "width": 304,
         "height": 152
@@ -464,7 +464,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 608,
         "width": 304,
         "height": 152
@@ -481,7 +481,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1254,
+        "top": 1710,
         "left": 912,
         "width": 304,
         "height": 152
@@ -498,63 +498,63 @@
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1406,
+        "top": 1862,
         "left": 0,
         "width": 304,
-        "height": 38
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "STARTSWITH one-trust.service.ts"
+      "markdown": "STARTSWITH one-trust.service.ts\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "OneTrust Failures - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1406,
+        "top": 1862,
         "left": 304,
         "width": 304,
-        "height": 76
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%failure%\n%error%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%failure%  OR  %error%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "SDK Init Success - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1406,
+        "top": 1862,
         "left": 608,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%handlesdkinitsuccess%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%handlesdkinitsuccess%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "SDK Init Failures - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1406,
+        "top": 1862,
         "left": 912,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%startsdk failure callback%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%startsdk failure callback%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Flow Breakdown",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 1520,
+        "top": 2090,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -567,7 +567,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1558,
+        "top": 2128,
         "left": 0,
         "width": 304,
         "height": 152
@@ -584,7 +584,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1558,
+        "top": 2128,
         "left": 304,
         "width": 304,
         "height": 152
@@ -601,7 +601,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1558,
+        "top": 2128,
         "left": 608,
         "width": 304,
         "height": 152
@@ -618,7 +618,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1558,
+        "top": 2128,
         "left": 912,
         "width": 304,
         "height": 152
@@ -635,7 +635,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2470,
         "left": 0,
         "width": 304,
         "height": 152
@@ -652,7 +652,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2470,
         "left": 304,
         "width": 304,
         "height": 152
@@ -669,7 +669,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2470,
         "left": 608,
         "width": 304,
         "height": 152
@@ -686,7 +686,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1748,
+        "top": 2470,
         "left": 912,
         "width": 304,
         "height": 152
@@ -703,7 +703,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1938,
+        "top": 2812,
         "left": 0,
         "width": 304,
         "height": 152
@@ -720,7 +720,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1938,
+        "top": 2812,
         "left": 304,
         "width": 304,
         "height": 152
@@ -737,147 +737,147 @@
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 2280,
         "left": 0,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%initializenativeonetrust%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%initializenativeonetrust%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Start SDK - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 2280,
         "left": 304,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%startonetrustsdk%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%startonetrustsdk%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Init Success - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 2280,
         "left": 608,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%handlesdkinitsuccess%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%handlesdkinitsuccess%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Init Failure - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1710,
+        "top": 2280,
         "left": 912,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%startsdk failure%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%startsdk failure%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Register Listeners - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1900,
+        "top": 2622,
         "left": 0,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%registeroteventlisteners%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%registeroteventlisteners%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Get Consent - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1900,
+        "top": 2622,
         "left": 304,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%getconsentstatusforcategory%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%getconsentstatusforcategory%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Sync Webview - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1900,
+        "top": 2622,
         "left": 608,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%syncotwebviewwithmobconsent%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%syncotwebviewwithmobconsent%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Sync+Start Web - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1900,
+        "top": 2622,
         "left": 912,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%syncconsentandstartwebot%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%syncconsentandstartwebot%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Update Plugins - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2090,
+        "top": 2964,
         "left": 0,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%updateotconsentsplugins%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%updateotconsentsplugins%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Dead Flows - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2090,
+        "top": 2964,
         "left": 304,
         "width": 304,
-        "height": 38
+        "height": 190
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%dead flow%"
+      "markdown": "STARTSWITH one-trust.service.ts\n%dead flow%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Dead Flow Drill-Down",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 2204,
+        "top": 3192,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -890,7 +890,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2242,
+        "top": 3230,
         "left": 0,
         "width": 1216,
         "height": 380
@@ -927,18 +927,18 @@
         "top": 190,
         "left": 912,
         "width": 304,
-        "height": 38
+        "height": 152
       },
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
-      "markdown": "%dead flow%"
+      "markdown": "%dead flow%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
     },
     {
       "name": "Dead Flow Drill-Down - patterns",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2622,
+        "top": 3610,
         "left": 0,
         "width": 1216,
         "height": 114
