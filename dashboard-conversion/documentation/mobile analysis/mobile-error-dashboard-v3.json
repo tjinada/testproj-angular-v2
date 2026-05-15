@@ -873,58 +873,11 @@
       "markdown": "%dead flow%"
     },
     {
-      "name": "Top Events",
-      "tileType": "HEADER",
-      "configured": true,
-      "bounds": {
-        "top": 2166,
-        "left": 0,
-        "width": 1216,
-        "height": 38
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false
-    },
-    {
-      "name": "Top OneTrust Events by Count",
-      "tileType": "DTAQL",
-      "configured": true,
-      "bounds": {
-        "top": 2204,
-        "left": 0,
-        "width": 912,
-        "height": 380
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "customName": "Top OneTrust Events (all)",
-      "query": "SELECT useraction.name as \"Event\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY useraction.name ORDER BY COUNT(*) DESC",
-      "type": "TABLE",
-      "limit": 50
-    },
-    {
-      "name": "Events by App Version",
-      "tileType": "DTAQL",
-      "configured": true,
-      "bounds": {
-        "top": 2204,
-        "left": 912,
-        "width": 304,
-        "height": 380
-      },
-      "tileFilter": {},
-      "isAutoRefreshDisabled": false,
-      "customName": "Events by App Version",
-      "query": "SELECT appVersion as \"App Version\", COUNT(*) as \"Events\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY appVersion ORDER BY COUNT(*) DESC",
-      "type": "TABLE",
-      "limit": 20
-    },
-    {
       "name": "Dead Flow Drill-Down",
       "tileType": "HEADER",
       "configured": true,
       "bounds": {
-        "top": 2622,
+        "top": 2204,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -937,7 +890,7 @@
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2660,
+        "top": 2242,
         "left": 0,
         "width": 1216,
         "height": 380
@@ -979,6 +932,20 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "markdown": "%dead flow%"
+    },
+    {
+      "name": "Dead Flow Drill-Down - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2622,
+        "left": 0,
+        "width": 1216,
+        "height": 114
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "FROM useraction\nSTARTSWITH one-trust.service.ts  AND  %dead flow%\nusersession.applicationType = MOBILE_APPLICATION"
     }
   ]
 }
