@@ -83,3 +83,11 @@ WHERE name STARTSWITH "one-trust.service.ts "
   )
 GROUP BY name, usersession.osFamily, usersession.appVersion
 ORDER BY COUNT(*) DESC
+
+SELECT COUNT(*) as "Dead Flow Events" 
+FROM useraction 
+WHERE name STARTSWITH "one-trust.service.ts " 
+  AND name LIKE "%dead flow%"
+  AND usersession.applicationType = "MOBILE_APPLICATION"
+  AND usersession.osFamily IN ("iOS", "Android")
+  AND usersession.appVersion IS NOT NULL
