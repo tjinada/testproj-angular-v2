@@ -53,7 +53,7 @@ DYNATRACE_TENANT_URL="${DYNATRACE_TENANT_URL%/}"
 # input URL ever contains a double quote, escape it before reaching here.
 build_dql() {
   local url="$1"
-  printf 'fetch spans, timeframe:"now-24h/now", scanLimitGBytes:5000 | filter url.path == "%s" | fields trace.id, start_time | limit 5' "$url"
+  printf 'fetch spans, from:now-24h, to:now, scanLimitGBytes:5000 | filter url.path == "%s" | fields trace.id, start_time | limit 5' "$url"
 }
 
 # Build the JSON body for query:execute.
