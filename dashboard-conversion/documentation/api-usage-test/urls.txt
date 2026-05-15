@@ -1,0 +1,5 @@
+# One URL path per line. Lines starting with # and blank lines are ignored.
+# Match is exact against the Dynatrace url.path field.
+/banking/services/signin/verifyCredential
+/banking/services/account/getCredential
+/banking/services/customer/getProfile

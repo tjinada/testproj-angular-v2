@@ -1,0 +1,245 @@
+#!/usr/bin/env bash
+# find-traces-by-url.sh
+# Reads URL paths from a text file (one per line) and queries Dynatrace
+# for traces where url.path matches exactly. Writes grouped CSV output.
+#
+# Usage:
+#   ./find-traces-by-url.sh <input-file> [output-file]
+#
+# Env (sourced from ./.env if present, else from environment):
+#   DYNATRACE_API_URL      e.g. https://<proxy>--<tenant>.prod2.apps.dynatrace.com/platform/storage/query/v1
+#   DYNATRACE_TOKEN        platform bearer token
+#   DYNATRACE_TENANT_URL   e.g. https://<tenant>.apps.dynatrace.com  (used for deep-link)
+
+set -u
+
+# ---------- config ----------
+POLL_MAX_ATTEMPTS=30
+POLL_SLEEP_SECONDS=1
+LINK_WINDOW_SECONDS=45
+
+# ---------- arg parsing ----------
+if [ $# -lt 1 ]; then
+  echo "Usage: $0 <input-file> [output-file]" >&2
+  exit 1
+fi
+
+INPUT_FILE="$1"
+OUTPUT_FILE="${2:-traces-output.csv}"
+
+if [ ! -f "$INPUT_FILE" ]; then
+  echo "ERROR: input file not found: $INPUT_FILE" >&2
+  exit 1
+fi
+
+# ---------- env ----------
+if [ -f ".env" ]; then
+  # shellcheck disable=SC1091
+  set -a; . ./.env; set +a
+fi
+
+: "${DYNATRACE_API_URL:?ERROR: DYNATRACE_API_URL is not set}"
+: "${DYNATRACE_TOKEN:?ERROR: DYNATRACE_TOKEN is not set}"
+: "${DYNATRACE_TENANT_URL:?ERROR: DYNATRACE_TENANT_URL is not set}"
+
+# Strip trailing slashes for clean concatenation
+DYNATRACE_API_URL="${DYNATRACE_API_URL%/}"
+DYNATRACE_TENANT_URL="${DYNATRACE_TENANT_URL%/}"
+
+# ---------- helpers ----------
+
+# Build the DQL query for a given URL path.
+# Note: the URL is interpolated into a double-quoted DQL string literal; if any
+# input URL ever contains a double quote, escape it before reaching here.
+build_dql() {
+  local url="$1"
+  printf 'fetch spans, timeframe:"now-24h/now", scanLimitGBytes:5000 | filter url.path == "%s" | fields trace.id, start_time | limit 5' "$url"
+}
+
+# Build the JSON body for query:execute.
+# We escape backslashes and double quotes in the DQL string so the JSON is valid.
+build_execute_body() {
+  local dql="$1"
+  # Escape backslashes first, then double quotes
+  local escaped="${dql//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  printf '{"query":"%s","defaultTimeframeStart":null,"defaultTimeframeEnd":null}' "$escaped"
+}
+
+# Extract the first match of a "key":"value" pair from JSON-ish text via grep/sed.
+# Usage: extract_string_field <key> <text>
+extract_string_field() {
+  local key="$1"
+  local text="$2"
+  printf '%s' "$text" \
+    | grep -oE "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
+    | head -n1 \
+    | sed -E 's/^"[^"]+"[[:space:]]*:[[:space:]]*"(.*)"$/\1/'
+}
+
+# Compute ISO8601 timestamp offset by N seconds (positive or negative) from a given ISO8601.
+# Falls back to the original timestamp if `date` cannot parse it.
+offset_iso() {
+  local iso="$1"
+  local offset_sec="$2"
+  local result
+  # GNU date
+  if result=$(date -u -d "$iso $offset_sec seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null); then
+    printf '%s' "$result"
+    return
+  fi
+  # BSD date (macOS)
+  local sign="+"
+  if [ "$offset_sec" -lt 0 ]; then
+    sign="-"
+    offset_sec=$(( -offset_sec ))
+  fi
+  if result=$(date -u -j -v"${sign}${offset_sec}S" -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null); then
+    printf '%s' "$result"
+    return
+  fi
+  printf '%s' "$iso"
+}
+
+# Build the Dynatrace trace deep-link with a ±45s timeframe window around start_time.
+build_link() {
+  local trace_id="$1"
+  local start_iso="$2"
+  local from to
+  from=$(offset_iso "$start_iso" "-$LINK_WINDOW_SECONDS")
+  to=$(offset_iso "$start_iso" "$LINK_WINDOW_SECONDS")
+  printf '%s/ui/apps/dynatrace.distributedtracing/trace/%s?timeframe=%s/%s' \
+    "$DYNATRACE_TENANT_URL" "$trace_id" "$from" "$to"
+}
+
+# Execute query and return the requestToken on stdout. Empty on failure.
+execute_query() {
+  local body="$1"
+  local response
+  response=$(curl -sS -X POST \
+    -H "Authorization: Bearer $DYNATRACE_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "$DYNATRACE_API_URL/query:execute" 2>/dev/null)
+  extract_string_field "requestToken" "$response"
+}
+
+# Poll until state != RUNNING (or attempts exhausted). Echoes the final response body.
+poll_query() {
+  local token="$1"
+  local attempt=0
+  local response=""
+  while [ "$attempt" -lt "$POLL_MAX_ATTEMPTS" ]; do
+    response=$(curl -sS -G \
+      -H "Authorization: Bearer $DYNATRACE_TOKEN" \
+      --data-urlencode "request-token=$token" \
+      "$DYNATRACE_API_URL/query:poll" 2>/dev/null)
+    if ! printf '%s' "$response" | grep -q '"state"[[:space:]]*:[[:space:]]*"RUNNING"'; then
+      printf '%s' "$response"
+      return 0
+    fi
+    sleep "$POLL_SLEEP_SECONDS"
+    attempt=$(( attempt + 1 ))
+  done
+  printf '%s' "$response"
+  return 1
+}
+
+# Extract (trace.id, start_time) pairs from the poll response.
+# Output: one "<traceId>|<startTime>" per line, deduped by traceId (first start_time kept).
+extract_trace_pairs() {
+  local response="$1"
+  # Pull out each record fragment up to (and excluding) the next record.
+  # We use the fact that records contain "trace.id":"..." and "start_time":"..."
+  # appearing close together. Splitting on '{' gives us per-object fragments.
+  printf '%s' "$response" \
+    | tr '{' '\n' \
+    | grep '"trace.id"' \
+    | while IFS= read -r frag; do
+        local tid sts
+        tid=$(printf '%s' "$frag" | grep -oE '"trace\.id"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+        sts=$(printf '%s' "$frag" | grep -oE '"start_time"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+        if [ -n "$tid" ]; then
+          printf '%s|%s\n' "$tid" "$sts"
+        fi
+      done \
+    | awk -F'|' '!seen[$1]++'
+}
+
+# CSV-escape a field per RFC 4180: wrap in quotes if it contains comma, quote, or newline;
+# double any embedded quotes.
+csv_escape() {
+  local v="$1"
+  case "$v" in
+    *,*|*\"*|*$'\n'*)
+      v="${v//\"/\"\"}"
+      printf '"%s"' "$v"
+      ;;
+    *)
+      printf '%s' "$v"
+      ;;
+  esac
+}
+
+# ---------- main ----------
+
+# Count non-blank, non-comment lines for progress
+total=$(grep -cvE '^[[:space:]]*(#|$)' "$INPUT_FILE" || true)
+index=0
+
+# Write CSV header (overwrites any existing output file)
+echo "url,traceId,timestamp,link" > "$OUTPUT_FILE"
+
+while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+  # Trim leading/trailing whitespace
+  url="${raw_line#"${raw_line%%[![:space:]]*}"}"
+  url="${url%"${url##*[![:space:]]}"}"
+
+  # Skip blanks and comments
+  [ -z "$url" ] && continue
+  case "$url" in \#*) continue ;; esac
+
+  index=$(( index + 1 ))
+
+  dql=$(build_dql "$url")
+  body=$(build_execute_body "$dql")
+
+  token=$(execute_query "$body")
+  if [ -z "$token" ]; then
+    echo "[$index/$total] $url ... EXECUTE FAILED" >&2
+    printf '%s,%s,,\n' "$(csv_escape "$url")" "$(csv_escape "execute failed")" >> "$OUTPUT_FILE"
+    continue
+  fi
+
+  poll_response=$(poll_query "$token")
+  poll_rc=$?
+  if [ "$poll_rc" -ne 0 ]; then
+    echo "[$index/$total] $url ... POLL TIMEOUT" >&2
+    printf '%s,%s,,\n' "$(csv_escape "$url")" "$(csv_escape "poll timeout")" >> "$OUTPUT_FILE"
+    continue
+  fi
+
+  pairs=$(extract_trace_pairs "$poll_response")
+  if [ -z "$pairs" ]; then
+    count=0
+  else
+    count=$(printf '%s\n' "$pairs" | wc -l | tr -d '[:space:]')
+  fi
+
+  echo "[$index/$total] $url ... $count matches" >&2
+
+  # URL header row: url, "<N> matches", empty, empty
+  printf '%s,%s,,\n' "$(csv_escape "$url")" "$(csv_escape "$count matches")" >> "$OUTPUT_FILE"
+
+  # Trace rows beneath (empty url column)
+  if [ "$count" -gt 0 ]; then
+    printf '%s\n' "$pairs" | while IFS='|' read -r tid sts; do
+      [ -z "$tid" ] && continue
+      link=$(build_link "$tid" "$sts")
+      printf ',%s,%s,%s\n' "$(csv_escape "$tid")" "$(csv_escape "$sts")" "$(csv_escape "$link")" >> "$OUTPUT_FILE"
+    done
+  fi
+
+done < "$INPUT_FILE"
+
+echo "Done. Output: $OUTPUT_FILE" >&2
