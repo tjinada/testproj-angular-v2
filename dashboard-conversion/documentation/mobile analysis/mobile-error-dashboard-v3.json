@@ -945,7 +945,7 @@
       "tileFilter": {},
       "isAutoRefreshDisabled": false,
       "customName": "Dead Flow Drill-Down",
-      "query": "SELECT useraction.name as \"Event\", osFamily as \"OS\", appVersion as \"App Version\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%dead flow%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY useraction.name, osFamily, appVersion ORDER BY COUNT(*) DESC",
+      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" AND usersession.applicationType = \"MOBILE_APPLICATION\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
       "type": "TABLE",
       "limit": 50
     },
