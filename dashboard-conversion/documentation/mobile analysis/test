@@ -26,3 +26,17 @@ FROM useraction
 WHERE name STARTSWITH "one-trust.service.ts " 
   AND name LIKE "%dead flow%"
   AND applicationType = "MOBILE_APPLICATION"
+
+
+  -- Query A: matches the overview tile
+SELECT COUNT(*) as "Dead Flow Events"
+FROM usersession 
+WHERE useraction.name LIKE "%dead flow%" 
+  AND (useraction.name = "Loading BMO" OR useraction.name = "Loading App")
+
+-- Query B: matches the drill-down tile  
+SELECT COUNT(*) as "Dead Flow Actions"
+FROM useraction 
+WHERE name STARTSWITH "one-trust.service.ts " 
+  AND name LIKE "%dead flow%"
+  AND usersession.applicationType = "MOBILE_APPLICATION"
