@@ -7,3 +7,16 @@ WHERE name LIKE "%initializenativeonetrust%"
 SELECT COUNT(*) FROM useraction 
 WHERE name LIKE "%initializenativeonetrust%"
   AND applicationType = "MOBILE_APPLICATION"
+
+
+SELECT name as "Event", 
+       usersession.osFamily as "OS", 
+       usersession.appVersion as "App Version", 
+       COUNT(*) as "Count" 
+FROM useraction 
+WHERE name STARTSWITH "one-trust.service.ts " 
+  AND name LIKE "%dead flow%"
+  AND (usersession.useraction.name = "Loading BMO" 
+       OR usersession.useraction.name = "Loading App")
+GROUP BY name, usersession.osFamily, usersession.appVersion 
+ORDER BY COUNT(*) DESC
