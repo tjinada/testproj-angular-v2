@@ -20,3 +20,9 @@ WHERE name STARTSWITH "one-trust.service.ts "
        OR usersession.useraction.name = "Loading App")
 GROUP BY name, usersession.osFamily, usersession.appVersion 
 ORDER BY COUNT(*) DESC
+
+SELECT COUNT(*) as "Mobile Dead Flows" 
+FROM useraction 
+WHERE name STARTSWITH "one-trust.service.ts " 
+  AND name LIKE "%dead flow%"
+  AND applicationType = "MOBILE_APPLICATION"
