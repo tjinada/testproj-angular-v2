@@ -91,3 +91,10 @@ WHERE name STARTSWITH "one-trust.service.ts "
   AND usersession.applicationType = "MOBILE_APPLICATION"
   AND usersession.osFamily IN ("iOS", "Android")
   AND usersession.appVersion IS NOT NULL
+
+
+SELECT COUNT(*) as "Sessions with multiple App Init errors"
+FROM usersession 
+WHERE (useraction.name LIKE "%checkversion request failed%" OR useraction.name LIKE "%getappconfig timed out%")
+  AND (useraction.name LIKE "%appiniteffect%catcherror%" OR useraction.name LIKE "%loadgeolocation%catcherror%")
+  AND (useraction.name = "Loading BMO" OR useraction.name = "Loading App")
