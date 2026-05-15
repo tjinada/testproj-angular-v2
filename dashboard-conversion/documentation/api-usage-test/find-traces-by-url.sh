@@ -101,15 +101,21 @@ offset_iso() {
   printf '%s' "$iso"
 }
 
-# Build the Dynatrace trace deep-link with a ±45s timeframe window around start_time.
+# URL-encode an ISO8601 timestamp: replace ':' with '%3A'. The 'Z' and '-' and digits are safe.
+urlencode_iso() {
+  local s="$1"
+  printf '%s' "${s//:/%3A}"
+}
+
+# Build the Dynatrace trace deep-link using the explorer URL format.
+# Format: <tenant>/ui/apps/dynatrace.distributedtracing/explorer?traceId=<id>&tt=<urlencoded-iso8601>
 build_link() {
   local trace_id="$1"
   local start_iso="$2"
-  local from to
-  from=$(offset_iso "$start_iso" "-$LINK_WINDOW_SECONDS")
-  to=$(offset_iso "$start_iso" "$LINK_WINDOW_SECONDS")
-  printf '%s/ui/apps/dynatrace.distributedtracing/trace/%s?timeframe=%s/%s' \
-    "$DYNATRACE_TENANT_URL" "$trace_id" "$from" "$to"
+  local tt
+  tt=$(urlencode_iso "$start_iso")
+  printf '%s/ui/apps/dynatrace.distributedtracing/explorer?traceId=%s&tt=%s' \
+    "$DYNATRACE_TENANT_URL" "$trace_id" "$tt"
 }
 
 # Execute query and return the requestToken on stdout. Empty on failure.
