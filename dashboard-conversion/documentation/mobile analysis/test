@@ -49,3 +49,37 @@ WHERE name STARTSWITH "one-trust.service.ts "
   AND usersession.applicationType = "MOBILE_APPLICATION"
 GROUP BY usersession.osFamily 
 ORDER BY COUNT(*) DESC
+
+SELECT COUNT(*) as "Dead Flow Actions"
+FROM useraction
+WHERE name STARTSWITH "one-trust.service.ts "
+  AND name LIKE "%dead flow%"
+  AND userSessionId IN (
+    SELECT userSessionId FROM usersession
+    WHERE useraction.name = "Loading BMO" OR useraction.name = "Loading App"
+  )
+
+SELECT useraction.name as "Event",
+       usersession.osFamily as "OS",
+       usersession.appVersion as "App Version",
+       COUNT(*) as "Count"
+FROM usersession
+WHERE useraction.name STARTSWITH "one-trust.service.ts "
+  AND useraction.name LIKE "%dead flow%"
+  AND (useraction.name = "Loading BMO" OR useraction.name = "Loading App")
+GROUP BY useraction.name, usersession.osFamily, usersession.appVersion
+ORDER BY COUNT(*) DESC
+
+SELECT name as "Event",
+       usersession.osFamily as "OS",
+       usersession.appVersion as "App Version",
+       COUNT(*) as "Count"
+FROM useraction
+WHERE name STARTSWITH "one-trust.service.ts "
+  AND name LIKE "%dead flow%"
+  AND userSessionId IN (
+    SELECT userSessionId FROM usersession
+    WHERE useraction.name = "Loading BMO" OR useraction.name = "Loading App"
+  )
+GROUP BY name, usersession.osFamily, usersession.appVersion
+ORDER BY COUNT(*) DESC
