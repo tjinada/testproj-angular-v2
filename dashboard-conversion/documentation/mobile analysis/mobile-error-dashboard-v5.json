@@ -1,0 +1,951 @@
+{
+  "dashboardMetadata": {
+    "name": "CDB-Native - OneTrust + Mobile Errors",
+    "shared": true,
+    "tags": [
+      "Mobile",
+      "OneTrust",
+      "Custom Events",
+      "CDB",
+      "CDB-Native"
+    ],
+    "popularity": 1,
+    "tilesNameSize": "large",
+    "hasConsistentColors": false
+  },
+  "tiles": [
+    {
+      "name": "Errors Overview",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 0,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "App Init Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "App Init Errors",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE (useraction.name LIKE \"%getappconfig timed out%\" OR useraction.name LIKE \"%checkversion request failed%\" OR useraction.name LIKE \"%appiniteffect%catcherror%\" OR useraction.name LIKE \"%loadgeolocation%catcherror%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Errors",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE (useraction.name LIKE \"%biocatch.service.ts init failed%\" OR useraction.name LIKE \"%biocatch.service.ts startnative failed%\" OR useraction.name LIKE \"%biocatch caninit timeout%\" OR useraction.name LIKE \"%biocatch readiness timeout%\" OR useraction.name LIKE \"%biocatch.service.ts requestpermissions failed%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 608,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Errors",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE (useraction.name LIKE \"%androidconsenttimeout%\" OR useraction.name LIKE \"%otsdktimeout%\" OR useraction.name LIKE \"%otconsentcallbacktimeout%\" OR useraction.name LIKE \"%startsdk failure callback%\" OR useraction.name LIKE \"%updateotconsentsplugins - error%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Dead Flow Events",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 38,
+        "left": 912,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Dead Flow Events",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name LIKE \"%dead flow%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "App Init Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 0,
+        "width": 304,
+        "height": 266
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%getappconfig timed out%\n%checkversion request failed%\n%appiniteffect%catcherror%\n%loadgeolocation%catcherror%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "BioCatch Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 304,
+        "width": 304,
+        "height": 304
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%\n%biocatch.service.ts requestpermissions failed%\n%biocatch caninit timeout%\n%biocatch readiness timeout%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "OneTrust Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 608,
+        "width": 304,
+        "height": 304
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%\n%startsdk failure callback%\n%updateotconsentsplugins - error%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Dead Flow Events - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 228,
+        "left": 912,
+        "width": 304,
+        "height": 228
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%dead flow%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\"\n---\n**Click the number to view matching sessions**"
+    },
+    {
+      "name": "Error Breakdown",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 570,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "GetAppConfig Timeout",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 0,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "GetAppConfig Timeout",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name LIKE \"%getappconfig timed out%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "CheckVersion Failed",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 380,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "CheckVersion Failed",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name LIKE \"%checkversion request failed%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "App Init catchErrors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 608,
+        "left": 760,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "App Init catchErrors",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE (useraction.name LIKE \"%appiniteffect%catcherror%\" OR useraction.name LIKE \"%loadgeolocation%catcherror%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "GetAppConfig Timeout - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 0,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%getappconfig timed out%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "CheckVersion Failed - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 380,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%checkversion request failed%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "App Init catchErrors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 760,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%appiniteffect%catcherror%\n%loadgeolocation%catcherror%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "BioCatch Init Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 988,
+        "left": 0,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Init Failures",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE (useraction.name LIKE \"%biocatch.service.ts init failed%\" OR useraction.name LIKE \"%biocatch.service.ts startnative failed%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Runtime Timeouts",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 988,
+        "left": 380,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Runtime Timeouts",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE (useraction.name LIKE \"%biocatch caninit timeout%\" OR useraction.name LIKE \"%biocatch readiness timeout%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Permissions",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 988,
+        "left": 760,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "BioCatch Permissions",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name LIKE \"%biocatch.service.ts requestpermissions failed%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "BioCatch Init Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1178,
+        "left": 0,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch.service.ts init failed%\n%biocatch.service.ts startnative failed%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "BioCatch Runtime Timeouts - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1178,
+        "left": 380,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch caninit timeout%\n%biocatch readiness timeout%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "BioCatch Permissions - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1178,
+        "left": 760,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%biocatch.service.ts requestpermissions failed%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "OneTrust Timeouts",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1368,
+        "left": 0,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Timeouts",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE (useraction.name LIKE \"%androidconsenttimeout%\" OR useraction.name LIKE \"%otsdktimeout%\" OR useraction.name LIKE \"%otconsentcallbacktimeout%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust SDK Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1368,
+        "left": 380,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust SDK Failures",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name LIKE \"%startsdk failure callback%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Plugin Errors",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1368,
+        "left": 760,
+        "width": 380,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "OneTrust Plugin Errors",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name LIKE \"%updateotconsentsplugins - error%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Timeouts - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1558,
+        "left": 0,
+        "width": 380,
+        "height": 228
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%androidconsenttimeout%\n%otsdktimeout%\n%otconsentcallbacktimeout%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "OneTrust SDK Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1558,
+        "left": 380,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%startsdk failure callback%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "OneTrust Plugin Errors - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1558,
+        "left": 760,
+        "width": 380,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "%updateotconsentsplugins - error%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "OneTrust Flow Overview",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 1824,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Total OneTrust Events",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Total OneTrust Events",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "OneTrust Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Failures + Errors",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND (useraction.name LIKE \"%failure%\" OR useraction.name LIKE \"%error%\") AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "SDK Init Success",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 608,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "SDK Init Success",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%handlesdkinitsuccess%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "SDK Init Failures",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 1862,
+        "left": 912,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "SDK Init Failures",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%startsdk failure callback%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Total OneTrust Events - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2052,
+        "left": 0,
+        "width": 304,
+        "height": 152
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "OneTrust Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2052,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%failure%  OR  %error%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "SDK Init Success - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2052,
+        "left": 608,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%handlesdkinitsuccess%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "SDK Init Failures - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2052,
+        "left": 912,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%startsdk failure callback%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Flow Breakdown",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 2280,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Init Native",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2318,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Native",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%initializenativeonetrust%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Start SDK",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2318,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Start SDK",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%startonetrustsdk%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Init Success",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2318,
+        "left": 608,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Success",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%handlesdkinitsuccess%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Init Failure",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2318,
+        "left": 912,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Init Failure",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%startsdk failure%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Init Native - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2508,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%initializenativeonetrust%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Start SDK - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2508,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%startonetrustsdk%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Init Success - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2508,
+        "left": 608,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%handlesdkinitsuccess%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Init Failure - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2508,
+        "left": 912,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%startsdk failure%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Register Listeners",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2698,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Register Listeners",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%registeroteventlisteners%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Get Consent",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2698,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Get Consent",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%getconsentstatusforcategory%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Sync Webview",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2698,
+        "left": 608,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Sync Webview",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%syncotwebviewwithmobconsent%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Sync+Start Web",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 2698,
+        "left": 912,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Sync+Start Web",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%syncconsentandstartwebot%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Register Listeners - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2888,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%registeroteventlisteners%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Get Consent - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2888,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%getconsentstatusforcategory%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Sync Webview - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2888,
+        "left": 608,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%syncotwebviewwithmobconsent%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Sync+Start Web - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 2888,
+        "left": 912,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%syncconsentandstartwebot%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Update Plugins",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 3078,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Update Plugins",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%updateotconsentsplugins%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Dead Flows",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 3078,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Dead Flows",
+      "query": "SELECT usersession.osFamily as \"OS\", COUNT(*) as \"Count\" FROM usersession WHERE useraction.name STARTSWITH \"one-trust.service.ts \" AND useraction.name LIKE \"%dead flow%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\") GROUP BY usersession.osFamily ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Update Plugins - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 3268,
+        "left": 0,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%updateotconsentsplugins%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Dead Flows - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 3268,
+        "left": 304,
+        "width": 304,
+        "height": 190
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "STARTSWITH one-trust.service.ts\n%dead flow%\n---\nSession contains:\nuseraction.name = \"Loading BMO\"  OR  useraction.name = \"Loading App\""
+    },
+    {
+      "name": "Dead Flow Drill-Down",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": {
+        "top": 3496,
+        "left": 0,
+        "width": 1216,
+        "height": 38
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false
+    },
+    {
+      "name": "Dead Flow Drill-Down",
+      "tileType": "DTAQL",
+      "configured": true,
+      "bounds": {
+        "top": 3534,
+        "left": 0,
+        "width": 1216,
+        "height": 380
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "customName": "Dead Flow Drill-Down",
+      "query": "SELECT name as \"Event\", usersession.osFamily as \"OS\", usersession.appVersion as \"App Version\", COUNT(*) as \"Count\" FROM useraction WHERE name STARTSWITH \"one-trust.service.ts \" AND name LIKE \"%dead flow%\" AND usersession.applicationType = \"MOBILE_APPLICATION\" GROUP BY name, usersession.osFamily, usersession.appVersion ORDER BY COUNT(*) DESC",
+      "type": "TABLE",
+      "limit": 50
+    },
+    {
+      "name": "Dead Flow Drill-Down - patterns",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 3914,
+        "left": 0,
+        "width": 1216,
+        "height": 114
+      },
+      "tileFilter": {},
+      "isAutoRefreshDisabled": false,
+      "markdown": "FROM useraction\nSTARTSWITH one-trust.service.ts  AND  %dead flow%\nusersession.applicationType = MOBILE_APPLICATION"
+    }
+  ]
+}
