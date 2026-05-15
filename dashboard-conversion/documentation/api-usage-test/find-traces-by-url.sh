@@ -113,15 +113,32 @@ build_link() {
 }
 
 # Execute query and return the requestToken on stdout. Empty on failure.
+# When DEBUG=1, prints HTTP status and response body to stderr on failure.
 execute_query() {
   local body="$1"
-  local response
-  response=$(curl -sS -X POST \
+  local response http_code
+  # Write body to stdout, status code to a temp marker on the last line
+  response=$(curl -sS -w '\n__HTTP_STATUS__:%{http_code}' -X POST \
     -H "Authorization: Bearer $DYNATRACE_TOKEN" \
     -H "Content-Type: application/json" \
     -d "$body" \
-    "$DYNATRACE_API_URL/query:execute" 2>/dev/null)
-  extract_string_field "requestToken" "$response"
+    "$DYNATRACE_API_URL/query:execute" 2>&1)
+  http_code=$(printf '%s' "$response" | grep -oE '__HTTP_STATUS__:[0-9]+' | tail -n1 | cut -d: -f2)
+  response=$(printf '%s' "$response" | sed -E 's/__HTTP_STATUS__:[0-9]+$//')
+
+  local token
+  token=$(extract_string_field "requestToken" "$response")
+
+  if [ -z "$token" ] && [ "${DEBUG:-0}" = "1" ]; then
+    echo "---- DEBUG: execute failed ----" >&2
+    echo "URL:    $DYNATRACE_API_URL/query:execute" >&2
+    echo "Status: ${http_code:-no-status}" >&2
+    echo "Body:   $body" >&2
+    echo "Resp:   $response" >&2
+    echo "-------------------------------" >&2
+  fi
+
+  printf '%s' "$token"
 }
 
 # Poll until state != RUNNING (or attempts exhausted). Echoes the final response body.
