@@ -17,6 +17,9 @@ set -u
 POLL_MAX_ATTEMPTS=30
 POLL_SLEEP_SECONDS=1
 LINK_WINDOW_SECONDS=45
+# Delay between processing each URL. Helps avoid Dynatrace rate-limit / scan-budget
+# contention when the input file has many URLs. Override via env: SLEEP_BETWEEN_URLS=0
+SLEEP_BETWEEN_URLS="${SLEEP_BETWEEN_URLS:-1}"
 
 # ---------- arg parsing ----------
 if [ $# -lt 1 ]; then
@@ -53,7 +56,7 @@ DYNATRACE_TENANT_URL="${DYNATRACE_TENANT_URL%/}"
 # input URL ever contains a double quote, escape it before reaching here.
 build_dql() {
   local url="$1"
-  printf 'fetch spans, from:-24h, to:now(), scanLimitGBytes:5000 | filter url.path == "%s" | fields trace.id, start_time | limit 5' "$url"
+  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter contains(lower(url.path), lower("%s")) | fieldsAdd _kindRank = if(span.kind == "server", 0, else: 1) | sort _kindRank asc | summarize { startTime = takeMin(start_time) }, by: { trace.id } | sort startTime desc | limit 5' "$url"
 }
 
 # Build the JSON body for query:execute.
@@ -181,7 +184,7 @@ extract_trace_pairs() {
     | while IFS= read -r frag; do
         local tid sts
         tid=$(printf '%s' "$frag" | grep -oE '"trace\.id"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
-        sts=$(printf '%s' "$frag" | grep -oE '"start_time"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+        sts=$(printf '%s' "$frag" | grep -oE '"startTime"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
         if [ -n "$tid" ]; then
           printf '%s|%s\n' "$tid" "$sts"
         fi
@@ -261,6 +264,11 @@ while IFS= read -r raw_line || [ -n "$raw_line" ]; do
       link=$(build_link "$tid" "$sts")
       printf ',%s,%s,%s\n' "$(csv_escape "$tid")" "$(csv_escape "$sts")" "$(csv_escape "$link")" >> "$OUTPUT_FILE"
     done
+  fi
+
+  # Delay before next URL, unless this was the last one
+  if [ "$index" -lt "$total" ] && [ "$SLEEP_BETWEEN_URLS" != "0" ]; then
+    sleep "$SLEEP_BETWEEN_URLS"
   fi
 
 done < "$INPUT_FILE"
