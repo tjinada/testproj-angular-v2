@@ -285,7 +285,7 @@
   },
   "settings": {
     "gridLayout": {
-      "displayMode": "responsive"
+      "displayMode": "responsive"   
     },
     "autoRefresh": {
       "enabled": false,
