@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+\#!/usr/bin/env bash
 # find-traces-by-url.sh
 # Reads URL paths from a text file (one per line) and queries Dynatrace
 # for traces where url.path matches exactly. Writes grouped CSV output.
@@ -50,6 +50,28 @@ DYNATRACE_API_URL="${DYNATRACE_API_URL%/}"
 DYNATRACE_TENANT_URL="${DYNATRACE_TENANT_URL%/}"
 
 # ---------- helpers ----------
+
+# Normalize a raw input line into a DQL search pattern.
+#   1. Strip a leading HTTP verb + space (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS).
+#   2. Truncate at the first '{' to use the longest static prefix.
+# Examples:
+#   "GET /cdb/foo/admin/alertChangeHistory"             -> "/cdb/foo/admin/alertChangeHistory"
+#   "POST /cdb/customer/{OCIFID}/preference/delivery"   -> "/cdb/customer/"
+#   "/mcadmin/.../statementTransactions/{ccNumber}"     -> "/mcadmin/.../statementTransactions/"
+normalize_url() {
+  local s="$1"
+  # 1. Strip leading HTTP verb + single space
+  case "$s" in
+    GET\ *|POST\ *|PUT\ *|DELETE\ *|PATCH\ *|HEAD\ *|OPTIONS\ *)
+      s="${s#* }"
+      ;;
+  esac
+  # 2. Truncate at first '{' if present
+  case "$s" in
+    *\{*) s="${s%%\{*}" ;;
+  esac
+  printf '%s' "$s"
+}
 
 # Build the DQL query for a given URL path.
 # Note: the URL is interpolated into a double-quoted DQL string literal; if any
@@ -227,7 +249,16 @@ while IFS= read -r raw_line || [ -n "$raw_line" ]; do
 
   index=$(( index + 1 ))
 
-  dql=$(build_dql "$url")
+  # Normalize for DQL search (strip HTTP verb, truncate at first '{'),
+  # but keep the original $url for display in the CSV.
+  search_pattern=$(normalize_url "$url")
+  if [ -z "$search_pattern" ]; then
+    echo "[$index/$total] $url ... SKIPPED (empty after normalization)" >&2
+    printf '%s,%s,,,\n' "$(csv_escape "$url")" "$(csv_escape "invalid input")" >> "$OUTPUT_FILE"
+    continue
+  fi
+
+  dql=$(build_dql "$search_pattern")
   body=$(build_execute_body "$dql")
 
   token=$(execute_query "$body")
