@@ -1,4 +1,4 @@
-\#!/usr/bin/env bash
+#!/usr/bin/env bash
 # find-traces-by-url.sh
 # Reads URL paths from a text file (one per line) and queries Dynatrace
 # for traces where url.path matches exactly. Writes grouped CSV output.
@@ -286,7 +286,7 @@ while IFS= read -r raw_line || [ -n "$raw_line" ]; do
   echo "[$index/$total] $url ... $count matches" >&2
 
   # One flat row per URL: url, matches, traceId, timestamp, link.
-  # Empty trace fields when there are no matches.
+  # matches is "Yes"/"No"; empty trace fields when there are no matches.
   if [ "$count" -gt 0 ]; then
     # Take the first (and only, since limit 1) trace pair
     first_pair=$(printf '%s\n' "$pairs" | head -n1)
@@ -295,12 +295,12 @@ while IFS= read -r raw_line || [ -n "$raw_line" ]; do
     link=$(build_link "$tid" "$sts")
     printf '%s,%s,%s,%s,%s\n' \
       "$(csv_escape "$url")" \
-      "$count" \
+      "Yes" \
       "$(csv_escape "$tid")" \
       "$(csv_escape "$sts")" \
       "$(csv_escape "$link")" >> "$OUTPUT_FILE"
   else
-    printf '%s,%s,,,\n' "$(csv_escape "$url")" "0" >> "$OUTPUT_FILE"
+    printf '%s,%s,,,\n' "$(csv_escape "$url")" "No" >> "$OUTPUT_FILE"
   fi
 
   # Delay before next URL, unless this was the last one
