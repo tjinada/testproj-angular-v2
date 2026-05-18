@@ -214,7 +214,7 @@ total=$(grep -cvE '^[[:space:]]*(#|$)' "$INPUT_FILE" || true)
 index=0
 
 # Write CSV header (overwrites any existing output file)
-echo "url,traceId,timestamp,link" > "$OUTPUT_FILE"
+echo "url,matches,traceId,timestamp,link" > "$OUTPUT_FILE"
 
 while IFS= read -r raw_line || [ -n "$raw_line" ]; do
   # Trim leading/trailing whitespace
@@ -233,7 +233,7 @@ while IFS= read -r raw_line || [ -n "$raw_line" ]; do
   token=$(execute_query "$body")
   if [ -z "$token" ]; then
     echo "[$index/$total] $url ... EXECUTE FAILED" >&2
-    printf '%s,%s,,\n' "$(csv_escape "$url")" "$(csv_escape "execute failed")" >> "$OUTPUT_FILE"
+    printf '%s,%s,,,\n' "$(csv_escape "$url")" "$(csv_escape "execute failed")" >> "$OUTPUT_FILE"
     continue
   fi
 
@@ -241,7 +241,7 @@ while IFS= read -r raw_line || [ -n "$raw_line" ]; do
   poll_rc=$?
   if [ "$poll_rc" -ne 0 ]; then
     echo "[$index/$total] $url ... POLL TIMEOUT" >&2
-    printf '%s,%s,,\n' "$(csv_escape "$url")" "$(csv_escape "poll timeout")" >> "$OUTPUT_FILE"
+    printf '%s,%s,,,\n' "$(csv_escape "$url")" "$(csv_escape "poll timeout")" >> "$OUTPUT_FILE"
     continue
   fi
 
@@ -254,16 +254,22 @@ while IFS= read -r raw_line || [ -n "$raw_line" ]; do
 
   echo "[$index/$total] $url ... $count matches" >&2
 
-  # URL header row: url, "<N> matches", empty, empty
-  printf '%s,%s,,\n' "$(csv_escape "$url")" "$(csv_escape "$count matches")" >> "$OUTPUT_FILE"
-
-  # Trace rows beneath (empty url column)
+  # One flat row per URL: url, matches, traceId, timestamp, link.
+  # Empty trace fields when there are no matches.
   if [ "$count" -gt 0 ]; then
-    printf '%s\n' "$pairs" | while IFS='|' read -r tid sts; do
-      [ -z "$tid" ] && continue
-      link=$(build_link "$tid" "$sts")
-      printf ',%s,%s,%s\n' "$(csv_escape "$tid")" "$(csv_escape "$sts")" "$(csv_escape "$link")" >> "$OUTPUT_FILE"
-    done
+    # Take the first (and only, since limit 1) trace pair
+    first_pair=$(printf '%s\n' "$pairs" | head -n1)
+    tid="${first_pair%%|*}"
+    sts="${first_pair#*|}"
+    link=$(build_link "$tid" "$sts")
+    printf '%s,%s,%s,%s,%s\n' \
+      "$(csv_escape "$url")" \
+      "$count" \
+      "$(csv_escape "$tid")" \
+      "$(csv_escape "$sts")" \
+      "$(csv_escape "$link")" >> "$OUTPUT_FILE"
+  else
+    printf '%s,%s,,,\n' "$(csv_escape "$url")" "0" >> "$OUTPUT_FILE"
   fi
 
   # Delay before next URL, unless this was the last one
