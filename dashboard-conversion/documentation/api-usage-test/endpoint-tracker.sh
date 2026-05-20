@@ -49,10 +49,11 @@ DYNATRACE_API_URL="${DYNATRACE_API_URL%/}"
 
 # Build the Phase 1 DQL: discover every /banking/services/* endpoint and its latest trace ID.
 # Groups by Dynatrace's normalized endpoint.name (which strips IDs/UUIDs); falls back
-# to url.path when endpoint.name is null. Returns one row per distinct endpoint.
+# to url.path when endpoint.name is null. The "CDB - " label prefix Dynatrace sometimes
+# adds to endpoint.name is stripped so labelled and unlabelled variants collapse to one row.
 build_discovery_dql() {
   local limit="${MAX_RESULTS:-1000}"
-  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter contains(lower(url.path), lower("/banking/services/")) | filter span.kind == "server" | fieldsAdd endpoint = if(isNotNull(endpoint.name), endpoint.name, else: url.path) | sort start_time desc | summarize { latestTraceId = takeFirst(trace.id) }, by: { endpoint } | limit %s' "$limit"
+  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter contains(lower(url.path), lower("/banking/services/")) | filter span.kind == "server" | fieldsAdd endpoint = if(isNotNull(endpoint.name), endpoint.name, else: url.path) | fieldsAdd endpoint = replaceString(endpoint, "CDB - ", "") | sort start_time desc | summarize { latestTraceId = takeFirst(trace.id) }, by: { endpoint } | limit %s' "$limit"
 }
 
 # Build the Phase 2 DQL: for a given trace ID, find CDBBOS''s outbound client-spans.
