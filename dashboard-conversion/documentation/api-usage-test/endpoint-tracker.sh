@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # map-banking-services-endpoints.sh
 # Two-phase Dynatrace probe:
-#   1. Discover every /banking/services/* endpoint seen in the last 24h
+#   1. Discover every /banking/services/* endpoint (or look up a user-provided list)
 #      and its most recent trace ID.
 #   2. For each endpoint's latest trace, find what downstream calls CDBBOS
 #      makes (server.address + endpoint.name + url.path).
@@ -9,7 +9,15 @@
 #
 # Usage:
 #   ./map-banking-services-endpoints.sh [output-file]
-#   (no input file: discovery is in Phase 1)
+#   ./map-banking-services-endpoints.sh -i <input-file> [output-file]
+#
+# Discovery mode (no -i): Phase 1 queries Dynatrace for all /banking/services/*
+# endpoints seen in the last 24h.
+#
+# Input-list mode (-i <file>): reads one URL per line from <file> and looks up
+# each one's most recent trace via exact url.path match. URLs without recent
+# traffic appear in the CSV with "(no recent trace found)". Lines starting with
+# # are ignored. Optional leading HTTP verb (GET/POST/...) is stripped.
 #
 # Env (sourced from ./.env if present, else from environment):
 #   DYNATRACE_API_URL      e.g. https://<proxy>--<tenant>.prod2.apps.dynatrace.com/platform/storage/query/v1
@@ -32,7 +40,42 @@ LINK_WINDOW_SECONDS=45
 SLEEP_BETWEEN_URLS="${SLEEP_BETWEEN_URLS:-1}"
 
 # ---------- arg parsing ----------
-OUTPUT_FILE="${1:-banking-services-map.csv}"
+# Usage:
+#   ./map-banking-services-endpoints.sh [output.csv]                      # discovery mode
+#   ./map-banking-services-endpoints.sh -i input.txt [output.csv]         # input-list mode
+INPUT_FILE=""
+OUTPUT_FILE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -i)
+      INPUT_FILE="${2:-}"
+      if [ -z "$INPUT_FILE" ]; then
+        echo "ERROR: -i requires an input file path" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
+    -*)
+      echo "ERROR: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      if [ -z "$OUTPUT_FILE" ]; then
+        OUTPUT_FILE="$1"
+      else
+        echo "ERROR: unexpected argument: $1" >&2
+        exit 1
+      fi
+      shift
+      ;;
+  esac
+done
+OUTPUT_FILE="${OUTPUT_FILE:-banking-services-map.csv}"
+
+if [ -n "$INPUT_FILE" ] && [ ! -f "$INPUT_FILE" ]; then
+  echo "ERROR: input file not found: $INPUT_FILE" >&2
+  exit 1
+fi
 
 # ---------- env ----------
 if [ -f ".env" ]; then
@@ -56,6 +99,34 @@ DYNATRACE_API_URL="${DYNATRACE_API_URL%/}"
 build_discovery_dql() {
   local limit="${MAX_RESULTS:-1000}"
   printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter contains(lower(url.path), lower("/banking/services/")) | filter span.kind == "server" | fieldsAdd endpoint = if(isNotNull(endpoint.name), endpoint.name, else: url.path) | fieldsAdd endpoint = replaceString(endpoint, "CDB - ", "") | sort start_time desc | summarize { latestTraceId = takeFirst(trace.id), latestTraceStartTime = takeFirst(start_time) }, by: { endpoint } | limit %s' "$limit"
+}
+
+# Build the lookup DQL for input-list mode: find the latest trace ID + start_time
+# for a single URL using exact url.path match. Returns one row max.
+build_lookup_dql() {
+  local url="$1"
+  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter url.path == "%s" | filter span.kind == "server" | sort start_time desc | fields trace.id, start_time | limit 1' "$url"
+}
+
+# Extract (traceId, startTime) from a single-row lookup poll response.
+# Output: "<traceId>|<startTime>" or empty if no record.
+extract_lookup_result() {
+  local response="$1"
+  local frag
+  frag=$(printf '%s' "$response" | sed 's/},{/}\n{/g' | grep '"trace.id"' | head -n1)
+  [ -z "$frag" ] && return
+  local tid sts sts_num
+  tid=$(printf '%s' "$frag" | grep -oE '"trace\.id"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+  sts=$(printf '%s' "$frag" | grep -oE '"start_time"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+  if [ -z "$sts" ]; then
+    sts_num=$(printf '%s' "$frag" | grep -oE '"start_time"[[:space:]]*:[[:space:]]*[0-9]+' | head -n1 | grep -oE '[0-9]+$')
+    if [ -n "$sts_num" ]; then
+      sts=$(epoch_ns_to_iso "$sts_num")
+    fi
+  fi
+  if [ -n "$tid" ]; then
+    printf '%s|%s\n' "$tid" "$sts"
+  fi
 }
 
 # Convert nanoseconds-since-epoch (how Dynatrace stores span timestamps) to ISO8601.
@@ -275,34 +346,99 @@ else
   echo "entryEndpoint,traceId,downstream" > "$OUTPUT_FILE"
 fi
 
-# ---- Phase 1: discover endpoints ----
-echo "Phase 1: discovering /banking/services/* endpoints (last 24h)..." >&2
+# ---- Phase 1: build (endpoint, traceId, startTime) triples ----
+endpoint_pairs=""
 
-discovery_dql=$(build_discovery_dql)
-discovery_body=$(build_execute_body "$discovery_dql")
+if [ -n "$INPUT_FILE" ]; then
+  # Input-list mode: look up each URL individually via exact url.path match.
+  echo "Phase 1: looking up trace IDs for URLs in $INPUT_FILE (last 24h)..." >&2
+  input_count=$(grep -cvE '^[[:space:]]*(#|$)' "$INPUT_FILE" || true)
+  input_idx=0
+  endpoint_pairs_lines=""
 
-discovery_token=$(execute_query "$discovery_body")
-if [ -z "$discovery_token" ]; then
-  echo "ERROR: discovery query execute failed. Run with DEBUG=1 for details." >&2
-  exit 1
+  while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+    # Trim leading/trailing whitespace
+    url="${raw_line#"${raw_line%%[![:space:]]*}"}"
+    url="${url%"${url##*[![:space:]]}"}"
+    # Skip blanks and comments
+    [ -z "$url" ] && continue
+    case "$url" in \#*) continue ;; esac
+    # Strip leading HTTP verb if present
+    case "$url" in
+      GET\ *|POST\ *|PUT\ *|DELETE\ *|PATCH\ *|HEAD\ *|OPTIONS\ *)
+        url="${url#* }"
+        ;;
+    esac
+    [ -z "$url" ] && continue
+
+    input_idx=$(( input_idx + 1 ))
+
+    lookup_dql=$(build_lookup_dql "$url")
+    lookup_body=$(build_execute_body "$lookup_dql")
+    lookup_token=$(execute_query "$lookup_body")
+    if [ -z "$lookup_token" ]; then
+      echo "[$input_idx/$input_count] $url ... LOOKUP EXECUTE FAILED" >&2
+      endpoint_pairs_lines="${endpoint_pairs_lines}${url}|LOOKUP_FAILED|
+"
+      [ "$input_idx" -lt "$input_count" ] && [ "$SLEEP_BETWEEN_URLS" != "0" ] && sleep "$SLEEP_BETWEEN_URLS"
+      continue
+    fi
+    lookup_response=$(poll_query "$lookup_token")
+    lookup_rc=$?
+    if [ "$lookup_rc" -ne 0 ]; then
+      echo "[$input_idx/$input_count] $url ... LOOKUP POLL TIMEOUT" >&2
+      endpoint_pairs_lines="${endpoint_pairs_lines}${url}|LOOKUP_TIMEOUT|
+"
+      [ "$input_idx" -lt "$input_count" ] && [ "$SLEEP_BETWEEN_URLS" != "0" ] && sleep "$SLEEP_BETWEEN_URLS"
+      continue
+    fi
+
+    pair=$(extract_lookup_result "$lookup_response")
+    if [ -z "$pair" ]; then
+      echo "[$input_idx/$input_count] $url ... no recent trace" >&2
+      endpoint_pairs_lines="${endpoint_pairs_lines}${url}|NO_TRACE|
+"
+    else
+      echo "[$input_idx/$input_count] $url ... found trace ${pair%%|*}" >&2
+      endpoint_pairs_lines="${endpoint_pairs_lines}${url}|${pair}
+"
+    fi
+
+    [ "$input_idx" -lt "$input_count" ] && [ "$SLEEP_BETWEEN_URLS" != "0" ] && sleep "$SLEEP_BETWEEN_URLS"
+  done < "$INPUT_FILE"
+
+  endpoint_pairs=$(printf '%s' "$endpoint_pairs_lines" | sed '/^$/d')
+else
+  # Discovery mode: one big query to find every /banking/services/* endpoint.
+  echo "Phase 1: discovering /banking/services/* endpoints (last 24h)..." >&2
+
+  discovery_dql=$(build_discovery_dql)
+  discovery_body=$(build_execute_body "$discovery_dql")
+
+  discovery_token=$(execute_query "$discovery_body")
+  if [ -z "$discovery_token" ]; then
+    echo "ERROR: discovery query execute failed. Run with DEBUG=1 for details." >&2
+    exit 1
+  fi
+
+  discovery_response=$(poll_query "$discovery_token")
+  poll_rc=$?
+  if [ "$poll_rc" -ne 0 ]; then
+    echo "ERROR: discovery query poll timed out." >&2
+    exit 1
+  fi
+
+  endpoint_pairs=$(extract_endpoints "$discovery_response")
 fi
 
-discovery_response=$(poll_query "$discovery_token")
-poll_rc=$?
-if [ "$poll_rc" -ne 0 ]; then
-  echo "ERROR: discovery query poll timed out." >&2
-  exit 1
-fi
-
-endpoint_pairs=$(extract_endpoints "$discovery_response")
 if [ -z "$endpoint_pairs" ]; then
-  echo "No endpoints matched /banking/services/* in the last 24h." >&2
+  echo "No endpoints to process." >&2
   echo "Done. Output: $OUTPUT_FILE" >&2
   exit 0
 fi
 
 total=$(printf '%s\n' "$endpoint_pairs" | wc -l | tr -d '[:space:]')
-echo "Phase 1: found $total distinct endpoints." >&2
+echo "Phase 1: $total endpoint(s) ready for Phase 2." >&2
 
 # If Phase 2 is disabled, write the slim CSV (endpoint, traceId) and stop.
 if [ "$PHASE2" = "0" ]; then
@@ -324,6 +460,31 @@ index=0
 while IFS='|' read -r url_path trace_id start_time; do
   [ -z "$url_path" ] && continue
   index=$(( index + 1 ))
+
+  # Handle sentinel values from input-list lookup failures
+  case "$trace_id" in
+    LOOKUP_FAILED)
+      echo "[$index/$total] $url_path ... skipped (lookup failed)" >&2
+      printf '%s,,%s\n' \
+        "$(csv_escape "$url_path")" \
+        "$(csv_escape "(lookup failed)")" >> "$OUTPUT_FILE"
+      continue
+      ;;
+    LOOKUP_TIMEOUT)
+      echo "[$index/$total] $url_path ... skipped (lookup timeout)" >&2
+      printf '%s,,%s\n' \
+        "$(csv_escape "$url_path")" \
+        "$(csv_escape "(lookup timeout)")" >> "$OUTPUT_FILE"
+      continue
+      ;;
+    NO_TRACE)
+      echo "[$index/$total] $url_path ... skipped (no recent trace)" >&2
+      printf '%s,,%s\n' \
+        "$(csv_escape "$url_path")" \
+        "$(csv_escape "(no recent trace found)")" >> "$OUTPUT_FILE"
+      continue
+      ;;
+  esac
 
   trace_dql=$(build_trace_dql "$trace_id" "$start_time")
   trace_body=$(build_execute_body "$trace_dql")
