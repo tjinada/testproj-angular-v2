@@ -19,6 +19,7 @@
 #   PHASE2                 set to 0 to skip Phase 2 (downstream lookup); CSV will only have endpoints + trace IDs
 #   MAX_RESULTS            cap Phase 1 row count (default 1000). Useful for fine-tuning: MAX_RESULTS=10
 #   DEBUG                  set to 1 to print HTTP body/response on execute failures
+#   DEBUG_TRACE            set to 1 to dump raw Phase 2 response when 0 downstream calls found
 
 set -u
 
@@ -58,9 +59,13 @@ build_discovery_dql() {
 
 # Build the Phase 2 DQL: for a given trace ID, find CDBBOS''s outbound client-spans.
 # Returns one row per (server.address, endpoint.name) pair seen on a CDBBOS client span.
+# Filter is loose-ish: contains() on service.name catches "CDBBOS", "CDBBOS (/banking)",
+# "CDB - ..." variants. span.kind filter is omitted on purpose since not all client
+# spans are tagged; we filter post hoc on server.address presence to keep only
+# outbound calls.
 build_trace_dql() {
   local trace_id="$1"
-  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter trace.id == toUid("%s") | filter span.kind == "client" | filter matchesValue(dt.entity.service.entity.name, "CDBBOS (/banking)") | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$trace_id"
+  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter trace.id == toUid("%s") | filter contains(service.name, "CDBBOS") | filter isNotNull(server.address) | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$trace_id"
 }
 
 # Build the JSON body for query:execute.
@@ -274,6 +279,11 @@ while IFS='|' read -r url_path trace_id; do
   downstream=$(extract_downstream_calls "$trace_response")
   if [ -z "$downstream" ]; then
     echo "[$index/$total] $url_path ($trace_id) ... 0 downstream calls" >&2
+    if [ "${DEBUG_TRACE:-0}" = "1" ]; then
+      echo "---- DEBUG_TRACE: raw response for $trace_id ----" >&2
+      echo "$trace_response" >&2
+      echo "----" >&2
+    fi
     printf '%s,%s,%s,,\n' \
       "$(csv_escape "$url_path")" \
       "$(csv_escape "$trace_id")" \
