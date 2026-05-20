@@ -58,6 +58,25 @@ build_discovery_dql() {
   printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter contains(lower(url.path), lower("/banking/services/")) | filter span.kind == "server" | fieldsAdd endpoint = if(isNotNull(endpoint.name), endpoint.name, else: url.path) | fieldsAdd endpoint = replaceString(endpoint, "CDB - ", "") | sort start_time desc | summarize { latestTraceId = takeFirst(trace.id), latestTraceStartTime = takeFirst(start_time) }, by: { endpoint } | limit %s' "$limit"
 }
 
+# Convert nanoseconds-since-epoch (how Dynatrace stores span timestamps) to ISO8601.
+# Returns empty string on failure.
+epoch_ns_to_iso() {
+  local ns="$1"
+  local sec="${ns:0:${#ns}-9}"
+  [ -z "$sec" ] && return
+  local result
+  # GNU date
+  if result=$(date -u -d "@$sec" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null); then
+    printf '%s' "$result"
+    return
+  fi
+  # BSD date (macOS)
+  if result=$(date -u -r "$sec" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null); then
+    printf '%s' "$result"
+    return
+  fi
+}
+
 # Compute ISO8601 timestamp offset by N seconds (positive or negative) from a given ISO8601.
 # Falls back to the original timestamp if `date` cannot parse it. Used to build a tight
 # Phase 2 timeframe window around the trace's start_time.
@@ -92,21 +111,24 @@ offset_iso() {
 build_trace_dql() {
   local trace_id="$1"
   local start_iso="$2"
-  local from_iso to_iso timeframe
+  local from_iso to_iso timeframe scan_limit
 
   if [ -n "$start_iso" ]; then
     from_iso=$(offset_iso "$start_iso" -300)
     to_iso=$(offset_iso "$start_iso" 300)
     if [ "$from_iso" != "$start_iso" ] && [ "$to_iso" != "$start_iso" ]; then
       timeframe="from:\"$from_iso\", to:\"$to_iso\""
+      scan_limit="50"
     else
       timeframe="from:-24h"
+      scan_limit="500"
     fi
   else
     timeframe="from:-24h"
+    scan_limit="500"
   fi
 
-  printf 'fetch spans, %s, scanLimitGBytes:50 | filter trace.id == toUid("%s") | filter span.kind == "client" | filter servlet.context.name == "CDBBOS" | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$timeframe" "$trace_id"
+  printf 'fetch spans, %s, scanLimitGBytes:%s | filter trace.id == toUid("%s") | filter span.kind == "client" | filter servlet.context.name == "CDBBOS" | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$timeframe" "$scan_limit" "$trace_id"
 }
 
 # Build the JSON body for query:execute.
@@ -193,7 +215,16 @@ extract_endpoints() {
         local ep tid sts
         ep=$(printf '%s' "$frag" | grep -oE '"endpoint"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n1 | sed -E 's/.*"([^"]*)"$/\1/')
         tid=$(printf '%s' "$frag" | grep -oE '"latestTraceId"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+        # Try quoted ISO timestamp first
         sts=$(printf '%s' "$frag" | grep -oE '"latestTraceStartTime"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+        # Fall back to numeric (nanoseconds since epoch); convert to ISO
+        if [ -z "$sts" ]; then
+          local sts_num
+          sts_num=$(printf '%s' "$frag" | grep -oE '"latestTraceStartTime"[[:space:]]*:[[:space:]]*[0-9]+' | head -n1 | grep -oE '[0-9]+$')
+          if [ -n "$sts_num" ]; then
+            sts=$(epoch_ns_to_iso "$sts_num")
+          fi
+        fi
         if [ -n "$ep" ] && [ -n "$tid" ]; then
           printf '%s|%s|%s\n' "$ep" "$tid" "$sts"
         fi
