@@ -272,7 +272,7 @@ PHASE2="${PHASE2:-1}"
 if [ "$PHASE2" = "0" ]; then
   echo "entryEndpoint,traceId" > "$OUTPUT_FILE"
 else
-  echo "entryEndpoint,traceId,downstreamHost,downstreamEndpoint,downstreamPath" > "$OUTPUT_FILE"
+  echo "entryEndpoint,traceId,downstream" > "$OUTPUT_FILE"
 fi
 
 # ---- Phase 1: discover endpoints ----
@@ -331,7 +331,7 @@ while IFS='|' read -r url_path trace_id start_time; do
   trace_token=$(execute_query "$trace_body")
   if [ -z "$trace_token" ]; then
     echo "[$index/$total] $url_path ($trace_id) ... EXECUTE FAILED" >&2
-    printf '%s,%s,%s,,\n' \
+    printf '%s,%s,%s\n' \
       "$(csv_escape "$url_path")" \
       "$(csv_escape "$trace_id")" \
       "$(csv_escape "(execute failed)")" >> "$OUTPUT_FILE"
@@ -342,7 +342,7 @@ while IFS='|' read -r url_path trace_id start_time; do
   poll_rc=$?
   if [ "$poll_rc" -ne 0 ]; then
     echo "[$index/$total] $url_path ($trace_id) ... POLL TIMEOUT" >&2
-    printf '%s,%s,%s,,\n' \
+    printf '%s,%s,%s\n' \
       "$(csv_escape "$url_path")" \
       "$(csv_escape "$trace_id")" \
       "$(csv_escape "(poll timeout)")" >> "$OUTPUT_FILE"
@@ -350,6 +350,12 @@ while IFS='|' read -r url_path trace_id start_time; do
   fi
 
   downstream=$(extract_downstream_calls "$trace_response")
+
+  # Drop rows without a downstreamPath (they're filler/noise).
+  if [ -n "$downstream" ]; then
+    downstream=$(printf '%s\n' "$downstream" | awk -F'|' '$3 != "" { print }')
+  fi
+
   if [ -z "$downstream" ]; then
     echo "[$index/$total] $url_path ($trace_id) ... 0 downstream calls" >&2
     if [ "${DEBUG_TRACE:-0}" = "1" ]; then
@@ -357,20 +363,34 @@ while IFS='|' read -r url_path trace_id start_time; do
       echo "$trace_response" >&2
       echo "----" >&2
     fi
-    printf '%s,%s,%s,,\n' \
+    printf '%s,%s,%s\n' \
       "$(csv_escape "$url_path")" \
       "$(csv_escape "$trace_id")" \
       "$(csv_escape "(no downstream calls found)")" >> "$OUTPUT_FILE"
   else
     count=$(printf '%s\n' "$downstream" | wc -l | tr -d '[:space:]')
     echo "[$index/$total] $url_path ($trace_id) ... $count downstream calls" >&2
-    printf '%s\n' "$downstream" | while IFS='|' read -r d_host d_ep d_path; do
-      printf '%s,%s,%s,%s,%s\n' \
-        "$(csv_escape "$url_path")" \
-        "$(csv_escape "$trace_id")" \
-        "$(csv_escape "$d_host")" \
-        "$(csv_escape "$d_ep")" \
-        "$(csv_escape "$d_path")" >> "$OUTPUT_FILE"
+    # First row carries entryEndpoint + traceId; subsequent rows leave those blank
+    # so multiple downstreams are visually grouped under one entry.
+    first_row=1
+    printf '%s\n' "$downstream" | while IFS='|' read -r d_host _d_ep d_path; do
+      # Combine host + path with a single slash. Strip any leading slash on path
+      # to avoid host//path. If host is empty but path isn't, just use path.
+      d_path_trimmed="${d_path#/}"
+      if [ -n "$d_host" ]; then
+        combined="${d_host}/${d_path_trimmed}"
+      else
+        combined="/${d_path_trimmed}"
+      fi
+      if [ "$first_row" = "1" ]; then
+        printf '%s,%s,%s\n' \
+          "$(csv_escape "$url_path")" \
+          "$(csv_escape "$trace_id")" \
+          "$(csv_escape "$combined")" >> "$OUTPUT_FILE"
+        first_row=0
+      else
+        printf ',,%s\n' "$(csv_escape "$combined")" >> "$OUTPUT_FILE"
+      fi
     done
   fi
 
