@@ -84,6 +84,9 @@ offset_iso() {
 }
 
 # Build the Phase 2 DQL: for a given trace ID + start time, find CDBBOS''s outbound spans.
+# Filter approach: spans where servlet.context.name == "CDBBOS" AND span.kind == "client"
+# are exactly the outbound HTTP calls CDBBOS makes. servlet.context.name stays with the
+# calling process even on client spans (unlike service.name which reflects the callee).
 # Timeframe is narrowed to ±5 minutes around the trace start_time to keep scan cheap.
 # Falls back to last-24h if start_time conversion fails.
 build_trace_dql() {
@@ -103,7 +106,7 @@ build_trace_dql() {
     timeframe="from:-24h"
   fi
 
-  printf 'fetch spans, %s, scanLimitGBytes:50 | filter trace.id == toUid("%s") | filter isNotNull(server.address) | fieldsAdd serviceName = entityAttr(dt.entity.service, "entity.name") | filter contains(serviceName, "CDBBOS") | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$timeframe" "$trace_id"
+  printf 'fetch spans, %s, scanLimitGBytes:50 | filter trace.id == toUid("%s") | filter span.kind == "client" | filter servlet.context.name == "CDBBOS" | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$timeframe" "$trace_id"
 }
 
 # Build the JSON body for query:execute.
