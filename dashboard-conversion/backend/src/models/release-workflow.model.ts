@@ -33,6 +33,13 @@ export interface SubStep {
    */
   editableField: string | null;
   /**
+   * UI hint for the inline edit input: 'text' for a single-line <input>,
+   * 'textarea' for a multi-line <textarea>. Resolved by the loader from
+   * the sub-step's runner (RUNNER_INPUT_TYPES map). Defaults to 'text'
+   * if no runner or no mapping.
+   */
+  inputType: 'text' | 'textarea';
+  /**
    * Placeholder text shown in the inline edit input. Null = use the
    * default placeholder for the sub-step's runner (or a generic one if
    * there's no runner). Set explicitly in YAML to override.
@@ -112,6 +119,15 @@ export interface ReleaseMetadata {
   tagCdbUiUrl: string | null;   // Stage 9: CDB UI repo Git tag URL
   tagCdbConfigsUrl: string | null;   // Stage 9: CDB Configs repo Git tag URL
   tagFreddyUrl: string | null;   // Stage 9: Freddy repo Git tag URL
+  cdbbosConfigBranchUrl: string | null;   // Stage 2: CDBBOS Config repo release branch
+  cdbbosReleaseBranchUrl: string | null;   // Stage 2: CDBBOS main repo release branch
+  cdbSwaggerBranchUrl: string | null;   // Stage 2: CDB Swagger repo release branch
+  cdbbosJiraUrl: string | null;   // Stage 2: master JIRA ticket for CDBBOS Configs work
+  retrofitCdbbosPrUrl: string | null;   // Stage 9: retrofit CDBBOS release branch → master PR
+  retrofitCdbbosConfigPrUrl: string | null;   // Stage 9: retrofit CDBBOS Config release branch → master PR
+  tagCdbbosUrl: string | null;   // Stage 9: CDBBOS repo Git tag URL
+  tagCdbbosConfigUrl: string | null;   // Stage 9: CDBBOS Config repo Git tag URL
+  dependencyJarBranchUrls: string | null;   // Stage 2: newline-delimited list of dependency JAR branch URLs
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

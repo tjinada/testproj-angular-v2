@@ -61,6 +61,27 @@ const SHAPE_FORMATTERS: ShapeFormatter[] = [
     },
   },
 
+  // GitHub branch (branchName + owner/repo)
+  {
+    matches: (r) => has(r, 'branchName'),
+    render:  (r) => `Branch found: ${str(r, 'branchName')}`,
+  },
+
+  // GitHub tag (tagName + owner/repo)
+  {
+    matches: (r) => has(r, 'tagName'),
+    render:  (r) => `Tag found: ${str(r, 'tagName')}`,
+  },
+
+  // GitHub branches multi-URL (total + branches array). All validated.
+  {
+    matches: (r) => has(r, 'total') && has(r, 'branches'),
+    render:  (r) => {
+      const total = str(r, 'total');
+      return `${total}/${total} branches validated`;
+    },
+  },
+
   // valueIsSet — single-key result. Last in the list because it's the loosest match.
   {
     matches: (r) => isPlainObject(r) && Object.keys(r as object).length === 1,

@@ -138,6 +138,49 @@ export class StageViewComponent {
     });
   }
 
+  /**
+   * True when the linked check's result is the multi-URL shape — i.e. the
+   * runner is githubBranchUrlsMultiCheck. Detected by shape: result has
+   * a numeric `total` and an array of `branches` and/or `failures` with
+   * per-URL entries. The template uses this to render a per-URL list
+   * instead of a single summary line.
+   */
+  isMultiUrlResult(s: SubStep): boolean {
+    const check = this.linkedCheck(s);
+    if (!check || !check.result) return false;
+    const r = check.result as any;
+    return typeof r.total === 'number' && (Array.isArray(r.branches) || Array.isArray(r.failures));
+  }
+
+  /**
+   * Combined per-URL entries from the multi-URL result, in input order:
+   * each entry is { url, ok, label, reason? }.
+   *   - ok=true  → label is "branchName" (or url fallback), no reason
+   *   - ok=false → label is url, reason is the failure detail
+   * Returns [] for any non-multi-URL check.
+   */
+  multiUrlEntries(s: SubStep): Array<{ url: string; ok: boolean; label: string; reason: string | null }> {
+    const check = this.linkedCheck(s);
+    if (!check || !check.result) return [];
+    const r = check.result as any;
+    const branches = Array.isArray(r.branches) ? r.branches : [];
+    const failures = Array.isArray(r.failures) ? r.failures : [];
+    return [
+      ...branches.map((b: any) => ({
+        url: String(b.url ?? ''),
+        ok: true,
+        label: String(b.branchName ?? b.url ?? ''),
+        reason: null,
+      })),
+      ...failures.map((f: any) => ({
+        url: String(f.url ?? ''),
+        ok: false,
+        label: String(f.url ?? ''),
+        reason: String(f.reason ?? 'failed'),
+      })),
+    ];
+  }
+
   // ----- input value -----
 
   inputValue(s: SubStep): string {

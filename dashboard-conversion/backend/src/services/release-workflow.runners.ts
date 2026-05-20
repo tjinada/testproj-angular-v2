@@ -287,6 +287,103 @@ export function githubTagUrlCheck(config: { field: FieldPath }): CheckRunner {
   };
 }
 
+/**
+ * Pass if the configured field holds a newline-delimited list of GitHub
+ * branch URLs and EVERY URL resolves to an existing branch.
+ *
+ * The field value is split on newlines (also accepts commas as a fallback
+ * delimiter). Empty lines are ignored. Failure lists each URL that didn't
+ * validate, with its reason.
+ *
+ * Used for sub-steps where the count of items varies per release — e.g.
+ * dependency JAR branches, where Release A might touch 3 repos and
+ * Release B might touch 7.
+ */
+export function githubBranchUrlsMultiCheck(config: { field: FieldPath }): CheckRunner {
+  const { field } = config;
+  return async (release, check) => {
+    const raw = readField(release, field);
+    if (!raw || !raw.trim()) return fail(check, `${field} is not set on this release`);
+
+    // Split on newlines or commas; drop empties and whitespace.
+    const urls = raw
+      .split(/[\n,]+/)
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+
+    if (urls.length === 0) return fail(check, `${field} has no URLs after parsing`);
+
+    const validated: Array<{ url: string; branchName: string; owner: string; repo: string; sha: string | null }> = [];
+    const failures: Array<{ url: string; reason: string }> = [];
+
+    for (const url of urls) {
+      const parsed = parseGithubBranchUrl(url);
+      if (!parsed) {
+        failures.push({ url, reason: 'could not parse owner/repo/branch from URL' });
+        continue;
+      }
+      try {
+        const branch: any = await githubService.getBranch(parsed.owner, parsed.repo, parsed.branch);
+        if (!branch || !branch.name) {
+          failures.push({ url, reason: `branch not found: ${parsed.owner}/${parsed.repo}@${parsed.branch}` });
+          continue;
+        }
+        validated.push({
+          url,
+          branchName: branch.name,
+          owner: parsed.owner,
+          repo: parsed.repo,
+          sha: branch.commit?.sha ?? null,
+        });
+      } catch (err: any) {
+        failures.push({ url, reason: err?.message ?? 'GitHub API call failed' });
+      }
+    }
+
+    if (failures.length > 0) {
+      const total = urls.length;
+      const okCount = validated.length;
+      // Build a structured result so the UI can render per-URL rows with
+      // status icons. The textual errorMessage is still set as a human-
+      // readable summary for any consumer that reads only that.
+      const lines = failures.map((f) => `  - ${f.url}: ${f.reason}`).join('\n');
+      return {
+        ...check,
+        status: 'failed',
+        lastRunAt: nowIso(),
+        result: {
+          total,
+          branches: validated.map((v) => ({
+            url: v.url,
+            branchName: v.branchName,
+            owner: v.owner,
+            repo: v.repo,
+            ok: true,
+          })),
+          failures: failures.map((f) => ({
+            url: f.url,
+            reason: f.reason,
+            ok: false,
+          })),
+        },
+        errorMessage: `${okCount}/${total} branches validated; ${failures.length} failed:\n${lines}`,
+      };
+    }
+
+    return pass(check, {
+      total: validated.length,
+      branches: validated.map((v) => ({
+        url: v.url,
+        branchName: v.branchName,
+        owner: v.owner,
+        repo: v.repo,
+        ok: true,
+      })),
+      failures: [],
+    });
+  };
+}
+
 export function jiraFixVersionCheck(config: { field: FieldPath }): CheckRunner {
   const { field } = config;
   return async (release, check) => {
@@ -370,10 +467,21 @@ export const FACTORY_REGISTRY: Record<string, FactoryFn> = {
   confluencePageUrlCheck,
   githubPrUrlCheck,
   githubBranchUrlCheck,
+  githubBranchUrlsMultiCheck,
   githubTagUrlCheck,
   jiraFixVersionCheck,
   jiraTicketUrlCheck,
   valueIsSetCheck,
+};
+
+/**
+ * UI hint per runner: which kind of input the inline editor should render.
+ * Defaults to 'text' (single-line <input>) when the runner is absent from
+ * this map. The loader propagates the resolved value to each sub-step's
+ * `inputType` field; the frontend reads it.
+ */
+export const RUNNER_INPUT_TYPES: Record<string, 'text' | 'textarea'> = {
+  githubBranchUrlsMultiCheck: 'textarea',
 };
 
 /**
@@ -389,6 +497,7 @@ export const RUNNER_PLACEHOLDERS: Record<string, string> = {
   confluencePageUrlCheck: 'Paste Confluence page URL, e.g. https://bmo.atlassian.net/wiki/spaces/.../pages/1234567/...',
   githubPrUrlCheck:       'Paste Pull Request URL, e.g. https://github.com/your-org/repo/pull/123',
   githubBranchUrlCheck:   'Paste GitHub branch URL, e.g. https://github.com/your-org/repo/tree/release/r86.0.0',
+  githubBranchUrlsMultiCheck: 'Paste one GitHub branch URL per line\nhttps://github.com/your-org/repo-a/tree/release/r86.0.0\nhttps://github.com/your-org/repo-b/tree/release/r86.0.0',
   githubTagUrlCheck:      'Paste GitHub tag URL, e.g. https://github.com/your-org/repo/releases/tag/v86.0.0',
   jiraFixVersionCheck:    'Paste JIRA Fix Version name, e.g. R86.0.0-103052',
   jiraTicketUrlCheck:     'Paste JIRA ticket URL, e.g. https://bmo.atlassian.net/browse/SSRELEASE-7001',

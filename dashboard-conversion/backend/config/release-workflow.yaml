@@ -104,23 +104,49 @@ stages:
 
   # ===========================================================================
   - id: stage2-branching
-    name: Branching & Configs (T-14)
+    name: Branching & Configs (T-14 to T-10)
     dependsOn: [stage1-intake]
     subSteps:
+      # ---- CDB UI (frontend) ----
       - id: create-cdb-ui-configs-branch
         label: Create CDB UI Configs branch off master
         editableField: branches.cdbUiConfigs
         runner: githubBranchUrlCheck
       - id: email-adms
-        label: Email ADMs/devs from Scope Intake
+        label: Email ADMs/devs from Scope Intake (CDB UI)
       - id: open-master-jira
         label: Open master JIRA "CDB UI Configs - RXX"
         editableField: cdbUiConfigJiraUrl
         runner: jiraTicketUrlCheck
       - id: add-da-team-subtasks
-        label: Add subtasks per DA team
+        label: Add subtasks per DA team (CDB UI)
       - id: run-configs-report
         label: Run CDB_Release_Configs_Report in QA Signoff env
+      # ---- CDBBOS (backend) ----
+      - id: create-cdbbos-config-branch
+        label: Create CDBBOS Config branch off master
+        editableField: cdbbosConfigBranchUrl
+        runner: githubBranchUrlCheck
+      - id: create-cdbbos-release-branch
+        label: Create CDBBOS release branch off master
+        editableField: cdbbosReleaseBranchUrl
+        runner: githubBranchUrlCheck
+      - id: create-cdb-swagger-branch
+        label: Create CDB Swagger release branch off master
+        editableField: cdbSwaggerBranchUrl
+        runner: githubBranchUrlCheck
+      - id: create-dependency-jar-branches
+        label: Create Dependency JAR release branches for each applicable repo
+        editableField: dependencyJarBranchUrls
+        runner: githubBranchUrlsMultiCheck
+      - id: email-cdbbos-adms
+        label: Email ADMs/devs from Scope Intake (CDBBOS)
+      - id: open-cdbbos-master-jira
+        label: Open master JIRA "CDBBOS Configs - RXX"
+        editableField: cdbbosJiraUrl
+        runner: jiraTicketUrlCheck
+      - id: add-cdbbos-da-team-subtasks
+        label: Add subtasks per DA team (CDBBOS)
 
   # ===========================================================================
   - id: stage3-build-stabilization
@@ -166,11 +192,17 @@ stages:
 
   # ===========================================================================
   - id: stage5-war-promotion
-    name: WAR Promotion (T-4 to T-3)
+    name: Artifact Promotion (T-4 to T-3)
     dependsOn: [stage4-mobile-build]
     subSteps:
       - id: promote-war-azure
-        label: Promote WAR via Azure pipeline (definitionId=8398)
+        label: Promote CDB UI WAR via Azure pipeline (definitionId=8398)
+      - id: promote-cdbbos-ear-azure
+        label: Promote CDBBOS EAR build into PROD Artifactory (Azure pipeline)
+      - id: validate-cdbbos-ear-in-artifactory
+        label: Validate CDBBOS EAR uploaded in PROD Artifactory color location
+      - id: promote-cdbbos-config-build
+        label: Prepare and promote CDBBOS Config build into PROD Artifactory
 
   # ===========================================================================
   # Stage 6 unlocks as soon as Stage 3 completes; runs alongside Stages 4 & 5.
@@ -235,6 +267,14 @@ stages:
         label: Retrofit Freddy release branch → master
         editableField: retrofitFreddyPrUrl
         runner: githubPrUrlCheck
+      - id: retrofit-cdbbos-branch
+        label: Retrofit CDBBOS release branch → master
+        editableField: retrofitCdbbosPrUrl
+        runner: githubPrUrlCheck
+      - id: retrofit-cdbbos-config-branch
+        label: Retrofit CDBBOS Config release branch → master
+        editableField: retrofitCdbbosConfigPrUrl
+        runner: githubPrUrlCheck
       - id: tag-cdb-ui
         label: Tag CDB UI repo
         editableField: tagCdbUiUrl
@@ -246,6 +286,14 @@ stages:
       - id: tag-freddy
         label: Tag Freddy repo
         editableField: tagFreddyUrl
+        runner: githubTagUrlCheck
+      - id: tag-cdbbos
+        label: Tag CDBBOS repo
+        editableField: tagCdbbosUrl
+        runner: githubTagUrlCheck
+      - id: tag-cdbbos-config
+        label: Tag CDBBOS Config repo
+        editableField: tagCdbbosConfigUrl
         runner: githubTagUrlCheck
 
   # ===========================================================================

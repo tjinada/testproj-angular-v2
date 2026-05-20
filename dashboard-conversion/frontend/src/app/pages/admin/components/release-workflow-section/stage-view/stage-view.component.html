@@ -75,17 +75,29 @@
             }
           </div>
 
-          <!-- read-only value when passing -->
-          @if (editable && status === 'passed' && fieldValue(s)) {
+          <!-- read-only value when passing (skipped for multi-URL where the per-URL list shows each value) -->
+          @if (editable && status === 'passed' && fieldValue(s) && !isMultiUrlResult(s)) {
             <div class="ss-row__value">
               <span class="ss-row__field">{{ s.editableField }}:</span>
               <span class="ss-row__field-val">{{ fieldValue(s) }}</span>
             </div>
           }
 
-          <!-- result line: passing summary OR failure error message -->
+          <!-- result line: passing summary OR failure error message OR per-URL list (multi runner) -->
           @if (autoTickable && check && !running) {
-            @if (status === 'passed' && check.result) {
+            @if (isMultiUrlResult(s)) {
+              <ul class="ss-row__urls">
+                @for (e of multiUrlEntries(s); track e.url) {
+                  <li class="ss-row__urls-item" [class.ss-row__urls-item--ok]="e.ok" [class.ss-row__urls-item--bad]="!e.ok">
+                    <span class="ss-row__urls-icon" aria-hidden="true">{{ e.ok ? '✓' : '✗' }}</span>
+                    <span class="ss-row__urls-label">{{ e.label }}</span>
+                    @if (!e.ok && e.reason) {
+                      <span class="ss-row__urls-reason">— {{ e.reason }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else if (status === 'passed' && check.result) {
               <div class="ss-row__result ss-row__result--passed">{{ resultLine(s) }}</div>
             } @else if (status === 'failed') {
               <div class="ss-row__result ss-row__result--failed">{{ check.errorMessage ?? 'Check failed' }}</div>
@@ -101,16 +113,27 @@
 
           <!-- inline input -->
           @if (showInput(s)) {
-            <div class="ss-row__edit">
-              <input
-                type="text"
-                class="ss-input"
-                [placeholder]="inputPlaceholder(s)"
-                [value]="inputValue(s)"
-                (input)="onInputChange(s, $any($event.target).value)"
-                (keydown.enter)="saveAndRun(s)"
-                [disabled]="running"
-              />
+            <div class="ss-row__edit" [class.ss-row__edit--multiline]="s.inputType === 'textarea'">
+              @if (s.inputType === 'textarea') {
+                <textarea
+                  class="ss-input ss-input--textarea"
+                  rows="4"
+                  [placeholder]="inputPlaceholder(s)"
+                  [value]="inputValue(s)"
+                  (input)="onInputChange(s, $any($event.target).value)"
+                  [disabled]="running"
+                ></textarea>
+              } @else {
+                <input
+                  type="text"
+                  class="ss-input"
+                  [placeholder]="inputPlaceholder(s)"
+                  [value]="inputValue(s)"
+                  (input)="onInputChange(s, $any($event.target).value)"
+                  (keydown.enter)="saveAndRun(s)"
+                  [disabled]="running"
+                />
+              }
               <button class="ss-btn ss-btn--primary" type="button" (click)="saveAndRun(s)" [disabled]="running">
                 Save & run
               </button>

@@ -49,6 +49,7 @@ import {
   FACTORY_REGISTRY,
   FactoryFn,
   RUNNER_PLACEHOLDERS,
+  RUNNER_INPUT_TYPES,
 } from './release-workflow.runners';
 
 // ============================================================================
@@ -217,6 +218,9 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
       const placeholder =
         s.placeholder ??
         (s.runner ? RUNNER_PLACEHOLDERS[s.runner] ?? null : null);
+      // Resolve inputType from the runner's declared type, defaulting to 'text'.
+      const inputType: 'text' | 'textarea' =
+        (s.runner ? RUNNER_INPUT_TYPES[s.runner] : undefined) ?? 'text';
       // Resolve helpUrl + helpUrlLabel: both come from YAML; if helpUrl is
       // set but helpUrlLabel isn't, fall back to a generic label so the UI
       // always has something to show.
@@ -229,6 +233,7 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
         source: null,
         autoTickedBy,
         editableField: s.editableField ?? null,
+        inputType,
         placeholder,
         helpUrl,
         helpUrlLabel,

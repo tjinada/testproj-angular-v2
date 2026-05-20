@@ -343,6 +343,15 @@ class ReleaseWorkflowService {
       tagCdbUiUrl: input?.tagCdbUiUrl ?? null,
       tagCdbConfigsUrl: input?.tagCdbConfigsUrl ?? null,
       tagFreddyUrl: input?.tagFreddyUrl ?? null,
+      cdbbosConfigBranchUrl: input?.cdbbosConfigBranchUrl ?? null,
+      cdbbosReleaseBranchUrl: input?.cdbbosReleaseBranchUrl ?? null,
+      cdbSwaggerBranchUrl: input?.cdbSwaggerBranchUrl ?? null,
+      cdbbosJiraUrl: input?.cdbbosJiraUrl ?? null,
+      retrofitCdbbosPrUrl: input?.retrofitCdbbosPrUrl ?? null,
+      retrofitCdbbosConfigPrUrl: input?.retrofitCdbbosConfigPrUrl ?? null,
+      tagCdbbosUrl: input?.tagCdbbosUrl ?? null,
+      tagCdbbosConfigUrl: input?.tagCdbbosConfigUrl ?? null,
+      dependencyJarBranchUrls: input?.dependencyJarBranchUrls ?? null,
       branches: {
         cdbUi: input?.branches?.cdbUi ?? null,
         cdbUiConfigs: input?.branches?.cdbUiConfigs ?? null,
@@ -658,6 +667,10 @@ class ReleaseWorkflowService {
           if ((existing.editableField ?? null) !== (tplSub.editableField ?? null)) {
             existing.editableField = tplSub.editableField ?? null;
             changes.push(`${tplStage.id}: updated editableField on sub-step '${tplSub.id}'`);
+          }
+          if ((existing.inputType ?? 'text') !== (tplSub.inputType ?? 'text')) {
+            existing.inputType = tplSub.inputType ?? 'text';
+            changes.push(`${tplStage.id}: updated inputType on sub-step '${tplSub.id}'`);
           }
           if ((existing.placeholder ?? null) !== (tplSub.placeholder ?? null)) {
             existing.placeholder = tplSub.placeholder ?? null;

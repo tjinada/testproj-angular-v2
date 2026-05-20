@@ -20,6 +20,7 @@ export interface SubStep {
   source: SubStepSource;
   autoTickedBy: string[];
   editableField: string | null;
+  inputType: 'text' | 'textarea';
   placeholder: string | null;
   helpUrl: string | null;
   helpUrlLabel: string | null;
@@ -85,6 +86,15 @@ export interface ReleaseMetadata {
   tagCdbUiUrl: string | null;
   tagCdbConfigsUrl: string | null;
   tagFreddyUrl: string | null;
+  cdbbosConfigBranchUrl: string | null;
+  cdbbosReleaseBranchUrl: string | null;
+  cdbSwaggerBranchUrl: string | null;
+  cdbbosJiraUrl: string | null;
+  retrofitCdbbosPrUrl: string | null;
+  retrofitCdbbosConfigPrUrl: string | null;
+  tagCdbbosUrl: string | null;
+  tagCdbbosConfigUrl: string | null;
+  dependencyJarBranchUrls: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

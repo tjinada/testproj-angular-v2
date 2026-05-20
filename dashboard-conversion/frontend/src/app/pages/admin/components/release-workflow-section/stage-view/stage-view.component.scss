@@ -125,9 +125,49 @@
     font-size: 11px;
     margin-top: 4px;
     word-break: break-word;
+    white-space: pre-wrap;
 
     &--passed { color: #27500A; }
     &--failed { color: #791F1F; }
+  }
+
+  // Per-URL list used by the multi-URL runner. One row per URL with a
+  // ✓ (validated) or ✗ (failed + reason) prefix.
+  &__urls {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__urls-item {
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    word-break: break-all;
+
+    &--ok  { color: #27500A; }
+    &--bad { color: #791F1F; }
+  }
+
+  &__urls-icon {
+    flex: 0 0 12px;
+    font-weight: 700;
+  }
+
+  &__urls-label {
+    flex: 0 1 auto;
+  }
+
+  &__urls-reason {
+    flex: 0 1 auto;
+    color: #791F1F;
+    font-family: var(--font-sans, system-ui, sans-serif);
+    font-size: 11px;
   }
 
   &__sub {
@@ -143,6 +183,11 @@
     align-items: stretch;
     gap: 6px;
     margin-top: 8px;
+
+    &--multiline {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 
   &__actions {
@@ -169,6 +214,14 @@
   min-width: 0;
   &:focus { outline: 2px solid #0079C1; outline-offset: -1px; border-color: transparent; }
   &:disabled { opacity: 0.6; }
+
+  &--textarea {
+    height: auto;
+    min-height: 80px;
+    padding: 8px;
+    line-height: 1.45;
+    resize: vertical;
+  }
 }
 
 .ss-btn {
