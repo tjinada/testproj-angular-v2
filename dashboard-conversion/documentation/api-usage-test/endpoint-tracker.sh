@@ -48,24 +48,62 @@ DYNATRACE_API_URL="${DYNATRACE_API_URL%/}"
 
 # ---------- helpers ----------
 
-# Build the Phase 1 DQL: discover every /banking/services/* endpoint and its latest trace ID.
+# Build the Phase 1 DQL: discover every /banking/services/* endpoint and its latest trace.
 # Groups by Dynatrace's normalized endpoint.name (which strips IDs/UUIDs); falls back
 # to url.path when endpoint.name is null. The "CDB - " label prefix Dynatrace sometimes
 # adds to endpoint.name is stripped so labelled and unlabelled variants collapse to one row.
+# Returns endpoint, latestTraceId, and latestTraceStartTime (used to narrow Phase 2 window).
 build_discovery_dql() {
   local limit="${MAX_RESULTS:-1000}"
-  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter contains(lower(url.path), lower("/banking/services/")) | filter span.kind == "server" | fieldsAdd endpoint = if(isNotNull(endpoint.name), endpoint.name, else: url.path) | fieldsAdd endpoint = replaceString(endpoint, "CDB - ", "") | sort start_time desc | summarize { latestTraceId = takeFirst(trace.id) }, by: { endpoint } | limit %s' "$limit"
+  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter contains(lower(url.path), lower("/banking/services/")) | filter span.kind == "server" | fieldsAdd endpoint = if(isNotNull(endpoint.name), endpoint.name, else: url.path) | fieldsAdd endpoint = replaceString(endpoint, "CDB - ", "") | sort start_time desc | summarize { latestTraceId = takeFirst(trace.id), latestTraceStartTime = takeFirst(start_time) }, by: { endpoint } | limit %s' "$limit"
 }
 
-# Build the Phase 2 DQL: for a given trace ID, find CDBBOS''s outbound client-spans.
-# Returns one row per (server.address, endpoint.name) pair seen on a CDBBOS client span.
-# Filter is loose-ish: contains() on service.name catches "CDBBOS", "CDBBOS (/banking)",
-# "CDB - ..." variants. span.kind filter is omitted on purpose since not all client
-# spans are tagged; we filter post hoc on server.address presence to keep only
-# outbound calls.
+# Compute ISO8601 timestamp offset by N seconds (positive or negative) from a given ISO8601.
+# Falls back to the original timestamp if `date` cannot parse it. Used to build a tight
+# Phase 2 timeframe window around the trace's start_time.
+offset_iso() {
+  local iso="$1"
+  local offset_sec="$2"
+  local result
+  # GNU date
+  if result=$(date -u -d "$iso $offset_sec seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null); then
+    printf '%s' "$result"
+    return
+  fi
+  # BSD date (macOS)
+  local sign="+"
+  if [ "$offset_sec" -lt 0 ]; then
+    sign="-"
+    offset_sec=$(( -offset_sec ))
+  fi
+  if result=$(date -u -j -v"${sign}${offset_sec}S" -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null); then
+    printf '%s' "$result"
+    return
+  fi
+  printf '%s' "$iso"
+}
+
+# Build the Phase 2 DQL: for a given trace ID + start time, find CDBBOS''s outbound spans.
+# Timeframe is narrowed to ±5 minutes around the trace start_time to keep scan cheap.
+# Falls back to last-24h if start_time conversion fails.
 build_trace_dql() {
   local trace_id="$1"
-  printf 'fetch spans, from:-24h, scanLimitGBytes:500 | filter trace.id == toUid("%s") | filter contains(service.name, "CDBBOS") | filter isNotNull(server.address) | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$trace_id"
+  local start_iso="$2"
+  local from_iso to_iso timeframe
+
+  if [ -n "$start_iso" ]; then
+    from_iso=$(offset_iso "$start_iso" -300)
+    to_iso=$(offset_iso "$start_iso" 300)
+    if [ "$from_iso" != "$start_iso" ] && [ "$to_iso" != "$start_iso" ]; then
+      timeframe="from:\"$from_iso\", to:\"$to_iso\""
+    else
+      timeframe="from:-24h"
+    fi
+  else
+    timeframe="from:-24h"
+  fi
+
+  printf 'fetch spans, %s, scanLimitGBytes:50 | filter trace.id == toUid("%s") | filter isNotNull(server.address) | fieldsAdd serviceName = entityAttr(dt.entity.service, "entity.name") | filter contains(serviceName, "CDBBOS") | fields downstreamHost = server.address, downstreamEndpoint = endpoint.name, downstreamPath = url.path | dedup { downstreamHost, downstreamEndpoint } | limit 50' "$timeframe" "$trace_id"
 }
 
 # Build the JSON body for query:execute.
@@ -139,8 +177,8 @@ poll_query() {
   return 1
 }
 
-# Extract (endpoint, latestTraceId) pairs from a Phase 1 (discovery) poll response.
-# Output: one "<endpoint>|<traceId>" per line.
+# Extract (endpoint, latestTraceId, latestTraceStartTime) triples from a Phase 1 response.
+# Output: one "<endpoint>|<traceId>|<startTime>" per line.
 # Splits records on the JSON delimiter "},{" rather than "{" alone so endpoint
 # names containing literal "{" (e.g. "/foo/{id}/bar") aren't fragmented.
 extract_endpoints() {
@@ -149,11 +187,12 @@ extract_endpoints() {
     | sed 's/},{/}\n{/g' \
     | grep '"endpoint"' \
     | while IFS= read -r frag; do
-        local ep tid
+        local ep tid sts
         ep=$(printf '%s' "$frag" | grep -oE '"endpoint"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n1 | sed -E 's/.*"([^"]*)"$/\1/')
         tid=$(printf '%s' "$frag" | grep -oE '"latestTraceId"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
+        sts=$(printf '%s' "$frag" | grep -oE '"latestTraceStartTime"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')
         if [ -n "$ep" ] && [ -n "$tid" ]; then
-          printf '%s|%s\n' "$ep" "$tid"
+          printf '%s|%s|%s\n' "$ep" "$tid" "$sts"
         fi
       done \
     | awk -F'|' '!seen[$1]++'
@@ -234,7 +273,7 @@ echo "Phase 1: found $total distinct endpoints." >&2
 # If Phase 2 is disabled, write the slim CSV (endpoint, traceId) and stop.
 if [ "$PHASE2" = "0" ]; then
   echo "Phase 2 disabled (PHASE2=0). Writing endpoints only." >&2
-  printf '%s\n' "$endpoint_pairs" | while IFS='|' read -r url_path trace_id; do
+  printf '%s\n' "$endpoint_pairs" | while IFS='|' read -r url_path trace_id _start_time; do
     [ -z "$url_path" ] && continue
     printf '%s,%s\n' \
       "$(csv_escape "$url_path")" \
@@ -248,11 +287,11 @@ fi
 echo "Phase 2: fetching downstream CDBBOS calls for each endpoint's latest trace..." >&2
 
 index=0
-while IFS='|' read -r url_path trace_id; do
+while IFS='|' read -r url_path trace_id start_time; do
   [ -z "$url_path" ] && continue
   index=$(( index + 1 ))
 
-  trace_dql=$(build_trace_dql "$trace_id")
+  trace_dql=$(build_trace_dql "$trace_id" "$start_time")
   trace_body=$(build_execute_body "$trace_dql")
 
   trace_token=$(execute_query "$trace_body")
