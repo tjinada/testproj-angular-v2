@@ -232,7 +232,15 @@ classify() {
   fi
 
   # --- DOB: keyword near a date.
-  if [[ "$lower" =~ (dob|date.of.birth|birth.date|birthdate) ]]; then
+  # Keyword must be a bona fide DOB indicator, not a substring inside method
+  # names like doBuild, doBegin, doBootstrap, doBatch, etc. (Java frameworks
+  # are full of these and a naive `dob` substring match flags every deep
+  # stack trace.) Requirements per pattern:
+  #   - "dob" must have non-letter boundaries on both sides
+  #   - "date of birth" / "birth date" use a literal whitespace/separator
+  #     between words (not regex .) so they don't match "datexofxbirth"
+  #   - "dateOfBirth" / "birthDate" / "birthdate" caught by the lowercase form
+  if [[ "$lower" =~ (^|[^a-z])(dob|dateofbirth|birthdate|date[\ ._-]of[\ ._-]birth|birth[\ ._-]date)([^a-z]|$) ]]; then
     if [[ "$msg" =~ (19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ]] \
        || [[ "$msg" =~ (0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/(19|20)[0-9]{2} ]]; then
       out="$out DOB"
