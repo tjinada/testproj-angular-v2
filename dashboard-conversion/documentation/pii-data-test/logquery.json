@@ -1,0 +1,40 @@
+{
+  "params": {
+    "index": "channels-olb-*",
+    "body": {
+      "version": true,
+      "size": 10000,
+      "sort": [{"@timestamp": {"order": "desc", "unmapped_type": "boolean"}}],
+      "aggs": {"2": {"date_histogram": {"field": "@timestamp", "fixed_interval": "30m", "time_zone": "Canada/Eastern", "min_doc_count": 1}}},
+      "stored_fields": ["*"],
+      "script_fields": {},
+      "docvalue_fields": [
+        {"field": "@timestamp", "format": "date_time"},
+        {"field": "esTimestamp", "format": "date_time"},
+        {"field": "fbTimestamp", "format": "date_time"},
+        {"field": "json_message.asOfDate", "format": "date_time"},
+        {"field": "json_message.date", "format": "date_time"},
+        {"field": "json_message.txnDate", "format": "date_time"}
+      ],
+      "_source": {"excludes": []},
+      "query": {
+        "bool": {
+          "must": [
+            {"match_all": {}},
+            {"match_phrase": {"message": "ERROR"}}
+          ],
+          "filter": [
+            {"range": {"@timestamp": {
+              "gte": "2026-05-18T18:37:56.478Z",
+              "lte": "2026-05-22T18:37:56.478Z",
+              "format": "strict_date_optional_time"
+            }}}
+          ],
+          "should": [],
+          "must_not": []
+        }
+      },
+      "preference": 1779474981400
+    }
+  }
+}
