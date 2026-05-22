@@ -217,8 +217,13 @@ classify() {
   # CREDIT_CARD (PAN)
   # ===========================================================================
   # 13-19 digit run, non-hex boundaries, Luhn-validated, recognized PAN prefix.
+  # LC_ALL=C forces awk to treat input as raw bytes (not UTF-8) — banking logs
+  # often contain non-UTF-8 byte sequences (Latin-1 fragments, embedded nulls,
+  # binary payload dumps) that would otherwise crash macOS awk's wide-char
+  # conversion with "towc: multibyte conversion failure".
+  # `|| true` so a single bad-encoding row can't kill the whole scan via set -e.
   local cc_found
-  cc_found=$(printf '%s' "$msg" | awk '
+  cc_found=$(printf '%s' "$msg" | LC_ALL=C awk '
     {
       n = length($0); i = 1
       while (i <= n) {
@@ -234,7 +239,7 @@ classify() {
           i = j
         } else { i++ }
       }
-    }')
+    }' 2>/dev/null || true)
   if [ -n "$cc_found" ]; then
     local cc
     while IFS= read -r cc; do
