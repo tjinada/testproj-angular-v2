@@ -5,6 +5,8 @@
 # Usage:
 #   ./scan-pii.sh <opensearch-response.json>          # JSONL to stdout
 #   ./scan-pii.sh <opensearch-response.json> report   # human-readable to stdout
+#   ./scan-pii.sh <opensearch-response.json> csv      # CSV to stdout
+#       (redirect to a file: ./scan-pii.sh in.json csv > hits.csv)
 #
 # Output (JSONL mode), one object per matching log:
 #   { "path": "...", "class": "...", "matches": ["SIN","EMAIL"], "message": "..." }
@@ -30,7 +32,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: $0 <opensearch-response.json> [report]" >&2
+  echo "usage: $0 <opensearch-response.json> [jsonl|report|csv]" >&2
   exit 1
 fi
 
@@ -171,6 +173,17 @@ while IFS= read -r row; do
       class=$(printf '%s' "$row" | jq -r '.class')
       printf -- '----\nMATCHES : %s\nPATH    : %s\nCLASS   : %s\nMESSAGE : %s\n' \
         "$matches" "$path" "$class" "$msg"
+    elif [ "$MODE" = "csv" ]; then
+      # Emit a header on the first flagged row.
+      if [ "$flagged" -eq 1 ]; then
+        printf '%s\n' '"path","class","matches","message"'
+      fi
+      # Let jq do the CSV quoting; matches joined with ';' (commas collide).
+      # tr strips the carriage return @csv adds, so output is LF-only.
+      printf '%s' "$row" \
+        | jq -r --arg m "$matches" \
+            '[.path, .class, ($m | gsub(" "; ";")), .message] | @csv' \
+        | tr -d '\r'
     else
       printf '%s' "$row" \
         | jq -c --arg m "$matches" \
