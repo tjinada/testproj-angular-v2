@@ -3,10 +3,10 @@
 # scan-pii.sh — Scan an OpenSearch JSON response for log messages containing PI data.
 #
 # Usage:
-#   ./scan-pii.sh <opensearch-response.json>          # JSONL to stdout
-#   ./scan-pii.sh <opensearch-response.json> report   # human-readable to stdout
-#   ./scan-pii.sh <opensearch-response.json> csv      # CSV to stdout
-#       (redirect to a file: ./scan-pii.sh in.json csv > hits.csv)
+#   ./scan-pii.sh <opensearch-response.json>                # JSONL to stdout
+#   ./scan-pii.sh <opensearch-response.json> report         # human-readable to stdout
+#   ./scan-pii.sh <opensearch-response.json> csv            # CSV to stdout (redirect with >)
+#   ./scan-pii.sh <opensearch-response.json> csv hits.csv   # CSV written directly to hits.csv
 #
 # Output (JSONL mode), one object per matching log:
 #   { "path": "...", "class": "...", "matches": ["SIN","EMAIL"], "message": "..." }
@@ -32,16 +32,23 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: $0 <opensearch-response.json> [jsonl|report|csv]" >&2
+  echo "usage: $0 <opensearch-response.json> [jsonl|report|csv] [out.csv]" >&2
   exit 1
 fi
 
 INPUT="$1"
 MODE="${2:-jsonl}"
+OUT_FILE="${3:-}"
 
 if [ ! -r "$INPUT" ]; then
   echo "error: cannot read $INPUT" >&2
   exit 3
+fi
+
+# In csv mode, if a third arg was given, route stdout there so progress on
+# stderr still shows in the terminal even without the user redirecting.
+if [ "$MODE" = "csv" ] && [ -n "$OUT_FILE" ]; then
+  exec > "$OUT_FILE"
 fi
 
 # ---------------------------------------------------------------------------
@@ -156,10 +163,36 @@ classify() {
 }
 
 # ---------------------------------------------------------------------------
-# Stage 3: iterate and emit.
+# Stage 3: iterate and emit, with progress on stderr.
 # ---------------------------------------------------------------------------
 total=0
 flagged=0
+
+# Count rows up front so progress can show N/M.
+# Empty grep is fine — EXTRACTED has one row per line.
+row_total=$(printf '%s\n' "$EXTRACTED" | grep -c '^.')
+
+# Progress style: in-place \r update if stderr is a terminal, else periodic
+# newline-terminated lines (so it stays readable in a piped log).
+if [ -t 2 ]; then
+  progress_mode="tty"
+else
+  progress_mode="log"
+fi
+
+# How often to emit progress. Tweak if you find it too chatty / not chatty enough.
+progress_every=100
+
+emit_progress() {
+  if [ "$progress_mode" = "tty" ]; then
+    # \r returns to col 0, trailing spaces erase leftover chars from prior line
+    printf '\r[progress] %d/%d  flagged=%d        ' \
+      "$total" "$row_total" "$flagged" >&2
+  else
+    printf '[progress] %d/%d flagged=%d\n' \
+      "$total" "$row_total" "$flagged" >&2
+  fi
+}
 
 while IFS= read -r row; do
   [ -z "$row" ] && continue
@@ -174,15 +207,28 @@ while IFS= read -r row; do
       printf -- '----\nMATCHES : %s\nPATH    : %s\nCLASS   : %s\nMESSAGE : %s\n' \
         "$matches" "$path" "$class" "$msg"
     elif [ "$MODE" = "csv" ]; then
-      # Emit a header on the first flagged row.
+      # First flagged row: emit a UTF-8 BOM so Excel opens the file as UTF-8
+      # CSV cleanly on macOS/Windows, then the header.
       if [ "$flagged" -eq 1 ]; then
+        printf '\xef\xbb\xbf'
         printf '%s\n' '"path","class","matches","message"'
       fi
-      # Let jq do the CSV quoting; matches joined with ';' (commas collide).
-      # tr strips the carriage return @csv adds, so output is LF-only.
+      # Flatten any newlines / tabs inside the message to literal '\n' / '\t'
+      # so each log stays on exactly one CSV row (avoids Excel splitting on
+      # embedded line breaks even though RFC 4180 allows them).
+      # jq's gsub does the substitution; @csv handles quote escaping.
       printf '%s' "$row" \
-        | jq -r --arg m "$matches" \
-            '[.path, .class, ($m | gsub(" "; ";")), .message] | @csv' \
+        | jq -r --arg m "$matches" '
+            [.path,
+             .class,
+             ($m | gsub(" "; ";")),
+             (.message
+                | gsub("\r\n"; "\\n")
+                | gsub("\n";   "\\n")
+                | gsub("\r";   "\\n")
+                | gsub("\t";   "\\t"))
+            ] | @csv
+          ' \
         | tr -d '\r'
     else
       printf '%s' "$row" \
@@ -190,6 +236,16 @@ while IFS= read -r row; do
             '. + { matches: ($m | split(" ")) } | { path, class, matches, message }'
     fi
   fi
+
+  if [ $(( total % progress_every )) -eq 0 ]; then
+    emit_progress
+  fi
 done <<< "$EXTRACTED"
+
+# Final progress + newline so the summary line below isn't clobbered.
+emit_progress
+if [ "$progress_mode" = "tty" ]; then
+  printf '\n' >&2
+fi
 
 echo "scanned=$total flagged=$flagged" >&2
