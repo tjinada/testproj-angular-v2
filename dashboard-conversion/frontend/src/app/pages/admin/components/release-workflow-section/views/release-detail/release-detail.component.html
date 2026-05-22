@@ -13,7 +13,7 @@
     <h1 class="page-title">{{ r.releaseId }} — {{ r.title }}</h1>
 
     <div class="header-meta">
-      <span class="status-pill status-pill--in-progress">In progress</span>
+      <span [class]="releaseStatusClass(r.status)">{{ releaseStatusLabel(r.status) }}</span>
       <span class="meta-item">Pre-PROD: {{ formatDate(r.metadata.preProdDate) }}</span>
       <span class="meta-sep">·</span>
       <span class="meta-item">PROD: {{ formatDate(r.metadata.prodDate) }}</span>
@@ -27,66 +27,234 @@
       <span class="meta-item">{{ stagesComplete() }} / {{ totalStages() }} stages complete</span>
     </div>
 
-    <div class="rd-shell">
+    <div class="rd-tabs" role="tablist" aria-label="Release detail tabs">
+      <button
+        id="release-detail-tab-details"
+        type="button"
+        class="rd-tab"
+        role="tab"
+        [class.rd-tab--active]="isTabActive('details')"
+        [attr.aria-selected]="isTabActive('details')"
+        aria-controls="release-detail-panel-details"
+        [attr.tabindex]="isTabActive('details') ? '0' : '-1'"
+        (click)="setActiveTab('details')">
+        Details
+      </button>
+      <button
+        id="release-detail-tab-stages"
+        type="button"
+        class="rd-tab"
+        role="tab"
+        [class.rd-tab--active]="isTabActive('stages')"
+        [attr.aria-selected]="isTabActive('stages')"
+        aria-controls="release-detail-panel-stages"
+        [attr.tabindex]="isTabActive('stages') ? '0' : '-1'"
+        (click)="setActiveTab('stages')">
+        Stages
+      </button>
+    </div>
 
-      <!-- LEFT RAIL -->
-      <aside class="rd-rail">
-        <h3 class="rd-rail__title">Stages</h3>
-        @for (stage of r.stages; track stage.id) {
-          <div [class]="stageRailClass(stage)" (click)="selectStage(stage.id)">
-            <span class="rail-stage__dot"
-                  [class.rail-stage__dot--complete]="stage.status === 'complete'"
-                  [class.rail-stage__dot--active]="stage.status === 'in_progress'"
-                  [class.rail-stage__dot--ready]="stage.status === 'ready'"
-                  [class.rail-stage__dot--locked]="stage.status === 'locked'">
-              @if (stage.status === 'complete') { ✓ }
-            </span>
-            <div class="rail-stage__main">
-              <div class="rail-stage__head">
-                <span class="rail-stage__name">{{ stage.displayOrder }}. {{ stage.name }}</span>
-                @if (stage.kind === 'parallel') {
-                  <span class="rail-stage__pll">parallel</span>
-                }
-              </div>
-              <div class="rail-stage__meta">
-                {{ subStepsComplete(stage) }} / {{ stage.subSteps.length }} · {{ stageStatusLabel(stage.status) }}
-              </div>
-              @if (stage.status !== 'locked' && stageProgressPct(stage) > 0) {
-                <div class="rail-stage__bar">
-                  <div class="rail-stage__bar-fill" [style.width.%]="stageProgressPct(stage)"></div>
+    @if (isTabActive('details')) {
+      <section
+        id="release-detail-panel-details"
+        class="details-view"
+        role="tabpanel"
+        aria-labelledby="release-detail-tab-details">
+        <div class="details-card">
+          <div class="details-card__header">
+            <h2 class="details-card__title">Basics</h2>
+            <div class="details-card__note">Compact release metadata</div>
+          </div>
+
+          <div class="details-grid">
+            <div class="details-row">
+              <span class="details-row__label">Release ID</span>
+              <span class="details-row__value">{{ r.releaseId }}</span>
+              <span class="details-row__meta">read-only</span>
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">Title</span>
+              @if (isEditingBasic('title')) {
+                <div class="details-row__editor">
+                  <input type="text" [value]="basicDraft()" (input)="basicDraft.set($any($event.target).value)" [disabled]="basicSaving()" />
+                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
                 </div>
+              } @else {
+                <span class="details-row__value">{{ r.title }}</span>
+                <button type="button" class="details-link" (click)="startBasicEdit('title')">Edit</button>
+              }
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">Type</span>
+              <span class="details-row__value">{{ r.type }}</span>
+              <span class="details-row__meta">read-only</span>
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">Sheriff</span>
+              @if (isEditingBasic('sheriff')) {
+                <div class="details-row__editor">
+                  <input
+                    type="text"
+                    list="basicSheriffAdmins"
+                    placeholder="Select sheriff (admin)"
+                    [value]="basicDraft()"
+                    (input)="basicDraft.set($any($event.target).value)"
+                    [disabled]="basicSaving()" />
+                  <datalist id="basicSheriffAdmins">
+                    @for (a of admins(); track a.email) {
+                      <option [value]="usernameFromEmail(a.email)">{{ a.email }}</option>
+                    }
+                  </datalist>
+                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                </div>
+              } @else {
+                <span class="details-row__value">{{ r.sheriff }}</span>
+                <button type="button" class="details-link" (click)="startBasicEdit('sheriff')">Edit</button>
+              }
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">Pre-PROD date</span>
+              @if (isEditingBasic('preProdDate')) {
+                <div class="details-row__editor">
+                  <input type="date" [value]="basicDraft()" (input)="basicDraft.set($any($event.target).value)" [disabled]="basicSaving()" />
+                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                </div>
+              } @else {
+                <span class="details-row__value">{{ r.metadata.preProdDate || 'Not set' }}</span>
+                <button type="button" class="details-link" (click)="startBasicEdit('preProdDate')">Edit</button>
+              }
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">PROD date</span>
+              @if (isEditingBasic('prodDate')) {
+                <div class="details-row__editor">
+                  <input type="date" [value]="basicDraft()" (input)="basicDraft.set($any($event.target).value)" [disabled]="basicSaving()" />
+                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                </div>
+              } @else {
+                <span class="details-row__value">{{ r.metadata.prodDate || 'Not set' }}</span>
+                <button type="button" class="details-link" (click)="startBasicEdit('prodDate')">Edit</button>
+              }
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">JIRA tracker</span>
+              @if (isEditingBasic('jiraTracker')) {
+                <div class="details-row__editor">
+                  <input type="text" [value]="basicDraft()" (input)="basicDraft.set($any($event.target).value)" [disabled]="basicSaving()" />
+                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                </div>
+              } @else {
+                <span class="details-row__value">{{ r.metadata.jiraTracker || 'Not set' }}</span>
+                <button type="button" class="details-link" (click)="startBasicEdit('jiraTracker')">Edit</button>
               }
             </div>
           </div>
-        }
-      </aside>
+        </div>
 
-      <!-- RIGHT PANE -->
-      <section class="rd-pane">
-        @if (activeStage(); as s) {
-          @if (s.status === 'locked') {
-            <div class="rd-pane__head">
-              <h2 class="rd-pane__title">Stage {{ s.displayOrder }} — {{ s.name }}</h2>
-              <div class="rd-pane__meta">{{ stageStatusLabel(s.status) }}</div>
-            </div>
-            <div class="rd-locked">
-              <div class="rd-locked__icon">🔒</div>
-              <div class="rd-locked__msg">
-                This stage is locked.
-                @if (blockingStageNames().length > 0) {
-                  <br/>
-                  <span class="rd-locked__sub">
-                    Complete <strong>{{ blockingStageNames().join(', ') }}</strong> first.
-                  </span>
+        <div class="details-stages">
+          @if (detailsStages(r).length === 0) {
+            <section class="details-stage">
+              <div class="details-stage__empty">No editable stage fields are currently configured.</div>
+            </section>
+          }
+          @for (stage of detailsStages(r); track stage.id) {
+            <section class="details-stage">
+              <div class="details-stage__header">
+                <div>
+                  <h2 class="details-stage__title">{{ stage.name }} (Stage {{ stage.displayOrder }})</h2>
+                </div>
+              </div>
+
+              <div class="details-field-list">
+                @for (subStep of editableSubSteps(stage); track subStep.id) {
+                  <div class="details-field-row">
+                    <div class="details-field-row__text">
+                      <div class="details-field-row__label">{{ subStep.label }}</div>
+                      <div class="details-field-row__key">{{ subStep.editableField }}</div>
+                    </div>
+                    <div class="details-field-row__value">{{ fieldValueByPath(subStep.editableField, r) }}</div>
+                    <button type="button" class="details-link" (click)="jumpToStageEditor(stage.id, subStep.id)">Edit in stage</button>
+                  </div>
                 }
               </div>
-            </div>
-          } @else {
-            <app-stage-view [stage]="s" [release]="r" (refresh)="load()" />
+            </section>
           }
-        }
+        </div>
       </section>
+    } @else {
+      <section
+        id="release-detail-panel-stages"
+        class="rd-shell"
+        role="tabpanel"
+        aria-labelledby="release-detail-tab-stages">
 
-    </div>
+        <!-- LEFT RAIL -->
+        <aside class="rd-rail">
+          <h3 class="rd-rail__title">Stages</h3>
+          @for (stage of r.stages; track stage.id) {
+            <button
+              type="button"
+              [class]="stageRailClass(stage)"
+              (click)="selectStage(stage.id)">
+              <span class="rail-stage__dot"
+                    [class.rail-stage__dot--complete]="stage.status === 'complete'"
+                    [class.rail-stage__dot--active]="stage.status === 'in_progress'"
+                    [class.rail-stage__dot--ready]="stage.status === 'ready'"
+                    [class.rail-stage__dot--locked]="stage.status === 'locked'">
+                @if (stage.status === 'complete') { ✓ }
+              </span>
+              <div class="rail-stage__main">
+                <div class="rail-stage__head">
+                  <span class="rail-stage__name">{{ stage.displayOrder }}. {{ stage.name }}</span>
+                  @if (stage.kind === 'parallel') {
+                    <span class="rail-stage__pll">parallel</span>
+                  }
+                </div>
+                <div class="rail-stage__meta">
+                  {{ subStepsComplete(stage) }} / {{ stage.subSteps.length }} · {{ stageStatusLabel(stage.status) }}
+                </div>
+                @if (stage.status !== 'locked' && stageProgressPct(stage) > 0) {
+                  <div class="rail-stage__bar">
+                    <div class="rail-stage__bar-fill" [style.width.%]="stageProgressPct(stage)"></div>
+                  </div>
+                }
+              </div>
+            </button>
+          }
+        </aside>
+
+        <!-- RIGHT PANE -->
+        <section class="rd-pane">
+          @if (activeStage(); as s) {
+            @if (s.status === 'locked') {
+              <div class="rd-pane__head">
+                <h2 class="rd-pane__title">Stage {{ s.displayOrder }} — {{ s.name }}</h2>
+                <div class="rd-pane__meta">{{ stageStatusLabel(s.status) }}</div>
+              </div>
+              <div class="rd-locked">
+                <div class="rd-locked__icon">🔒</div>
+                <div class="rd-locked__msg">
+                  This stage is locked.
+                  @if (blockingStageNames().length > 0) {
+                    <br/>
+                    <span class="rd-locked__sub">
+                      Complete <strong>{{ blockingStageNames().join(', ') }}</strong> first.
+                    </span>
+                  }
+                </div>
+              </div>
+            } @else {
+              <app-stage-view [stage]="s" [release]="r" [focusSubStepId]="focusedSubStepId()" (refresh)="load()" />
+            }
+          }
+        </section>
+
+      </section>
+    }
   }
 </div>

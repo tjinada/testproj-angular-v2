@@ -4,7 +4,9 @@ import {
   Component,
   EventEmitter,
   Input,
+  OnChanges,
   Output,
+  SimpleChanges,
   inject,
   signal,
 } from '@angular/core';
@@ -51,9 +53,11 @@ import { formatCheckResult } from './check-result-display';
   styleUrl: './stage-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class StageViewComponent {
+export class StageViewComponent implements OnChanges {
   @Input({ required: true }) stage!: Stage;
   @Input({ required: true }) release!: Release;
+  @Input() showHeader = true;
+  @Input() focusSubStepId: string | null = null;
 
   @Output() refresh = new EventEmitter<void>();
 
@@ -70,6 +74,30 @@ export class StageViewComponent {
   readonly inputValues = signal<Record<string, string>>({});
 
   readonly error = signal<string | null>(null);
+
+  readonly highlightedSubStepId = signal<string | null>(null);
+
+  private lastAppliedFocusKey: string | null = null;
+
+  ngOnChanges(_changes: SimpleChanges): void {
+    this.applyFocusRequest();
+  }
+
+  private applyFocusRequest(): void {
+    if (!this.focusSubStepId) return;
+    const focusKey = `${this.stage.id}:${this.focusSubStepId}`;
+    if (focusKey === this.lastAppliedFocusKey) return;
+
+    const target = this.stage.subSteps.find((s) => s.id === this.focusSubStepId);
+    if (!target) return;
+
+    this.lastAppliedFocusKey = focusKey;
+    this.highlightedSubStepId.set(target.id);
+
+    if (target.editableField) {
+      this.beginEdit(target);
+    }
+  }
 
   // ----- linked check resolution -----
 
@@ -324,7 +352,9 @@ export class StageViewComponent {
   /** CSS class for the row's container. */
   rowClass(s: SubStep): string {
     const status = this.rowStatus(s);
-    return `ss-row ss-row--${status}`;
+    const parts = [`ss-row`, `ss-row--${status}`];
+    if (this.highlightedSubStepId() === s.id) parts.push('ss-row--highlight');
+    return parts.join(' ');
   }
 
   /** Subtitle line under the sub-step label. e.g. "auto-checked · system · 5/7/26". */

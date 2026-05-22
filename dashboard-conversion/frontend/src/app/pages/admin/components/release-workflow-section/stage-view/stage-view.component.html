@@ -1,27 +1,29 @@
 <div class="sp">
 
-  <!-- top action bar -->
-  <div class="sp__bar">
-    <div>
-      <h2 class="sp__title">Stage {{ stage.displayOrder }} — {{ stage.name }}</h2>
-      <div class="sp__meta">
-        @if (stage.startedAt) {
-          Started {{ stage.startedAt | date:'mediumDate' }}
-          <span class="sep">·</span>
-        }
-        {{ stage.subSteps.length }} sub-steps
-        @if (hasChecks()) {
-          <span class="sep">·</span>
-          {{ stage.automatedChecks.length }} automated check(s)
-        }
+  @if (showHeader) {
+    <!-- top action bar -->
+    <div class="sp__bar">
+      <div>
+        <h2 class="sp__title">Stage {{ stage.displayOrder }} — {{ stage.name }}</h2>
+        <div class="sp__meta">
+          @if (stage.startedAt) {
+            Started {{ stage.startedAt | date:'mediumDate' }}
+            <span class="sep">·</span>
+          }
+          {{ stage.subSteps.length }} sub-steps
+          @if (hasChecks()) {
+            <span class="sep">·</span>
+            {{ stage.automatedChecks.length }} automated check(s)
+          }
+        </div>
       </div>
+      @if (hasChecks()) {
+        <button class="sp__run" type="button" (click)="runAllChecks()" [disabled]="runningAll()">
+          {{ runningAll() ? 'Running…' : 'Run all checks' }}
+        </button>
+      }
     </div>
-    @if (hasChecks()) {
-      <button class="sp__run" type="button" (click)="runAllChecks()" [disabled]="runningAll()">
-        {{ runningAll() ? 'Running…' : 'Run all checks' }}
-      </button>
-    }
-  </div>
+  }
 
   @if (error()) {
     <div class="sp__error">{{ error() }}</div>

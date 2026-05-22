@@ -45,6 +45,255 @@
   &--aborted     { background: #FCEBEB; color: #791F1F; }
 }
 
+.rd-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #e5e5e5;
+  margin-bottom: 16px;
+}
+
+.rd-tab {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #666;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 4px 11px;
+  margin-bottom: -1px;
+
+  &:hover {
+    color: #0C447C;
+  }
+
+  &--active {
+    color: #0C447C;
+    border-bottom-color: #0079C1;
+  }
+}
+
+.details-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.details-card,
+.details-stage {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 18px 20px;
+}
+
+.details-card {
+  &__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 2px;
+  }
+
+  &__title {
+    margin: 0;
+    color: #5c5137;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  &__note {
+    color: #888;
+    font-size: 11px;
+  }
+}
+
+.details-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+.details-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__label {
+    color: #6f6f6f;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  &__value {
+    color: #1a1a1a;
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+
+  &__editor {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    input {
+      min-width: 220px;
+      height: 30px;
+      border: 1px solid #cfcfcf;
+      border-radius: 4px;
+      font-size: 12px;
+      padding: 0 8px;
+      color: #1a1a1a;
+
+      &:focus {
+        outline: 2px solid #0079C1;
+        outline-offset: -1px;
+        border-color: transparent;
+      }
+    }
+  }
+
+  &__meta {
+    color: #888;
+    font-size: 11px;
+    font-style: italic;
+  }
+}
+
+.details-link {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #0079C1;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--muted {
+    color: #777;
+    font-weight: 500;
+  }
+}
+
+.details-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.details-stage {
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  &__title {
+    margin: 0 0 4px;
+    color: #5c5137;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  &__meta {
+    color: #777;
+    font-size: 12px;
+  }
+
+  &__statuswrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
+  }
+
+  &__status {
+    color: #666;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  &__empty {
+    color: #888;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+}
+
+.details-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.details-field-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f2f2f2;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__text {
+    min-width: 0;
+  }
+
+  &__label {
+    color: #222;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  &__key {
+    color: #8a8a8a;
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    margin-top: 2px;
+  }
+
+  &__value {
+    color: #333;
+    font-size: 12px;
+    word-break: break-word;
+  }
+}
+
 // ---------- two-column shell ----------
 
 .rd-shell {
@@ -75,6 +324,7 @@
 }
 
 .rail-stage {
+  width: 100%;
   padding: 8px 10px;
   border-radius: 4px;
   cursor: pointer;
@@ -83,8 +333,16 @@
   gap: 8px;
   margin-bottom: 1px;
   transition: background 0.1s;
+  border: none;
+  background: transparent;
+  text-align: left;
 
   &:hover { background: #f7f8fa; }
+  &:focus-visible {
+    outline: 2px solid #0079C1;
+    outline-offset: 1px;
+  }
+
   &--active { background: #E6F1FB; }
   &--active .rail-stage__name { color: #0C447C; font-weight: 500; }
   &--parallel .rail-stage__name { color: #854F0B; }
@@ -213,4 +471,42 @@
   border: 1px solid #e5e5e5;
   border-radius: 4px;
   &--error { color: #791F1F; background: #FCEBEB; border-color: #F4D0D0; }
+}
+
+@media (max-width: 900px) {
+  .rd-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .rd-rail {
+    position: static;
+  }
+
+  .details-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+
+    &__editor {
+      display: grid;
+      grid-template-columns: 1fr;
+
+      input { min-width: 0; }
+    }
+  }
+
+  .details-field-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .details-stage__header,
+  .details-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .details-stage__statuswrap {
+    align-items: flex-start;
+    text-align: left;
+  }
 }

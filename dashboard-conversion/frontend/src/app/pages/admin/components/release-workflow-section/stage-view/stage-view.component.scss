@@ -75,6 +75,10 @@
   &--failed  { background: #FFF8F8; border-color: #F09595; }
   &--na      { background: #fafafa; opacity: 0.85; }
   &--running { background: #f7fafd; border-color: #B5D4F4; }
+  &--highlight {
+    box-shadow: 0 0 0 2px #B5D4F4;
+    border-color: #7eb4ea;
+  }
 
   &__icon {
     flex: 0 0 20px;
@@ -307,13 +311,14 @@
   font-weight: 700;
   background: #fff;
   border: 1px solid #cfcfcf;
-  color: #fff;
+  color: transparent;
   transition: background 0.1s;
 }
 
 .ss-cb--checked .ss-cb__visual {
   background: #27500A;
   border-color: #27500A;
+  color: #fff;
 }
 
 .ss-cb input:focus-visible + .ss-cb__visual {
