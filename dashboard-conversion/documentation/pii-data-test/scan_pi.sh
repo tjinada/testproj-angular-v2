@@ -17,16 +17,19 @@
 #   ACCOUNT_NUM 10-17 digit bare numeric runs near "account" / "acct" keywords
 #   DOB         Date in YYYY-MM-DD or DD/MM/YYYY form near "dob"/"birth" keyword
 #
+# Compatibility: works on bash 3.2 (Apple stock /bin/bash) and newer.
 # Exit codes: 0 ok, 1 bad usage, 2 jq missing, 3 input not readable.
 
-set -euo pipefail
+# NOTE: deliberately not using `set -u` because bash 3.2 trips on empty
+# arrays and unset BASH_REMATCH groups even with defensive guards.
+set -eo pipefail
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "error: jq is required but not on PATH" >&2
   exit 2
 fi
 
-if [[ $# -lt 1 ]]; then
+if [ "$#" -lt 1 ]; then
   echo "usage: $0 <opensearch-response.json> [report]" >&2
   exit 1
 fi
@@ -34,17 +37,16 @@ fi
 INPUT="$1"
 MODE="${2:-jsonl}"
 
-if [[ ! -r "$INPUT" ]]; then
+if [ ! -r "$INPUT" ]; then
   echo "error: cannot read $INPUT" >&2
   exit 3
 fi
 
 # ---------------------------------------------------------------------------
-# Stage 1: pull (path, class, message) tuples out of the OpenSearch response.
-# The response can be the full Kibana wrapper ({rawResponse:{hits:...}}) or
-# a bare OpenSearch response ({hits:{hits:[...]}}). Handle both.
-# Class is parsed from the message: the FQCN token (com.* / ca.* etc.) that
-# appears after the log level. If no FQCN is found, class is "".
+# Stage 1: extract (path, message, class) tuples from the OpenSearch response.
+# Handles both the Kibana-wrapped shape ({rawResponse:{hits:...}}) and a bare
+# OpenSearch response ({hits:{hits:[...]}}).
+# Class is the first FQCN-looking token after the log level inside `message`.
 # ---------------------------------------------------------------------------
 EXTRACTED=$(jq -c '
   def extract_class:
@@ -62,108 +64,119 @@ EXTRACTED=$(jq -c '
 ' "$INPUT")
 
 # ---------------------------------------------------------------------------
-# Stage 2: PI detection in pure bash regex. We do this outside jq because
-# Luhn validation for credit cards is awkward in jq, and bash regex with
-# a small helper function keeps it readable.
-# ---------------------------------------------------------------------------
-
 # Luhn check — returns 0 if the digit string passes, 1 otherwise.
+# Pure arithmetic, no arrays, bash 3.2 safe.
+# ---------------------------------------------------------------------------
 luhn_ok() {
   local digits="$1"
   local len=${#digits}
-  (( len < 13 || len > 19 )) && return 1
+  if [ "$len" -lt 13 ] || [ "$len" -gt 19 ]; then
+    return 1
+  fi
   local sum=0 i parity d doubled
   parity=$(( len % 2 ))
-  for (( i=0; i<len; i++ )); do
-    d=${digits:i:1}
-    if (( i % 2 == parity )); then
+  i=0
+  while [ "$i" -lt "$len" ]; do
+    d=${digits:$i:1}
+    if [ $(( i % 2 )) -eq "$parity" ]; then
       doubled=$(( d * 2 ))
-      (( doubled > 9 )) && doubled=$(( doubled - 9 ))
+      [ "$doubled" -gt 9 ] && doubled=$(( doubled - 9 ))
       sum=$(( sum + doubled ))
     else
       sum=$(( sum + d ))
     fi
+    i=$(( i + 1 ))
   done
-  (( sum % 10 == 0 ))
+  [ $(( sum % 10 )) -eq 0 ]
 }
 
-# Classify a single message; echoes a space-separated list of category labels.
+# ---------------------------------------------------------------------------
+# Classify one message; prints a space-separated list of category labels,
+# or an empty line if nothing matched.
+# ---------------------------------------------------------------------------
 classify() {
   local msg="$1"
-  local hits=()
+  local out=""
   local lower
   lower=$(printf '%s' "$msg" | tr '[:upper:]' '[:lower:]')
 
-  # SIN: 9 digits, optional space or dash separators, with word boundaries.
-  if [[ "$msg" =~ (^|[^0-9])([0-9]{3}[- ]?[0-9]{3}[- ]?[0-9]{3})([^0-9]|$) ]]; then
-    # Strip separators and reject obvious garbage (all zeros, all same digit).
-    local sin_raw="${BASH_REMATCH[2]//[- ]/}"
-    if [[ "$sin_raw" =~ ^[0-9]{9}$ ]] && [[ ! "$sin_raw" =~ ^(.)\1{8}$ ]] && [[ "$sin_raw" != "000000000" ]]; then
-      hits+=("SIN")
+  # --- SIN: 9 digits with optional dash/space separators, with word boundaries.
+  if [[ "$msg" =~ (^|[^0-9])([0-9]{3}[-\ ]?[0-9]{3}[-\ ]?[0-9]{3})([^0-9]|$) ]]; then
+    local sin_raw="${BASH_REMATCH[2]}"
+    # strip separators
+    sin_raw=$(printf '%s' "$sin_raw" | tr -d -- '- ')
+    # reject obvious garbage (all zeros / all same digit)
+    if [ "${#sin_raw}" -eq 9 ] \
+       && [ "$sin_raw" != "000000000" ] \
+       && ! [[ "$sin_raw" =~ ^(.)\1{8}$ ]]; then
+      out="$out SIN"
     fi
   fi
 
-  # Credit card: scan every 13-19 digit run (separators stripped) and Luhn-check.
+  # --- Credit card: any 13-19 digit run (separators stripped) that passes Luhn.
   local stripped
   stripped=$(printf '%s' "$msg" | sed -E 's/[^0-9]+/ /g')
   local tok
   for tok in $stripped; do
-    local len=${#tok}
-    if (( len >= 13 && len <= 19 )) && luhn_ok "$tok"; then
-      hits+=("CREDIT_CARD")
+    local tlen=${#tok}
+    if [ "$tlen" -ge 13 ] && [ "$tlen" -le 19 ] && luhn_ok "$tok"; then
+      out="$out CREDIT_CARD"
       break
     fi
   done
 
-  # Email.
+  # --- Email.
   if [[ "$msg" =~ [A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,} ]]; then
-    hits+=("EMAIL")
+    out="$out EMAIL"
   fi
 
-  # North American phone: (xxx) xxx-xxxx or xxx-xxx-xxxx or xxx.xxx.xxxx.
-  if [[ "$msg" =~ (^|[^0-9])(\(?[2-9][0-9]{2}\)?[-. ][0-9]{3}[-. ][0-9]{4})($|[^0-9]) ]]; then
-    hits+=("PHONE_NA")
+  # --- North American phone: (xxx) xxx-xxxx, xxx-xxx-xxxx, xxx.xxx.xxxx, etc.
+  if [[ "$msg" =~ (^|[^0-9])(\(?[2-9][0-9]{2}\)?[-.\ ][0-9]{3}[-.\ ][0-9]{4})($|[^0-9]) ]]; then
+    out="$out PHONE_NA"
   fi
 
-  # Account-ish: a 10-17 digit run near the word account / acct.
+  # --- Account-like: 10-17 digit run within ~20 chars of "account"/"acct".
   if [[ "$lower" =~ (account|acct)[^0-9]{0,20}[0-9]{10,17} ]]; then
-    hits+=("ACCOUNT_NUM")
+    out="$out ACCOUNT_NUM"
   fi
 
-  # DOB: keyword near a date.
-  if [[ "$lower" =~ (dob|date.of.birth|birth.date|birthdate) ]] && \
-     [[ "$msg" =~ (19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ||
-        "$msg" =~ (0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/(19|20)[0-9]{2} ]]; then
-    hits+=("DOB")
+  # --- DOB: keyword near a date.
+  if [[ "$lower" =~ (dob|date.of.birth|birth.date|birthdate) ]]; then
+    if [[ "$msg" =~ (19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ]] \
+       || [[ "$msg" =~ (0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/(19|20)[0-9]{2} ]]; then
+      out="$out DOB"
+    fi
   fi
 
-  printf '%s\n' "${hits[*]}"
+  # Trim and print
+  out="${out# }"
+  printf '%s\n' "$out"
 }
 
 # ---------------------------------------------------------------------------
-# Stage 3: iterate the extracted tuples, classify, emit.
+# Stage 3: iterate and emit.
 # ---------------------------------------------------------------------------
 total=0
 flagged=0
 
 while IFS= read -r row; do
-  (( ++total ))
-  msg=$(jq -r '.message' <<<"$row")
+  [ -z "$row" ] && continue
+  total=$(( total + 1 ))
+  msg=$(printf '%s' "$row" | jq -r '.message')
   matches=$(classify "$msg")
-  if [[ -n "$matches" ]]; then
-    (( ++flagged ))
-    if [[ "$MODE" == "report" ]]; then
-      path=$(jq -r '.path' <<<"$row")
-      class=$(jq -r '.class' <<<"$row")
+  if [ -n "$matches" ]; then
+    flagged=$(( flagged + 1 ))
+    if [ "$MODE" = "report" ]; then
+      path=$(printf '%s' "$row" | jq -r '.path')
+      class=$(printf '%s' "$row" | jq -r '.class')
       printf -- '----\nMATCHES : %s\nPATH    : %s\nCLASS   : %s\nMESSAGE : %s\n' \
         "$matches" "$path" "$class" "$msg"
     else
-      # Build a clean JSON object with the matches array merged in.
-      jq -c --arg m "$matches" \
-        '. + { matches: ($m | split(" ")) } | { path, class, matches, message }' \
-        <<<"$row"
+      printf '%s' "$row" \
+        | jq -c --arg m "$matches" \
+            '. + { matches: ($m | split(" ")) } | { path, class, matches, message }'
     fi
   fi
-done <<<"$EXTRACTED"
+done <<< "$EXTRACTED"
 
 echo "scanned=$total flagged=$flagged" >&2
