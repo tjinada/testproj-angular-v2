@@ -314,4 +314,17 @@ export class ReleaseDetailComponent implements OnInit {
   onBack(): void {
     this.back.emit();
   }
+
+  /**
+   * Stage-view emits `refresh` after any successful mutation (save-and-run,
+   * override, N/A, manual checkbox). We reload the release to pull the
+   * updated stage/sub-step state, and clear `focusedSubStepId` so the row
+   * that was navigated to from the Details tab returns to read-only mode
+   * once the user has acted on it. Without this clear, the focus token
+   * would persist and the row would re-open in edit mode on every refetch.
+   */
+  onStageRefresh(): void {
+    this.focusedSubStepId.set(null);
+    this.load();
+  }
 }

@@ -249,7 +249,7 @@
                 </div>
               </div>
             } @else {
-              <app-stage-view [stage]="s" [release]="r" [focusSubStepId]="focusedSubStepId()" (refresh)="load()" />
+              <app-stage-view [stage]="s" [release]="r" [focusSubStepId]="focusedSubStepId()" (refresh)="onStageRefresh()" />
             }
           }
         </section>

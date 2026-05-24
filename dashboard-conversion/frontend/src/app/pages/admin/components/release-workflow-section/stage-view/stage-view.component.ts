@@ -86,6 +86,20 @@ export class StageViewComponent implements OnChanges {
   /** Sub-step IDs whose row is currently running (spinner shown, actions disabled). */
   readonly runningIds = signal<Set<string>>(new Set());
 
+  /**
+   * Sub-step IDs that were just saved successfully but whose release refetch
+   * hasn't yet arrived. Used to suppress the auto-show-input logic in
+   * showInput() during the transient window between save-success and the
+   * fresh release data arriving. Cleared on the next ngOnChanges (which
+   * fires when the parent re-emits release after load() completes).
+   *
+   * Without this, the row briefly re-opens its input field between the
+   * save response and the load response because showInput sees the OLD
+   * check.status (still 'failed' or 'pending') and falls into the
+   * "show input for unsatisfied checks" branch.
+   */
+  readonly justSavedIds = signal<Set<string>>(new Set());
+
   /** Per-row staged input value, keyed by sub-step ID. Cleared on submit/cancel. */
   readonly inputValues = signal<Record<string, string>>({});
 
@@ -95,12 +109,27 @@ export class StageViewComponent implements OnChanges {
 
   private lastAppliedFocusKey: string | null = null;
 
-  ngOnChanges(_changes: SimpleChanges): void {
+  ngOnChanges(changes: SimpleChanges): void {
+    // Clear "just-saved" suppression marks only when the release input itself
+    // changes — that's the moment fresh release data has arrived and showInput
+    // can rely on the new check.status. Clearing on every ngOnChanges (e.g.
+    // when only focusSubStepId changed) would prematurely drop the suppression
+    // before the release refetch landed, causing the row's input to re-appear
+    // briefly between save-response and load-response.
+    if (changes['release'] && this.justSavedIds().size > 0) {
+      this.justSavedIds.set(new Set());
+    }
     this.applyFocusRequest();
   }
 
   private applyFocusRequest(): void {
-    if (!this.focusSubStepId) return;
+    // When the parent clears focusSubStepId (e.g. after a successful save),
+    // also drop the row highlight so it returns to a quiet state.
+    if (!this.focusSubStepId) {
+      this.highlightedSubStepId.set(null);
+      this.lastAppliedFocusKey = null;
+      return;
+    }
     const focusKey = `${this.stage.id}:${this.focusSubStepId}`;
     if (focusKey === this.lastAppliedFocusKey) return;
 
@@ -153,6 +182,12 @@ export class StageViewComponent implements OnChanges {
   showInput(s: SubStep): boolean {
     if (!this.hasEditableField(s)) return false;
     if (this.isRunning(s)) return false;
+    // Suppress the auto-show-input branch while we're waiting for the fresh
+    // release data after a successful save. Without this, the row briefly
+    // re-opens its input because check.status is still stale (failed/pending)
+    // for the moment between save-response and load-response. Cleared on the
+    // next ngOnChanges (= release Input updated).
+    if (this.justSavedIds().has(s.id)) return false;
     if (this.isEditing(s)) return true;
     const check = this.linkedCheck(s);
     if (!check) return false;
@@ -298,6 +333,13 @@ export class StageViewComponent implements OnChanges {
         this.inputValues.update((v) => {
           const next = { ...v };
           delete next[s.id];
+          return next;
+        });
+        // Mark this sub-step as "just saved" so showInput suppresses the
+        // auto-show branch until fresh release data lands (next ngOnChanges).
+        this.justSavedIds.update((set) => {
+          const next = new Set(set);
+          next.add(s.id);
           return next;
         });
         this.refresh.emit();
