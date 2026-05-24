@@ -387,16 +387,27 @@ export class StageViewComponent implements OnChanges {
 
   /**
    * Compact label for the right-column timestamp on completed rows.
-   * e.g. "auto-checked · May 13" or "manually checked · May 13".
-   * Returns null when the row isn't in a checked state (no timestamp to show).
-   * Drops the actor name and time-of-day — the right-column micro-meta isn't
-   * the place to surface those; if needed they remain in the persisted JSON.
+   * Manual ticks include the actor ("manually checked · thanuja.jinadasa · May 13").
+   * Auto-ticks omit the actor since "system" adds no information
+   * ("auto-checked · May 13"). Returns null when the row isn't in a
+   * checked state, so the line is hidden entirely on pending rows.
    */
   completedAtLabel(s: SubStep): string | null {
     if (s.state !== 'checked' || !s.completedAt) return null;
     const date = new Date(s.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const verb = s.source === 'manual' ? 'manually checked' : 'auto-checked';
-    return `${verb} · ${date}`;
+    // Show the actor only for manual ticks. For auto-ticks the actor is
+    // always 'system', which is just noise. Falsy / 'unknown' / 'system'
+    // all collapse to the no-actor form.
+    const actor = s.completedBy;
+    const showActor =
+      s.source === 'manual' &&
+      actor &&
+      actor !== 'system' &&
+      actor !== 'unknown';
+    return showActor
+      ? `${verb} · ${actor} · ${date}`
+      : `${verb} · ${date}`;
   }
 
   /**
