@@ -20,6 +20,8 @@ import {
   SubStep,
   SubStepState,
 } from '../../../models/release-workflow.model';
+import { AuthService } from '../../../../../../services/auth.service';
+import { usernameFromEmail } from '../../../../../../utils/sheriff.util';
 import { formatCheckResult } from './check-result-display';
 
 /**
@@ -62,7 +64,21 @@ export class StageViewComponent implements OnChanges {
   @Output() refresh = new EventEmitter<void>();
 
   private readonly api = inject(ReleaseWorkflowService);
+  private readonly auth = inject(AuthService);
   private readonly cdr = inject(ChangeDetectorRef);
+
+  /**
+   * Username of the current logged-in user, derived from AuthService.currentUser.
+   * Used as the `actor` on every manual sub-step mutation so the backend records
+   * who performed the action (rather than the 'unknown' fallback).
+   *
+   * Returns null when no user is loaded yet — the backend writes 'unknown' in
+   * that case, which is the same behaviour as before this method existed.
+   */
+  private currentActor(): string | null {
+    const email = this.auth.currentUser()?.email;
+    return email ? usernameFromEmail(email) : null;
+  }
 
   /** Sub-step IDs whose row is in edit mode (input visible, populated with current value). */
   readonly editingIds = signal<Set<string>>(new Set());
@@ -321,8 +337,9 @@ export class StageViewComponent implements OnChanges {
 
   private updateSubStep(s: SubStep, state: SubStepState, source: SubStep['source']): void {
     this.error.set(null);
+    const actor = this.currentActor() ?? undefined;
     this.api
-      .updateSubStep(this.release.releaseId, this.stage.id, s.id, { state, source })
+      .updateSubStep(this.release.releaseId, this.stage.id, s.id, { state, source, actor })
       .subscribe({
         next: () => {
           this.refresh.emit();
