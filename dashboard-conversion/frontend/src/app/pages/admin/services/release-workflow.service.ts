@@ -68,6 +68,10 @@ export class ReleaseWorkflowService {
    * for any stages that reference the changed fields. Returns the updated
    * release.
    *
+   * If `actor` is provided, it's used as the completedBy on any sub-step
+   * that newly transitions to auto-checked as a result of this patch —
+   * crediting the user who pasted the URL rather than 'system'.
+   *
    * Patch shape:
    *   { 'intakePageId': '1110606115' }
    *   { 'branches.cdbUiConfigs': 'https://github.com/.../tree/release/r85.0.0' }
@@ -76,10 +80,13 @@ export class ReleaseWorkflowService {
   updateMetadata(
     releaseId: string,
     patch: Record<string, string | null>,
+    actor?: string,
   ): Observable<{ message: string; release: Release }> {
+    const body: Record<string, string | null | undefined> = { ...patch };
+    if (actor) body['actor'] = actor;
     return this.http.patch<{ message: string; release: Release }>(
       `${this.base}/${encodeURIComponent(releaseId)}/metadata`,
-      patch,
+      body,
     );
   }
 

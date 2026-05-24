@@ -173,9 +173,16 @@ router.patch(
   async (req: Request<ReleaseParams>, res: Response) => {
     try {
       const { releaseId } = req.params;
-      const patch = req.body ?? {};
-      if (typeof patch !== 'object' || Array.isArray(patch)) {
+      const body = req.body ?? {};
+      if (typeof body !== 'object' || Array.isArray(body)) {
         return badRequest(res, 'Body must be an object of { fieldPath: value }');
+      }
+      // Separate the actor (used for attribution on auto-ticks) from the
+      // field patch itself. Everything except 'actor' is treated as a field
+      // to update.
+      const { actor, ...patch } = body as Record<string, unknown>;
+      if (actor !== undefined && typeof actor !== 'string') {
+        return badRequest(res, 'Body field "actor" must be a string');
       }
       // Sanity-check value types.
       for (const [key, value] of Object.entries(patch)) {
@@ -183,7 +190,11 @@ router.patch(
           return badRequest(res, `Field '${key}' must be a string or null`);
         }
       }
-      const release = await releaseWorkflowService.updateMetadata(releaseId, patch);
+      const release = await releaseWorkflowService.updateMetadata(
+        releaseId,
+        patch as Record<string, string | null>,
+        actor,
+      );
       res.json({ message: 'Metadata updated', release });
     } catch (error: any) {
       if (error?.message?.includes('not found')) {

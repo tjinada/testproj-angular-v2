@@ -282,7 +282,13 @@ export class StageViewComponent implements OnChanges {
       [s.editableField]: newValue || null,
     };
 
-    this.api.updateMetadata(this.release.releaseId, patch).subscribe({
+    // Send the actor so the backend credits the human who pasted the URL
+    // when the linked check passes and auto-ticks the sub-step. Bulk re-runs
+    // ("Run all checks") do NOT send an actor — those are re-verifications
+    // of existing values, not authorship of a new completion.
+    const actor = this.currentActor() ?? undefined;
+
+    this.api.updateMetadata(this.release.releaseId, patch, actor).subscribe({
       next: () => {
         this.runningIds.update((set) => {
           const next = new Set(set);
@@ -387,24 +393,18 @@ export class StageViewComponent implements OnChanges {
 
   /**
    * Compact label for the right-column timestamp on completed rows.
-   * Manual ticks include the actor ("manually checked · thanuja.jinadasa · May 13").
-   * Auto-ticks omit the actor since "system" adds no information
-   * ("auto-checked · May 13"). Returns null when the row isn't in a
-   * checked state, so the line is hidden entirely on pending rows.
+   * Shows the actor when it's a real user ("manually checked · tj · May 13",
+   * "auto-checked · tj · May 13"). Drops the actor when it's 'system' or
+   * 'unknown' — noise that adds no audit value ("auto-checked · May 13").
+   * Returns null when the row isn't in a checked state so the line is hidden
+   * entirely on pending rows.
    */
   completedAtLabel(s: SubStep): string | null {
     if (s.state !== 'checked' || !s.completedAt) return null;
     const date = new Date(s.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const verb = s.source === 'manual' ? 'manually checked' : 'auto-checked';
-    // Show the actor only for manual ticks. For auto-ticks the actor is
-    // always 'system', which is just noise. Falsy / 'unknown' / 'system'
-    // all collapse to the no-actor form.
     const actor = s.completedBy;
-    const showActor =
-      s.source === 'manual' &&
-      actor &&
-      actor !== 'system' &&
-      actor !== 'unknown';
+    const showActor = actor && actor !== 'system' && actor !== 'unknown';
     return showActor
       ? `${verb} · ${actor} · ${date}`
       : `${verb} · ${date}`;

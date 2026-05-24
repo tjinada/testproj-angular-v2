@@ -199,7 +199,7 @@ class ReleaseWorkflowService {
    * Stages whose runners aren't yet implemented return their existing
    * automatedChecks unchanged (no fabricated data).
    */
-  async runChecks(releaseId: string, stageId: string): Promise<AutomatedCheck[]> {
+  async runChecks(releaseId: string, stageId: string, actor?: string): Promise<AutomatedCheck[]> {
     const release = this.releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
 
@@ -235,7 +235,7 @@ class ReleaseWorkflowService {
 
     // Write results back into the stage and auto-tick linked sub-steps.
     stage.automatedChecks = updated;
-    this.applyAutoTicks(stage, updated);
+    this.applyAutoTicks(stage, updated, actor);
 
     this.recomputeStatuses(release);
 
@@ -273,7 +273,7 @@ class ReleaseWorkflowService {
    * happened to fail. An auto tick, on the other hand, is purely derived
    * from the check results, so it should track the current results.
    */
-  private applyAutoTicks(stage: Stage, checks: AutomatedCheck[]): void {
+  private applyAutoTicks(stage: Stage, checks: AutomatedCheck[], actor?: string): void {
     const now = new Date().toISOString();
     const checkById = new Map(checks.map((c) => [c.id, c]));
 
@@ -294,11 +294,17 @@ class ReleaseWorkflowService {
       if (allPassed) {
         // (re-)tick from auto. No-op if already in this state.
         if (subStep.state !== 'checked' || subStep.source !== 'auto') {
+          // Newly transitioning into auto-checked. Record the actor who
+          // triggered this run (e.g. the sheriff who pasted the URL), or
+          // fall back to 'system' for bulk re-runs and boot reconciliation
+          // where no specific human is responsible.
           subStep.state = 'checked';
           subStep.source = 'auto';
           subStep.completedAt = now;
-          subStep.completedBy = 'system';
+          subStep.completedBy = actor ?? 'system';
         }
+        // else: already auto-ticked. Leave completedAt/completedBy untouched
+        // — the original tick's attribution is preserved across bulk re-runs.
       } else if (anyFailed) {
         // un-tick — but only if it was auto-ticked. Manual was filtered above.
         if (subStep.state === 'checked' && subStep.source === 'auto') {
@@ -376,6 +382,7 @@ class ReleaseWorkflowService {
   async updateMetadata(
     releaseId: string,
     patch: Record<string, string | null>,
+    actor?: string,
   ): Promise<Release> {
     const release = this.releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
@@ -428,7 +435,7 @@ class ReleaseWorkflowService {
       const stage = release.stages.find((s) => s.id === stageId);
       if (!stage || stage.status === 'locked') continue;
       try {
-        await this.runChecks(releaseId, stageId);
+        await this.runChecks(releaseId, stageId, actor);
       } catch (err: any) {
         // Don't abort the whole patch if one stage's checks fail catastrophically;
         // the field is already saved. Log and continue.
