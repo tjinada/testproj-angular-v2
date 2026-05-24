@@ -369,6 +369,20 @@ export class StageViewComponent implements OnChanges {
   }
 
   /**
+   * Compact label for the right-column timestamp on completed rows.
+   * e.g. "auto-checked · May 13" or "manually checked · May 13".
+   * Returns null when the row isn't in a checked state (no timestamp to show).
+   * Drops the actor name and time-of-day — the right-column micro-meta isn't
+   * the place to surface those; if needed they remain in the persisted JSON.
+   */
+  completedAtLabel(s: SubStep): string | null {
+    if (s.state !== 'checked' || !s.completedAt) return null;
+    const date = new Date(s.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const verb = s.source === 'manual' ? 'manually checked' : 'auto-checked';
+    return `${verb} · ${date}`;
+  }
+
+  /**
    * Placeholder text for the inline input. The persisted `placeholder` was
    * resolved at boot time by the loader — either from the runner's default
    * placeholder table or from an explicit `placeholder:` in YAML. We just

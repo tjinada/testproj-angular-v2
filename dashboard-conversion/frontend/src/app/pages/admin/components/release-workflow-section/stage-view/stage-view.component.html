@@ -80,12 +80,11 @@
           <!-- read-only value when passing (skipped for multi-URL where the per-URL list shows each value) -->
           @if (editable && status === 'passed' && fieldValue(s) && !isMultiUrlResult(s)) {
             <div class="ss-row__value">
-              <span class="ss-row__field">{{ s.editableField }}:</span>
               <span class="ss-row__field-val">{{ fieldValue(s) }}</span>
             </div>
           }
 
-          <!-- result line: passing summary OR failure error message OR per-URL list (multi runner) -->
+          <!-- result line: per-URL list for multi runner, OR failure error message. Success is silent -->
           @if (autoTickable && check && !running) {
             @if (isMultiUrlResult(s)) {
               <ul class="ss-row__urls">
@@ -99,17 +98,12 @@
                   </li>
                 }
               </ul>
-            } @else if (status === 'passed' && check.result) {
-              <div class="ss-row__result ss-row__result--passed">{{ resultLine(s) }}</div>
             } @else if (status === 'failed') {
               <div class="ss-row__result ss-row__result--failed">{{ check.errorMessage ?? 'Check failed' }}</div>
             }
           }
 
-          <!-- sub-title (state info) -->
-          @if (!running) {
-            <div class="ss-row__sub">{{ subTitle(s) }}</div>
-          } @else {
+          @if (running) {
             <div class="ss-row__sub ss-row__sub--running">Saving and running check…</div>
           }
 
@@ -151,17 +145,22 @@
         <!-- right-side actions -->
         @if (!running) {
           <div class="ss-row__actions">
-            @if (editable && status === 'passed') {
-              <a class="ss-link" (click)="beginEdit(s)">Edit</a>
-            }
-            @if (autoTickable) {
-              <a class="ss-link ss-link--muted" (click)="override(s)">
-                {{ s.state === 'checked' ? 'Un-tick' : 'Tick' }}
+            <div class="ss-row__actions-row">
+              @if (editable && status === 'passed') {
+                <a class="ss-link" (click)="beginEdit(s)">Edit</a>
+              }
+              @if (autoTickable) {
+                <a class="ss-link ss-link--muted" (click)="override(s)">
+                  {{ s.state === 'checked' ? 'Un-tick' : 'Tick' }}
+                </a>
+              }
+              <a class="ss-link ss-link--muted" (click)="toggleNa(s)">
+                {{ s.state === 'n_a' ? 'Un-N/A' : 'N/A' }}
               </a>
+            </div>
+            @if (completedAtLabel(s); as label) {
+              <div class="ss-row__actions-meta">{{ label }}</div>
             }
-            <a class="ss-link ss-link--muted" (click)="toggleNa(s)">
-              {{ s.state === 'n_a' ? 'Un-N/A' : 'N/A' }}
-            </a>
           </div>
         }
 

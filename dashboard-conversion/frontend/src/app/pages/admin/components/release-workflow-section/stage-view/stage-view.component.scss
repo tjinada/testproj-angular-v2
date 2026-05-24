@@ -197,10 +197,23 @@
   &__actions {
     flex: 0 0 auto;
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    padding-top: 1px;
+  }
+
+  &__actions-row {
+    display: flex;
     gap: 10px;
     font-size: 11px;
     align-items: center;
-    padding-top: 1px;
+  }
+
+  &__actions-meta {
+    font-size: 10px;
+    color: #888;
+    white-space: nowrap;
   }
 }
 
