@@ -474,18 +474,12 @@ export class StageViewComponent implements OnChanges {
   /**
    * Ordered list of tracks present on the current stage. Order is fixed
    * (generic → cdbui → cdbbos) and tracks with no sub-steps are omitted.
-   * Drives whether to render section headers (length ≥ 2) and the order
-   * they appear in.
+   * Drives the order of section headers in the template.
    */
   presentTracks(): SubStepTrack[] {
     const seen = new Set<SubStepTrack>();
     for (const s of this.stage.subSteps) seen.add(s.track);
     return (['generic', 'cdbui', 'cdbbos'] as const).filter((t) => seen.has(t));
-  }
-
-  /** True when the stage spans multiple tracks — the trigger for section headers. */
-  hasMultipleTracks(): boolean {
-    return this.presentTracks().length >= 2;
   }
 
   /** Sub-steps belonging to a given track, in their original stage order. */

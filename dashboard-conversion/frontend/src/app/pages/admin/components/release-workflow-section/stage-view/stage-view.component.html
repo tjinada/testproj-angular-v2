@@ -30,30 +30,22 @@
   }
 
   <!--
-    Sub-step rendering. Stages whose sub-steps span multiple tracks render
-    with section headers (Generic → CDB UI → CDBBOS); single-track stages
-    render as a flat list with no headers. The per-row markup lives in the
-    `subStepRow` template at the bottom of this file and is reused by both
-    paths via `<ng-container *ngTemplateOutlet>`.
+    Sub-step rendering. Every stage renders with a track section header
+    (Generic, CDB UI, CDBBOS) for the track(s) it contains — even when only
+    one track is present — so the categorization is always visible. The
+    per-row markup lives in the `subStepRow` template at the bottom of this
+    file and is reused via `<ng-container *ngTemplateOutlet>`.
   -->
-  @if (hasMultipleTracks()) {
-    <div class="ss-list">
-      @for (track of presentTracks(); track track) {
-        <div class="ss-track">
-          <h3 class="ss-track__title">{{ trackLabel(track) }}</h3>
-          @for (s of subStepsForTrack(track); track s.id) {
-            <ng-container *ngTemplateOutlet="subStepRow; context: { $implicit: s }"></ng-container>
-          }
-        </div>
-      }
-    </div>
-  } @else {
-    <div class="ss-list">
-      @for (s of stage.subSteps; track s.id) {
-        <ng-container *ngTemplateOutlet="subStepRow; context: { $implicit: s }"></ng-container>
-      }
-    </div>
-  }
+  <div class="ss-list">
+    @for (track of presentTracks(); track track) {
+      <div class="ss-track">
+        <h3 class="ss-track__title">{{ trackLabel(track) }}</h3>
+        @for (s of subStepsForTrack(track); track s.id) {
+          <ng-container *ngTemplateOutlet="subStepRow; context: { $implicit: s }"></ng-container>
+        }
+      </div>
+    }
+  </div>
 
 </div>
 
