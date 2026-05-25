@@ -475,16 +475,29 @@ export class StageViewComponent implements OnChanges {
    * Ordered list of tracks present on the current stage. Order is fixed
    * (generic → cdbui → cdbbos) and tracks with no sub-steps are omitted.
    * Drives the order of section headers in the template.
+   *
+   * Sub-steps with a missing/unrecognized track are treated as 'generic'
+   * so they always surface somewhere — prevents rows silently disappearing
+   * if backfill hasn't yet propagated to the persisted JSON.
    */
   presentTracks(): SubStepTrack[] {
     const seen = new Set<SubStepTrack>();
-    for (const s of this.stage.subSteps) seen.add(s.track);
+    for (const s of this.stage.subSteps) seen.add(this.trackOf(s));
     return (['generic', 'cdbui', 'cdbbos'] as const).filter((t) => seen.has(t));
   }
 
   /** Sub-steps belonging to a given track, in their original stage order. */
   subStepsForTrack(track: SubStepTrack): SubStep[] {
-    return this.stage.subSteps.filter((s) => s.track === track);
+    return this.stage.subSteps.filter((s) => this.trackOf(s) === track);
+  }
+
+  /**
+   * Resolve a sub-step's track defensively. Treats undefined / unknown
+   * values as 'generic' so we never lose a row to a missing field.
+   */
+  private trackOf(s: SubStep): SubStepTrack {
+    const t = s.track;
+    return t === 'cdbui' || t === 'cdbbos' ? t : 'generic';
   }
 
   /** Human-readable header label for a track. */
