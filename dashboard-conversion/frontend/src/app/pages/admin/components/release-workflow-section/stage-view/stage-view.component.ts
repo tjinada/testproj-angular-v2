@@ -19,6 +19,7 @@ import {
   Stage,
   SubStep,
   SubStepState,
+  SubStepTrack,
 } from '../../../models/release-workflow.model';
 import { AuthService } from '../../../../../../services/auth.service';
 import { usernameFromEmail } from '../../../../../../utils/sheriff.util';
@@ -466,6 +467,39 @@ export class StageViewComponent implements OnChanges {
 
   hasChecks(): boolean {
     return this.stage.automatedChecks.length > 0;
+  }
+
+  // ----- track grouping -----
+
+  /**
+   * Ordered list of tracks present on the current stage. Order is fixed
+   * (generic → cdbui → cdbbos) and tracks with no sub-steps are omitted.
+   * Drives whether to render section headers (length ≥ 2) and the order
+   * they appear in.
+   */
+  presentTracks(): SubStepTrack[] {
+    const seen = new Set<SubStepTrack>();
+    for (const s of this.stage.subSteps) seen.add(s.track);
+    return (['generic', 'cdbui', 'cdbbos'] as const).filter((t) => seen.has(t));
+  }
+
+  /** True when the stage spans multiple tracks — the trigger for section headers. */
+  hasMultipleTracks(): boolean {
+    return this.presentTracks().length >= 2;
+  }
+
+  /** Sub-steps belonging to a given track, in their original stage order. */
+  subStepsForTrack(track: SubStepTrack): SubStep[] {
+    return this.stage.subSteps.filter((s) => s.track === track);
+  }
+
+  /** Human-readable header label for a track. */
+  trackLabel(track: SubStepTrack): string {
+    switch (track) {
+      case 'generic': return 'General';
+      case 'cdbui':   return 'CDB UI';
+      case 'cdbbos':  return 'CDBBOS';
+    }
   }
 
   readonly runningAll = signal<boolean>(false);

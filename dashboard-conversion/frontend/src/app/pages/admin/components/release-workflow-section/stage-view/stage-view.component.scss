@@ -62,6 +62,31 @@
   gap: 8px;
 }
 
+// ---------- track sections (only rendered when stage spans 2+ tracks) ----------
+
+.ss-track {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  // Stack additional tracks below the first with a small gap so the
+  // section break is visible without being heavy.
+  & + .ss-track {
+    margin-top: 12px;
+  }
+
+  &__title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #888;
+    margin: 0 0 2px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #ececec;
+  }
+}
+
 .ss-row {
   display: flex;
   align-items: flex-start;

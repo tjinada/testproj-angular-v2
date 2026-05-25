@@ -12,6 +12,7 @@ export type StageStatus   = 'locked' | 'ready' | 'in_progress' | 'complete' | 's
 export type SubStepState  = 'unchecked' | 'checked' | 'n_a';
 export type SubStepSource = 'manual' | 'auto' | null;
 export type CheckStatus   = 'pending' | 'running' | 'passed' | 'failed' | 'partial';
+export type SubStepTrack  = 'generic' | 'cdbui' | 'cdbbos';
 
 export interface SubStep {
   id: string;
@@ -21,6 +22,7 @@ export interface SubStep {
   autoTickedBy: string[];
   editableField: string | null;
   inputType: 'text' | 'textarea';
+  track: SubStepTrack;
   placeholder: string | null;
   helpUrl: string | null;
   helpUrlLabel: string | null;

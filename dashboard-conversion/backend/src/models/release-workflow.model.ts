@@ -17,6 +17,7 @@ export type StageStatus   = 'locked' | 'ready' | 'in_progress' | 'complete' | 's
 export type SubStepState  = 'unchecked' | 'checked' | 'n_a';
 export type SubStepSource = 'manual' | 'auto' | null;
 export type CheckStatus   = 'pending' | 'running' | 'passed' | 'failed' | 'partial';
+export type SubStepTrack  = 'generic' | 'cdbui' | 'cdbbos';
 
 // ===== leaf shapes =====
 
@@ -39,6 +40,17 @@ export interface SubStep {
    * if no runner or no mapping.
    */
   inputType: 'text' | 'textarea';
+  /**
+   * Application track this sub-step belongs to. Used by the stage view
+   * to group sub-steps into sections when a stage covers multiple tracks
+   * (e.g. Stage 2 has both CDB UI and CDBBOS branching work). Single-track
+   * stages render as a flat list with no section headers.
+   *
+   * 'generic' — applies to the whole release (e.g. JIRA fix version)
+   * 'cdbui'   — specific to the CDB UI / frontend application track
+   * 'cdbbos'  — specific to the CDBBOS / backend application track
+   */
+  track: SubStepTrack;
   /**
    * Placeholder text shown in the inline edit input. Null = use the
    * default placeholder for the sub-step's runner (or a generic one if

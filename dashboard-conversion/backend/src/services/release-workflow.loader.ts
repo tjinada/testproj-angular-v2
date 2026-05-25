@@ -65,6 +65,7 @@ import {
 const SubStepSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
+  track: z.enum(['generic', 'cdbui', 'cdbbos']),
   editableField: z.string().optional(),
   runner: z.string().optional(),
   placeholder: z.string().optional(),
@@ -234,6 +235,7 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
         autoTickedBy,
         editableField: s.editableField ?? null,
         inputType,
+        track: s.track,
         placeholder,
         helpUrl,
         helpUrlLabel,

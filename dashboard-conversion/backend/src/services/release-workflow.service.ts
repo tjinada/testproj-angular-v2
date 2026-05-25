@@ -679,6 +679,10 @@ class ReleaseWorkflowService {
             existing.inputType = tplSub.inputType ?? 'text';
             changes.push(`${tplStage.id}: updated inputType on sub-step '${tplSub.id}'`);
           }
+          if ((existing.track ?? 'generic') !== (tplSub.track ?? 'generic')) {
+            existing.track = tplSub.track ?? 'generic';
+            changes.push(`${tplStage.id}: updated track on sub-step '${tplSub.id}'`);
+          }
           if ((existing.placeholder ?? null) !== (tplSub.placeholder ?? null)) {
             existing.placeholder = tplSub.placeholder ?? null;
             changes.push(`${tplStage.id}: updated placeholder on sub-step '${tplSub.id}'`);
