@@ -7,7 +7,7 @@
   },
   "id": "mobile-app-health-dashboard",
   "dashboardMetadata": {
-    "name": "Mobile App Health - App Init / ISAM / BioCatch",
+    "name": "Mobile App Health - App Init / ISAM / BioCatch / OneTrust",
     "shared": true,
     "owner": "",
     "tags": [
@@ -15,6 +15,7 @@
       "App Init",
       "ISAM",
       "BioCatch",
+      "OneTrust",
       "CDB"
     ],
     "preset": false,
@@ -23,7 +24,7 @@
   },
   "tiles": [
     {
-      "name": "Mobile App Health Dashboard",
+      "name": "Dashboard Title",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
@@ -33,7 +34,7 @@
         "height": 38
       },
       "tileFilter": {},
-      "markdown": "# \ud83d\udcf1 Mobile App Health Dashboard \u2014 App Init / ISAM / BioCatch"
+      "markdown": "# \ud83d\udcf1 Mobile App Health \u2014 App Init / ISAM / BioCatch / OneTrust"
     },
     {
       "name": "Section: App Initialization Issues",
@@ -49,27 +50,27 @@
       "markdown": "## App Initialization Issues"
     },
     {
-      "name": "Description: How many users shown errors page for config file not getting",
+      "name": "Desc: Config file not loaded (error page shown)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
         "top": 114,
         "left": 0,
-        "width": 1216,
-        "height": 114
+        "width": 380,
+        "height": 76
       },
       "tileFilter": {},
-      "markdown": "### How many users shown errors page for config file not getting loaded"
+      "markdown": "**Config file not loaded (error page shown)**"
     },
     {
-      "name": "How many users shown errors page for config file not getting loaded",
+      "name": "Config file not loaded (error page shown)",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 228,
+        "top": 190,
         "left": 0,
-        "width": 1216,
-        "height": 190
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -77,40 +78,40 @@
       "limit": 100
     },
     {
-      "name": "Link: How many users shown errors page for config file not getting",
+      "name": "Link: Config file not loaded (error page shown)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 418,
+        "top": 342,
         "left": 0,
-        "width": 1216,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25getappconfig+timed+out%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
+    },
+    {
+      "name": "Desc: Check app version failure (15s delay)",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 114,
+        "left": 418,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25getappconfig+timed+out%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%getappconfig timed out%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "**Check app version failure (15s delay)**"
     },
     {
-      "name": "Description: Check app version failure: Can cause 15 secs delay for loadi",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 494,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### Check app version failure: Can cause 15 secs delay for loading"
-    },
-    {
-      "name": "Check app version failure: Can cause 15 secs delay for loading",
+      "name": "Check app version failure (15s delay)",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 608,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 190,
+        "left": 418,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -118,40 +119,40 @@
       "limit": 100
     },
     {
-      "name": "Link: Check app version failure: Can cause 15 secs delay for loadi",
+      "name": "Link: Check app version failure (15s delay)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 798,
-        "left": 0,
-        "width": 1216,
+        "top": 342,
+        "left": 418,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25checkversion+request+failed%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
+    },
+    {
+      "name": "Desc: App init catch error (silent unless no network)",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 114,
+        "left": 836,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25checkversion+request+failed%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%checkversion request failed%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "**App init catch error (silent unless no network)**"
     },
     {
-      "name": "Description: Error page is shown if no network connection. Otherwise, iss",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 874,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### Error page is shown if no network connection. Otherwise, issue fails silently"
-    },
-    {
-      "name": "Error page is shown if no network connection. Otherwise, issue fails s",
+      "name": "App init catch error (silent unless no network)",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 988,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 190,
+        "left": 836,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -159,24 +160,24 @@
       "limit": 100
     },
     {
-      "name": "Link: Error page is shown if no network connection. Otherwise, iss",
+      "name": "Link: App init catch error (silent unless no network)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1178,
-        "left": 0,
-        "width": 1216,
-        "height": 76
+        "top": 342,
+        "left": 836,
+        "width": 380,
+        "height": 38
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25app.effects.ts+appiniteffect%24+catcherror%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%app.effects.ts appiniteffect$ catcherror%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25app.effects.ts+appiniteffect%24+catcherror%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
     },
     {
       "name": "Section: ISAM Errors",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1292,
+        "top": 418,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -185,27 +186,27 @@
       "markdown": "## ISAM Errors"
     },
     {
-      "name": "Description: Lambda APIs will error out (user flows will be broken) \u2014 ini",
+      "name": "Desc: initISAMSession failed (Lambda APIs error out)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1330,
+        "top": 456,
         "left": 0,
-        "width": 1216,
-        "height": 114
+        "width": 608,
+        "height": 76
       },
       "tileFilter": {},
-      "markdown": "### Lambda APIs will error out (user flows will be broken) \u2014 initISAMSession failed"
+      "markdown": "**initISAMSession failed (Lambda APIs error out)**"
     },
     {
-      "name": "Lambda APIs will error out (user flows will be broken) \u2014 initISAMSessi",
+      "name": "initISAMSession failed (Lambda APIs error out)",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1444,
+        "top": 532,
         "left": 0,
-        "width": 1216,
-        "height": 190
+        "width": 608,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -213,40 +214,40 @@
       "limit": 100
     },
     {
-      "name": "Link: Lambda APIs will error out (user flows will be broken) \u2014 ini",
+      "name": "Link: initISAMSession failed (Lambda APIs error out)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 1634,
+        "top": 684,
         "left": 0,
-        "width": 1216,
+        "width": 608,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25initisamsession+failed%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
+    },
+    {
+      "name": "Desc: initPreSigninISAMSession failed",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 456,
+        "left": 608,
+        "width": 608,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25initisamsession+failed%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%initisamsession failed%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "**initPreSigninISAMSession failed**"
     },
     {
-      "name": "Description: Lambda APIs will error out (user flows will be broken) \u2014 ini",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 1710,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### Lambda APIs will error out (user flows will be broken) \u2014 initPreSigninISAMSession failed"
-    },
-    {
-      "name": "Lambda APIs will error out (user flows will be broken) \u2014 initPreSignin",
+      "name": "initPreSigninISAMSession failed",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 1824,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 532,
+        "left": 608,
+        "width": 608,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -254,24 +255,24 @@
       "limit": 100
     },
     {
-      "name": "Link: Lambda APIs will error out (user flows will be broken) \u2014 ini",
+      "name": "Link: initPreSigninISAMSession failed",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2014,
-        "left": 0,
-        "width": 1216,
-        "height": 76
+        "top": 684,
+        "left": 608,
+        "width": 608,
+        "height": 38
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25initpresigninisamsession+failed%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%initpresigninisamsession failed%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25initpresigninisamsession+failed%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
     },
     {
       "name": "Section: BIO Catch",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2128,
+        "top": 760,
         "left": 0,
         "width": 1216,
         "height": 38
@@ -280,27 +281,27 @@
       "markdown": "## BIO Catch"
     },
     {
-      "name": "Description: Let user continue without BioCatch initiation. Users will ge",
+      "name": "Desc: BioCatch readiness timeout (OTP triggered)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2166,
+        "top": 798,
         "left": 0,
-        "width": 1216,
-        "height": 114
+        "width": 380,
+        "height": 76
       },
       "tileFilter": {},
-      "markdown": "### Let user continue without BioCatch initiation. Users will get OTP triggered for few flows \u2014 BioCatch readiness timeout during biometric cold start"
+      "markdown": "**BioCatch readiness timeout (OTP triggered)**"
     },
     {
-      "name": "Let user continue without BioCatch initiation. Users will get OTP trig",
+      "name": "BioCatch readiness timeout (OTP triggered)",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2280,
+        "top": 874,
         "left": 0,
-        "width": 1216,
-        "height": 190
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -308,40 +309,40 @@
       "limit": 100
     },
     {
-      "name": "Link: Let user continue without BioCatch initiation. Users will ge",
+      "name": "Link: BioCatch readiness timeout (OTP triggered)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2470,
+        "top": 1026,
         "left": 0,
-        "width": 1216,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25biocatch+readiness+timeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
+    },
+    {
+      "name": "Desc: biocatch.service.ts init failed/timed out",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 418,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25biocatch+readiness+timeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%biocatch readiness timeout%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "**biocatch.service.ts init failed/timed out**"
     },
     {
-      "name": "Description: biocatch.service.ts init failed or timed out (add a caveat s",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2546,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### biocatch.service.ts init failed or timed out (add a caveat saying it could be an actual issue)"
-    },
-    {
-      "name": "biocatch.service.ts init failed or timed out (add a caveat saying it c",
+      "name": "biocatch.service.ts init failed/timed out",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 2660,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 874,
+        "left": 418,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -349,40 +350,40 @@
       "limit": 100
     },
     {
-      "name": "Link: biocatch.service.ts init failed or timed out (add a caveat s",
+      "name": "Link: biocatch.service.ts init failed/timed out",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 2850,
-        "left": 0,
-        "width": 1216,
+        "top": 1026,
+        "left": 418,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25biocatch.service.ts+init+failed+or+timed+out%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
+    },
+    {
+      "name": "Desc: biocatch.service.ts startNative failed/timed out",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 798,
+        "left": 836,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25biocatch.service.ts+init+failed+or+timed+out%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%biocatch.service.ts init failed or timed out%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "**biocatch.service.ts startNative failed/timed out**"
     },
     {
-      "name": "Description: biocatch.service.ts startNative failed or timed out",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 2926,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### biocatch.service.ts startNative failed or timed out"
-    },
-    {
-      "name": "biocatch.service.ts startNative failed or timed out",
+      "name": "biocatch.service.ts startNative failed/timed out",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 3040,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 874,
+        "left": 836,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -390,53 +391,53 @@
       "limit": 100
     },
     {
-      "name": "Link: biocatch.service.ts startNative failed or timed out",
+      "name": "Link: biocatch.service.ts startNative failed/timed out",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 3230,
-        "left": 0,
-        "width": 1216,
-        "height": 76
+        "top": 1026,
+        "left": 836,
+        "width": 380,
+        "height": 38
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25biocatch.service.ts+startnative+failed+or+timed+out%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%biocatch.service.ts startnative failed or timed out%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25biocatch.service.ts+startnative+failed+or+timed+out%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
     },
     {
-      "name": "Section: One Trust",
+      "name": "Section: One Trust Timeouts",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 3344,
+        "top": 1102,
         "left": 0,
         "width": 1216,
         "height": 38
       },
       "tileFilter": {},
-      "markdown": "## One Trust"
+      "markdown": "## One Trust Timeouts"
     },
     {
-      "name": "Description: One Trust Timeouts \u2014 startOneTrustSdk otSdkTimeout",
+      "name": "Desc: startOneTrustSdk otSdkTimeout",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 3382,
+        "top": 1140,
         "left": 0,
-        "width": 1216,
-        "height": 114
+        "width": 380,
+        "height": 76
       },
       "tileFilter": {},
-      "markdown": "### One Trust Timeouts \u2014 startOneTrustSdk otSdkTimeout"
+      "markdown": "**startOneTrustSdk otSdkTimeout**"
     },
     {
-      "name": "One Trust Timeouts \u2014 startOneTrustSdk otSdkTimeout",
+      "name": "startOneTrustSdk otSdkTimeout",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 3496,
+        "top": 1216,
         "left": 0,
-        "width": 1216,
-        "height": 190
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -444,40 +445,40 @@
       "limit": 100
     },
     {
-      "name": "Link: One Trust Timeouts \u2014 startOneTrustSdk otSdkTimeout",
+      "name": "Link: startOneTrustSdk otSdkTimeout",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 3686,
+        "top": 1368,
         "left": 0,
-        "width": 1216,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25one-trust.service.ts+startonetrustsdk+otsdktimeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
+    },
+    {
+      "name": "Desc: syncConsentAndStartWebOT otConsentCallbackTimeout",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1140,
+        "left": 418,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25one-trust.service.ts+startonetrustsdk+otsdktimeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%one-trust.service.ts startonetrustsdk otsdktimeout%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "**syncConsentAndStartWebOT otConsentCallbackTimeout**"
     },
     {
-      "name": "Description: One Trust Timeouts \u2014 syncConsentAndStartWebOT otConsentCallb",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 3762,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### One Trust Timeouts \u2014 syncConsentAndStartWebOT otConsentCallbackTimeout"
-    },
-    {
-      "name": "One Trust Timeouts \u2014 syncConsentAndStartWebOT otConsentCallbackTimeout",
+      "name": "syncConsentAndStartWebOT otConsentCallbackTimeout",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 3876,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 1216,
+        "left": 418,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -485,40 +486,40 @@
       "limit": 100
     },
     {
-      "name": "Link: One Trust Timeouts \u2014 syncConsentAndStartWebOT otConsentCallb",
+      "name": "Link: syncConsentAndStartWebOT otConsentCallbackTimeout",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 4066,
-        "left": 0,
-        "width": 1216,
+        "top": 1368,
+        "left": 418,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25syncxonsentandstartwebot+otconsentcallbacktimeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
+    },
+    {
+      "name": "Desc: syncOTWebviewWithMobConsent otConsentCallbackTimeo",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1140,
+        "left": 836,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25syncxonsentandstartwebot+otconsentcallbacktimeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%syncxonsentandstartwebot otconsentcallbacktimeout%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "**syncOTWebviewWithMobConsent otConsentCallbackTimeout**"
     },
     {
-      "name": "Description: One Trust Timeouts \u2014 syncOTWebviewWithMobConsent otConsentCa",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 4142,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### One Trust Timeouts \u2014 syncOTWebviewWithMobConsent otConsentCallbackTimeout"
-    },
-    {
-      "name": "One Trust Timeouts \u2014 syncOTWebviewWithMobConsent otConsentCallbackTime",
+      "name": "syncOTWebviewWithMobConsent otConsentCallbackTimeout",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 4256,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 1216,
+        "left": 836,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -526,53 +527,53 @@
       "limit": 100
     },
     {
-      "name": "Link: One Trust Timeouts \u2014 syncOTWebviewWithMobConsent otConsentCa",
+      "name": "Link: syncOTWebviewWithMobConsent otConsentCallbackTimeo",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 4446,
-        "left": 0,
-        "width": 1216,
-        "height": 76
+        "top": 1368,
+        "left": 836,
+        "width": 380,
+        "height": 38
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25syncotewebviewwithmobconsent+otconsentcallbacktimeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%syncotewebviewwithmobconsent otconsentcallbacktimeout%\" AND (useraction.name = \"Loading BMO\" OR useraction.name = \"Loading App\" OR useraction.name STARTSWITH \"BiometricPlugin - getState\")`"
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25syncotewebviewwithmobconsent+otconsentcallbacktimeout%25%22+AND+%28useraction.name+%3D+%22Loading+BMO%22+OR+useraction.name+%3D+%22Loading+App%22+OR+useraction.name+STARTSWITH+%22BiometricPlugin+-+getState%22%29)"
     },
     {
-      "name": "Section: One Trust \u2014 Dead Flows",
+      "name": "Section: One Trust \u2014 Dead Flows (didn't reach signin/accounts/mysummary)",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 4560,
+        "top": 1444,
         "left": 0,
         "width": 1216,
         "height": 38
       },
       "tileFilter": {},
-      "markdown": "## One Trust \u2014 Dead Flows"
+      "markdown": "## One Trust \u2014 Dead Flows (didn't reach signin/accounts/mysummary)"
     },
     {
-      "name": "Description: Dead Flow \u2014 no consentedDate (user did NOT reach signin/acco",
+      "name": "Desc: no consentedDate",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 4598,
+        "top": 1482,
         "left": 0,
-        "width": 1216,
-        "height": 114
+        "width": 380,
+        "height": 76
       },
       "tileFilter": {},
-      "markdown": "### Dead Flow \u2014 no consentedDate (user did NOT reach signin/accounts/mysummary)"
+      "markdown": "**no consentedDate**"
     },
     {
-      "name": "Dead Flow \u2014 no consentedDate (user did NOT reach signin/accounts/mysum",
+      "name": "no consentedDate",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 4712,
+        "top": 1558,
         "left": 0,
-        "width": 1216,
-        "height": 190
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -580,40 +581,40 @@
       "limit": 100
     },
     {
-      "name": "Link: Dead Flow \u2014 no consentedDate (user did NOT reach signin/acco",
+      "name": "Link: no consentedDate",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 4902,
+        "top": 1710,
         "left": 0,
-        "width": 1216,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25no+consenteddate+-+dead+flow%25%22+AND+NOT+%28useraction.name+LIKE+%22%25%2Fsignin%2FverifyCredential%25%22+OR+useraction.name+LIKE+%22%25%2Faccounts%2F%25%22+OR+useraction.name+LIKE+%22%25%2Fmysummary%2F%25%22%29)"
+    },
+    {
+      "name": "Desc: android consent true",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1482,
+        "left": 418,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25no+consenteddate+-+dead+flow%25%22+AND+NOT+%28useraction.name+LIKE+%22%25%2Fsignin%2FverifyCredential%25%22+OR+useraction.name+LIKE+%22%25%2Faccounts%2F%25%22+OR+useraction.name+LIKE+%22%25%2Fmysummary%2F%25%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%no consenteddate - dead flow%\" AND NOT (useraction.name LIKE \"%/signin/verifyCredential%\" OR useraction.name LIKE \"%/accounts/%\" OR useraction.name LIKE \"%/mysummary/%\")`"
+      "markdown": "**android consent true**"
     },
     {
-      "name": "Description: Dead Flow \u2014 android consent true (user did NOT reach signin/",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 4978,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### Dead Flow \u2014 android consent true (user did NOT reach signin/accounts/mysummary)"
-    },
-    {
-      "name": "Dead Flow \u2014 android consent true (user did NOT reach signin/accounts/m",
+      "name": "android consent true",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 5092,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 1558,
+        "left": 418,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -621,40 +622,40 @@
       "limit": 100
     },
     {
-      "name": "Link: Dead Flow \u2014 android consent true (user did NOT reach signin/",
+      "name": "Link: android consent true",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 5282,
-        "left": 0,
-        "width": 1216,
+        "top": 1710,
+        "left": 418,
+        "width": 380,
+        "height": 38
+      },
+      "tileFilter": {},
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25android+consent+true%25%22+AND+NOT+%28useraction.name+LIKE+%22%25%2Fsignin%2FverifyCredential%25%22+OR+useraction.name+LIKE+%22%25%2Faccounts%2F%25%22+OR+useraction.name+LIKE+%22%25%2Fmysummary%2F%25%22%29)"
+    },
+    {
+      "name": "Desc: no consent status",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": {
+        "top": 1482,
+        "left": 836,
+        "width": 380,
         "height": 76
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25android+consent+true%25%22+AND+NOT+%28useraction.name+LIKE+%22%25%2Fsignin%2FverifyCredential%25%22+OR+useraction.name+LIKE+%22%25%2Faccounts%2F%25%22+OR+useraction.name+LIKE+%22%25%2Fmysummary%2F%25%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%android consent true%\" AND NOT (useraction.name LIKE \"%/signin/verifyCredential%\" OR useraction.name LIKE \"%/accounts/%\" OR useraction.name LIKE \"%/mysummary/%\")`"
+      "markdown": "**no consent status**"
     },
     {
-      "name": "Description: Dead Flow \u2014 no consent status (user did NOT reach signin/acc",
-      "tileType": "MARKDOWN",
-      "configured": true,
-      "bounds": {
-        "top": 5358,
-        "left": 0,
-        "width": 1216,
-        "height": 114
-      },
-      "tileFilter": {},
-      "markdown": "### Dead Flow \u2014 no consent status (user did NOT reach signin/accounts/mysummary)"
-    },
-    {
-      "name": "Dead Flow \u2014 no consent status (user did NOT reach signin/accounts/mysu",
+      "name": "no consent status",
       "tileType": "DTAQL",
       "configured": true,
       "bounds": {
-        "top": 5472,
-        "left": 0,
-        "width": 1216,
-        "height": 190
+        "top": 1558,
+        "left": 836,
+        "width": 380,
+        "height": 152
       },
       "tileFilter": {},
       "type": "TABLE",
@@ -662,17 +663,17 @@
       "limit": 100
     },
     {
-      "name": "Link: Dead Flow \u2014 no consent status (user did NOT reach signin/acc",
+      "name": "Link: no consent status",
       "tileType": "MARKDOWN",
       "configured": true,
       "bounds": {
-        "top": 5662,
-        "left": 0,
-        "width": 1216,
-        "height": 76
+        "top": 1710,
+        "left": 836,
+        "width": 380,
+        "height": 38
       },
       "tileFilter": {},
-      "markdown": "\ud83d\udd17 **[Open matching user sessions in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25no+consent+status%25%22+AND+NOT+%28useraction.name+LIKE+%22%25%2Fsignin%2FverifyCredential%25%22+OR+useraction.name+LIKE+%22%25%2Faccounts%2F%25%22+OR+useraction.name+LIKE+%22%25%2Fmysummary%2F%25%22%29)**\n\n`SELECT * FROM usersession WHERE useraction.name LIKE \"%no consent status%\" AND NOT (useraction.name LIKE \"%/signin/verifyCredential%\" OR useraction.name LIKE \"%/accounts/%\" OR useraction.name LIKE \"%/mysummary/%\")`"
+      "markdown": "\ud83d\udd17 [Open in Dynatrace \u2192](https://tno14693.apps.dynatrace.com/ui/apps/dynatrace.classic.query.user.sessions/ui/user-sessions/query?gtf=-30d+to+now&sessionquery=SELECT+%2A+FROM+usersession+WHERE+useraction.name+LIKE+%22%25no+consent+status%25%22+AND+NOT+%28useraction.name+LIKE+%22%25%2Fsignin%2FverifyCredential%25%22+OR+useraction.name+LIKE+%22%25%2Faccounts%2F%25%22+OR+useraction.name+LIKE+%22%25%2Fmysummary%2F%25%22%29)"
     }
   ]
 }
