@@ -68,6 +68,40 @@ function randomId() {
   return crypto.getRandomValues(new Uint8Array(6)).reduce((acc, b) => acc + b.toString(36).padStart(2, "0"), "").slice(0, 10);
 }
 
+function errorToMessage(err) {
+  if (!err) return "Unknown scanner error.";
+  if (typeof err === "string") return err;
+  if (err.message) return err.message;
+  if (err.name) return `${err.name}: ${err.constraint || "Camera start failed."}`;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
+function setScannerStatus(message, kind = "muted") {
+  const el = $("scannerStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.className = `scanner-status ${kind}`;
+}
+
+function wantsDisplayMode() {
+  const params = new URLSearchParams(location.search);
+  return params.get("mode") === "display" || location.pathname.endsWith("/display");
+}
+
+function buildDisplayUrl() {
+  const url = new URL(location.href);
+  // Works for http(s) and file://. For Docker, nginx also supports /display, but
+  // query mode is safer for double-clicked offline index.html.
+  url.pathname = url.pathname.endsWith("/display") ? url.pathname.replace(/\/display$/, "/") : url.pathname;
+  url.hash = "";
+  url.searchParams.set("mode", "display");
+  return url.href;
+}
+
 function switchTab(tabName) {
   document.querySelectorAll(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
   document.querySelectorAll(".panel").forEach(panel => panel.classList.toggle("active", panel.id === tabName));
@@ -253,14 +287,30 @@ async function nextFrame() {
 function toggleDisplayMode(force) {
   state.displayMode = typeof force === "boolean" ? force : !state.displayMode;
   document.body.classList.toggle("display-mode", state.displayMode);
+
   if (state.displayMode) {
     document.documentElement.requestFullscreen?.().catch(() => {});
-    history.replaceState(null, "", "#display");
+    // Do not use #display anymore. A leftover hash caused the app to keep
+    // booting into display mode after refresh.
+    const url = new URL(location.href);
+    url.hash = "";
+    url.searchParams.set("mode", "display");
+    history.replaceState(null, "", url.href);
   } else {
     document.exitFullscreen?.().catch(() => {});
-    history.replaceState(null, "", location.pathname + location.search);
+    const url = new URL(location.href);
+    url.hash = "";
+    url.searchParams.delete("mode");
+    if (url.pathname.endsWith("/display")) url.pathname = url.pathname.replace(/\/display$/, "/");
+    history.replaceState(null, "", url.href);
   }
 }
+
+function openDisplayMode() {
+  // Same window is best for file:// use and keeps generated QR frames in memory.
+  toggleDisplayMode(true);
+}
+
 
 function resetDecode() {
   state.received.clear();
@@ -371,71 +421,114 @@ async function startScanner() {
 
   const reader = $("reader");
   reader.innerHTML = "";
+  setScannerStatus("Starting camera…", "muted");
+  $("startScanBtn").disabled = true;
 
-  if (window.Html5Qrcode) {
-    state.scanner = new Html5Qrcode("reader", { verbose: false });
-    await state.scanner.start(
-      {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      },
-      {
-        fps: 15,
+  try {
+    if (!window.isSecureContext) {
+      throw new Error("Camera access requires HTTPS, localhost, or a trusted local context. Use your Cloudflare/Tailscale HTTPS URL on the phone.");
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("This browser does not expose camera access to this page.");
+    }
+
+    if (window.Html5Qrcode) {
+      state.scanner = new Html5Qrcode("reader", { verbose: false });
+
+      const scannerConfig = {
+        fps: 10,
         qrbox: (viewfinderWidth, viewfinderHeight) => {
           const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.88);
           return { width: size, height: size };
         },
         aspectRatio: 1.0,
         disableFlip: false
-      },
-      handleQrDecoded,
-      () => {}
-    );
-  } else {
-    if (!("BarcodeDetector" in window)) {
-      throw new Error("QR scanner library did not load. Make sure libs/html5-qrcode.min.js is present and loaded before app.js.");
+      };
+
+      const cameraAttempts = [
+        {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        { facingMode: "environment" },
+        { facingMode: { ideal: "environment" } }
+      ];
+
+      let lastErr = null;
+      for (const constraints of cameraAttempts) {
+        try {
+          await state.scanner.start(
+            constraints,
+            scannerConfig,
+            handleQrDecoded,
+            () => {}
+          );
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          try {
+            await state.scanner.stop();
+          } catch {}
+        }
+      }
+      if (lastErr) throw lastErr;
+    } else {
+      if (!("BarcodeDetector" in window)) {
+        throw new Error("QR scanner library did not load. Confirm /libs/html5-qrcode.min.js returns 200 and loads before app.js.");
+      }
+
+      state.detector = new BarcodeDetector({ formats: ["qr_code"] });
+      const video = document.createElement("video");
+      video.setAttribute("playsinline", "true");
+      video.muted = true;
+      video.className = "scanner-video";
+      reader.appendChild(video);
+
+      state.videoStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      video.srcObject = state.videoStream;
+      await video.play();
+
+      const scanLoop = async () => {
+        if (!state.videoStream) return;
+        try {
+          const codes = await state.detector.detect(video);
+          for (const code of codes) {
+            if (code.rawValue) await handleQrDecoded(code.rawValue);
+          }
+        } catch {}
+        state.scanTimer = requestAnimationFrame(scanLoop);
+      };
+      state.scanTimer = requestAnimationFrame(scanLoop);
     }
 
-    state.detector = new BarcodeDetector({ formats: ["qr_code"] });
-    const video = document.createElement("video");
-    video.setAttribute("playsinline", "true");
-    video.muted = true;
-    video.className = "scanner-video";
-    reader.appendChild(video);
-
-    state.videoStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      },
-      audio: false
-    });
-    video.srcObject = state.videoStream;
-    await video.play();
-
-    const scanLoop = async () => {
-      if (!state.videoStream) return;
-      try {
-        const codes = await state.detector.detect(video);
-        for (const code of codes) {
-          if (code.rawValue) await handleQrDecoded(code.rawValue);
-        }
-      } catch (e) {}
-      state.scanTimer = requestAnimationFrame(scanLoop);
-    };
-    state.scanTimer = requestAnimationFrame(scanLoop);
+    $("stopScanBtn").disabled = false;
+    setScannerStatus("Camera running. Point it at the QR code and keep the QR inside the square.", "ok");
+  } catch (err) {
+    const message = errorToMessage(err);
+    await stopScanner({ silent: true });
+    setScannerStatus(message, "error");
+    throw new Error(message);
   }
-
-  $("startScanBtn").disabled = true;
-  $("stopScanBtn").disabled = false;
 }
 
-async function stopScanner() {
+
+async function stopScanner(options = {}) {
   if (state.scanner) {
-    await state.scanner.stop();
-    state.scanner.clear();
+    try {
+      await state.scanner.stop();
+    } catch {}
+    try {
+      state.scanner.clear();
+    } catch {}
     state.scanner = null;
   }
 
@@ -452,7 +545,9 @@ async function stopScanner() {
   $("reader").innerHTML = "";
   $("startScanBtn").disabled = false;
   $("stopScanBtn").disabled = true;
+  if (!options.silent) setScannerStatus("Scanner stopped.", "muted");
 }
+
 
 function downloadRebuiltFile() {
   if (!state.rebuiltBlob || !state.activeTransfer) return;
@@ -484,10 +579,10 @@ $("stopBtn").addEventListener("click", stopAnimation);
 $("pausePlayBtn").addEventListener("click", togglePausePlay);
 $("prevFrameBtn").addEventListener("click", previousFrame);
 $("nextFrameBtn").addEventListener("click", nextFrame);
-$("displayModeBtn").addEventListener("click", () => toggleDisplayMode(true));
+$("displayModeBtn").addEventListener("click", openDisplayMode);
 $("exitDisplayModeBtn").addEventListener("click", () => toggleDisplayMode(false));
-$("startScanBtn").addEventListener("click", () => startScanner().catch(err => alert(err.message)));
-$("stopScanBtn").addEventListener("click", () => stopScanner().catch(err => alert(err.message)));
+$("startScanBtn").addEventListener("click", () => startScanner().catch(err => alert(errorToMessage(err))));
+$("stopScanBtn").addEventListener("click", () => stopScanner().catch(err => alert(errorToMessage(err))));
 $("resetScanBtn").addEventListener("click", resetDecode);
 $("downloadBtn").addEventListener("click", downloadRebuiltFile);
 $("copyBtn").addEventListener("click", copyOutput);
@@ -502,6 +597,10 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
-if (location.hash === "#display" || location.pathname.endsWith("/display")) {
+if (location.hash === "#display") {
+  // Clean up old bookmarked/hash state from earlier builds.
+  history.replaceState(null, "", location.pathname + location.search);
+}
+if (wantsDisplayMode()) {
   toggleDisplayMode(true);
 }
