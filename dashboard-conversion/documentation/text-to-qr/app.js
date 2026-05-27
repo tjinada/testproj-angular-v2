@@ -5,6 +5,9 @@ const state = {
   frameIndex: 0,
   intervalId: null,
   scanner: null,
+  videoStream: null,
+  scanTimer: null,
+  detector: null,
   received: new Map(),
   activeTransfer: null,
   rebuiltBlob: null,
@@ -250,23 +253,76 @@ async function rebuildTransfer() {
 }
 
 async function startScanner() {
-  if (state.scanner) return;
-  state.scanner = new Html5Qrcode("reader");
-  await state.scanner.start(
-    { facingMode: "environment" },
-    { fps: 12, qrbox: { width: 280, height: 280 } },
-    handleQrDecoded,
-    () => {}
-  );
+  if (state.scanner || state.videoStream) return;
+
+  const reader = $("reader");
+  reader.innerHTML = "";
+
+  // Prefer html5-qrcode if someone adds it later, otherwise use the browser's native BarcodeDetector.
+  if (window.Html5Qrcode) {
+    state.scanner = new Html5Qrcode("reader");
+    await state.scanner.start(
+      { facingMode: "environment" },
+      { fps: 12, qrbox: { width: 280, height: 280 } },
+      handleQrDecoded,
+      () => {}
+    );
+  } else {
+    if (!("BarcodeDetector" in window)) {
+      throw new Error("This browser does not support native QR scanning. On iPhone, use recent Safari/Chrome over HTTPS/Tailscale. For older browsers, add html5-qrcode locally.");
+    }
+
+    state.detector = new BarcodeDetector({ formats: ["qr_code"] });
+    const video = document.createElement("video");
+    video.setAttribute("playsinline", "true");
+    video.muted = true;
+    video.className = "scanner-video";
+    reader.appendChild(video);
+
+    state.videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+    video.srcObject = state.videoStream;
+    await video.play();
+
+    const scanLoop = async () => {
+      if (!state.videoStream) return;
+      try {
+        const codes = await state.detector.detect(video);
+        for (const code of codes) {
+          if (code.rawValue) await handleQrDecoded(code.rawValue);
+        }
+      } catch (e) {
+        // Keep scanning. Camera frames can fail while the video is warming up.
+      }
+      state.scanTimer = requestAnimationFrame(scanLoop);
+    };
+    state.scanTimer = requestAnimationFrame(scanLoop);
+  }
+
   $("startScanBtn").disabled = true;
   $("stopScanBtn").disabled = false;
 }
 
 async function stopScanner() {
-  if (!state.scanner) return;
-  await state.scanner.stop();
-  state.scanner.clear();
-  state.scanner = null;
+  if (state.scanner) {
+    await state.scanner.stop();
+    state.scanner.clear();
+    state.scanner = null;
+  }
+
+  if (state.scanTimer) {
+    cancelAnimationFrame(state.scanTimer);
+    state.scanTimer = null;
+  }
+
+  if (state.videoStream) {
+    state.videoStream.getTracks().forEach(track => track.stop());
+    state.videoStream = null;
+  }
+
+  $("reader").innerHTML = "";
   $("startScanBtn").disabled = false;
   $("stopScanBtn").disabled = true;
 }

@@ -178,3 +178,5 @@ textarea {
   .hero { align-items: flex-start; flex-direction: column; }
   .progress-line { flex-direction: column; }
 }
+
+.scanner-video { width: 100%; max-width: 420px; border-radius: 16px; background: #000; }

@@ -48,3 +48,7 @@ If Tailscale is running inside a container/add-on instead of directly on Unraid,
 ```bash
 tailscale serve --bg --https=443 http://UNRAID-IP:8099
 ```
+
+
+## Local libraries
+This build does not use CDN scripts. QR generation and gzip are loaded from `libs/` inside the container. Camera scanning uses the browser native `BarcodeDetector` API, so open it over HTTPS/Tailscale for phone camera access.
