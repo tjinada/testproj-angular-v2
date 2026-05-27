@@ -269,7 +269,7 @@ async function startScanner() {
     );
   } else {
     if (!("BarcodeDetector" in window)) {
-      throw new Error("This browser does not support native QR scanning. On iPhone, use recent Safari/Chrome over HTTPS/Tailscale. For older browsers, add html5-qrcode locally.");
+      throw new Error("QR scanner library did not load. Make sure libs/html5-qrcode.min.js is present and loaded before app.js.");
     }
 
     state.detector = new BarcodeDetector({ formats: ["qr_code"] });
