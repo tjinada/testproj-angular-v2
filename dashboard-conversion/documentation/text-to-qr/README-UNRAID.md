@@ -56,3 +56,8 @@ This build does not use CDN scripts. QR generation and gzip are loaded from `lib
 
 ## iPhone scanner note
 This build includes `libs/html5-qrcode.min.js` locally, so iPhone Safari/Chrome should use the bundled scanner over HTTPS. If you still see a scanner-library error, clear browser cache and rebuild/redeploy the Docker image.
+
+
+## Offline/client note
+
+The browser libraries are stored under `libs/` and served by the container. Client machines do not need internet access as long as they can reach this app over LAN or your HTTPS tunnel. A `400 chars` chunk size option is included for difficult screens/cameras.

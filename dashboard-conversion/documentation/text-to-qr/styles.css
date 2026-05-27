@@ -180,3 +180,94 @@ textarea {
 }
 
 .scanner-video { width: 100%; max-width: 420px; border-radius: 16px; background: #000; }
+
+.ok { color: var(--ok); font-weight: 800; }
+.qr-actions { justify-content: center; }
+.qr-wrap canvas, .qr-wrap img {
+  width: min(620px, 86vw) !important;
+  height: min(620px, 86vw) !important;
+  background: #fff;
+  border: 24px solid #fff;
+  border-radius: 12px;
+  image-rendering: pixelated;
+}
+.qr-wrap {
+  min-height: min(760px, 92vh);
+  background: #050711;
+}
+.exit-display { display: none; }
+
+body.display-mode {
+  background: #000;
+  overflow: hidden;
+}
+body.display-mode .hero,
+body.display-mode .tabs,
+body.display-mode #encode > .grid,
+body.display-mode #decode,
+body.display-mode .qr-stage h2,
+body.display-mode .qr-actions,
+body.display-mode .card:not(.qr-stage) {
+  display: none !important;
+}
+body.display-mode .app-shell {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+}
+body.display-mode #encode,
+body.display-mode .panel.active,
+body.display-mode .qr-stage {
+  display: block !important;
+}
+body.display-mode .qr-stage {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  padding: 12px;
+  border: 0;
+  border-radius: 0;
+  background: #000;
+  box-shadow: none;
+}
+body.display-mode .qr-wrap {
+  min-height: calc(100vh - 76px);
+  border: 0;
+  border-radius: 0;
+  background: #000;
+}
+body.display-mode .qr-wrap canvas,
+body.display-mode .qr-wrap img {
+  width: min(88vw, 88vh) !important;
+  height: min(88vw, 88vh) !important;
+  border-width: 34px;
+  border-radius: 0;
+}
+body.display-mode .progress-line {
+  position: fixed;
+  left: 24px;
+  right: 24px;
+  bottom: 18px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.72);
+  color: #fff;
+  font-weight: 800;
+}
+body.display-mode .exit-display {
+  display: block;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+}
+#reader video { border-radius: 18px; }
+#reader { min-height: 0; }
+
+@media (max-width: 780px) {
+  .qr-wrap canvas, .qr-wrap img {
+    width: min(92vw, 520px) !important;
+    height: min(92vw, 520px) !important;
+    border-width: 18px;
+  }
+}

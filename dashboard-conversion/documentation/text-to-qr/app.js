@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   frames: [],
   frameIndex: 0,
+  holdTick: 0,
   intervalId: null,
   scanner: null,
   videoStream: null,
@@ -11,7 +12,19 @@ const state = {
   received: new Map(),
   activeTransfer: null,
   rebuiltBlob: null,
-  rebuiltText: ""
+  rebuiltText: "",
+  displayMode: false,
+  lastDecoded: ""
+};
+
+const QR_OPTIONS = {
+  errorCorrectionLevel: "H",
+  margin: 6,
+  scale: 12,
+  color: {
+    dark: "#000000",
+    light: "#ffffff"
+  }
 };
 
 function base64UrlEncode(bytes) {
@@ -29,6 +42,14 @@ function base64UrlDecode(str) {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+}
+
+function encodeString(str) {
+  return base64UrlEncode(new TextEncoder().encode(str || ""));
+}
+
+function decodeString(str) {
+  return new TextDecoder().decode(base64UrlDecode(str || ""));
 }
 
 async function sha256Hex(input) {
@@ -73,6 +94,51 @@ async function readInput() {
   };
 }
 
+function buildCompactFrame({ id, index, total, alg, fileHash, chunkHash, name, mime, data }) {
+  // Compact pipe format. data/name/mime are base64url, so they never contain pipes.
+  // AQR1|id|index|total|alg|fileHash|chunkHash|nameB64|mimeB64|data
+  return [
+    "AQR1",
+    id,
+    index,
+    total,
+    alg,
+    fileHash,
+    chunkHash,
+    encodeString(name),
+    encodeString(mime),
+    data
+  ].join("|");
+}
+
+function parseFrame(decodedText) {
+  if (decodedText.startsWith("AQR1|")) {
+    const parts = decodedText.split("|");
+    if (parts.length !== 10) return null;
+    const [, id, i, t, alg, fileHash, chunkHash, nameB64, mimeB64, data] = parts;
+    return {
+      qrt: "aqr-transfer",
+      v: 2,
+      id,
+      i: Number(i),
+      t: Number(t),
+      alg,
+      fileHash,
+      chunkHash,
+      name: decodeString(nameB64),
+      mime: decodeString(mimeB64),
+      data
+    };
+  }
+
+  // Backward compatibility with the earlier JSON frames.
+  try {
+    return JSON.parse(decodedText);
+  } catch {
+    return null;
+  }
+}
+
 async function generateFrames() {
   stopAnimation();
   const { bytes, name, mime } = await readInput();
@@ -83,34 +149,37 @@ async function generateFrames() {
   const dataChunks = splitString(encoded, chunkSize);
   const id = randomId();
   const fileHash = await sha256Hex(bytes);
+  const alg = useCompression ? "gzip" : "raw";
 
   const frames = [];
   for (let i = 0; i < dataChunks.length; i++) {
     const chunk = dataChunks[i];
-    const payload = {
-      qrt: "aqr-transfer",
-      v: 1,
+    const chunkHash = (await sha256Hex(chunk)).slice(0, 16);
+    frames.push(buildCompactFrame({
       id,
-      i,
-      t: dataChunks.length,
+      index: i,
+      total: dataChunks.length,
+      alg,
+      fileHash,
+      chunkHash,
       name,
       mime,
-      alg: useCompression ? "gzip" : "raw",
-      fileHash,
-      data: chunk,
-      chunkHash: await sha256Hex(chunk)
-    };
-    frames.push(JSON.stringify(payload));
+      data: chunk
+    }));
   }
 
   state.frames = frames;
   state.frameIndex = 0;
+  state.holdTick = 0;
 
+  const largest = Math.max(...frames.map(f => f.length));
   $("encodeStats").innerHTML = `
     Original: <strong>${bytes.length.toLocaleString()}</strong> bytes<br>
     Encoded payload: <strong>${encoded.length.toLocaleString()}</strong> chars<br>
     Frames: <strong>${frames.length}</strong><br>
-    Algorithm: <strong>${useCompression ? "gzip" : "raw"}</strong>
+    Largest QR payload: <strong>${largest.toLocaleString()}</strong> chars<br>
+    Algorithm: <strong>${alg}</strong><br>
+    QR settings: <strong>ECC H, margin 6</strong>
   `;
   $("transferId").textContent = `Transfer ID: ${id}`;
 
@@ -129,30 +198,68 @@ async function renderCurrentFrame() {
 
   wrap.classList.remove("empty");
   const canvas = document.createElement("canvas");
+  canvas.className = "qr-canvas";
   wrap.appendChild(canvas);
-  await QRCode.toCanvas(canvas, state.frames[state.frameIndex], {
-    errorCorrectionLevel: "M",
-    margin: 2,
-    scale: 8
-  });
+  await QRCode.toCanvas(canvas, state.frames[state.frameIndex], QR_OPTIONS);
   $("frameCounter").textContent = `Frame ${state.frameIndex + 1} / ${state.frames.length}`;
+}
+
+function advanceFrame() {
+  const hold = Number($("frameHold").value || 1);
+  state.holdTick += 1;
+  if (state.holdTick >= hold) {
+    state.holdTick = 0;
+    state.frameIndex = (state.frameIndex + 1) % state.frames.length;
+  }
+  renderCurrentFrame();
 }
 
 function startAnimation() {
   if (!state.frames.length) return;
   stopAnimation();
   const fps = Number($("fps").value);
-  state.intervalId = setInterval(async () => {
-    state.frameIndex = (state.frameIndex + 1) % state.frames.length;
-    await renderCurrentFrame();
-  }, 1000 / fps);
+  state.intervalId = setInterval(advanceFrame, 1000 / fps);
   $("stopBtn").disabled = false;
+  $("pausePlayBtn").textContent = "Pause";
 }
 
 function stopAnimation() {
   if (state.intervalId) clearInterval(state.intervalId);
   state.intervalId = null;
   $("stopBtn").disabled = true;
+  if ($("pausePlayBtn")) $("pausePlayBtn").textContent = "Play";
+}
+
+function togglePausePlay() {
+  if (!state.frames.length) return;
+  if (state.intervalId) stopAnimation();
+  else startAnimation();
+}
+
+async function previousFrame() {
+  if (!state.frames.length) return;
+  stopAnimation();
+  state.frameIndex = (state.frameIndex - 1 + state.frames.length) % state.frames.length;
+  await renderCurrentFrame();
+}
+
+async function nextFrame() {
+  if (!state.frames.length) return;
+  stopAnimation();
+  state.frameIndex = (state.frameIndex + 1) % state.frames.length;
+  await renderCurrentFrame();
+}
+
+function toggleDisplayMode(force) {
+  state.displayMode = typeof force === "boolean" ? force : !state.displayMode;
+  document.body.classList.toggle("display-mode", state.displayMode);
+  if (state.displayMode) {
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    history.replaceState(null, "", "#display");
+  } else {
+    document.exitFullscreen?.().catch(() => {});
+    history.replaceState(null, "", location.pathname + location.search);
+  }
 }
 
 function resetDecode() {
@@ -160,6 +267,7 @@ function resetDecode() {
   state.activeTransfer = null;
   state.rebuiltBlob = null;
   state.rebuiltText = "";
+  state.lastDecoded = "";
   $("decodeStats").textContent = "Waiting for QR frames.";
   $("missingChunks").textContent = "";
   $("meterBar").style.width = "0%";
@@ -169,17 +277,16 @@ function resetDecode() {
 }
 
 async function handleQrDecoded(decodedText) {
-  let payload;
-  try {
-    payload = JSON.parse(decodedText);
-  } catch {
-    return;
-  }
+  if (!decodedText || decodedText === state.lastDecoded) return;
+  state.lastDecoded = decodedText;
 
-  if (payload.qrt !== "aqr-transfer" || payload.v !== 1) return;
+  const payload = parseFrame(decodedText);
+  if (!payload || payload.qrt !== "aqr-transfer") return;
+  if (!Number.isInteger(payload.i) || !Number.isInteger(payload.t) || payload.i < 0 || payload.i >= payload.t) return;
 
   if (!state.activeTransfer || state.activeTransfer.id !== payload.id) {
     resetDecode();
+    state.lastDecoded = decodedText;
     state.activeTransfer = {
       id: payload.id,
       total: payload.t,
@@ -193,18 +300,24 @@ async function handleQrDecoded(decodedText) {
   if (payload.id !== state.activeTransfer.id) return;
   if (state.received.has(payload.i)) return;
 
-  const chunkHash = await sha256Hex(payload.data);
+  const chunkHash = (await sha256Hex(payload.data)).slice(0, 16);
   if (chunkHash !== payload.chunkHash) return;
 
   state.received.set(payload.i, payload.data);
-  updateDecodeProgress();
+  updateDecodeProgress(payload.i);
 
   if (state.received.size === state.activeTransfer.total) {
     await rebuildTransfer();
   }
 }
 
-function updateDecodeProgress() {
+function summarizeMissing(missing) {
+  if (!missing.length) return "All frames received.";
+  if (missing.length <= 30) return `Missing frames: ${missing.join(", ")}`;
+  return `Missing ${missing.length} frames. First missing: ${missing.slice(0, 30).join(", ")}...`;
+}
+
+function updateDecodeProgress(lastFrame) {
   const meta = state.activeTransfer;
   if (!meta) return;
   const got = state.received.size;
@@ -218,9 +331,10 @@ function updateDecodeProgress() {
     Transfer ID: <strong>${meta.id}</strong><br>
     File: <strong>${meta.name}</strong><br>
     Chunks: <strong>${got} / ${meta.total}</strong><br>
+    Last captured: <strong>${typeof lastFrame === "number" ? lastFrame + 1 : "-"}</strong><br>
     Algorithm: <strong>${meta.alg}</strong>
   `;
-  $("missingChunks").textContent = missing.length ? `Missing frames: ${missing.join(", ")}` : "All frames received.";
+  $("missingChunks").textContent = summarizeMissing(missing);
 }
 
 async function rebuildTransfer() {
@@ -238,7 +352,7 @@ async function rebuildTransfer() {
   }
 
   state.rebuiltBlob = new Blob([bytes], { type: meta.mime || "application/octet-stream" });
-  const isText = (meta.mime || "").startsWith("text/") || /\.(ts|js|json|xml|html|css|txt|md|log)$/i.test(meta.name);
+  const isText = (meta.mime || "").startsWith("text/") || /\.(ts|tsx|js|jsx|json|xml|html|css|txt|md|log|yaml|yml)$/i.test(meta.name);
 
   if (isText) {
     state.rebuiltText = new TextDecoder().decode(bytes);
@@ -258,12 +372,23 @@ async function startScanner() {
   const reader = $("reader");
   reader.innerHTML = "";
 
-  // Prefer html5-qrcode if someone adds it later, otherwise use the browser's native BarcodeDetector.
   if (window.Html5Qrcode) {
-    state.scanner = new Html5Qrcode("reader");
+    state.scanner = new Html5Qrcode("reader", { verbose: false });
     await state.scanner.start(
-      { facingMode: "environment" },
-      { fps: 12, qrbox: { width: 280, height: 280 } },
+      {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      {
+        fps: 15,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.88);
+          return { width: size, height: size };
+        },
+        aspectRatio: 1.0,
+        disableFlip: false
+      },
       handleQrDecoded,
       () => {}
     );
@@ -280,7 +405,11 @@ async function startScanner() {
     reader.appendChild(video);
 
     state.videoStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
       audio: false
     });
     video.srcObject = state.videoStream;
@@ -293,9 +422,7 @@ async function startScanner() {
         for (const code of codes) {
           if (code.rawValue) await handleQrDecoded(code.rawValue);
         }
-      } catch (e) {
-        // Keep scanning. Camera frames can fail while the video is warming up.
-      }
+      } catch (e) {}
       state.scanTimer = requestAnimationFrame(scanLoop);
     };
     state.scanTimer = requestAnimationFrame(scanLoop);
@@ -354,8 +481,27 @@ $("fileInput").addEventListener("change", () => {
 });
 $("generateBtn").addEventListener("click", () => generateFrames().catch(err => alert(err.message)));
 $("stopBtn").addEventListener("click", stopAnimation);
+$("pausePlayBtn").addEventListener("click", togglePausePlay);
+$("prevFrameBtn").addEventListener("click", previousFrame);
+$("nextFrameBtn").addEventListener("click", nextFrame);
+$("displayModeBtn").addEventListener("click", () => toggleDisplayMode(true));
+$("exitDisplayModeBtn").addEventListener("click", () => toggleDisplayMode(false));
 $("startScanBtn").addEventListener("click", () => startScanner().catch(err => alert(err.message)));
 $("stopScanBtn").addEventListener("click", () => stopScanner().catch(err => alert(err.message)));
 $("resetScanBtn").addEventListener("click", resetDecode);
 $("downloadBtn").addEventListener("click", downloadRebuiltFile);
 $("copyBtn").addEventListener("click", copyOutput);
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.displayMode) toggleDisplayMode(false);
+  if (event.key === "ArrowLeft") previousFrame();
+  if (event.key === "ArrowRight") nextFrame();
+  if (event.key === " " && document.activeElement?.tagName !== "TEXTAREA") {
+    event.preventDefault();
+    togglePausePlay();
+  }
+});
+
+if (location.hash === "#display" || location.pathname.endsWith("/display")) {
+  toggleDisplayMode(true);
+}

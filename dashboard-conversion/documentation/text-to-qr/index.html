@@ -40,20 +40,30 @@
           <div class="option-row">
             <label for="chunkSize">Chunk size</label>
             <select id="chunkSize">
-              <option value="700">700 chars - very reliable</option>
-              <option value="1000" selected>1000 chars - balanced</option>
-              <option value="1400">1400 chars - denser</option>
-              <option value="1800">1800 chars - risky</option>
+              <option value="400">400 chars - ultra reliable</option>
+              <option value="500">500 chars - safest</option>
+              <option value="700" selected>700 chars - reliable</option>
+              <option value="900">900 chars - balanced</option>
+              <option value="1200">1200 chars - denser</option>
             </select>
           </div>
 
           <div class="option-row">
             <label for="fps">Animation speed</label>
             <select id="fps">
-              <option value="1">1 FPS</option>
-              <option value="2" selected>2 FPS</option>
+              <option value="1" selected>1 FPS - safest</option>
+              <option value="2">2 FPS</option>
+              <option value="3">3 FPS</option>
               <option value="4">4 FPS</option>
-              <option value="6">6 FPS</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label for="frameHold">Repeat each frame</label>
+            <select id="frameHold">
+              <option value="1">1x</option>
+              <option value="2" selected>2x - recommended</option>
+              <option value="3">3x - slow but sturdy</option>
             </select>
           </div>
 
@@ -77,6 +87,12 @@
         <div class="progress-line">
           <span id="frameCounter">Frame 0 / 0</span>
           <span id="transferId">Transfer ID: none</span>
+        </div>
+        <div class="actions qr-actions">
+          <button id="displayModeBtn" class="primary">Large Display Mode</button>
+          <button id="pausePlayBtn" class="secondary">Play</button>
+          <button id="prevFrameBtn" class="secondary">Previous</button>
+          <button id="nextFrameBtn" class="secondary">Next</button>
         </div>
       </section>
     </section>
@@ -115,7 +131,9 @@
     </section>
   </main>
 
-  <script src="libs/qrcode.min.js"></script>
+  <button id="exitDisplayModeBtn" class="exit-display secondary">Exit Display</button>
+
+  <script src="libs/qrcode-local.js"></script>
   <script src="libs/pako.min.js"></script>
   <script src="libs/html5-qrcode.min.js"></script>
   <script src="app.js"></script>
