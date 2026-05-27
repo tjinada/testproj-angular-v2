@@ -109,6 +109,10 @@
           </div>
           <div id="scannerStatus" class="scanner-status muted">Scanner is idle.</div>
           <div id="reader"></div>
+          <details class="debug-panel" open>
+            <summary>Debug log</summary>
+            <pre id="debugLog">Debug log ready. Press Start Camera Scan to collect scanner details.\n</pre>
+          </details>
         </section>
 
         <section class="card">
@@ -134,9 +138,9 @@
 
   <button id="exitDisplayModeBtn" class="exit-display secondary">Exit Display</button>
 
-  <script src="/libs/qrcode-local.js"></script>
-  <script src="/libs/pako.min.js"></script>
-  <script src="/libs/html5-qrcode.min.js"></script>
-  <script src="/app.js"></script>
+  <script src="libs/qrcode-local.js"></script>
+  <script src="libs/pako.min.js"></script>
+  <script src="libs/html5-qrcode.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

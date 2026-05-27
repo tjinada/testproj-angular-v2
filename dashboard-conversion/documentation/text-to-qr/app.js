@@ -27,6 +27,62 @@ const QR_OPTIONS = {
   }
 };
 
+const DEBUG = true;
+
+function safeStringify(value) {
+  try {
+    if (value instanceof Error) {
+      return JSON.stringify({
+        name: value.name,
+        message: value.message,
+        stack: value.stack
+      }, null, 2);
+    }
+    if (typeof value === "string") return value;
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatError(error) {
+  if (!error) return "Unknown error. The browser returned an empty error object.";
+  if (typeof error === "string") return error;
+  if (error.message) return error.message;
+  if (error.name) return `${error.name}${error.constraint ? `: ${error.constraint}` : ""}`;
+  return safeStringify(error);
+}
+
+function debugLog(message, data) {
+  if (!DEBUG) return;
+
+  const line = data === undefined
+    ? `[${new Date().toLocaleTimeString()}] ${message}`
+    : `[${new Date().toLocaleTimeString()}] ${message} ${safeStringify(data)}`;
+
+  console.log(line);
+
+  const el = $("debugLog");
+  if (el) {
+    el.textContent += `${line}\n`;
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+window.addEventListener("error", (event) => {
+  debugLog("window.error", {
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    error: formatError(event.error)
+  });
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  debugLog("unhandledrejection", formatError(event.reason));
+});
+
 function base64UrlEncode(bytes) {
   let binary = "";
   const chunk = 0x8000;
@@ -69,15 +125,7 @@ function randomId() {
 }
 
 function errorToMessage(err) {
-  if (!err) return "Unknown scanner error.";
-  if (typeof err === "string") return err;
-  if (err.message) return err.message;
-  if (err.name) return `${err.name}: ${err.constraint || "Camera start failed."}`;
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return String(err);
-  }
+  return formatError(err);
 }
 
 function setScannerStatus(message, kind = "muted") {
@@ -85,6 +133,7 @@ function setScannerStatus(message, kind = "muted") {
   if (!el) return;
   el.textContent = message;
   el.className = `scanner-status ${kind}`;
+  debugLog("scannerStatus", { message, kind });
 }
 
 function wantsDisplayMode() {
@@ -417,106 +466,142 @@ async function rebuildTransfer() {
 }
 
 async function startScanner() {
-  if (state.scanner || state.videoStream) return;
+  debugLog("Start Camera Scan clicked", {
+    secureContext: window.isSecureContext,
+    protocol: location.protocol,
+    userAgent: navigator.userAgent,
+    hasMediaDevices: !!navigator.mediaDevices,
+    hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia,
+    hasHtml5Qrcode: !!window.Html5Qrcode,
+    hasBarcodeDetector: "BarcodeDetector" in window
+  });
+
+  if (state.scanner || state.videoStream) {
+    debugLog("Scanner already active, ignoring start click");
+    return;
+  }
 
   const reader = $("reader");
+  if (!reader) {
+    const message = "Scanner container #reader was not found in the page.";
+    debugLog("Scanner startup failed", message);
+    alert(message);
+    return;
+  }
+
   reader.innerHTML = "";
   setScannerStatus("Starting camera…", "muted");
   $("startScanBtn").disabled = true;
+  $("stopScanBtn").disabled = true;
 
   try {
     if (!window.isSecureContext) {
       throw new Error("Camera access requires HTTPS, localhost, or a trusted local context. Use your Cloudflare/Tailscale HTTPS URL on the phone.");
     }
+
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error("This browser does not expose camera access to this page.");
+      throw new Error("This browser does not expose camera access to this page. Try Safari on iPhone, and confirm camera permission is allowed for this site.");
     }
 
-    if (window.Html5Qrcode) {
-      state.scanner = new Html5Qrcode("reader", { verbose: false });
+    if (!window.Html5Qrcode) {
+      throw new Error("Html5Qrcode library is not loaded. Confirm libs/html5-qrcode.min.js loads before app.js and returns JavaScript, not a 404 page.");
+    }
 
-      const scannerConfig = {
-        fps: 10,
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.88);
-          return { width: size, height: size };
-        },
-        aspectRatio: 1.0,
-        disableFlip: false
-      };
+    let cameras = [];
+    try {
+      cameras = await Html5Qrcode.getCameras();
+      debugLog("Html5Qrcode.getCameras result", cameras);
+    } catch (cameraErr) {
+      debugLog("Html5Qrcode.getCameras failed. Will try facingMode constraints.", cameraErr);
+    }
 
-      const cameraAttempts = [
-        {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        { facingMode: "environment" },
-        { facingMode: { ideal: "environment" } }
-      ];
+    state.scanner = new Html5Qrcode("reader", { verbose: true });
 
-      let lastErr = null;
-      for (const constraints of cameraAttempts) {
+    const scannerConfig = {
+      fps: 10,
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.88);
+        return { width: Math.max(220, size), height: Math.max(220, size) };
+      },
+      aspectRatio: 1.0,
+      disableFlip: false
+    };
+
+    const cameraAttempts = [];
+
+    if (Array.isArray(cameras) && cameras.length) {
+      const backCamera =
+        cameras.find(c => /back|rear|environment/i.test(c.label || "")) ||
+        cameras[cameras.length - 1];
+
+      debugLog("Selected camera from list", backCamera);
+      cameraAttempts.push({ deviceId: { exact: backCamera.id } });
+    }
+
+    cameraAttempts.push(
+      {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      { facingMode: "environment" },
+      { facingMode: { ideal: "environment" } },
+      true
+    );
+
+    let lastErr = null;
+
+    for (const constraints of cameraAttempts) {
+      try {
+        debugLog("Trying camera constraints", constraints);
+        await state.scanner.start(
+          constraints,
+          scannerConfig,
+          (decodedText) => {
+            debugLog("QR decoded", decodedText ? decodedText.slice(0, 160) : decodedText);
+            Promise.resolve(handleQrDecoded(decodedText)).catch((decodeErr) => {
+              debugLog("handleQrDecoded failed", decodeErr);
+              setScannerStatus(`QR decode handler failed: ${formatError(decodeErr)}`, "error");
+            });
+          },
+          () => {}
+        );
+
+        lastErr = null;
+        debugLog("Scanner started successfully", constraints);
+        break;
+      } catch (err) {
+        lastErr = err;
+        debugLog("Camera constraint failed", { constraints, error: formatError(err), raw: safeStringify(err) });
+
         try {
-          await state.scanner.start(
-            constraints,
-            scannerConfig,
-            handleQrDecoded,
-            () => {}
-          );
-          lastErr = null;
-          break;
-        } catch (err) {
-          lastErr = err;
-          try {
-            await state.scanner.stop();
-          } catch {}
+          if (state.scanner) await state.scanner.stop();
+        } catch (stopErr) {
+          debugLog("stop after failed start ignored", stopErr);
         }
       }
-      if (lastErr) throw lastErr;
-    } else {
-      if (!("BarcodeDetector" in window)) {
-        throw new Error("QR scanner library did not load. Confirm /libs/html5-qrcode.min.js returns 200 and loads before app.js.");
-      }
-
-      state.detector = new BarcodeDetector({ formats: ["qr_code"] });
-      const video = document.createElement("video");
-      video.setAttribute("playsinline", "true");
-      video.muted = true;
-      video.className = "scanner-video";
-      reader.appendChild(video);
-
-      state.videoStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      });
-      video.srcObject = state.videoStream;
-      await video.play();
-
-      const scanLoop = async () => {
-        if (!state.videoStream) return;
-        try {
-          const codes = await state.detector.detect(video);
-          for (const code of codes) {
-            if (code.rawValue) await handleQrDecoded(code.rawValue);
-          }
-        } catch {}
-        state.scanTimer = requestAnimationFrame(scanLoop);
-      };
-      state.scanTimer = requestAnimationFrame(scanLoop);
     }
 
+    if (lastErr) throw lastErr;
+
     $("stopScanBtn").disabled = false;
+    $("startScanBtn").disabled = true;
     setScannerStatus("Camera running. Point it at the QR code and keep the QR inside the square.", "ok");
   } catch (err) {
-    const message = errorToMessage(err);
+    const message = formatError(err);
+    debugLog("Scanner startup failed", { message, raw: safeStringify(err) });
+
     await stopScanner({ silent: true });
-    setScannerStatus(message, "error");
-    throw new Error(message);
+    $("startScanBtn").disabled = false;
+    $("stopScanBtn").disabled = true;
+    setScannerStatus(`Camera failed: ${message}`, "error");
+
+    alert(`Camera failed:\n\n${message}`);
   }
 }
 
@@ -581,7 +666,7 @@ $("prevFrameBtn").addEventListener("click", previousFrame);
 $("nextFrameBtn").addEventListener("click", nextFrame);
 $("displayModeBtn").addEventListener("click", openDisplayMode);
 $("exitDisplayModeBtn").addEventListener("click", () => toggleDisplayMode(false));
-$("startScanBtn").addEventListener("click", () => startScanner().catch(err => alert(errorToMessage(err))));
+$("startScanBtn").addEventListener("click", () => startScanner());
 $("stopScanBtn").addEventListener("click", () => stopScanner().catch(err => alert(errorToMessage(err))));
 $("resetScanBtn").addEventListener("click", resetDecode);
 $("downloadBtn").addEventListener("click", downloadRebuiltFile);
@@ -595,6 +680,17 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     togglePausePlay();
   }
+});
+
+
+debugLog("App boot", {
+  href: location.href,
+  secureContext: window.isSecureContext,
+  hasQRCode: !!window.QRCode,
+  hasPako: !!window.pako,
+  hasHtml5Qrcode: !!window.Html5Qrcode,
+  hasMediaDevices: !!navigator.mediaDevices,
+  hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia
 });
 
 if (location.hash === "#display") {
