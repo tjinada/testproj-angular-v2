@@ -1,4 +1,4 @@
-const BUILD_ID = "debug4-2026-05-27";
+const BUILD_ID = "debug5-2026-05-27";
 const $ = (id) => document.getElementById(id);
 
 const state = {
@@ -20,9 +20,13 @@ const state = {
 };
 
 const QR_OPTIONS = {
-  errorCorrectionLevel: "H",
-  margin: 6,
-  scale: 12,
+  // ECC M (15%) is plenty for screen->camera transfer. ECC H was designed for
+  // damaged printed surfaces and just makes the QR denser for no real benefit.
+  errorCorrectionLevel: "M",
+  // CSS border on .qr-wrap canvas already provides visual quiet zone, so we
+  // only need the minimum 2-module quiet zone the QR spec requires.
+  margin: 2,
+  scale: 10,
   color: {
     dark: "#000000",
     light: "#ffffff"
@@ -265,7 +269,7 @@ async function generateFrames() {
     Frames: <strong>${frames.length}</strong><br>
     Largest QR payload: <strong>${largest.toLocaleString()}</strong> chars<br>
     Algorithm: <strong>${alg}</strong><br>
-    QR settings: <strong>ECC H, margin 6</strong>
+    QR settings: <strong>ECC M, margin 2</strong>
   `;
   $("transferId").textContent = `Transfer ID: ${id}`;
 
@@ -441,8 +445,10 @@ function updateDecodeProgress(lastFrame) {
 
 async function rebuildTransfer() {
   const meta = state.activeTransfer;
-  let joined = "";
-  for (let i = 0; i < meta.total; i++) joined += state.received.get(i);
+  // Build via array + join to avoid O(n^2) string concat on large transfers.
+  const parts = new Array(meta.total);
+  for (let i = 0; i < meta.total; i++) parts[i] = state.received.get(i);
+  const joined = parts.join("");
 
   let bytes = base64UrlDecode(joined);
   if (meta.alg === "gzip") bytes = pako.ungzip(bytes);
@@ -577,13 +583,26 @@ async function startScanner() {
     }
 
     const scannerConfig = {
-      fps: 8,
+      // Lower fps = fewer but cleaner decode attempts. Counterintuitively this
+      // detects faster on phones because each grab is sharper and the main
+      // thread isn't saturated mid-decode.
+      fps: 4,
       qrbox: (viewfinderWidth, viewfinderHeight) => {
-        const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.88);
+        // Tighter scan box (70% vs 88%) prompts the user to fill the box with
+        // the QR, which means the decoder works on a higher-resolution crop.
+        const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.70);
         return { width: Math.max(220, size), height: Math.max(220, size) };
       },
       aspectRatio: 1.0,
-      disableFlip: false
+      // Scanning a screen, not a mirror, so skip mirror-flipped decode attempts.
+      disableFlip: true,
+      // Use native BarcodeDetector where available (Chrome, recent Safari).
+      // Native decoding is much faster than the ZXing JS port and more robust
+      // to motion blur and angle. html5-qrcode falls back automatically on
+      // browsers without it.
+      experimentalFeatures: {
+        useBarcodeDetector: true
+      }
     };
 
     const cameraAttempts = [];

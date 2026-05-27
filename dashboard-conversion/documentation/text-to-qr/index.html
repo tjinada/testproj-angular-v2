@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Animated QR Transfer</title>
-  <link rel="stylesheet" href="styles.debug4.css?v=debug4" />
+  <link rel="stylesheet" href="styles.debug4.css?v=debug5" />
 </head>
 <body>
   <main class="app-shell">
@@ -13,7 +13,7 @@
         <h1>Animated QR Transfer</h1>
         <p>Turn text or files into looping QR frames, then scan them back into the original file.</p>
       </div>
-      <div class="badge">MVP · debug4</div>
+      <div class="badge">MVP · debug5</div>
     </header>
 
     <nav class="tabs" aria-label="Main tabs">
@@ -40,11 +40,12 @@
           <div class="option-row">
             <label for="chunkSize">Chunk size</label>
             <select id="chunkSize">
-              <option value="400">400 chars - ultra reliable</option>
-              <option value="500">500 chars - safest</option>
-              <option value="700" selected>700 chars - reliable</option>
-              <option value="900">900 chars - balanced</option>
-              <option value="1200">1200 chars - denser</option>
+              <option value="250">250 chars - fastest scan</option>
+              <option value="400" selected>400 chars - reliable (recommended)</option>
+              <option value="500">500 chars - balanced</option>
+              <option value="700">700 chars - denser</option>
+              <option value="900">900 chars - very dense</option>
+              <option value="1200">1200 chars - hardest to scan</option>
             </select>
           </div>
 
@@ -138,9 +139,9 @@
 
   <button id="exitDisplayModeBtn" class="exit-display secondary">Exit Display</button>
 
-  <script src="libs/qrcode-local.js?v=debug4"></script>
-  <script src="libs/pako.min.js?v=debug4"></script>
-  <script src="libs/html5-qrcode.min.js?v=debug4"></script>
-  <script src="app.debug4.js?v=debug4"></script>
+  <script src="libs/qrcode-local.js?v=debug5"></script>
+  <script src="libs/pako.min.js?v=debug5"></script>
+  <script src="libs/html5-qrcode.min.js?v=debug5"></script>
+  <script src="app.debug4.js?v=debug5"></script>
 </body>
 </html>

@@ -189,7 +189,10 @@ textarea {
   background: #fff;
   border: 24px solid #fff;
   border-radius: 12px;
-  image-rendering: pixelated;
+  /* image-rendering: pixelated removed: when the canvas pixel buffer doesn't
+     match the CSS size exactly, nearest-neighbor scaling produces uneven
+     module widths (some 4px, neighbors 5px), which breaks QR decoders. Smooth
+     scaling preserves module proportions for the scanner. */
 }
 .qr-wrap {
   min-height: min(760px, 92vh);
