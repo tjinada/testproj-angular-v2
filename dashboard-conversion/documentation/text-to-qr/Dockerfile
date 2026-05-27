@@ -6,6 +6,8 @@ WORKDIR /usr/share/nginx/html
 
 COPY . .
 
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 RUN mkdir -p libs && \
     curl -L https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js \
       -o libs/qrcode.min.js && \
