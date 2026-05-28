@@ -1,0 +1,5 @@
+fetch spans, scanLimitGBytes:500
+| filter contains(lower(url.path), lower("/api/cdb/"))
+| filter span.kind == "server"
+| fields url.path, request.name, endpoint.name, span.name
+| limit 20
