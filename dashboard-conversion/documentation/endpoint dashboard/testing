@@ -2,13 +2,25 @@ fetch spans, scanLimitGBytes:500
 | filter contains(lower(url.path), lower("/api/cdb/"))
 | filter span.kind == "server"
 | fieldsAdd normalizedPath = url.path
+
 // Strip API Gateway stage prefix
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")
-// Cache keys — collapse everything after /session-data/ into {cacheKey}
+
+// Cache keys
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key EOS", "/session-data/{cacheKey}")
-// Numeric path segments
+
+// Any segment after /v<N>/ is an ID (works for v1, v2, v5, v42, etc.)
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/v' INT:ver '/' LD:id '/'", "/v{ver}/{id}/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/v' INT:ver '/' LD:id EOS", "/v{ver}/{id}")
+
+// Specific known endpoints with trailing IDs
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/statementSummary/' LD:id EOS", "/statementSummary/{id}")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/statementTransactions/' LD:id EOS", "/statementTransactions/{id}")
+
+// Fallback: any remaining purely-numeric segment
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
+
 | summarize {
     trafficCount = count(),
     distinctRawPaths = countDistinctExact(url.path),
@@ -24,8 +36,23 @@ fetch spans, scanLimitGBytes:500
 | filter contains(lower(url.path), lower("/api/cdb/"))
 | filter span.kind == "server"
 | fieldsAdd normalizedPath = url.path
+
+// Strip API Gateway stage prefix
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")
+
+// Cache keys
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key EOS", "/session-data/{cacheKey}")
+
+// Any segment after /v<N>/ is an ID (works for v1, v2, v5, v42, etc.)
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/v' INT:ver '/' LD:id '/'", "/v{ver}/{id}/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/v' INT:ver '/' LD:id EOS", "/v{ver}/{id}")
+
+// Specific known endpoints with trailing IDs
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/statementSummary/' LD:id EOS", "/statementSummary/{id}")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/statementTransactions/' LD:id EOS", "/statementTransactions/{id}")
+
+// Fallback: any remaining purely-numeric segment
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
+
 | summarize distinctEndpoints = countDistinctExact(normalizedPath)
