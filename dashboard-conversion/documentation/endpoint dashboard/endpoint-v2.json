@@ -234,6 +234,36 @@
           "isAvailable": true
         }
       }
+    },
+    "12": {
+      "title": "CDBBOS endpoints with their immediate downstream URLs",
+      "type": "data",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter span.kind == \"client\"\n| filter startsWith(lower(url.full), \"https://es-api\")\n      or startsWith(lower(url.full), \"https://api-svc\")\n      or startsWith(lower(url.full), \"https://cgsg-in\")\n      or startsWith(lower(url.full), \"http://es-api\")\n      or startsWith(lower(url.full), \"http://api-svc\")\n      or startsWith(lower(url.full), \"http://cgsg-in\")\n| filter isNotNull(span.parent_id)\n| lookup [\n    fetch spans, scanLimitGBytes:500\n    | filter span.kind == \"server\"\n    | filter contains(lower(url.path), lower(\"/banking/services/\"))\n    | fields span.id, url.path\n  ],\n  sourceField: span.parent_id,\n  lookupField: span.id,\n  prefix: \"parent_\"\n| filter isNotNull(parent_url.path)\n| summarize {\n    downstreamUrls = collectDistinct(url.full),\n    downstreamCount = countDistinctExact(url.full),\n    callCount = count()\n  },\n  by: { cdbbosEndpoint = parent_url.path }\n| sort callCount desc\n| limit 500",
+      "visualization": "table",
+      "visualizationSettings": {
+        "table": {
+          "linewrapEnabled": true,
+          "columnWidths": {
+            "cdbbosEndpoint": 400,
+            "downstreamUrls": 600,
+            "downstreamCount": 140,
+            "callCount": 140
+          }
+        }
+      },
+      "querySettings": {
+        "maxResultRecords": 1000,
+        "defaultScanLimitGbytes": 500,
+        "maxResultMegaBytes": 1,
+        "defaultSamplingRatio": 10,
+        "enableSampling": false
+      },
+      "davis": {
+        "enabled": false,
+        "davisVisualization": {
+          "isAvailable": true
+        }
+      }
     }
   },
   "layouts": {
@@ -308,6 +338,12 @@
       "y": 55,
       "w": 24,
       "h": 14
+    },
+    "12": {
+      "x": 0,
+      "y": 69,
+      "w": 24,
+      "h": 16
     }
   },
   "importedWithCode": false,
