@@ -2,12 +2,10 @@ fetch spans, scanLimitGBytes:500
 | filter contains(lower(url.path), lower("/api/cdb/"))
 | filter span.kind == "server"
 | fieldsAdd normalizedPath = url.path
-// Strip API Gateway stage prefix: /prd-Anything/  →  /
+// Strip API Gateway stage prefix
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/uat-' LD:stage '/api/'", "/api/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/dev-' LD:stage '/api/'", "/api/")
-// Cache keys
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key '.' INT:n", "/session-data/{cacheKey}")
+// Cache keys — collapse everything after /session-data/ into {cacheKey}
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key EOS", "/session-data/{cacheKey}")
 // Numeric path segments
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
@@ -27,9 +25,7 @@ fetch spans, scanLimitGBytes:500
 | filter span.kind == "server"
 | fieldsAdd normalizedPath = url.path
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/uat-' LD:stage '/api/'", "/api/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/dev-' LD:stage '/api/'", "/api/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key '.' INT:n", "/session-data/{cacheKey}")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key EOS", "/session-data/{cacheKey}")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
 | summarize distinctEndpoints = countDistinctExact(normalizedPath)
