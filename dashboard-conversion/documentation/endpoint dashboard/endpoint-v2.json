@@ -1,0 +1,295 @@
+{
+  "version": 17,
+  "variables": [],
+  "tiles": {
+    "0": {
+      "type": "markdown",
+      "content": "# URL Endpoint Discovery\n\nServer endpoints whose `url.path` contains one of the tracked patterns. Adjust the time window via the dashboard timeframe selector."
+    },
+    "1": {
+      "type": "markdown",
+      "content": "## `/banking/services/`"
+    },
+    "2": {
+      "type": "data",
+      "title": "Distinct Endpoints",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/banking/services/\"))\n| filter span.kind == \"server\"\n| summarize distinctEndpoints = countDistinctExact(url.path)",
+      "davis": {
+        "enabled": false,
+        "davisVisualization": {
+          "isAvailable": true
+        }
+      },
+      "visualization": "singleValue",
+      "visualizationSettings": {
+        "thresholds": [],
+        "chartSettings": {
+          "gapPolicy": "connect",
+          "circleChartSettings": {
+            "groupingThresholdType": "relative",
+            "groupingThresholdValue": 0,
+            "valueType": "relative"
+          },
+          "categoryOverrides": {}
+        },
+        "singleValue": {
+          "showLabel": true,
+          "label": "Endpoints",
+          "prefixIcon": "",
+          "recordField": "distinctEndpoints",
+          "autoscale": true,
+          "alignment": "center",
+          "colorThresholdTarget": "value"
+        },
+        "table": {
+          "rowDensity": "condensed",
+          "enableSparklines": false,
+          "hiddenColumns": [],
+          "linewrapEnabled": false,
+          "columnWidths": {}
+        }
+      }
+    },
+    "3": {
+      "type": "data",
+      "title": "Endpoints matching /banking/services/",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/banking/services/\"))\n| filter span.kind == \"server\"\n| summarize {\n    trafficCount = count(),\n    lastSeen = takeMax(start_time),\n    latestTraceId = takeFirst(trace.id)\n  },\n  by: { url.path }\n| sort lastSeen desc\n| limit 500",
+      "davis": {
+        "enabled": false,
+        "davisVisualization": {
+          "isAvailable": true
+        }
+      },
+      "visualization": "table",
+      "visualizationSettings": {
+        "thresholds": [],
+        "chartSettings": {
+          "gapPolicy": "connect",
+          "circleChartSettings": {
+            "groupingThresholdType": "relative",
+            "groupingThresholdValue": 0,
+            "valueType": "relative"
+          },
+          "categoryOverrides": {}
+        },
+        "singleValue": {
+          "showLabel": true,
+          "label": "",
+          "prefixIcon": "",
+          "autoscale": true,
+          "alignment": "center",
+          "colorThresholdTarget": "value"
+        },
+        "table": {
+          "rowDensity": "condensed",
+          "enableSparklines": false,
+          "hiddenColumns": [],
+          "linewrapEnabled": true,
+          "columnWidths": {
+            "url.path": 420,
+            "trafficCount": 140,
+            "lastSeen": 220,
+            "latestTraceId": 320
+          }
+        }
+      }
+    },
+    "4": {
+      "type": "markdown",
+      "content": "## `/api/cdb/`"
+    },
+    "5": {
+      "type": "data",
+      "title": "Distinct Endpoints",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/api/cdb/\"))\n| filter span.kind == \"server\"\n| summarize distinctEndpoints = countDistinctExact(url.path)",
+      "davis": {
+        "enabled": false,
+        "davisVisualization": {
+          "isAvailable": true
+        }
+      },
+      "visualization": "singleValue",
+      "visualizationSettings": {
+        "thresholds": [],
+        "chartSettings": {
+          "gapPolicy": "connect",
+          "circleChartSettings": {
+            "groupingThresholdType": "relative",
+            "groupingThresholdValue": 0,
+            "valueType": "relative"
+          },
+          "categoryOverrides": {}
+        },
+        "singleValue": {
+          "showLabel": true,
+          "label": "Endpoints",
+          "prefixIcon": "",
+          "recordField": "distinctEndpoints",
+          "autoscale": true,
+          "alignment": "center",
+          "colorThresholdTarget": "value"
+        },
+        "table": {
+          "rowDensity": "condensed",
+          "enableSparklines": false,
+          "hiddenColumns": [],
+          "linewrapEnabled": false,
+          "columnWidths": {}
+        }
+      }
+    },
+    "6": {
+      "type": "data",
+      "title": "Endpoints matching /api/cdb/",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/api/cdb/\"))\n| filter span.kind == \"server\"\n| summarize {\n    trafficCount = count(),\n    lastSeen = takeMax(start_time),\n    latestTraceId = takeFirst(trace.id)\n  },\n  by: { url.path }\n| sort lastSeen desc\n| limit 500",
+      "davis": {
+        "enabled": false,
+        "davisVisualization": {
+          "isAvailable": true
+        }
+      },
+      "visualization": "table",
+      "visualizationSettings": {
+        "thresholds": [],
+        "chartSettings": {
+          "gapPolicy": "connect",
+          "circleChartSettings": {
+            "groupingThresholdType": "relative",
+            "groupingThresholdValue": 0,
+            "valueType": "relative"
+          },
+          "categoryOverrides": {}
+        },
+        "singleValue": {
+          "showLabel": true,
+          "label": "",
+          "prefixIcon": "",
+          "autoscale": true,
+          "alignment": "center",
+          "colorThresholdTarget": "value"
+        },
+        "table": {
+          "rowDensity": "condensed",
+          "enableSparklines": false,
+          "hiddenColumns": [],
+          "linewrapEnabled": true,
+          "columnWidths": {
+            "url.path": 420,
+            "trafficCount": 140,
+            "lastSeen": 220,
+            "latestTraceId": 320
+          }
+        }
+      }
+    },
+    "7": {
+      "type": "markdown",
+      "content": "## `/api/cdb-ui/`"
+    },
+    "8": {
+      "type": "data",
+      "title": "Distinct Endpoints",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/api/cdb-ui/\"))\n| filter span.kind == \"server\"\n| summarize distinctEndpoints = countDistinctExact(url.path)",
+      "davis": {
+        "enabled": false,
+        "davisVisualization": {
+          "isAvailable": true
+        }
+      },
+      "visualization": "singleValue",
+      "visualizationSettings": {
+        "thresholds": [],
+        "chartSettings": {
+          "gapPolicy": "connect",
+          "circleChartSettings": {
+            "groupingThresholdType": "relative",
+            "groupingThresholdValue": 0,
+            "valueType": "relative"
+          },
+          "categoryOverrides": {}
+        },
+        "singleValue": {
+          "showLabel": true,
+          "label": "Endpoints",
+          "prefixIcon": "",
+          "recordField": "distinctEndpoints",
+          "autoscale": true,
+          "alignment": "center",
+          "colorThresholdTarget": "value"
+        },
+        "table": {
+          "rowDensity": "condensed",
+          "enableSparklines": false,
+          "hiddenColumns": [],
+          "linewrapEnabled": false,
+          "columnWidths": {}
+        }
+      }
+    },
+    "9": {
+      "type": "data",
+      "title": "Endpoints matching /api/cdb-ui/",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/api/cdb-ui/\"))\n| filter span.kind == \"server\"\n| summarize {\n    trafficCount = count(),\n    lastSeen = takeMax(start_time),\n    latestTraceId = takeFirst(trace.id)\n  },\n  by: { url.path }\n| sort lastSeen desc\n| limit 500",
+      "davis": {
+        "enabled": false,
+        "davisVisualization": {
+          "isAvailable": true
+        }
+      },
+      "visualization": "table",
+      "visualizationSettings": {
+        "thresholds": [],
+        "chartSettings": {
+          "gapPolicy": "connect",
+          "circleChartSettings": {
+            "groupingThresholdType": "relative",
+            "groupingThresholdValue": 0,
+            "valueType": "relative"
+          },
+          "categoryOverrides": {}
+        },
+        "singleValue": {
+          "showLabel": true,
+          "label": "",
+          "prefixIcon": "",
+          "autoscale": true,
+          "alignment": "center",
+          "colorThresholdTarget": "value"
+        },
+        "table": {
+          "rowDensity": "condensed",
+          "enableSparklines": false,
+          "hiddenColumns": [],
+          "linewrapEnabled": true,
+          "columnWidths": {
+            "url.path": 420,
+            "trafficCount": 140,
+            "lastSeen": 220,
+            "latestTraceId": 320
+          }
+        }
+      }
+    }
+  },
+  "layouts": {
+    "0": { "x": 0, "y": 0,  "w": 24, "h": 3 },
+    "1": { "x": 0, "y": 3,  "w": 24, "h": 2 },
+    "2": { "x": 0, "y": 5,  "w": 6,  "h": 14 },
+    "3": { "x": 6, "y": 5,  "w": 18, "h": 14 },
+    "4": { "x": 0, "y": 19, "w": 24, "h": 2 },
+    "5": { "x": 0, "y": 21, "w": 6,  "h": 14 },
+    "6": { "x": 6, "y": 21, "w": 18, "h": 14 },
+    "7": { "x": 0, "y": 35, "w": 24, "h": 2 },
+    "8": { "x": 0, "y": 37, "w": 6,  "h": 14 },
+    "9": { "x": 6, "y": 37, "w": 18, "h": 14 }
+  },
+  "settings": {
+    "gridLayout": {
+      "displayMode": "responsive"   
+    },
+    "autoRefresh": {
+      "enabled": false,
+      "defaultInterval": "5m"
+    }
+  }
+}
