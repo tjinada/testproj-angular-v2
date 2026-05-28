@@ -1,12 +1,28 @@
 fetch spans, scanLimitGBytes:500
 | filter contains(lower(url.path), lower("/api/cdb/"))
 | filter span.kind == "server"
-| fields url.path, request.name, endpoint.name, span.name
-| limit 20
+| fieldsAdd normalizedPath = url.path
+// Strip API Gateway stage prefix (e.g. /prd-BillPayment/, /uat-Foo/, /dev-Bar/)
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "^/[a-z]+-[A-Za-z]+/", "/")
+// UUIDs (defensive — none seen yet, but cheap to include)
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "{uuid}")
+// Numeric path segments — purely digits between slashes or at end of path
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "/[0-9]+(?=/|$)", "/{id}")
+| summarize {
+    trafficCount = count(),
+    lastSeen = takeMax(start_time),
+    latestTraceId = takeFirst(trace.id),
+    rawPathSamples = collectDistinct(url.path, limit: 3)
+  },
+  by: { normalizedPath }
+| sort trafficCount desc
+| limit 500
 
 fetch spans, scanLimitGBytes:500
 | filter contains(lower(url.path), lower("/api/cdb/"))
 | filter span.kind == "server"
-| summarize trafficCount = count(), by: { url.path }
-| sort trafficCount desc
-| limit 100
+| fieldsAdd normalizedPath = url.path
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "^/[a-z]+-[A-Za-z]+/", "/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "{uuid}")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "/[0-9]+(?=/|$)", "/{id}")
+| summarize distinctEndpoints = countDistinctExact(normalizedPath)
