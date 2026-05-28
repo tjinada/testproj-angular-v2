@@ -1,4 +1,4 @@
-const BUILD_ID = "debug7-2026-05-27";
+const BUILD_ID = "debug8-2026-05-27";
 const $ = (id) => document.getElementById(id);
 
 const state = {

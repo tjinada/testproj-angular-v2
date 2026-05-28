@@ -264,8 +264,30 @@ body.display-mode .exit-display {
   right: 16px;
   z-index: 10;
 }
-#reader video { border-radius: 18px; }
-#reader { min-height: 0; }
+#reader video {
+  border-radius: 18px;
+  /* html5-qrcode injects this <video>. Without object-fit it letterboxes the
+     landscape sensor feed into the tall portrait container, wasting pixels and
+     looking 'rotated'. cover fills the box edge-to-edge without distortion. */
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+#reader {
+  /* Cap the scanner to a centered, near-square box instead of a tall portrait
+     letterbox. 4:3 maps the square scan region onto a denser part of the 720p
+     feed and keeps the QR comfortably inside the frame on phones. */
+  min-height: 0;
+  width: min(480px, 92vw);
+  aspect-ratio: 3 / 4;
+  margin: 16px auto 0;
+  background: #000;
+}
+#reader canvas {
+  /* Some html5-qrcode builds also overlay a canvas for the scan box; keep it
+     aligned with the cover-fitted video. */
+  object-fit: cover !important;
+}
 
 @media (max-width: 780px) {
   .qr-wrap canvas, .qr-wrap img {
