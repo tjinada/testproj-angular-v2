@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Animated QR Transfer</title>
-  <link rel="stylesheet" href="styles.debug4.css?v=debug5" />
+  <link rel="stylesheet" href="styles.debug4.css?v=debug6" />
 </head>
 <body>
   <main class="app-shell">
@@ -13,7 +13,7 @@
         <h1>Animated QR Transfer</h1>
         <p>Turn text or files into looping QR frames, then scan them back into the original file.</p>
       </div>
-      <div class="badge">MVP · debug5</div>
+      <div class="badge">MVP · debug6</div>
     </header>
 
     <nav class="tabs" aria-label="Main tabs">
@@ -109,6 +109,7 @@
             <button id="resetScanBtn" class="secondary">Reset</button>
           </div>
           <div id="scannerStatus" class="scanner-status muted">Scanner is idle.</div>
+          <div id="scannerTelemetry" class="scanner-telemetry"></div>
           <div id="reader"></div>
           <details class="debug-panel" open>
             <summary>Debug log</summary>
@@ -139,9 +140,9 @@
 
   <button id="exitDisplayModeBtn" class="exit-display secondary">Exit Display</button>
 
-  <script src="libs/qrcode-local.js?v=debug5"></script>
-  <script src="libs/pako.min.js?v=debug5"></script>
-  <script src="libs/html5-qrcode.min.js?v=debug5"></script>
-  <script src="app.debug4.js?v=debug5"></script>
+  <script src="libs/qrcode-local.js?v=debug6"></script>
+  <script src="libs/pako.min.js?v=debug6"></script>
+  <script src="libs/html5-qrcode.min.js?v=debug6"></script>
+  <script src="app.debug4.js?v=debug6"></script>
 </body>
 </html>

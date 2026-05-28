@@ -1,4 +1,4 @@
-const BUILD_ID = "debug5-2026-05-27";
+const BUILD_ID = "debug6-2026-05-27";
 const $ = (id) => document.getElementById(id);
 
 const state = {
@@ -16,7 +16,16 @@ const state = {
   rebuiltText: "",
   displayMode: false,
   lastDecoded: "",
-  scanStarting: false
+  scanStarting: false,
+  // Scanner telemetry (debug panel D). Counts give a heartbeat so the user can
+  // tell whether the camera pipeline is alive even when nothing decodes.
+  scanAttempts: 0,
+  scanSuccesses: 0,
+  scanFailures: 0,
+  scanHeartbeat: null,
+  lastDecodeAt: 0,
+  videoTrack: null,
+  videoSettings: null
 };
 
 const QR_OPTIONS = {
@@ -489,13 +498,21 @@ async function createAndStartHtml5Scanner(cameraConfig, scannerConfig) {
     cameraConfig,
     scannerConfig,
     (decodedText) => {
+      state.scanSuccesses++;
+      state.lastDecodeAt = Date.now();
       debugLog("QR decoded", decodedText ? decodedText.slice(0, 160) : decodedText);
       Promise.resolve(handleQrDecoded(decodedText)).catch((decodeErr) => {
         debugLog("handleQrDecoded failed", decodeErr);
         setScannerStatus(`QR decode handler failed: ${formatError(decodeErr)}`, "error");
       });
     },
-    () => {}
+    // html5-qrcode calls this on every decode attempt that didn't find a QR.
+    // Counting these gives us a "camera pipeline is alive" heartbeat. We don't
+    // log the message itself (it spams "No MultiFormat Readers..." on every
+    // frame), just the count.
+    () => {
+      state.scanAttempts++;
+    }
   );
 
   return scanner;
@@ -521,6 +538,166 @@ async function cleanupScannerAfterFailedStart() {
   const reader = $("reader");
   if (reader) reader.innerHTML = "";
   await sleep(350);
+}
+
+// --- Scanner instrumentation & focus helpers (debug6) ---
+
+function findScannerVideo() {
+  const reader = $("reader");
+  if (!reader) return null;
+  return reader.querySelector("video");
+}
+
+function captureVideoTrack() {
+  // html5-qrcode injects a <video> into #reader and binds the stream to it.
+  // We need a handle on the track to (a) report actual resolution/focus mode
+  // in the debug panel and (b) apply runtime focus constraints when the user
+  // taps the video.
+  const video = findScannerVideo();
+  if (!video || !video.srcObject) {
+    debugLog("captureVideoTrack: no video or srcObject yet");
+    return;
+  }
+  const stream = video.srcObject;
+  const track = stream.getVideoTracks?.()[0];
+  if (!track) {
+    debugLog("captureVideoTrack: no video track on stream");
+    return;
+  }
+  state.videoTrack = track;
+  try {
+    const settings = track.getSettings?.() || {};
+    const caps = track.getCapabilities?.() || {};
+    state.videoSettings = settings;
+    debugLog("Video track captured", {
+      label: track.label,
+      settings: {
+        width: settings.width,
+        height: settings.height,
+        frameRate: settings.frameRate,
+        focusMode: settings.focusMode,
+        facingMode: settings.facingMode
+      },
+      capabilities: {
+        focusMode: caps.focusMode,
+        focusDistance: caps.focusDistance,
+        torch: caps.torch,
+        zoom: caps.zoom
+      }
+    });
+  } catch (err) {
+    debugLog("captureVideoTrack: getSettings/getCapabilities threw", err);
+  }
+}
+
+async function tapToFocus(event) {
+  // Best-effort focus nudge. iOS Safari mostly ignores focusMode constraints,
+  // but tapping the video also pokes the native AF cycle indirectly because
+  // the video element re-receives a pointer event.
+  if (!state.videoTrack) {
+    debugLog("tapToFocus: no track");
+    return;
+  }
+  const caps = state.videoTrack.getCapabilities?.() || {};
+  const modes = Array.isArray(caps.focusMode) ? caps.focusMode : [];
+
+  // Try: single-shot focus, then continuous as a fallback. "manual" would
+  // require focusDistance which we don't compute, so we skip it.
+  const tryModes = [];
+  if (modes.includes("single-shot")) tryModes.push("single-shot");
+  if (modes.includes("continuous")) tryModes.push("continuous");
+  if (modes.includes("auto")) tryModes.push("auto");
+
+  if (!tryModes.length) {
+    debugLog("tapToFocus: no supported focusMode capabilities", { caps });
+    setScannerStatus("Tap-to-focus not supported on this device. Move closer/further to help focus.", "muted");
+    return;
+  }
+
+  for (const mode of tryModes) {
+    try {
+      await state.videoTrack.applyConstraints({ advanced: [{ focusMode: mode }] });
+      debugLog("tapToFocus applied", { mode });
+      setScannerStatus(`Focus nudged (${mode}).`, "ok");
+      return;
+    } catch (err) {
+      debugLog("tapToFocus mode failed", { mode, error: formatError(err) });
+    }
+  }
+}
+
+function attachTapToFocus() {
+  const video = findScannerVideo();
+  if (!video) return;
+  // Inline cursor hint so the user knows the video is interactive.
+  video.style.cursor = "crosshair";
+  video.addEventListener("click", tapToFocus);
+  video.addEventListener("touchstart", tapToFocus, { passive: true });
+  debugLog("Tap-to-focus attached to video element");
+}
+
+function updateScannerTelemetry() {
+  const el = $("scannerTelemetry");
+  if (!el) return;
+
+  const settings = state.videoSettings || {};
+  const w = settings.width || "?";
+  const h = settings.height || "?";
+  const fr = settings.frameRate ? Math.round(settings.frameRate) : "?";
+  const fm = settings.focusMode || "?";
+
+  const idleMs = state.lastDecodeAt ? Date.now() - state.lastDecodeAt : null;
+  const idleStr = idleMs === null
+    ? "never"
+    : idleMs < 1000 ? `${idleMs}ms ago` : `${Math.round(idleMs / 1000)}s ago`;
+
+  el.innerHTML = `
+    <strong>Resolution:</strong> ${w}×${h} @ ${fr}fps &nbsp;
+    <strong>Focus:</strong> ${fm}<br>
+    <strong>Scan attempts:</strong> ${state.scanAttempts} &nbsp;
+    <strong>Decodes:</strong> ${state.scanSuccesses} &nbsp;
+    <strong>Last decode:</strong> ${idleStr}
+  `;
+}
+
+function startScannerHeartbeat() {
+  stopScannerHeartbeat();
+  // Refresh telemetry once per second. captureVideoTrack runs on the first tick
+  // because html5-qrcode may not have inserted the <video> element by the time
+  // scanner.start() resolves on slow devices.
+  let firstTick = true;
+  state.scanHeartbeat = setInterval(() => {
+    if (firstTick || !state.videoTrack) {
+      captureVideoTrack();
+      if (state.videoTrack) attachTapToFocus();
+      firstTick = false;
+    }
+    // Refresh settings each tick because focusMode can change after applyConstraints.
+    if (state.videoTrack) {
+      try {
+        state.videoSettings = state.videoTrack.getSettings?.() || state.videoSettings;
+      } catch {}
+    }
+    updateScannerTelemetry();
+  }, 1000);
+}
+
+function stopScannerHeartbeat() {
+  if (state.scanHeartbeat) {
+    clearInterval(state.scanHeartbeat);
+    state.scanHeartbeat = null;
+  }
+}
+
+function resetScannerTelemetry() {
+  state.scanAttempts = 0;
+  state.scanSuccesses = 0;
+  state.scanFailures = 0;
+  state.lastDecodeAt = 0;
+  state.videoTrack = null;
+  state.videoSettings = null;
+  const el = $("scannerTelemetry");
+  if (el) el.innerHTML = "";
 }
 
 async function startScanner() {
@@ -557,6 +734,7 @@ async function startScanner() {
 
   state.scanStarting = true;
   reader.innerHTML = "";
+  resetScannerTelemetry();
   setScannerStatus("Starting camera…", "muted");
   $("startScanBtn").disabled = true;
   $("stopScanBtn").disabled = true;
@@ -607,19 +785,49 @@ async function startScanner() {
 
     const cameraAttempts = [];
 
+    // Build constraints with high-resolution video hints. The hints are
+    // 'ideal' (not 'exact') so the browser falls back gracefully on cameras
+    // that don't support 1080p. Higher video resolution = more pixels across
+    // the QR = much better decode reliability, especially for paused QRs.
+    const videoHints = {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      // Continuous AF avoids the iOS autofocus-hunting problem where the camera
+      // never settles on a high-contrast QR pattern. The whole 'advanced' array
+      // is silently ignored by browsers that don't support these hints.
+      advanced: [
+        { focusMode: "continuous" },
+        { focusMode: "auto" }
+      ]
+    };
+
     if (Array.isArray(cameras) && cameras.length) {
       const backCamera =
         cameras.find(c => /back|rear|environment/i.test(c.label || "")) ||
         cameras[cameras.length - 1];
 
       debugLog("Selected camera from list", backCamera);
-      // Html5Qrcode is most reliable when device ID is passed as a plain string.
-      cameraAttempts.push({ label: "camera-id-string", config: backCamera.id });
+
+      // Primary: deviceId + resolution hints. Constraints-object form lets us
+      // inject width/height ideals which the plain string form cannot.
+      cameraAttempts.push({
+        label: "deviceId-with-hd-hints",
+        config: { deviceId: { exact: backCamera.id }, ...videoHints }
+      });
+
+      // Fallback: deviceId as a bare string (most compatible with html5-qrcode
+      // when MediaTrackConstraints get rejected by the UA).
+      cameraAttempts.push({
+        label: "deviceId-string",
+        config: backCamera.id
+      });
     }
 
-    // Keep fallbacks minimal. Repeated starts on the same Html5Qrcode instance caused
-    // the "already under transition" error on iOS/Chrome.
     cameraAttempts.push(
+      {
+        label: "facingMode-environment-hd",
+        config: { facingMode: { ideal: "environment" }, ...videoHints }
+      },
       { label: "facingMode-environment", config: { facingMode: "environment" } },
       { label: "facingMode-ideal-environment", config: { facingMode: { ideal: "environment" } } }
     );
@@ -649,7 +857,8 @@ async function startScanner() {
     state.scanStarting = false;
     $("stopScanBtn").disabled = false;
     $("startScanBtn").disabled = true;
-    setScannerStatus("Camera running. Point it at the QR code and keep the QR inside the square.", "ok");
+    startScannerHeartbeat();
+    setScannerStatus("Camera running. Tap the video to focus. Hold the QR inside the box.", "ok");
   } catch (err) {
     const message = formatError(err);
     debugLog("Scanner startup failed", { message, raw: safeStringify(err) });
@@ -666,6 +875,7 @@ async function stopScanner(options = {}) {
   debugLog("stopScanner called", options);
 
   state.scanStarting = false;
+  stopScannerHeartbeat();
 
   if (state.scanner) {
     const scanner = state.scanner;
@@ -700,6 +910,8 @@ async function stopScanner(options = {}) {
 
   const reader = $("reader");
   if (reader) reader.innerHTML = "";
+  state.videoTrack = null;
+  state.videoSettings = null;
   $("startScanBtn").disabled = false;
   $("stopScanBtn").disabled = true;
   if (!options.silent) setScannerStatus("Scanner stopped.", "muted");
