@@ -42,3 +42,17 @@ fetch spans, scanLimitGBytes:500
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "{uuid}")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "/[0-9]+(?=/|$)", "/{id}")
 | summarize distinctEndpoints = countDistinctExact(normalizedPath)
+
+
+fetch spans, scanLimitGBytes:500
+| filter contains(lower(url.path), lower("/api/cdb/"))
+| filter span.kind == "server"
+| fieldsAdd normalizedPath = replacePattern(url.path, "'/' INT:n '/'", "/{id}/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
+| summarize {
+    trafficCount = count(),
+    rawPathSamples = collectDistinct(url.path)
+  },
+  by: { normalizedPath }
+| sort trafficCount desc
+| limit 500
