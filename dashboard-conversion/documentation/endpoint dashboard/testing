@@ -56,3 +56,20 @@ fetch spans, scanLimitGBytes:500
   by: { normalizedPath }
 | sort trafficCount desc
 | limit 500
+
+fetch spans, scanLimitGBytes:500
+| filter contains(lower(url.path), lower("/api/cdb/"))
+| filter span.kind == "server"
+| fieldsAdd normalizedPath = url.path
+// Cache keys: /session-data/<alphanumeric>.<digits>  →  /session-data/{cacheKey}
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key '.' INT:n", "/session-data/{cacheKey}")
+// Numeric path segments
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
+| summarize {
+    trafficCount = count(),
+    distinctRawPaths = countDistinctExact(url.path)
+  },
+  by: { normalizedPath }
+| sort trafficCount desc
+| limit 500
