@@ -1,4 +1,4 @@
-const BUILD_ID = "debug6-2026-05-27";
+const BUILD_ID = "debug7-2026-05-27";
 const $ = (id) => document.getElementById(id);
 
 const state = {
@@ -700,6 +700,53 @@ function resetScannerTelemetry() {
   if (el) el.innerHTML = "";
 }
 
+async function bumpResolutionOnLiveTrack() {
+  // The trick: iOS Safari often refuses HD at getUserMedia time but grants it
+  // when applyConstraints is called on the already-running track. We capture
+  // the track first, then ask it to upgrade. Best-effort: failures are logged
+  // and ignored, leaving the original (lower) resolution in place.
+  captureVideoTrack();
+  if (!state.videoTrack) {
+    debugLog("bumpResolutionOnLiveTrack: no track yet, skipping");
+    return;
+  }
+
+  const before = state.videoTrack.getSettings?.() || {};
+  debugLog("Resolution before live bump", { width: before.width, height: before.height });
+
+  if ((before.width || 0) >= 1280) {
+    debugLog("Resolution already >=1280 wide, no bump needed");
+    return;
+  }
+
+  const bumpAttempts = [
+    { width: { min: 1280, ideal: 1920 }, height: { min: 720, ideal: 1080 } },
+    { width: { ideal: 1920 }, height: { ideal: 1080 } },
+    { width: { ideal: 1280 }, height: { ideal: 720 } }
+  ];
+
+  for (const constraints of bumpAttempts) {
+    try {
+      await state.videoTrack.applyConstraints(constraints);
+      const after = state.videoTrack.getSettings?.() || {};
+      state.videoSettings = after;
+      debugLog("Resolution after live bump", {
+        constraints,
+        width: after.width,
+        height: after.height
+      });
+      if ((after.width || 0) >= 1280) {
+        setScannerStatus(`Upgraded camera to ${after.width}×${after.height}. Hold the QR inside the box.`, "ok");
+        return;
+      }
+    } catch (err) {
+      debugLog("Live resolution bump attempt failed", { constraints, error: formatError(err) });
+    }
+  }
+
+  debugLog("Live resolution bump did not raise resolution; staying at acquisition default");
+}
+
 async function startScanner() {
   debugLog("Start Camera Scan clicked", {
     build: BUILD_ID,
@@ -785,16 +832,29 @@ async function startScanner() {
 
     const cameraAttempts = [];
 
-    // Build constraints with high-resolution video hints. The hints are
-    // 'ideal' (not 'exact') so the browser falls back gracefully on cameras
-    // that don't support 1080p. Higher video resolution = more pixels across
-    // the QR = much better decode reliability, especially for paused QRs.
+    // Build constraints with high-resolution video hints. We use min+ideal
+    // (not bare ideal): iOS Safari treats a lone `ideal` as advisory and just
+    // hands back VGA (480x640). Adding a `min` forces it to actually negotiate
+    // a higher resolution or reject the constraint, at which point we fall
+    // through to a softer attempt. Higher resolution = more pixels across the
+    // QR = much better decode reliability, especially for paused QRs.
     const videoHints = {
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
+      width: { min: 1280, ideal: 1920 },
+      height: { min: 720, ideal: 1080 },
       // Continuous AF avoids the iOS autofocus-hunting problem where the camera
       // never settles on a high-contrast QR pattern. The whole 'advanced' array
       // is silently ignored by browsers that don't support these hints.
+      advanced: [
+        { focusMode: "continuous" },
+        { focusMode: "auto" }
+      ]
+    };
+
+    // Softer HD hint: ideal-only, used as a middle tier if the min-constrained
+    // attempts get rejected outright by the UA.
+    const videoHintsSoft = {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
       advanced: [
         { focusMode: "continuous" },
         { focusMode: "auto" }
@@ -808,15 +868,17 @@ async function startScanner() {
 
       debugLog("Selected camera from list", backCamera);
 
-      // Primary: deviceId + resolution hints. Constraints-object form lets us
-      // inject width/height ideals which the plain string form cannot.
+      // Tier 1: deviceId + hard HD (min 1280). Tier 2: deviceId + soft HD
+      // (ideal only). Tier 3: deviceId as a bare string (most compatible with
+      // html5-qrcode when MediaTrackConstraints get rejected by the UA).
       cameraAttempts.push({
-        label: "deviceId-with-hd-hints",
+        label: "deviceId-hard-hd",
         config: { deviceId: { exact: backCamera.id }, ...videoHints }
       });
-
-      // Fallback: deviceId as a bare string (most compatible with html5-qrcode
-      // when MediaTrackConstraints get rejected by the UA).
+      cameraAttempts.push({
+        label: "deviceId-soft-hd",
+        config: { deviceId: { exact: backCamera.id }, ...videoHintsSoft }
+      });
       cameraAttempts.push({
         label: "deviceId-string",
         config: backCamera.id
@@ -825,8 +887,12 @@ async function startScanner() {
 
     cameraAttempts.push(
       {
-        label: "facingMode-environment-hd",
+        label: "facingMode-environment-hard-hd",
         config: { facingMode: { ideal: "environment" }, ...videoHints }
+      },
+      {
+        label: "facingMode-environment-soft-hd",
+        config: { facingMode: { ideal: "environment" }, ...videoHintsSoft }
       },
       { label: "facingMode-environment", config: { facingMode: "environment" } },
       { label: "facingMode-ideal-environment", config: { facingMode: { ideal: "environment" } } }
@@ -857,6 +923,10 @@ async function startScanner() {
     state.scanStarting = false;
     $("stopScanBtn").disabled = false;
     $("startScanBtn").disabled = true;
+    // Give html5-qrcode a moment to insert the <video> element and bind the
+    // stream, then attempt the live-track resolution upgrade (iOS trick).
+    await sleep(400);
+    await bumpResolutionOnLiveTrack();
     startScannerHeartbeat();
     setScannerStatus("Camera running. Tap the video to focus. Hold the QR inside the box.", "ok");
   } catch (err) {
