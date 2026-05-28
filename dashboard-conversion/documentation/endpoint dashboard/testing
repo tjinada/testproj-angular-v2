@@ -2,74 +2,34 @@ fetch spans, scanLimitGBytes:500
 | filter contains(lower(url.path), lower("/api/cdb/"))
 | filter span.kind == "server"
 | fieldsAdd normalizedPath = url.path
-// Strip API Gateway stage prefix (e.g. /prd-BillPayment/, /uat-Foo/)
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/'", "/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/uat-' LD:stage '/'", "/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/dev-' LD:stage '/'", "/")
-// Numeric path segments between slashes (handles /transits/0001/foo)
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
-// Numeric segment at end of path (handles /transits/0001 with nothing after)
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
-| summarize {
-    trafficCount = count(),
-    lastSeen = takeMax(start_time),
-    latestTraceId = takeFirst(trace.id),
-    rawPathSamples = collectDistinct(url.path, limit: 3)
-  },
-  by: { normalizedPath }
-| sort trafficCount desc
-| limit 500\
-
-
-fetch spans, scanLimitGBytes:500
-| filter contains(lower(url.path), lower("/api/cdb/"))
-| filter span.kind == "server"
-| fieldsAdd normalizedPath = replacePattern(url.path, "'/' INT:n '/'", "/{id}/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
-| summarize {
-    trafficCount = count(),
-    rawPathSamples = collectDistinct(url.path, limit: 3)
-  },
-  by: { normalizedPath }
-| sort trafficCount desc
-| limit 500
-
-fetch spans, scanLimitGBytes:500
-| filter contains(lower(url.path), lower("/api/cdb/"))
-| filter span.kind == "server"
-| fieldsAdd normalizedPath = url.path
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "^/[a-z]+-[A-Za-z]+/", "/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "{uuid}")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "/[0-9]+(?=/|$)", "/{id}")
-| summarize distinctEndpoints = countDistinctExact(normalizedPath)
-
-
-fetch spans, scanLimitGBytes:500
-| filter contains(lower(url.path), lower("/api/cdb/"))
-| filter span.kind == "server"
-| fieldsAdd normalizedPath = replacePattern(url.path, "'/' INT:n '/'", "/{id}/")
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
-| summarize {
-    trafficCount = count(),
-    rawPathSamples = collectDistinct(url.path)
-  },
-  by: { normalizedPath }
-| sort trafficCount desc
-| limit 500
-
-fetch spans, scanLimitGBytes:500
-| filter contains(lower(url.path), lower("/api/cdb/"))
-| filter span.kind == "server"
-| fieldsAdd normalizedPath = url.path
-// Cache keys: /session-data/<alphanumeric>.<digits>  →  /session-data/{cacheKey}
+// Strip API Gateway stage prefix: /prd-Anything/  →  /
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/uat-' LD:stage '/api/'", "/api/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/dev-' LD:stage '/api/'", "/api/")
+// Cache keys
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key '.' INT:n", "/session-data/{cacheKey}")
 // Numeric path segments
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
 | summarize {
     trafficCount = count(),
-    distinctRawPaths = countDistinctExact(url.path)
+    distinctRawPaths = countDistinctExact(url.path),
+    lastSeen = takeMax(start_time),
+    latestTraceId = takeFirst(trace.id)
   },
   by: { normalizedPath }
 | sort trafficCount desc
 | limit 500
+
+
+fetch spans, scanLimitGBytes:500
+| filter contains(lower(url.path), lower("/api/cdb/"))
+| filter span.kind == "server"
+| fieldsAdd normalizedPath = url.path
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/uat-' LD:stage '/api/'", "/api/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/dev-' LD:stage '/api/'", "/api/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key '.' INT:n", "/session-data/{cacheKey}")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
+| summarize distinctEndpoints = countDistinctExact(normalizedPath)
