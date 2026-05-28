@@ -3,3 +3,10 @@ fetch spans, scanLimitGBytes:500
 | filter span.kind == "server"
 | fields url.path, request.name, endpoint.name, span.name
 | limit 20
+
+fetch spans, scanLimitGBytes:500
+| filter contains(lower(url.path), lower("/api/cdb/"))
+| filter span.kind == "server"
+| summarize trafficCount = count(), by: { url.path }
+| sort trafficCount desc
+| limit 100
