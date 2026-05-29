@@ -1,14 +1,3 @@
-/**
- * Release Workflow — shared model
- *
- * All types for the release workflow feature live in this one file.
- * Frontend mirrors this file at frontend/src/app/pages/admin/models/release-workflow.model.ts
- *
- * Top-level persisted shape (in /release_workflow_data.json):
- *   Record<releaseId, Release>
- */
-
-// ===== type unions =====
 
 export type ReleaseType   = 'bundle' | 'independent' | 'hotfix';
 export type ReleaseStatus = 'not_started' | 'in_progress' | 'blocked' | 'complete' | 'aborted';
@@ -19,53 +8,25 @@ export type SubStepSource = 'manual' | 'auto' | null;
 export type CheckStatus   = 'pending' | 'running' | 'passed' | 'failed' | 'partial';
 export type SubStepTrack  = 'generic' | 'cdbui' | 'cdbbos';
 
-// ===== leaf shapes =====
+export interface ReleaseComponents {
+  cdbui: boolean;
+  cdbbos: boolean;
+}
+
 
 export interface SubStep {
-  id: string;                    // stable slug, scoped to its stage
+  id: string;
   label: string;
   state: SubStepState;
   source: SubStepSource;
   autoTickedBy: string[];        // check IDs that auto-tick this sub-step; [] for manual-only
-  /**
-   * If set, names the metadata field this sub-step's inline input writes to.
-   * Format: 'fieldName' for top-level fields, or 'branches.fieldName' for
-   * nested branch fields. Null for manual-only sub-steps with no input.
-   */
   editableField: string | null;
-  /**
-   * UI hint for the inline edit input: 'text' for a single-line <input>,
-   * 'textarea' for a multi-line <textarea>. Resolved by the loader from
-   * the sub-step's runner (RUNNER_INPUT_TYPES map). Defaults to 'text'
-   * if no runner or no mapping.
-   */
   inputType: 'text' | 'textarea';
-  /**
-   * Application track this sub-step belongs to. Used by the stage view
-   * to group sub-steps into sections when a stage covers multiple tracks
-   * (e.g. Stage 2 has both CDB UI and CDBBOS branching work). Single-track
-   * stages render as a flat list with no section headers.
-   *
-   * 'generic' — applies to the whole release (e.g. JIRA fix version)
-   * 'cdbui'   — specific to the CDB UI / frontend application track
-   * 'cdbbos'  — specific to the CDBBOS / backend application track
-   */
   track: SubStepTrack;
-  /**
-   * Placeholder text shown in the inline edit input. Null = use the
-   * default placeholder for the sub-step's runner (or a generic one if
-   * there's no runner). Set explicitly in YAML to override.
-   */
   placeholder: string | null;
-  /**
-   * Optional outbound link shown next to the sub-step label (e.g. a link
-   * to an ADO pipeline the sheriff needs to run). Opens in a new tab.
-   * Same value for every release — it's per-stage-definition, not per-release.
-   */
   helpUrl: string | null;
-  /** Display text for helpUrl; defaults to "Open link" if URL set but label not. */
   helpUrlLabel: string | null;
-  completedAt: string | null;    // ISO 8601
+  completedAt: string | null;
   completedBy: string | null;    // username, or "system" for auto-ticks
 }
 
@@ -74,14 +35,14 @@ export interface AutomatedCheck {
   label: string;
   status: CheckStatus;
   lastRunAt: string | null;
-  result: Record<string, unknown> | null;  // free-form, per-stage code defines shape
+  result: Record<string, unknown> | null;
   errorMessage: string | null;
 }
 
 export interface Note {
   id: string;
   author: string;
-  createdAt: string;             // ISO 8601
+  createdAt: string;
   body: string;
   isBlocker: boolean;
 }
@@ -89,13 +50,13 @@ export interface Note {
 export interface Override {
   reason: string;
   overriddenBy: string;
-  overriddenAt: string;          // ISO 8601
+  overriddenAt: string;
 }
 
 // ===== stage =====
 
 export interface Stage {
-  id: string;                    // stable slug, e.g. "stage4-mobile-build"
+  id: string;                    //ex: "stage4-mobile-build"
   displayOrder: number;          // 1-10
   name: string;                  // without "Stage N — " prefix
   kind: StageKind;
@@ -121,25 +82,25 @@ export interface ReleaseMetadata {
   confluencePageId: string | null;
   fixVersion: string | null;
   envMatrixPrUrl: string | null;
-  cdbUiConfigJiraUrl: string | null;   // Stage 2: master JIRA ticket for the CDB UI Configs branch work
-  sealightsDisablePrUrl: string | null;   // Stage 3: PR that disables Sealights via config
-  preProdLetterUrl: string | null;   // Stage 6: Pre-PROD delivery letter Confluence page
-  prodLetterUrl: string | null;   // Stage 6: PROD delivery letter Confluence page
-  retrofitCdbUiPrUrl: string | null;   // Stage 9: retrofit CDB UI release branch → master PR
-  retrofitCdbConfigsPrUrl: string | null;   // Stage 9: retrofit CDB Configs release branch → master PR
-  retrofitFreddyPrUrl: string | null;   // Stage 9: retrofit Freddy release branch → master PR
-  tagCdbUiUrl: string | null;   // Stage 9: CDB UI repo Git tag URL
-  tagCdbConfigsUrl: string | null;   // Stage 9: CDB Configs repo Git tag URL
-  tagFreddyUrl: string | null;   // Stage 9: Freddy repo Git tag URL
-  cdbbosConfigBranchUrl: string | null;   // Stage 2: CDBBOS Config repo release branch
-  cdbbosReleaseBranchUrl: string | null;   // Stage 2: CDBBOS main repo release branch
-  cdbSwaggerBranchUrl: string | null;   // Stage 2: CDB Swagger repo release branch
-  cdbbosJiraUrl: string | null;   // Stage 2: master JIRA ticket for CDBBOS Configs work
-  retrofitCdbbosPrUrl: string | null;   // Stage 9: retrofit CDBBOS release branch → master PR
-  retrofitCdbbosConfigPrUrl: string | null;   // Stage 9: retrofit CDBBOS Config release branch → master PR
-  tagCdbbosUrl: string | null;   // Stage 9: CDBBOS repo Git tag URL
-  tagCdbbosConfigUrl: string | null;   // Stage 9: CDBBOS Config repo Git tag URL
-  dependencyJarBranchUrls: string | null;   // Stage 2: newline-delimited list of dependency JAR branch URLs
+  cdbUiConfigJiraUrl: string | null;
+  sealightsDisablePrUrl: string | null; 
+  preProdLetterUrl: string | null;
+  prodLetterUrl: string | null;
+  retrofitCdbUiPrUrl: string | null;
+  retrofitCdbConfigsPrUrl: string | null;
+  retrofitFreddyPrUrl: string | null;
+  tagCdbUiUrl: string | null;
+  tagCdbConfigsUrl: string | null;
+  tagFreddyUrl: string | null;
+  cdbbosConfigBranchUrl: string | null;
+  cdbbosReleaseBranchUrl: string | null;
+  cdbSwaggerBranchUrl: string | null;
+  cdbbosJiraUrl: string | null;
+  retrofitCdbbosPrUrl: string | null;
+  retrofitCdbbosConfigPrUrl: string | null;
+  tagCdbbosUrl: string | null;
+  tagCdbbosConfigUrl: string | null;
+  dependencyJarBranchUrls: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;
@@ -153,12 +114,12 @@ export interface Release {
   type: ReleaseType;
   status: ReleaseStatus;
   sheriff: string;
+  backupSheriff: string | null;
+  releaseComponents: ReleaseComponents;
   createdAt: string;
   updatedAt: string;
   metadata: ReleaseMetadata;
   stages: Stage[];               // always 10 entries, ordered by displayOrder
 }
-
-// ===== persisted shape =====
 
 export type ReleaseWorkflowData = Record<string, Release>;

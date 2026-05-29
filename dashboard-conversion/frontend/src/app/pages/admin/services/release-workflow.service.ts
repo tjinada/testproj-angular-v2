@@ -1,15 +1,10 @@
-/**
- * Release Workflow — frontend HTTP service
- *
- * Thin wrapper over /api/release-workflow endpoints.
- */
-
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   Release,
   CreateReleaseInput,
+  ReleaseComponents,
   ReleaseMetadata,
   AutomatedCheck,
   SubStep,
@@ -36,7 +31,10 @@ export class ReleaseWorkflowService {
 
   update(
     releaseId: string,
-    patch: Partial<Pick<Release, 'title' | 'sheriff' | 'status'>> & { metadata?: Partial<ReleaseMetadata> },
+    patch: Partial<Pick<Release, 'title' | 'sheriff' | 'backupSheriff' | 'status'>> & {
+      releaseComponents?: Partial<ReleaseComponents>;
+      metadata?: Partial<ReleaseMetadata>;
+    },
   ): Observable<{ message: string; release: Release }> {
     return this.http.put<{ message: string; release: Release }>(
       `${this.base}/${encodeURIComponent(releaseId)}`,
@@ -63,20 +61,6 @@ export class ReleaseWorkflowService {
     );
   }
 
-  /**
-   * Patch one or more metadata fields. Backend persists then re-runs checks
-   * for any stages that reference the changed fields. Returns the updated
-   * release.
-   *
-   * If `actor` is provided, it's used as the completedBy on any sub-step
-   * that newly transitions to auto-checked as a result of this patch —
-   * crediting the user who pasted the URL rather than 'system'.
-   *
-   * Patch shape:
-   *   { 'intakePageId': '1110606115' }
-   *   { 'branches.cdbUiConfigs': 'https://github.com/.../tree/release/r85.0.0' }
-   *   { 'fixVersion': null }    // clear the field
-   */
   updateMetadata(
     releaseId: string,
     patch: Record<string, string | null>,

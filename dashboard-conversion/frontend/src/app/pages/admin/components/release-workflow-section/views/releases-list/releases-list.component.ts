@@ -10,8 +10,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ReleaseWorkflowService } from '../../../../services/release-workflow.service';
-import { Release, ReleaseStatus, ReleaseType } from '../../../../models/release-workflow.model';
+import { ReleaseWorkflowService } from '../../../../../../services/release-workflow.service';
+import { Release, ReleaseComponents, ReleaseStatus, ReleaseType } from '../../../../../../models/release-workflow.model';
 import { AuthService } from '../../../../../../services/auth.service';
 import { Admin } from '../../../../../../models/admin.models';
 import { normalizeSheriff, usernameFromEmail } from '../../../../../../utils/sheriff.util';
@@ -40,7 +40,7 @@ export class ReleasesListComponent implements OnInit {
   readonly adminsError = signal<string | null>(null);
   readonly loadingAdmins = signal<boolean>(false);
 
-  // ----- modal state -----
+  // ── modal state ──────────────────────────────────────────────────────────
   readonly showModal = signal<boolean>(false);
   readonly modalSubmitting = signal<boolean>(false);
   readonly modalError = signal<string | null>(null);
@@ -49,7 +49,9 @@ export class ReleasesListComponent implements OnInit {
   modalTitle = '';
   modalType = signal<ReleaseType>('bundle');
   modalSheriff = '';
-  // -------------------------
+  modalBackupSheriff = '';
+  readonly modalReleaseComponents = signal<ReleaseComponents>({ cdbui: false, cdbbos: false });
+  // ─────────────────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
     this.load();
@@ -73,13 +75,15 @@ export class ReleasesListComponent implements OnInit {
     });
   }
 
-  // ----- modal -----
+  // ── modal ────────────────────────────────────────────────────────────────
 
   openModal(): void {
     this.modalReleaseId = '';
     this.modalTitle = '';
     this.modalType.set('bundle');
     this.modalSheriff = '';
+    this.modalBackupSheriff = '';
+    this.modalReleaseComponents.set({ cdbui: false, cdbbos: false });
     this.modalError.set(null);
     this.modalSubmitting.set(false);
     this.showModal.set(true);
@@ -92,6 +96,13 @@ export class ReleasesListComponent implements OnInit {
 
   setModalType(t: ReleaseType): void {
     this.modalType.set(t);
+  }
+
+  setModalReleaseComponent(component: keyof ReleaseComponents, checked: boolean): void {
+    this.modalReleaseComponents.update((current) => ({
+      ...current,
+      [component]: checked,
+    }));
   }
 
   onModalSubmit(): void {
@@ -111,6 +122,12 @@ export class ReleasesListComponent implements OnInit {
       this.modalError.set('Sheriff is required.');
       return;
     }
+    if (!this.hasSelectedReleaseComponents()) {
+      this.modalError.set('Select at least one release component.');
+      return;
+    }
+
+    const backupSheriff = normalizeSheriff(this.modalBackupSheriff) || null;
 
     this.modalSubmitting.set(true);
 
@@ -118,7 +135,9 @@ export class ReleasesListComponent implements OnInit {
       releaseId: this.modalReleaseId.trim(),
       title: this.modalTitle.trim(),
       type: this.modalType(),
-      sheriff: sheriff,
+      sheriff,
+      backupSheriff,
+      releaseComponents: this.modalReleaseComponents(),
     }).subscribe({
       next: (resp) => {
         this.modalSubmitting.set(false);
@@ -136,7 +155,7 @@ export class ReleasesListComponent implements OnInit {
     });
   }
 
-  // ----- presentational helpers -----
+  // ─────────────────────────────────────────────────────────────────────────
 
   currentStageName(r: Release): string {
     const active = r.stages.find((s) => s.status === 'in_progress')
@@ -181,7 +200,6 @@ export class ReleasesListComponent implements OnInit {
   onRowClick(releaseId: string): void {
     this.openRelease.emit(releaseId);
   }
-
   private loadAdmins(): void {
     this.loadingAdmins.set(true);
     this.adminsError.set(null);
@@ -204,6 +222,20 @@ export class ReleasesListComponent implements OnInit {
   usernameFromEmail(email: string): string {
     return usernameFromEmail(email);
   }
+
+  hasSelectedReleaseComponents(): boolean {
+    const components = this.modalReleaseComponents();
+    return components.cdbui || components.cdbbos;
+  }
+
+  canSubmitModal(): boolean {
+    if (this.modalSubmitting()) return false;
+    if (!this.modalReleaseId.trim()) return false;
+    if (!this.modalTitle.trim()) return false;
+    if (!normalizeSheriff(this.modalSheriff)) return false;
+    return this.hasSelectedReleaseComponents();
+  }
+
 
   onDelete(release: Release, ev: Event): void {
     ev.stopPropagation();

@@ -12,7 +12,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ReleaseWorkflowService } from '../../../services/release-workflow.service';
+import { ReleaseWorkflowService } from '../../../../../services/release-workflow.service';
+import { AuthService } from '../../../../../services/auth.service';
+import { usernameFromEmail } from '../../../../../utils/sheriff.util';
 import {
   AutomatedCheck,
   Release,
@@ -20,33 +22,12 @@ import {
   SubStep,
   SubStepState,
   SubStepTrack,
-} from '../../../models/release-workflow.model';
-import { AuthService } from '../../../../../../services/auth.service';
-import { usernameFromEmail } from '../../../../../../utils/sheriff.util';
+} from '../../../../../models/release-workflow.model';
 import { formatCheckResult } from './check-result-display';
+import { visibleSubStepsForRelease } from '../../../../../utils/release-components.util';
 
 /**
  * Stage pane — renders one stage's sub-step rows with integrated check status
- * and inline metadata editing.
- *
- * Each sub-step row carries:
- *   - Status indicator (passed / failed / running / unchecked / N/A)
- *   - Sub-step label
- *   - Linked check's result summary or error message inline
- *   - One of four interaction modes:
- *       (a) read-only display when the linked check is passing
- *       (b) input field when the linked check is failing or pending
- *       (c) running spinner while a save-and-run is in flight
- *       (d) plain checkbox when the sub-step has no editableField
- *
- * "Save & run" persists the field via PATCH /metadata, which the backend
- * handles atomically — it saves, then re-runs the affected stages' checks,
- * then returns the updated release. We mark the row as running, fire the
- * patch, and refetch on completion.
- *
- * Override is always available regardless of check state — it directly
- * mutates the sub-step's state via PUT /sub-steps. Manual ticks are sticky
- * against subsequent auto-tick reconciliation.
  */
 @Component({
   selector: 'app-stage-view',
@@ -65,17 +46,9 @@ export class StageViewComponent implements OnChanges {
   @Output() refresh = new EventEmitter<void>();
 
   private readonly api = inject(ReleaseWorkflowService);
-  private readonly auth = inject(AuthService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly auth = inject(AuthService);
 
-  /**
-   * Username of the current logged-in user, derived from AuthService.currentUser.
-   * Used as the `actor` on every manual sub-step mutation so the backend records
-   * who performed the action (rather than the 'unknown' fallback).
-   *
-   * Returns null when no user is loaded yet — the backend writes 'unknown' in
-   * that case, which is the same behaviour as before this method existed.
-   */
   private currentActor(): string | null {
     const email = this.auth.currentUser()?.email;
     return email ? usernameFromEmail(email) : null;
@@ -87,36 +60,17 @@ export class StageViewComponent implements OnChanges {
   /** Sub-step IDs whose row is currently running (spinner shown, actions disabled). */
   readonly runningIds = signal<Set<string>>(new Set());
 
-  /**
-   * Sub-step IDs that were just saved successfully but whose release refetch
-   * hasn't yet arrived. Used to suppress the auto-show-input logic in
-   * showInput() during the transient window between save-success and the
-   * fresh release data arriving. Cleared on the next ngOnChanges (which
-   * fires when the parent re-emits release after load() completes).
-   *
-   * Without this, the row briefly re-opens its input field between the
-   * save response and the load response because showInput sees the OLD
-   * check.status (still 'failed' or 'pending') and falls into the
-   * "show input for unsatisfied checks" branch.
-   */
-  readonly justSavedIds = signal<Set<string>>(new Set());
+   readonly justSavedIds = signal<Set<string>>(new Set());
 
   /** Per-row staged input value, keyed by sub-step ID. Cleared on submit/cancel. */
   readonly inputValues = signal<Record<string, string>>({});
 
   readonly error = signal<string | null>(null);
-
   readonly highlightedSubStepId = signal<string | null>(null);
 
   private lastAppliedFocusKey: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Clear "just-saved" suppression marks only when the release input itself
-    // changes — that's the moment fresh release data has arrived and showInput
-    // can rely on the new check.status. Clearing on every ngOnChanges (e.g.
-    // when only focusSubStepId changed) would prematurely drop the suppression
-    // before the release refetch landed, causing the row's input to re-appear
-    // briefly between save-response and load-response.
     if (changes['release'] && this.justSavedIds().size > 0) {
       this.justSavedIds.set(new Set());
     }
@@ -124,8 +78,6 @@ export class StageViewComponent implements OnChanges {
   }
 
   private applyFocusRequest(): void {
-    // When the parent clears focusSubStepId (e.g. after a successful save),
-    // also drop the row highlight so it returns to a quiet state.
     if (!this.focusSubStepId) {
       this.highlightedSubStepId.set(null);
       this.lastAppliedFocusKey = null;
@@ -145,13 +97,6 @@ export class StageViewComponent implements OnChanges {
     }
   }
 
-  // ----- linked check resolution -----
-
-  /**
-   * The check linked to a sub-step (the first one in autoTickedBy that exists
-   * on the stage, since today every auto-tickable sub-step has exactly one
-   * linked check). Returns null for manual-only sub-steps.
-   */
   linkedCheck(s: SubStep): AutomatedCheck | null {
     if (!s.autoTickedBy || s.autoTickedBy.length === 0) return null;
     return this.stage.automatedChecks.find((c) => s.autoTickedBy.includes(c.id)) ?? null;
@@ -175,19 +120,9 @@ export class StageViewComponent implements OnChanges {
     return this.editingIds().has(s.id);
   }
 
-  /**
-   * True if the row should display the input field. Either the sheriff
-   * explicitly opened it via "Edit", or the linked check is failing/pending
-   * and there's no value yet to show in read-only form.
-   */
   showInput(s: SubStep): boolean {
     if (!this.hasEditableField(s)) return false;
     if (this.isRunning(s)) return false;
-    // Suppress the auto-show-input branch while we're waiting for the fresh
-    // release data after a successful save. Without this, the row briefly
-    // re-opens its input because check.status is still stale (failed/pending)
-    // for the moment between save-response and load-response. Cleared on the
-    // next ngOnChanges (= release Input updated).
     if (this.justSavedIds().has(s.id)) return false;
     if (this.isEditing(s)) return true;
     const check = this.linkedCheck(s);
@@ -218,13 +153,6 @@ export class StageViewComponent implements OnChanges {
     });
   }
 
-  /**
-   * True when the linked check's result is the multi-URL shape — i.e. the
-   * runner is githubBranchUrlsMultiCheck. Detected by shape: result has
-   * a numeric `total` and an array of `branches` and/or `failures` with
-   * per-URL entries. The template uses this to render a per-URL list
-   * instead of a single summary line.
-   */
   isMultiUrlResult(s: SubStep): boolean {
     const check = this.linkedCheck(s);
     if (!check || !check.result) return false;
@@ -232,13 +160,6 @@ export class StageViewComponent implements OnChanges {
     return typeof r.total === 'number' && (Array.isArray(r.branches) || Array.isArray(r.failures));
   }
 
-  /**
-   * Combined per-URL entries from the multi-URL result, in input order:
-   * each entry is { url, ok, label, reason? }.
-   *   - ok=true  → label is "branchName" (or url fallback), no reason
-   *   - ok=false → label is url, reason is the failure detail
-   * Returns [] for any non-multi-URL check.
-   */
   multiUrlEntries(s: SubStep): Array<{ url: string; ok: boolean; label: string; reason: string | null }> {
     const check = this.linkedCheck(s);
     if (!check || !check.result) return [];
@@ -318,10 +239,6 @@ export class StageViewComponent implements OnChanges {
       [s.editableField]: newValue || null,
     };
 
-    // Send the actor so the backend credits the human who pasted the URL
-    // when the linked check passes and auto-ticks the sub-step. Bulk re-runs
-    // ("Run all checks") do NOT send an actor — those are re-verifications
-    // of existing values, not authorship of a new completion.
     const actor = this.currentActor() ?? undefined;
 
     this.api.updateMetadata(this.release.releaseId, patch, actor).subscribe({
@@ -336,8 +253,6 @@ export class StageViewComponent implements OnChanges {
           delete next[s.id];
           return next;
         });
-        // Mark this sub-step as "just saved" so showInput suppresses the
-        // auto-show branch until fresh release data lands (next ngOnChanges).
         this.justSavedIds.update((set) => {
           const next = new Set(set);
           next.add(s.id);
@@ -360,13 +275,6 @@ export class StageViewComponent implements OnChanges {
 
   // ----- actions: override, N/A, manual checkbox -----
 
-  /**
-   * Flip the sub-step's tick state with a manual source.
-   * - Currently checked? Un-check (manually).
-   * - Currently unchecked or N/A? Check (manually).
-   *
-   * Manual override is sticky against subsequent auto-tick runs.
-   */
   override(s: SubStep): void {
     const nextState: SubStepState = s.state === 'checked' ? 'unchecked' : 'checked';
     this.updateSubStep(s, nextState, nextState === 'unchecked' ? null : 'manual');
@@ -401,8 +309,6 @@ export class StageViewComponent implements OnChanges {
       });
   }
 
-  // ----- presentational helpers -----
-
   /** Status indicator class for the row's left dot. */
   rowStatus(s: SubStep): 'passed' | 'failed' | 'running' | 'pending' | 'na' {
     if (this.isRunning(s)) return 'running';
@@ -434,14 +340,6 @@ export class StageViewComponent implements OnChanges {
     return 'unchecked';
   }
 
-  /**
-   * Compact label for the right-column timestamp on completed rows.
-   * Shows the actor when it's a real user ("manually checked · tj · May 13",
-   * "auto-checked · tj · May 13"). Drops the actor when it's 'system' or
-   * 'unknown' — noise that adds no audit value ("auto-checked · May 13").
-   * Returns null when the row isn't in a checked state so the line is hidden
-   * entirely on pending rows.
-   */
   completedAtLabel(s: SubStep): string | null {
     if (s.state !== 'checked' || !s.completedAt) return null;
     const date = new Date(s.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -453,12 +351,6 @@ export class StageViewComponent implements OnChanges {
       : `${verb} · ${date}`;
   }
 
-  /**
-   * Placeholder text for the inline input. The persisted `placeholder` was
-   * resolved at boot time by the loader — either from the runner's default
-   * placeholder table or from an explicit `placeholder:` in YAML. We just
-   * read it here, with a generic fallback for unusual cases.
-   */
   inputPlaceholder(s: SubStep): string {
     return s.placeholder ?? 'Paste value';
   }
@@ -466,35 +358,28 @@ export class StageViewComponent implements OnChanges {
   // ----- run-all-checks button -----
 
   hasChecks(): boolean {
-    return this.stage.automatedChecks.length > 0;
+    return this.visibleAutomatedCheckCount() > 0;
   }
 
-  // ----- track grouping -----
+  visibleSubSteps(): SubStep[] {
+    return visibleSubStepsForRelease(this.stage, this.release);
+  }
 
-  /**
-   * Ordered list of tracks present on the current stage. Order is fixed
-   * (generic → cdbui → cdbbos) and tracks with no sub-steps are omitted.
-   * Drives the order of section headers in the template.
-   *
-   * Sub-steps with a missing/unrecognized track are treated as 'generic'
-   * so they always surface somewhere — prevents rows silently disappearing
-   * if backfill hasn't yet propagated to the persisted JSON.
-   */
+  visibleAutomatedCheckCount(): number {
+    return new Set(this.visibleSubSteps().flatMap((subStep) => subStep.autoTickedBy)).size;
+  }
+
   presentTracks(): SubStepTrack[] {
     const seen = new Set<SubStepTrack>();
-    for (const s of this.stage.subSteps) seen.add(this.trackOf(s));
+    for (const s of this.visibleSubSteps()) seen.add(this.trackOf(s));
     return (['generic', 'cdbui', 'cdbbos'] as const).filter((t) => seen.has(t));
   }
 
   /** Sub-steps belonging to a given track, in their original stage order. */
   subStepsForTrack(track: SubStepTrack): SubStep[] {
-    return this.stage.subSteps.filter((s) => this.trackOf(s) === track);
+    return this.visibleSubSteps().filter((s) => this.trackOf(s) === track);
   }
 
-  /**
-   * Resolve a sub-step's track defensively. Treats undefined / unknown
-   * values as 'generic' so we never lose a row to a missing field.
-   */
   private trackOf(s: SubStep): SubStepTrack {
     const t = s.track;
     return t === 'cdbui' || t === 'cdbbos' ? t : 'generic';
@@ -508,6 +393,7 @@ export class StageViewComponent implements OnChanges {
       case 'cdbbos':  return 'CDBBOS';
     }
   }
+
 
   readonly runningAll = signal<boolean>(false);
 

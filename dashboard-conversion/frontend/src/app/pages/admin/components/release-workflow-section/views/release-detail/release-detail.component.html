@@ -63,7 +63,6 @@
         <div class="details-card">
           <div class="details-card__header">
             <h2 class="details-card__title">Basics</h2>
-            <div class="details-card__note">Compact release metadata</div>
           </div>
 
           <div class="details-grid">
@@ -112,6 +111,55 @@
               } @else {
                 <span class="details-row__value">{{ r.sheriff }}</span>
                 <button type="button" class="details-link" (click)="startBasicEdit('sheriff')">Edit</button>
+              }
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">Backup sheriff</span>
+              @if (isEditingBasic('backupSheriff')) {
+                <div class="details-row__editor">
+                  <input
+                    type="text"
+                    list="basicSheriffAdmins"
+                    placeholder="Select backup sheriff (admin)"
+                    [value]="basicDraft()"
+                    (input)="basicDraft.set($any($event.target).value)"
+                    [disabled]="basicSaving()" />
+                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                </div>
+              } @else {
+                <span class="details-row__value">{{ backupSheriffLabel(r) }}</span>
+                <button type="button" class="details-link" (click)="startBasicEdit('backupSheriff')">Edit</button>
+              }
+            </div>
+            <div class="details-row">
+              <span class="details-row__label">Release components</span>
+              @if (isEditingBasic('releaseComponents')) {
+                <div class="details-row__editor details-row__editor--stacked">
+                  <label class="details-checkbox-row">
+                    <input
+                      type="checkbox"
+                      [checked]="basicComponentsDraft().cdbbos"
+                      (change)="setBasicReleaseComponent('cdbbos', $any($event.target).checked)"
+                      [disabled]="basicSaving()" />
+                    <span>CDB BOS</span>
+                  </label>
+                  <label class="details-checkbox-row">
+                    <input
+                      type="checkbox"
+                      [checked]="basicComponentsDraft().cdbui"
+                      (change)="setBasicReleaseComponent('cdbui', $any($event.target).checked)"
+                      [disabled]="basicSaving()" />
+                    <span>CDB UI/Mobile</span>
+                  </label>
+                  <div class="details-row__actions">
+                    <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                    <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                  </div>
+                </div>
+              } @else {
+                <span class="details-row__value">{{ releaseComponentsLabel(r) }}</span>
+                <button type="button" class="details-link" (click)="startBasicEdit('releaseComponents')">Edit</button>
               }
             </div>
             <div class="details-row">
@@ -166,20 +214,35 @@
             <section class="details-stage">
               <div class="details-stage__header">
                 <div>
-                  <h2 class="details-stage__title">{{ stage.name }} (Stage {{ stage.displayOrder }})</h2>
+                  <h2 class="details-stage__title">{{ stage.name }}</h2>
                 </div>
               </div>
 
               <div class="details-field-list">
-                @for (subStep of editableSubSteps(stage); track subStep.id) {
-                  <div class="details-field-row">
-                    <div class="details-field-row__text">
-                      <div class="details-field-row__label">{{ subStep.label }}</div>
-                      <div class="details-field-row__key">{{ subStep.editableField }}</div>
-                    </div>
-                    <div class="details-field-row__value">{{ fieldValueByPath(subStep.editableField, r) }}</div>
-                    <button type="button" class="details-link" (click)="jumpToStageEditor(stage.id, subStep.id)">Edit in stage</button>
-                  </div>
+                @for (track of detailTracks(stage, r); track track) {
+                  <section class="details-track-section">
+                    <h3 class="details-track-section__title">{{ detailTrackLabel(track) }}</h3>
+                    @for (subStep of editableSubStepsByTrack(stage, r, track); track subStep.id) {
+                      <div class="details-field-row">
+                        <div class="details-field-row__text">
+                          <div class="details-field-row__label">{{ subStep.label }}</div>
+                          <div class="details-field-row__key">{{ subStep.editableField }}</div>
+                        </div>
+                        @if (fieldLinkByPath(subStep.editableField, r); as link) {
+                          <a
+                            class="details-field-row__helplink"
+                            [href]="link"
+                            target="_blank"
+                            rel="noopener noreferrer">
+                            {{ fieldValueByPath(subStep.editableField, r) }}
+                          </a>
+                        } @else {
+                          <div class="details-field-row__value">{{ fieldValueByPath(subStep.editableField, r) }}</div>
+                        }
+                        <button type="button" class="details-link" (click)="jumpToStageEditor(stage.id, subStep.id)">Edit</button>
+                      </div>
+                    }
+                  </section>
                 }
               </div>
             </section>
@@ -196,7 +259,7 @@
         <!-- LEFT RAIL -->
         <aside class="rd-rail">
           <h3 class="rd-rail__title">Stages</h3>
-          @for (stage of r.stages; track stage.id) {
+          @for (stage of visibleStages(); track stage.id) {
             <button
               type="button"
               [class]="stageRailClass(stage)"
@@ -210,17 +273,17 @@
               </span>
               <div class="rail-stage__main">
                 <div class="rail-stage__head">
-                  <span class="rail-stage__name">{{ stage.displayOrder }}. {{ stage.name }}</span>
+                  <span class="rail-stage__name">{{ stage.name }}</span>
                   @if (stage.kind === 'parallel') {
                     <span class="rail-stage__pll">parallel</span>
                   }
                 </div>
                 <div class="rail-stage__meta">
-                  {{ subStepsComplete(stage) }} / {{ stage.subSteps.length }} · {{ stageStatusLabel(stage.status) }}
+                  {{ subStepsComplete(stage, r) }} / {{ visibleSubStepCount(stage, r) }} · {{ stageStatusLabel(stage.status) }}
                 </div>
-                @if (stage.status !== 'locked' && stageProgressPct(stage) > 0) {
+                @if (stage.status !== 'locked' && stageProgressPct(stage, r) > 0) {
                   <div class="rail-stage__bar">
-                    <div class="rail-stage__bar-fill" [style.width.%]="stageProgressPct(stage)"></div>
+                    <div class="rail-stage__bar-fill" [style.width.%]="stageProgressPct(stage, r)"></div>
                   </div>
                 }
               </div>
@@ -233,7 +296,7 @@
           @if (activeStage(); as s) {
             @if (s.status === 'locked') {
               <div class="rd-pane__head">
-                <h2 class="rd-pane__title">Stage {{ s.displayOrder }} — {{ s.name }}</h2>
+                <h2 class="rd-pane__title">Stage — {{ s.name }}</h2>
                 <div class="rd-pane__meta">{{ stageStatusLabel(s.status) }}</div>
               </div>
               <div class="rd-locked">

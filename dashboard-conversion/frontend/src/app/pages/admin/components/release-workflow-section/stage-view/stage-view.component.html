@@ -4,16 +4,16 @@
     <!-- top action bar -->
     <div class="sp__bar">
       <div>
-        <h2 class="sp__title">Stage {{ stage.displayOrder }} — {{ stage.name }}</h2>
+        <h2 class="sp__title">Stage — {{ stage.name }}</h2>
         <div class="sp__meta">
           @if (stage.startedAt) {
             Started {{ stage.startedAt | date:'mediumDate' }}
             <span class="sep">·</span>
           }
-          {{ stage.subSteps.length }} sub-steps
+          {{ visibleSubSteps().length }} sub-steps
           @if (hasChecks()) {
             <span class="sep">·</span>
-            {{ stage.automatedChecks.length }} automated check(s)
+            {{ visibleAutomatedCheckCount() }} automated check(s)
           }
         </div>
       </div>
@@ -29,13 +29,6 @@
     <div class="sp__error">{{ error() }}</div>
   }
 
-  <!--
-    Sub-step rendering. Every stage renders with a track section header
-    (Generic, CDB UI, CDBBOS) for the track(s) it contains — even when only
-    one track is present — so the categorization is always visible. The
-    per-row markup lives in the `subStepRow` template at the bottom of this
-    file and is reused via `<ng-container *ngTemplateOutlet>`.
-  -->
   <div class="ss-list">
     @for (track of presentTracks(); track track) {
       <div class="ss-track">
@@ -50,9 +43,7 @@
 </div>
 
 <!--
-  Sub-step row template. Rendered once per sub-step from either the flat
-  list (single-track stages) or the track-grouped list (multi-track stages).
-  The implicit context variable is the sub-step itself.
+  Sub-step row template
 -->
 <ng-template #subStepRow let-s>
 

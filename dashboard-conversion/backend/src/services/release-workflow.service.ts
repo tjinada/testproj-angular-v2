@@ -1,21 +1,3 @@
-/**
- * Release Workflow — service
- *
- * Owns persistence of release workflow state via Artifactory JSON.
- * Mirrors the existing tech-governance-releases-intake.service.ts pattern
- * (in production CDB Dashboard repo):
- *   - In-memory cache: releases: Record<releaseId, Release>
- *   - Hydrate on boot via artifactoryService.getFileContent
- *   - Save after every mutation via artifactoryService.saveFileContent
- *
- * SCOPE: skeleton only. runChecks() and per-stage check execution are NOT
- * implemented here — per-stage owners wire those in their own follow-up work.
- *
- * NOTE: artifactoryService is imported from a sibling service that exists
- * in the production repo. This dashboard-conversion folder does not include
- * it; the import resolves at merge-time.
- */
-
 import artifactoryService from './artifactory.service';
 import {
   cloneStageTemplate,
@@ -26,6 +8,7 @@ import {
 } from './release-workflow.loader';
 import {
   Release,
+  ReleaseComponents,
   ReleaseMetadata,
   ReleaseType,
   ReleaseWorkflowData,
@@ -45,8 +28,6 @@ class ReleaseWorkflowService {
     this.initialize();
   }
 
-  // ----- persistence -----
-
   async initialize(): Promise<void> {
     try {
       const data = await artifactoryService.getFileContent(this.dataFilePath);
@@ -56,16 +37,12 @@ class ReleaseWorkflowService {
     }
 
     // Reconcile every existing release against the current STAGE_TEMPLATE.
-    // Idempotent: no-op if release structure already matches the template.
-    // Persists only if anything actually changed.
     await this.reconcileWithTemplate();
   }
 
   private async save(): Promise<void> {
     await artifactoryService.saveFileContent(this.dataFilePath, this.releases);
   }
-
-  // ----- read -----
 
   /** Returns the cached releases keyed by releaseId. */
   getAll(): ReleaseWorkflowData {
@@ -81,16 +58,17 @@ class ReleaseWorkflowService {
 
   /**
    * Add a new release. Clones the stage template and seeds metadata.
-   * Throws if releaseId already exists.
    */
   async add(input: {
     releaseId: string;
     title: string;
     type: ReleaseType;
     sheriff: string;
+    backupSheriff?: string | null;
+    releaseComponents?: Partial<ReleaseComponents>;
     metadata?: Partial<ReleaseMetadata>;
   }): Promise<Release> {
-    const { releaseId, title, type, sheriff, metadata } = input;
+    const { releaseId, title, type, sheriff, backupSheriff, releaseComponents, metadata } = input;
 
     if (!releaseId || typeof releaseId !== 'string') {
       throw new Error('releaseId is required');
@@ -105,8 +83,10 @@ class ReleaseWorkflowService {
       releaseId,
       title,
       type,
-      status: 'in_progress',                  // newly-created releases open in-progress on Stage 1
+      status: 'in_progress',   // newly-created releases open in-progress on Stage 1
       sheriff,
+      backupSheriff: normalizeOptionalSheriff(backupSheriff),
+      releaseComponents: normalizeReleaseComponents(releaseComponents),
       createdAt: now,
       updatedAt: now,
       metadata: this.buildMetadata(metadata),
@@ -126,15 +106,14 @@ class ReleaseWorkflowService {
     return release;
   }
 
-  // ----- update -----
-
   /**
    * Update top-level release metadata (title, sheriff, dates, etc).
-   * Stage and sub-step mutations go through their own dedicated methods.
    */
   async update(
     releaseId: string,
-    patch: Partial<Pick<Release, 'title' | 'sheriff' | 'metadata' | 'status'>>,
+    patch: Partial<Pick<Release, 'title' | 'sheriff' | 'backupSheriff' | 'metadata' | 'status'>> & {
+      releaseComponents?: Partial<ReleaseComponents>;
+    },
   ): Promise<Release> {
     const existing = this.releases[releaseId];
     if (!existing) {
@@ -143,7 +122,19 @@ class ReleaseWorkflowService {
 
     const updated: Release = {
       ...existing,
-      ...patch,
+      title: patch.title ?? existing.title,
+      sheriff: patch.sheriff ?? existing.sheriff,
+      backupSheriff:
+        patch.backupSheriff !== undefined
+          ? normalizeOptionalSheriff(patch.backupSheriff)
+          : normalizeOptionalSheriff(existing.backupSheriff),
+      status: patch.status ?? existing.status,
+      releaseComponents: patch.releaseComponents
+        ? normalizeReleaseComponents({
+            ...normalizeReleaseComponents(existing.releaseComponents),
+            ...patch.releaseComponents,
+          })
+        : normalizeReleaseComponents(existing.releaseComponents),
       metadata: patch.metadata ? { ...existing.metadata, ...patch.metadata } : existing.metadata,
       updatedAt: new Date().toISOString(),
     };
@@ -189,17 +180,13 @@ class ReleaseWorkflowService {
 
   /**
    * Trigger automated checks for a stage.
-   *
-   * Dispatches by stageId to the per-stage check module. Each module
-   * exports a `*_CHECK_RUNNERS` map keyed by check ID; we run them in
-   * parallel, write the results back onto the stage's automatedChecks,
-   * auto-tick any sub-step whose autoTickedBy includes a passing check,
-   * and persist.
-   *
-   * Stages whose runners aren't yet implemented return their existing
-   * automatedChecks unchanged (no fabricated data).
    */
-  async runChecks(releaseId: string, stageId: string, actor?: string): Promise<AutomatedCheck[]> {
+  async runChecks(
+    releaseId: string,
+    stageId: string,
+    actor?: string,
+    specificCheckIds?: string[],
+  ): Promise<AutomatedCheck[]> {
     const release = this.releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
 
@@ -212,9 +199,26 @@ class ReleaseWorkflowService {
       return stage.automatedChecks;
     }
 
+    const applicableCheckIds = new Set(
+      this.applicableSubSteps(release, stage).flatMap((subStep) => subStep.autoTickedBy),
+    );
+    if (applicableCheckIds.size === 0) {
+      return stage.automatedChecks;
+    }
+
+    let checkIdsToRun = applicableCheckIds;
+    if (specificCheckIds && specificCheckIds.length > 0) {
+      const requestedCheckIds = new Set(specificCheckIds);
+      checkIdsToRun = new Set([...applicableCheckIds].filter((id) => requestedCheckIds.has(id)));
+    }
+    if (checkIdsToRun.size === 0) {
+      return stage.automatedChecks;
+    }
+
     // Run all checks in parallel; failures inside one check don't fail the whole batch.
     const updated = await Promise.all(
       stage.automatedChecks.map(async (check) => {
+        if (!checkIdsToRun.has(check.id)) return check;
         const runner = runners[check.id];
         if (!runner) return check;
         // mark as running so the response (or a refetch mid-flight) reflects activity
@@ -235,7 +239,7 @@ class ReleaseWorkflowService {
 
     // Write results back into the stage and auto-tick linked sub-steps.
     stage.automatedChecks = updated;
-    this.applyAutoTicks(stage, updated, actor);
+    this.applyAutoTicks(release, stage, updated, actor);
 
     this.recomputeStatuses(release);
 
@@ -247,9 +251,6 @@ class ReleaseWorkflowService {
   /**
    * Returns the check-runner map for the given stage, or null if no
    * runners are registered for that stage yet.
-   *
-   * Runners live in release-workflow.check-runners.ts. Per-stage owners
-   * add their stage's entries to that file's STAGE_RUNNERS map.
    */
   private getRunnersForStage(stageId: string): StageRunnerMap | null {
     return STAGE_RUNNERS[stageId] ?? null;
@@ -257,27 +258,12 @@ class ReleaseWorkflowService {
 
   /**
    * Reconcile sub-step ticks with the latest check results.
-   *
-   * Rules:
-   *   - Manually-checked sub-steps are sticky — never auto-modified, in
-   *     either direction. source: 'manual' is sacred.
-   *   - N/A sub-steps are sticky — never auto-modified.
-   *   - For an auto-tickable sub-step (autoTickedBy non-empty):
-   *     • If ALL linked checks PASSED → auto-tick (set 'checked' / 'auto')
-   *     • If ANY linked check FAILED → auto-untick (back to 'unchecked')
-   *       but only if currently 'auto' (don't clobber a manual tick)
-   *     • Otherwise (partial / pending / running mix) → leave unchanged
-   *
-   * The asymmetry matters: a manual tick is a human attestation that the
-   * sub-step is genuinely done; we don't reverse it just because an API
-   * happened to fail. An auto tick, on the other hand, is purely derived
-   * from the check results, so it should track the current results.
    */
-  private applyAutoTicks(stage: Stage, checks: AutomatedCheck[], actor?: string): void {
+  private applyAutoTicks(release: Release, stage: Stage, checks: AutomatedCheck[], actor?: string): void {
     const now = new Date().toISOString();
     const checkById = new Map(checks.map((c) => [c.id, c]));
 
-    for (const subStep of stage.subSteps) {
+    for (const subStep of this.applicableSubSteps(release, stage)) {
       if (subStep.autoTickedBy.length === 0) continue;     // purely manual sub-step
       if (subStep.state === 'n_a') continue;               // sticky
       if (subStep.state === 'checked' && subStep.source === 'manual') continue;  // sticky
@@ -294,17 +280,11 @@ class ReleaseWorkflowService {
       if (allPassed) {
         // (re-)tick from auto. No-op if already in this state.
         if (subStep.state !== 'checked' || subStep.source !== 'auto') {
-          // Newly transitioning into auto-checked. Record the actor who
-          // triggered this run (e.g. the sheriff who pasted the URL), or
-          // fall back to 'system' for bulk re-runs and boot reconciliation
-          // where no specific human is responsible.
           subStep.state = 'checked';
           subStep.source = 'auto';
           subStep.completedAt = now;
           subStep.completedBy = actor ?? 'system';
         }
-        // else: already auto-ticked. Leave completedAt/completedBy untouched
-        // — the original tick's attribution is preserved across bulk re-runs.
       } else if (anyFailed) {
         // un-tick — but only if it was auto-ticked. Manual was filtered above.
         if (subStep.state === 'checked' && subStep.source === 'auto') {
@@ -326,9 +306,7 @@ class ReleaseWorkflowService {
     await this.save();
     return true;
   }
-
-  // ----- helpers -----
-
+  
   private buildMetadata(input?: Partial<ReleaseMetadata>): ReleaseMetadata {
     return {
       preProdDate: input?.preProdDate ?? null,
@@ -369,15 +347,6 @@ class ReleaseWorkflowService {
   /**
    * Patch the metadata of a release with a partial object, then immediately
    * run any checks that reference fields that changed.
-   *
-   * Field-driven re-runs use the editableField map: any sub-step that
-   * declares editableField='foo' marks the parent stage as needing its
-   * checks re-run when 'foo' changes. We compute the affected stage IDs
-   * and call runChecks on each.
-   *
-   * Body shape: a flat partial of ReleaseMetadata, OR a 'branches.*' path
-   * accepted as a key like { 'branches.cdbUiConfigs': 'https://...' } for
-   * convenience from the frontend's perspective. Both are normalised here.
    */
   async updateMetadata(
     releaseId: string,
@@ -424,18 +393,30 @@ class ReleaseWorkflowService {
     // Re-run checks for every stage that uses any changed field, but only
     // for stages that aren't locked. runChecks() persists internally on
     // each call.
-    const affectedStages = new Set<string>();
+    const affectedStageChecks = new Map<string, Set<string>>();
     for (const field of changedFields) {
       for (const stageId of stagesUsingField(field)) {
-        affectedStages.add(stageId);
+        const checkIds = affectedStageChecks.get(stageId) ?? new Set<string>();
+        const stage = release.stages.find((s) => s.id === stageId);
+        if (stage) {
+          for (const subStep of stage.subSteps) {
+            if (subStep.editableField === field) {
+              for (const checkId of subStep.autoTickedBy) {
+                checkIds.add(checkId);
+              }
+            }
+          }
+        }
+        affectedStageChecks.set(stageId, checkIds);
       }
     }
 
-    for (const stageId of affectedStages) {
+    for (const [stageId, checkIds] of affectedStageChecks.entries()) {
       const stage = release.stages.find((s) => s.id === stageId);
       if (!stage || stage.status === 'locked') continue;
+      if (checkIds.size === 0) continue;
       try {
-        await this.runChecks(releaseId, stageId, actor);
+        await this.runChecks(releaseId, stageId, actor, [...checkIds]);
       } catch (err: any) {
         // Don't abort the whole patch if one stage's checks fail catastrophically;
         // the field is already saved. Log and continue.
@@ -458,23 +439,7 @@ class ReleaseWorkflowService {
 
   /**
    * Recompute every stage's status and the release's status from the
-   * current sub-step state. Called after every mutation that could affect
-   * stage completion (sub-step toggles, runChecks, create, update).
-   *
-   * Stage rules:
-   *   - locked      : a dependsOn stage is not yet complete
-   *   - complete    : all sub-steps are 'checked' or 'n_a'
-   *   - in_progress : any sub-step is 'checked' or 'n_a' (some progress made)
-   *   - ready       : eligible to start, no progress yet
-   *
-   * Release rules:
-   *   - complete    : every stage complete
-   *   - in_progress : at least one stage in_progress or ready
-   *   - not_started : every stage locked (no progress anywhere)
-   *
-   * Idempotent. Sets startedAt/closedAt the first time a stage transitions
-   * into in_progress / complete, but never overwrites an existing value.
-   * Side-effects: mutates the release in place.
+   * current sub-step state
    */
   private recomputeStatuses(release: Release): void {
     const now = new Date().toISOString();
@@ -487,7 +452,11 @@ class ReleaseWorkflowService {
     const ordered = [...release.stages].sort((a, b) => a.displayOrder - b.displayOrder);
 
     for (const stage of ordered) {
-      const newStatus = this.computeStageStatus(stage, stageStatusById);
+      const newStatus = this.computeStageStatus(
+        stage,
+        stageStatusById,
+        this.applicableSubSteps(release, stage),
+      );
 
       if (newStatus !== stage.status) {
         // Side-effect timestamps on transitions.
@@ -498,9 +467,7 @@ class ReleaseWorkflowService {
           stage.closedAt = now;
         }
         if (newStatus === 'ready' || newStatus === 'locked') {
-          // If a stage drops back from in_progress (e.g. a sub-step was un-checked),
-          // do NOT clear startedAt — it records when work began, regardless of
-          // current state. closedAt likewise stays null until re-completed.
+
         }
         stage.status = newStatus;
       }
@@ -515,27 +482,29 @@ class ReleaseWorkflowService {
   private computeStageStatus(
     stage: Stage,
     stageStatusById: Map<string, Stage['status']>,
+    applicableSubSteps: SubStep[],
   ): Stage['status'] {
     // Dependencies must all be complete to leave the locked state.
     if (stage.dependsOn && stage.dependsOn.length > 0) {
       const allDepsComplete = stage.dependsOn.every(
-        (depId) => stageStatusById.get(depId) === 'complete',
+        (depId) => {
+          const status = stageStatusById.get(depId);
+          return status === 'complete' || status === 'skipped';
+        },
       );
       if (!allDepsComplete) return 'locked';
     }
 
-    if (stage.subSteps.length === 0) {
-      // Stage has no sub-steps (shouldn't happen with current template, but guard
-      // anyway). Treat as ready until something else marks it complete.
-      return 'ready';
+    if (applicableSubSteps.length === 0) {
+      return 'skipped';
     }
 
-    const allDone = stage.subSteps.every(
+    const allDone = applicableSubSteps.every(
       (s) => s.state === 'checked' || s.state === 'n_a',
     );
     if (allDone) return 'complete';
 
-    const anyDone = stage.subSteps.some(
+    const anyDone = applicableSubSteps.some(
       (s) => s.state === 'checked' || s.state === 'n_a',
     );
     if (anyDone) return 'in_progress';
@@ -544,9 +513,10 @@ class ReleaseWorkflowService {
   }
 
   private computeReleaseStatus(stages: Stage[]): Release['status'] {
-    if (stages.length === 0) return 'not_started';
-    if (stages.every((s) => s.status === 'complete')) return 'complete';
-    if (stages.every((s) => s.status === 'locked')) return 'not_started';
+    const activeStages = stages.filter((s) => s.status !== 'skipped');
+    if (activeStages.length === 0) return 'complete';
+    if (activeStages.every((s) => s.status === 'complete')) return 'complete';
+    if (activeStages.every((s) => s.status === 'locked')) return 'not_started';
     return 'in_progress';
   }
 
@@ -554,19 +524,6 @@ class ReleaseWorkflowService {
 
   /**
    * Reconcile every persisted release against the current STAGE_TEMPLATE.
-   *
-   * For each stage on each release:
-   *   - Drop sub-steps whose ID is no longer in the template stage
-   *   - Add sub-steps from the template that don't exist on the release
-   *   - Update label + autoTickedBy on existing sub-steps to match template
-   *     (these are template-controlled; user-controlled state is preserved)
-   *   - Same three operations for automatedChecks
-   *
-   * What is preserved: sub-step state/source/completedAt/completedBy;
-   * check status/lastRunAt/result/errorMessage. User progress and runtime
-   * state survive; only structural fields get re-synced.
-   *
-   * Runs once on boot. Logs only when changes are made.
    */
   private async reconcileWithTemplate(): Promise<void> {
     let totalChanges = 0;
@@ -577,10 +534,7 @@ class ReleaseWorkflowService {
       const releaseChanges = this.reconcileRelease(release);
 
       // Always recompute statuses on boot. This catches releases whose
-      // sub-steps are all checked but whose stage.status is stale (e.g.
-      // releases that pre-date the auto-advance logic). recomputeStatuses
-      // is idempotent — a no-op when statuses already match — so the
-      // call is safe even when no structural changes were made.
+      // sub-steps are all checked but whose stage.status is stale
       const statusBefore = JSON.stringify(release.stages.map((s) => s.status)) + '|' + release.status;
       this.recomputeStatuses(release);
       const statusAfter = JSON.stringify(release.stages.map((s) => s.status)) + '|' + release.status;
@@ -610,18 +564,22 @@ class ReleaseWorkflowService {
 
   /**
    * Apply template reconciliation to a single release IN PLACE.
-   * Returns a list of human-readable change descriptions for logging.
-   * Empty list = no changes made.
    */
   private reconcileRelease(release: Release): string[] {
     const changes: string[] = [];
 
-    // ----- metadata: backfill missing fields -----
-    // The model can gain new fields over time (e.g. cdbUiConfigJiraUrl).
-    // Existing release JSON in Artifactory was saved with the older shape,
-    // so any new field is literally absent on the persisted object. Run the
-    // existing metadata through buildMetadata, which is the canonical source
-    // of truth for which fields should exist and what their defaults are.
+    const beforeBackupSheriff = release.backupSheriff ?? null;
+    release.backupSheriff = normalizeOptionalSheriff(release.backupSheriff);
+    if (beforeBackupSheriff !== release.backupSheriff) {
+      changes.push('backfilled backup sheriff to match current model shape');
+    }
+
+    const beforeReleaseComponents = JSON.stringify(release.releaseComponents ?? null);
+    release.releaseComponents = normalizeReleaseComponents(release.releaseComponents);
+    if (beforeReleaseComponents !== JSON.stringify(release.releaseComponents)) {
+      changes.push('backfilled release components to match current model shape');
+    }
+
     const beforeKeys = Object.keys(release.metadata).sort().join(',');
     const beforeBranchKeys = Object.keys(release.metadata.branches ?? {}).sort().join(',');
     release.metadata = this.buildMetadata(release.metadata);
@@ -734,6 +692,10 @@ class ReleaseWorkflowService {
 
     return changes;
   }
+
+  private applicableSubSteps(release: Release, stage: Stage): SubStep[] {
+    return stage.subSteps.filter((subStep) => isTrackEnabledForRelease(subStep.track, release.releaseComponents));
+  }
 }
 
 const releaseWorkflowService = new ReleaseWorkflowService();
@@ -754,4 +716,29 @@ function indexOf<T>(arr: T[], pred: (item: T) => boolean): number {
     if (pred(arr[i])) return i;
   }
   return arr.length; // unmatched items sort to the end
+}
+
+function normalizeReleaseComponents(
+  input?: Partial<ReleaseComponents> | null,
+): ReleaseComponents {
+  return {
+    cdbui: input?.cdbui ?? false,
+    cdbbos: input?.cdbbos ?? false,
+  };
+}
+
+function isTrackEnabledForRelease(
+  track: SubStep['track'] | string | null | undefined,
+  releaseComponents?: Partial<ReleaseComponents> | null,
+): boolean {
+  const normalizedTrack: SubStep['track'] = track === 'cdbui' || track === 'cdbbos' ? track : 'generic';
+  if (normalizedTrack === 'generic') return true;
+  const normalized = normalizeReleaseComponents(releaseComponents);
+  return normalizedTrack === 'cdbui' ? normalized.cdbui : normalized.cdbbos;
+}
+
+function normalizeOptionalSheriff(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

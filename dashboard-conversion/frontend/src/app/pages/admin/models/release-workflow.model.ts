@@ -14,6 +14,11 @@ export type SubStepSource = 'manual' | 'auto' | null;
 export type CheckStatus   = 'pending' | 'running' | 'passed' | 'failed' | 'partial';
 export type SubStepTrack  = 'generic' | 'cdbui' | 'cdbbos';
 
+export interface ReleaseComponents {
+  cdbui: boolean;
+  cdbbos: boolean;
+}
+
 export interface SubStep {
   id: string;
   label: string;
@@ -110,6 +115,8 @@ export interface Release {
   type: ReleaseType;
   status: ReleaseStatus;
   sheriff: string;
+  backupSheriff: string | null;
+  releaseComponents: ReleaseComponents;
   createdAt: string;
   updatedAt: string;
   metadata: ReleaseMetadata;
@@ -121,5 +128,7 @@ export interface CreateReleaseInput {
   title: string;
   type: ReleaseType;
   sheriff: string;
+  backupSheriff?: string | null;
+  releaseComponents: ReleaseComponents;
   metadata?: Partial<ReleaseMetadata>;
 }

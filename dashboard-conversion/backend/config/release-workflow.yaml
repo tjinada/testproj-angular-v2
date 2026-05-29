@@ -5,12 +5,6 @@
 # This file defines the entire CDB release workflow: 10 stages, their
 # sub-steps, and the runners that auto-tick those sub-steps.
 #
-# Editing this file:
-#   - Locally: edit the bundled file at backend/src/config/release-workflow.yaml
-#     and restart the backend.
-#   - Deployed (OpenShift): edit the ConfigMap mounted at the same path
-#     and restart the pod.
-#
 # At boot, the loader:
 #   1. Reads this file
 #   2. Validates structure against the schema
@@ -18,49 +12,6 @@
 #   4. Synthesizes per-sub-step automated checks
 #   5. Builds STAGE_TEMPLATE and STAGE_RUNNERS
 #   6. Existing releases reconcile against the new template structure
-#
-# If validation fails, the pod fails to start with a clear error message.
-#
-# -----------------------------------------------------------------------------
-#  Schema reference
-# -----------------------------------------------------------------------------
-#
-#  stages:
-#    - id: <slug>                  (required, stable identifier)
-#      name: <human-readable>      (required, displayed in UI)
-#      kind: <sequential|parallel> (default: 'sequential'; parallel runs alongside
-#                                   other stages once dependsOn is met)
-#      initialStatus: <ready|locked>
-#                                  (default: 'locked'; first stage uses 'ready')
-#      dependsOn: [stageId, ...]   (default: []; empty for first stage)
-#      blocks: [stageId, ...]      (parallel stages only; sequential stages they
-#                                   must close before. Optional.)
-#      subSteps:
-#        - id: <slug>              (required, scoped to stage)
-#          label: <human-readable> (required)
-#          track: <generic|cdbui|cdbbos>
-#                                  (required; groups sub-steps in stage view
-#                                   when a stage spans multiple tracks)
-#          editableField: <fieldPath>
-#                                  (required if `runner` is set; names the
-#                                   metadata field this sub-step's inline input
-#                                   writes to)
-#          runner: <factoryName>   (optional; if set, this sub-step is
-#                                   auto-tickable. Must match a registered
-#                                   factory in FACTORY_REGISTRY. The runner
-#                                   is invoked with field=editableField.)
-#                                  (omit `runner` for purely manual sub-steps —
-#                                   they render as a checkbox)
-#          placeholder: <string>   (optional; placeholder text for the inline
-#                                   input field. Overrides the runner's
-#                                   default. Useful for custom phrasing or
-#                                   to provide an example value.)
-#          helpUrl: <url>          (optional; outbound link shown next to the
-#                                   sub-step label. Same value for every
-#                                   release. Use for static reference links
-#                                   like ADO pipelines or runbooks.)
-#          helpUrlLabel: <string>  (optional; display text for helpUrl.
-#                                   Defaults to "Open link".)
 #
 #  Available runners (all take `field` implicitly from the sub-step):
 #    confluencePageIdCheck    — field holds a Confluence page ID
@@ -92,22 +43,17 @@ stages:
         label: Add Release Confluence page link
         track: generic
         editableField: intakePageId
-        runner: confluencePageIdCheck
+        runner: confluencePageUrlCheck
       - id: confirm-env-allocation
         label: Confirm env allocation (Self Serve link)
         track: generic
-        editableField: intakeSheetUrl
-        runner: confluencePageUrlCheck
+        helpUrl:abc
+        helpUrlLabel: abc
       - id: create-fix-version
-        label: Create Fix Version in JIRA
+        label: Create Release Fix Version in JIRA
         track: generic
         editableField: fixVersion
         runner: jiraFixVersionCheck
-      - id: add-intake-checklist-page-id
-        label: Add Intake Checklist Page ID in Admin Portal
-        track: generic
-        editableField: intakePageId
-        runner: valueIsSetCheck
       - id: raise-env-matrix-pr
         label: Raise PR to onboard branch on Env Matrix
         track: generic
@@ -116,13 +62,14 @@ stages:
 
   # ===========================================================================
   - id: stage2-branching
-    name: Branching & Configs (T-14 to T-10)
+    name: Branching & Configs
     dependsOn: [stage1-intake]
     subSteps:
       # ---- CDB UI (frontend) ----
       - id: create-cdb-ui-configs-branch
         label: Create CDB UI Configs branch off master
         track: cdbui
+        placeholder: Enter the branch URL - abc
         editableField: branches.cdbUiConfigs
         runner: githubBranchUrlCheck
       - id: email-adms
@@ -131,6 +78,8 @@ stages:
       - id: open-master-jira
         label: Open master JIRA "CDB UI Configs - RXX"
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: Example  Master Ticket
         editableField: cdbUiConfigJiraUrl
         runner: jiraTicketUrlCheck
       - id: add-da-team-subtasks
@@ -139,6 +88,8 @@ stages:
       - id: run-configs-report
         label: Run CDB_Release_Configs_Report in QA Signoff env
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: Reporting Pipeline
       # ---- CDBBOS (backend) ----
       - id: create-cdbbos-config-branch
         label: Create CDBBOS Config branch off master
@@ -183,12 +134,14 @@ stages:
       - id: disable-sealights-pr
         label: Disable Sealights via config PR
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: Sample CDB UI Pull Request
         editableField: sealightsDisablePrUrl
         runner: githubPrUrlCheck
       - id: run-automated-build-pipeline
         label: Run Automated Build Pipeline post-toggle
         track: cdbui
-        helpUrl: https://dev.azure.com/your-org/_build?definitionId=8398
+        helpUrl: abc
         helpUrlLabel: Open ADO pipeline
       - id: confirm-clean-qa-builds
         label: Confirm clean QA deployment builds generated
@@ -200,47 +153,75 @@ stages:
     dependsOn: [stage3-build-stabilization]
     subSteps:
       - id: confirm-package-json-version
-        label: Confirm package.json version (PROD 0/3/6, Blue 1/4/7, Green 2/5/8)
+        label: Confirm package.json reflects release version
         track: cdbui
       - id: update-mobile-versions-table
         label: Update Mobile App Versions Table
         track: cdbui
-      - id: run-blue-mobile-build
+        helpUrl: abc
+        helpUrlLabel: Mobile App Versions Table
+      - id: run-blue-mobile-buildu
         label: Run CDB_PROD_Blue_Mobile_Build_Publish
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: CDB_PROD_Blue_Mobile_Build_Publish Pipeline
       - id: run-green-mobile-build
         label: Run CDB_PROD_Green_Mobile_Build_Publish
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: CDB_PROD_Green_Mobile_Build_Publish Pipeline
       - id: run-prod-mobile-build
         label: Run CDB_PROD_Mobile_Build_Publish
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: CDB_PROD_Mobile_Build_Publish Pipeline
       - id: upload-ios-pre-prod
         label: Upload iOS Pre-PROD → TestFlight
         track: cdbui
       - id: share-android-pre-prod-path
         label: Share Android Pre-PROD build path
         track: cdbui
-      - id: distribute-prod-builds
-        label: Distribute PROD Android + iOS builds
+        helpUrl: abc
+        helpUrlLabel: Android Pre-PROD build path
+      - id: distribute-iOS-builds
+        label: Distribute iOS builds
         track: cdbui
-      - id: share-build-links
-        label: Share Mobile App Build Links with Release Mgmt
+        helpUrl: abc
+        helpUrlLabel: iOS App Upload - Test flight Link
+      - id: distribute-andriod-builds
+        label: Distribute PROD Android builds
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: Android App Upload - Google Playstore Link
+      - id: inform-buisness
+        label: Inform Buisness (Frey Dylan) that Mobile bulds are in playstore and appstore
+        track: cdbui
+      - id: share-pre-prod-mobile
+        label: Share Preprod iOS and Android Mobile App Build Links with Release Mgmt
+        track: cdbui
+        helpUrl: abc
+        helpUrlLabel: Example - Pre Prod Build (Colour Specific)
+      - id: share-pre-prod-android
+        label: Share Prod iOS and Android Mobile App Build Links with Release Mgmt
+        track: cdbui
+        helpUrl: acb
+        helpUrlLabel: Example - Prod Build
 
   # ===========================================================================
   - id: stage5-war-promotion
     name: Artifact Promotion (T-4 to T-3)
     dependsOn: [stage4-mobile-build]
     subSteps:
-      - id: promote-war-azure
-        label: Promote CDB UI WAR via Azure pipeline (definitionId=8398)
+      - id: promote-cdbui-war-azure
+        label: Promote CDB UI WAR via Azure pipeline
         track: cdbui
+        helpUrl: abc
+        helpUrlLabel: Promote CDA EAR Artifact
       - id: promote-cdbbos-ear-azure
         label: Promote CDBBOS EAR build into PROD Artifactory (Azure pipeline)
         track: cdbbos
-      - id: validate-cdbbos-ear-in-artifactory
-        label: Validate CDBBOS EAR uploaded in PROD Artifactory color location
-        track: cdbbos
+        helpUrl: abc
+        helpUrlLabel: Promote CDA EAR Artifact
       - id: promote-cdbbos-config-build
         label: Prepare and promote CDBBOS Config build into PROD Artifactory
         track: cdbbos
@@ -276,12 +257,13 @@ stages:
       - id: deploy-configs-wem
         label: Deploy configs to PROD WEM server
         track: cdbui
-      - id: validate-3-4-passes
-        label: Validate 3-4 passes
-        track: generic
+        helpUrl: abv
+        helpUrlLabel: PROD WEM Server
       - id: execute-tech-validation
         label: Execute technical validation per CDB Release runbook
         track: generic
+        helpUrl: avbc
+        helpUrlLabel: Tech Validation Runbook
 
   # ===========================================================================
   - id: stage8-prod
@@ -291,12 +273,14 @@ stages:
       - id: repeat-config-war-verification
         label: Repeat config/WAR verification
         track: generic
-      - id: execute-tech-validation-prod
-        label: Execute technical validation
-        track: generic
       - id: coordinate-traffic-switch
         label: Coordinate traffic switch per PROD delivery letter
         track: generic
+      - id: execute-tech-validation-prod
+        label: Execute technical validation
+        track: generic
+        helpUrl: abc
+        helpUrlLabel: Tech Validation Runbook
 
   # ===========================================================================
   - id: stage9-post-go-live
@@ -306,11 +290,13 @@ stages:
       - id: update-f26-deployments-page
         label: Update build versions on F26 Deployments page
         track: generic
+        helpUrl: abc
+        helpUrlLabel: F26 Deployment Versions
       - id: retrofit-cdb-ui-branch
         label: Retrofit CDB UI release branch → master
         track: cdbui
         editableField: retrofitCdbUiPrUrl
-        runner: githubPrUrlCheck
+        runner: githubPrUrlCheck      
       - id: retrofit-cdb-configs-branch
         label: Retrofit CDB Configs release branch → master
         track: cdbui

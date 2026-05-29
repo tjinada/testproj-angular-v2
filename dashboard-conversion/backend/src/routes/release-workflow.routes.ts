@@ -1,23 +1,9 @@
-/**
- * Release Workflow — routes
- *
- * All endpoints mounted at /api/release-workflow, protected by requireAuth.
- * Mirrors the tech-governance-releases-intake.routes.ts pattern from the
- * production CDB Dashboard repo.
- *
- * NOTE: requireAuth middleware is imported from a path that exists in the
- * production repo. This dashboard-conversion folder does not include it;
- * the import resolves at merge-time.
- */
-
 import { Router, Request, Response } from 'express';
 import releaseWorkflowService from '../services/release-workflow.service';
 import { requireAuth } from '../middleware/auth';
-import { ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
+import { ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
 
 const router = Router();
-
-// ----- param-shape types so req.params.X narrows to string -----
 
 type ReleaseParams  = { releaseId: string };
 type StageParams    = { releaseId: string; stageId: string };
@@ -43,6 +29,15 @@ function isSubStepState(v: unknown): v is SubStepState {
 
 function isSubStepSource(v: unknown): v is SubStepSource {
   return v === 'manual' || v === 'auto' || v === null;
+}
+
+function isReleaseComponents(v: unknown): v is Partial<ReleaseComponents> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+  const candidate = v as Record<string, unknown>;
+  const cdbui = candidate['cdbui'];
+  const cdbbos = candidate['cdbbos'];
+  return (cdbui === undefined || typeof cdbui === 'boolean')
+    && (cdbbos === undefined || typeof cdbbos === 'boolean');
 }
 
 // ----- GET /api/release-workflow -----
@@ -79,19 +74,36 @@ router.get('/:releaseId', requireAuth, (req: Request<ReleaseParams>, res: Respon
 
 /**
  * POST /api/release-workflow
- * Body: { releaseId, title, type, sheriff, metadata? }
+ * Body: { releaseId, title, type, sheriff, backupSheriff?, releaseComponents?, metadata? }
  * Creates a new release seeded from the stage template.
  */
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { releaseId, title, type, sheriff, metadata } = req.body ?? {};
+    const { releaseId, title, type, sheriff, backupSheriff, releaseComponents, metadata } = req.body ?? {};
 
     if (!releaseId || typeof releaseId !== 'string') return badRequest(res, 'Body field "releaseId" (string) is required');
     if (!title || typeof title !== 'string')         return badRequest(res, 'Body field "title" (string) is required');
     if (!isReleaseType(type))                         return badRequest(res, 'Body field "type" must be "bundle" | "independent" | "hotfix"');
     if (!sheriff || typeof sheriff !== 'string')     return badRequest(res, 'Body field "sheriff" (string) is required');
+    if (backupSheriff !== undefined && backupSheriff !== null && typeof backupSheriff !== 'string') {
+      return badRequest(res, 'Body field "backupSheriff" must be a string or null');
+    }
+    if (releaseComponents !== undefined && !isReleaseComponents(releaseComponents)) {
+      return badRequest(res, 'Body field "releaseComponents" must be an object with boolean cdbui/cdbbos flags');
+    }
+    if (releaseComponents !== undefined && !releaseComponents.cdbui && !releaseComponents.cdbbos) {
+       return badRequest(res, 'Body field "releaseComponents" must enable at least one of "cdbui" or "cdbbos"');
+     }
 
-    const release = await releaseWorkflowService.add({ releaseId, title, type, sheriff, metadata });
+    const release = await releaseWorkflowService.add({
+      releaseId,
+      title,
+      type,
+      sheriff,
+      backupSheriff,
+      releaseComponents,
+      metadata,
+    });
     res.status(201).json({ message: 'Release created successfully', release });
   } catch (error: any) {
     if (error?.message?.includes('already exists')) {
@@ -106,7 +118,6 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
 /**
  * PUT /api/release-workflow/:releaseId
- * Body: partial { title, sheriff, metadata, status }
  * Updates top-level release metadata.
  */
 router.put('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
@@ -123,11 +134,8 @@ router.put('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: 
   }
 });
 
-// ----- PUT /api/release-workflow/:releaseId/stages/:stageId/sub-steps/:subStepId -----
-
 /**
  * PUT /api/release-workflow/:releaseId/stages/:stageId/sub-steps/:subStepId
- * Body: { state, source, actor? }
  * Toggles a sub-step's state.
  */
 router.put(
@@ -161,9 +169,6 @@ router.put(
 
 /**
  * PATCH /api/release-workflow/:releaseId/metadata
- * Body: a flat record of { fieldPath: value | null }, e.g.
- *   { "intakePageId": "1110606115", "branches.cdbUiConfigs": "https://github.com/..." }
- *
  * Persists each field then re-runs the checks for any stages that reference
  * any of the changed fields. Returns the updated release.
  */
@@ -213,10 +218,7 @@ router.patch(
 
 /**
  * POST /api/release-workflow/:releaseId/stages/:stageId/run-checks
- *
  * Triggers automated checks for a stage.
- * SKELETON: returns the stage's existing automatedChecks unchanged.
- * Per-stage owners implement real check execution in the service.
  */
 router.post(
   '/:releaseId/stages/:stageId/run-checks',
