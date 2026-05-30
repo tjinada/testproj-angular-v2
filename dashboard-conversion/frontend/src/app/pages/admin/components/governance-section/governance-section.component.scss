@@ -1,0 +1,230 @@
+.content-section { animation: fadeIn 0.3s ease-in; }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h2 { margin: 0; }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.governance-table,
+.intakes-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  th {
+    background: var(--bg);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+  }
+
+  tbody tr:hover { background: rgba(0, 0, 0, 0.02); }
+
+  input, textarea {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+
+    &:focus { outline: none; border-color: var(--primary); }
+  }
+
+  .details-cell {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .editing-row { background: #fffbe6; }
+  .new-row { background: #f0f7ff; }
+}
+
+.intakes-table tbody tr.veto-row-block {
+  background: #ffe7e7;
+}
+
+.intakes-table tbody tr.veto-row-allow {
+  background: #e7f6e7;
+}
+
+.intakes-table tbody tr.veto-row-block:hover {
+  background: #ffd9d9;
+}
+
+.intakes-table tbody tr.veto-row-allow:hover {
+  background: #d9efd9;
+}
+
+.actions-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 13px;
+  margin-left: 4px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  transition: background-color 0.15s, color 0.15s;
+  font-size: 16px;
+  margin-left: 2px;
+
+  &:hover:not(:disabled) {
+    background: var(--bg);
+    color: var(--primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &.icon-btn-danger:hover:not(:disabled) {
+    color: var(--error);
+  }
+}
+
+.add-row-container {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
+
+  .btn i { margin-right: 6px; }
+}
+
+.dates-cell {
+  font-size: 13px;
+  line-height: 1.5;
+
+  div + div { margin-top: 2px; }
+  strong { font-weight: 600; color: var(--text-secondary); }
+}
+
+.veto-input { width: 80px !important; }
+
+.veto-select {
+  min-width: 150px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.loading {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-secondary);
+}
+
+.error-banner {
+  background: #ffebee;
+  color: #c62828;
+  padding: 10px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.success-banner {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 10px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+/* ---- Modal ---- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.15s ease-in;
+}
+
+.modal-dialog {
+  background: var(--surface);
+  border-radius: 8px;
+  width: 95vw;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+
+  h3 { margin: 0; font-size: 18px; }
+}
+
+.modal-close-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .section-header { flex-direction: column; align-items: flex-start; }
+  .actions-col { text-align: left; }
+  .modal-dialog {
+    width: 95vw;
+    max-width: 95vw;
+  }
+}

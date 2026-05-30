@@ -102,6 +102,9 @@ export interface ReleaseMetadata {
   tagCdbbosUrl: string | null;
   tagCdbbosConfigUrl: string | null;
   dependencyJarBranchUrls: string | null;
+  cdbUiArtifactPath: string | null;
+  cdbbosEarArtifactPath: string | null;
+  cdbbosConfigArtifactPath: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;

@@ -217,14 +217,20 @@ stages:
         track: cdbui
         helpUrl: abc
         helpUrlLabel: Promote CDA EAR Artifact
+        editableField: cdbUiArtifactPath
+        runner: artifactExistsCheck
       - id: promote-cdbbos-ear-azure
         label: Promote CDBBOS EAR build into PROD Artifactory (Azure pipeline)
         track: cdbbos
         helpUrl: abc
         helpUrlLabel: Promote CDA EAR Artifact
+        editableField: cdbbosEarArtifactPath
+        runner: artifactExistsCheck
       - id: promote-cdbbos-config-build
         label: Prepare and promote CDBBOS Config build into PROD Artifactory
         track: cdbbos
+        editableField: cdbbosConfigArtifactPath
+        runner: artifactExistsCheck
 
   # ===========================================================================
   # Stage 6 unlocks as soon as Stage 3 completes; runs alongside Stages 4 & 5.

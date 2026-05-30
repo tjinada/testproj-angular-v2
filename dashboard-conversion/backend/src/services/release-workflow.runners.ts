@@ -16,12 +16,14 @@
  *   JIRA issue       → { key, summary, status }
  *   GitHub PR        → { prNumber, title, state, url }
  *   GitHub branch    → { branchName, owner, repo, sha }
+ *   artifactExists   → { path, exists }
  *   valueIsSet       → { [fieldName]: value }
  */
 
 import confluenceService from './confluence.service';
 import jiraService from './jira.service';
 import githubService from './github.service';
+import artifactoryService from './artifactory.service';
 import {
   AutomatedCheck,
   Release,
@@ -443,6 +445,23 @@ export function jiraTicketUrlCheck(config: { field: FieldPath }): CheckRunner {
   };
 }
 
+export function artifactExistsCheck(config: { field: FieldPath }): CheckRunner {
+  const { field } = config;
+  return async (release, check) => {
+    const artifactPath = readField(release, field);
+    if (!artifactPath || !artifactPath.trim()) return fail(check, `${field} is not set on this release`);
+
+    try {
+      const exists = await artifactoryService.artifactExists(artifactPath.trim());
+      return exists
+        ? pass(check, { path: artifactPath.trim(), exists: true })
+        : fail(check, `Artifact not found in Artifactory: ${artifactPath.trim()}`);
+    } catch (err: any) {
+      return fail(check, err?.message ?? 'Artifactory API call failed');
+    }
+  };
+}
+
 export function valueIsSetCheck(config: { field: FieldPath }): CheckRunner {
   const { field } = config;
   return async (release, check) => {
@@ -471,6 +490,7 @@ export const FACTORY_REGISTRY: Record<string, FactoryFn> = {
   githubTagUrlCheck,
   jiraFixVersionCheck,
   jiraTicketUrlCheck,
+  artifactExistsCheck,
   valueIsSetCheck,
 };
 
@@ -501,5 +521,6 @@ export const RUNNER_PLACEHOLDERS: Record<string, string> = {
   githubTagUrlCheck:      'Paste GitHub tag URL, e.g. https://github.com/your-org/repo/releases/tag/v86.0.0',
   jiraFixVersionCheck:    'Paste JIRA Fix Version name, e.g. R86.0.0-103052',
   jiraTicketUrlCheck:     'Paste JIRA ticket URL, e.g. https://bmo.atlassian.net/browse/SSRELEASE-7001',
+  artifactExistsCheck:    'Paste Artifactory repo path, e.g. cdb-releases-prod/cdbbos/cdbbos-86.0.0.ear',
   valueIsSetCheck:        'Paste value',
 };

@@ -1,0 +1,217 @@
+<div class="content-section">
+  <div class="section-header">
+    <h2>Tech Governance Intake Management</h2>
+  </div>
+
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+  @if (success()) {
+    <div class="success-banner">{{ success() }}</div>
+  }
+
+  <div class="card">
+    <h3>Releases ({{ releases().length }})</h3>
+
+    @if (loading()) {
+      <div class="loading">Loading releases...</div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="governance-table">
+          <thead>
+            <tr>
+              <th>Branch</th>
+              <th>Details</th>
+              <th>Grace Period (days)</th>
+              <th>Intake Page ID</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (release of releases(); track trackByBranch($index, release)) {
+              @if (isEditing(release)) {
+                <tr class="editing-row">
+                  <td>
+                    <input type="text" [(ngModel)]="editBuffer!.branch" placeholder="Branch" />
+                  </td>
+                  <td>
+                    <textarea [(ngModel)]="editBuffer!.details" placeholder="Details" rows="3"></textarea>
+                  </td>
+                  <td>
+                    <input type="number" min="0" [(ngModel)]="editBuffer!.gracePeriodInDays" />
+                  </td>
+                  <td>
+                    <input type="text" [(ngModel)]="editBuffer!.intakePageId" placeholder="Intake Page ID" />
+                  </td>
+                  <td class="actions-col">
+                    <button class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveEdit()">
+                      {{ saving() ? 'Saving...' : 'Save' }}
+                    </button>
+                    <button class="btn btn-secondary btn-sm" [disabled]="saving()" (click)="cancelEdit()">
+                      Cancel
+                    </button>
+                  </td>
+                </tr>
+              } @else {
+                <tr>
+                  <td>{{ release.branch }}</td>
+                  <td class="details-cell">{{ release.details }}</td>
+                  <td>{{ release.gracePeriodInDays }}</td>
+                  <td>{{ release.intakePageId }}</td>
+                  <td class="actions-col">
+                    <button
+                      class="icon-btn"
+                      title="View intakes"
+                      (click)="openIntakes(release)">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                    <button
+                      class="icon-btn"
+                      title="Edit"
+                      [disabled]="!!editingKey()"
+                      (click)="startEdit(release)">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button
+                      class="icon-btn icon-btn-danger"
+                      title="Delete"
+                      [disabled]="!!editingKey()"
+                      (click)="deleteRelease(release)">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            }
+
+            @if (isEditing(null, '__new__') && editBuffer) {
+              <tr class="editing-row new-row">
+                <td>
+                  <input type="text" [(ngModel)]="editBuffer.branch" placeholder="Branch" />
+                </td>
+                <td>
+                  <textarea [(ngModel)]="editBuffer.details" placeholder="Details" rows="3"></textarea>
+                </td>
+                <td>
+                  <input type="number" min="0" [(ngModel)]="editBuffer.gracePeriodInDays" />
+                </td>
+                <td>
+                  <input type="text" [(ngModel)]="editBuffer.intakePageId" placeholder="Intake Page ID" />
+                </td>
+                <td class="actions-col">
+                  <button class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveEdit()">
+                    {{ saving() ? 'Saving...' : 'Save' }}
+                  </button>
+                  <button class="btn btn-secondary btn-sm" [disabled]="saving()" (click)="cancelEdit()">
+                    Cancel
+                  </button>
+                </td>
+              </tr>
+            }
+
+            @if (releases().length === 0 && !isEditing(null, '__new__')) {
+              <tr>
+                <td colspan="5" class="empty-state">No releases found. Click "Add Release" below to create one.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="add-row-container">
+        <button
+          class="btn btn-primary"
+          [disabled]="!!editingKey()"
+          (click)="startAdd()">
+          <i class="bi bi-plus-lg"></i> Add Release
+        </button>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Intakes Modal -->
+@if (intakesModalRelease(); as modalRelease) {
+  <div class="modal-backdrop" (click)="closeIntakes()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Intakes of {{ modalRelease.branch }}</h3>
+        <button class="btn btn-secondary modal-close-btn" (click)="closeIntakes()" title="Close intake modal">
+          <i class="bi bi-x-lg"></i>
+          Close
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (modalRelease.intakes.length === 0) {
+          <div class="empty-state">No intakes available for this release.</div>
+        } @else {
+          <div class="table-wrapper">
+            <table class="intakes-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Dates</th>
+                  <th>Author</th>
+                  <th>Contributors</th>
+                  <th>Platform Veto</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (intake of modalRelease.intakes; track trackByIntakeId($index, intake)) {
+                  <tr
+                    [class.veto-row-block]="(intakesEditingId() === intake.id && intakeEditBuffer ? intakeEditBuffer.platformVeto : intake.platformVeto) === 1"
+                    [class.veto-row-allow]="(intakesEditingId() === intake.id && intakeEditBuffer ? intakeEditBuffer.platformVeto : intake.platformVeto) === 2">
+                    <td>
+                      <a [href]="getIntakeUrl(intake.id)" target="_blank" rel="noopener noreferrer">
+                        {{ intake.title }}
+                      </a>
+                    </td>
+                    <td class="dates-cell">
+                      <div><strong>Created:</strong> {{ intake.createdDate | date: 'mediumDate' }}</div>
+                      <div><strong>Discussed:</strong> {{ intake.discussedOn ? (intake.discussedOn | date: 'mediumDate') : '—' }}</div>
+                      <div><strong>Updated:</strong> {{ intake.updatedDate | date: 'mediumDate' }}</div>
+                    </td>
+                    <td>{{ intake.author }}</td>
+                    <td>{{ (intake.contributors || []).join(', ') || '—' }}</td>
+                    <td>
+                      @if (intakesEditingId() === intake.id && intakeEditBuffer) {
+                        <select
+                          class="veto-select"
+                          [(ngModel)]="intakeEditBuffer.platformVeto">
+                          @for (option of platformVetoOptions; track option.value) {
+                            <option [ngValue]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      } @else {
+                        {{ getPlatformVetoLabel(intake.platformVeto) }}
+                      }
+                    </td>
+                    <td class="actions-col">
+                      @if (intakesEditingId() === intake.id) {
+                        <button class="btn btn-primary btn-sm" [disabled]="intakesSaving()" (click)="saveIntakeEdit()">
+                          {{ intakesSaving() ? 'Saving...' : 'Save' }}
+                        </button>
+                        <button class="btn btn-secondary btn-sm" [disabled]="intakesSaving()" (click)="cancelIntakeEdit()">
+                          Cancel
+                        </button>
+                      } @else {
+                        <button
+                          class="icon-btn"
+                          title="Edit Platform Veto"
+                          [disabled]="!!intakesEditingId()"
+                          (click)="startIntakeEdit(intake)">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

@@ -336,6 +336,9 @@ class ReleaseWorkflowService {
       tagCdbbosUrl: input?.tagCdbbosUrl ?? null,
       tagCdbbosConfigUrl: input?.tagCdbbosConfigUrl ?? null,
       dependencyJarBranchUrls: input?.dependencyJarBranchUrls ?? null,
+      cdbUiArtifactPath: input?.cdbUiArtifactPath ?? null,
+      cdbbosEarArtifactPath: input?.cdbbosEarArtifactPath ?? null,
+      cdbbosConfigArtifactPath: input?.cdbbosConfigArtifactPath ?? null,
       branches: {
         cdbUi: input?.branches?.cdbUi ?? null,
         cdbUiConfigs: input?.branches?.cdbUiConfigs ?? null,
