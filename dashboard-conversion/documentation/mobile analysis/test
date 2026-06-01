@@ -1,100 +1,22 @@
--- Test in User Sessions Query screen
-SELECT COUNT(*) FROM useraction 
-WHERE name LIKE "%initializenativeonetrust%"
-  AND (usersession.useraction.name = "Loading BMO" 
-       OR usersession.useraction.name = "Loading App")
-
-SELECT COUNT(*) FROM useraction 
-WHERE name LIKE "%initializenativeonetrust%"
-  AND applicationType = "MOBILE_APPLICATION"
-
-
-SELECT name as "Event", 
-       usersession.osFamily as "OS", 
-       usersession.appVersion as "App Version", 
-       COUNT(*) as "Count" 
-FROM useraction 
-WHERE name STARTSWITH "one-trust.service.ts " 
-  AND name LIKE "%dead flow%"
-  AND (usersession.useraction.name = "Loading BMO" 
-       OR usersession.useraction.name = "Loading App")
-GROUP BY name, usersession.osFamily, usersession.appVersion 
-ORDER BY COUNT(*) DESC
-
-SELECT COUNT(*) as "Mobile Dead Flows" 
-FROM useraction 
-WHERE name STARTSWITH "one-trust.service.ts " 
-  AND name LIKE "%dead flow%"
-  AND applicationType = "MOBILE_APPLICATION"
-
-
-  -- Query A: matches the overview tile
-SELECT COUNT(*) as "Dead Flow Events"
-FROM usersession 
-WHERE useraction.name LIKE "%dead flow%" 
-  AND (useraction.name = "Loading BMO" OR useraction.name = "Loading App")
-
--- Query B: matches the drill-down tile  
-SELECT COUNT(*) as "Dead Flow Actions"
-FROM useraction 
-WHERE name STARTSWITH "one-trust.service.ts " 
-  AND name LIKE "%dead flow%"
-  AND usersession.applicationType = "MOBILE_APPLICATION"
-
-SELECT usersession.osFamily as "OS",
-       COUNT(*) as "Dead Flow Actions" 
-FROM useraction 
-WHERE name STARTSWITH "one-trust.service.ts " 
-  AND name LIKE "%dead flow%"
-  AND usersession.applicationType = "MOBILE_APPLICATION"
-GROUP BY usersession.osFamily 
-ORDER BY COUNT(*) DESC
-
-SELECT COUNT(*) as "Dead Flow Actions"
+SELECT usersession.osFamily AS "OS Family",
+       AVG(loadEventEnd) AS "Average",
+       median(loadEventEnd) AS "Median",
+       PERCENTILE(loadEventEnd, 90) AS "P90",
+       PERCENTILE(loadEventEnd, 99) AS "P99"
 FROM useraction
-WHERE name STARTSWITH "one-trust.service.ts "
-  AND name LIKE "%dead flow%"
-  AND userSessionId IN (
-    SELECT userSessionId FROM usersession
-    WHERE useraction.name = "Loading BMO" OR useraction.name = "Loading App"
-  )
+WHERE name STARTSWITH "loading of page /login"
+  AND usersession.osFamily IN ("Android", "iOS")
+GROUP BY usersession.osFamily
+ORDER BY usersession.osFamily DESC
 
-SELECT useraction.name as "Event",
-       usersession.osFamily as "OS",
-       usersession.appVersion as "App Version",
-       COUNT(*) as "Count"
-FROM usersession
-WHERE useraction.name STARTSWITH "one-trust.service.ts "
-  AND useraction.name LIKE "%dead flow%"
-  AND (useraction.name = "Loading BMO" OR useraction.name = "Loading App")
-GROUP BY useraction.name, usersession.osFamily, usersession.appVersion
-ORDER BY COUNT(*) DESC
-
-SELECT name as "Event",
-       usersession.osFamily as "OS",
-       usersession.appVersion as "App Version",
-       COUNT(*) as "Count"
+SELECT usersession.osFamily AS "OS Family",
+       median(duration) AS "Duration median (contaminated)",
+       PERCENTILE(duration, 90) AS "Duration P90 (contaminated)",
+       median(domCompleteTime) AS "DOM Complete median",
+       median(loadEventEnd) AS "Load End median",
+       PERCENTILE(loadEventEnd, 90) AS "Load End P90"
 FROM useraction
-WHERE name STARTSWITH "one-trust.service.ts "
-  AND name LIKE "%dead flow%"
-  AND userSessionId IN (
-    SELECT userSessionId FROM usersession
-    WHERE useraction.name = "Loading BMO" OR useraction.name = "Loading App"
-  )
-GROUP BY name, usersession.osFamily, usersession.appVersion
-ORDER BY COUNT(*) DESC
-
-SELECT COUNT(*) as "Dead Flow Events" 
-FROM useraction 
-WHERE name STARTSWITH "one-trust.service.ts " 
-  AND name LIKE "%dead flow%"
-  AND usersession.applicationType = "MOBILE_APPLICATION"
-  AND usersession.osFamily IN ("iOS", "Android")
-  AND usersession.appVersion IS NOT NULL
-
-
-SELECT COUNT(*) as "Sessions with multiple App Init errors"
-FROM usersession 
-WHERE (useraction.name LIKE "%checkversion request failed%" OR useraction.name LIKE "%getappconfig timed out%")
-  AND (useraction.name LIKE "%appiniteffect%catcherror%" OR useraction.name LIKE "%loadgeolocation%catcherror%")
-  AND (useraction.name = "Loading BMO" OR useraction.name = "Loading App")
+WHERE name STARTSWITH "loading of page /login"
+  AND usersession.osFamily IN ("Android", "iOS")
+GROUP BY usersession.osFamily
+ORDER BY usersession.osFamily DESC
