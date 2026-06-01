@@ -1,0 +1,737 @@
+{
+  "E:\\Repositories\\testproj-angular-v2\\angular.json": {
+    "mtime": 1776184247.8604882,
+    "ast_hash": "21081dcf2adb73f46365e808e3000003",
+    "semantic_hash": "21081dcf2adb73f46365e808e3000003"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\package.json": {
+    "mtime": 1776382655.1101444,
+    "ast_hash": "e3ad4829d73d28165e5027b288d0f87d",
+    "semantic_hash": "e3ad4829d73d28165e5027b288d0f87d"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\proxy.conf.json": {
+    "mtime": 1775299528.3315356,
+    "ast_hash": "760ac1aec340961e5cf41691a9514cbc",
+    "semantic_hash": "760ac1aec340961e5cf41691a9514cbc"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\tsconfig.app.json": {
+    "mtime": 1775299525.3307686,
+    "ast_hash": "84312c57f74eaa31ca0443d997d30e68",
+    "semantic_hash": "84312c57f74eaa31ca0443d997d30e68"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\tsconfig.json": {
+    "mtime": 1775299521.204279,
+    "ast_hash": "d6cc821eaf33d132319a0696303bc116",
+    "semantic_hash": "d6cc821eaf33d132319a0696303bc116"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\models\\release-workflow.model.ts": {
+    "mtime": 1780148700.9432442,
+    "ast_hash": "d1e978c1e2a0df50ee59fa240fa3c6ec",
+    "semantic_hash": "d1e978c1e2a0df50ee59fa240fa3c6ec"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\models\\tech-governance.models.ts": {
+    "mtime": 1780084723.0,
+    "ast_hash": "bdbb48b5c1a71c08aa01914320a6b8b8",
+    "semantic_hash": "bdbb48b5c1a71c08aa01914320a6b8b8"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\routes\\akamai.routes.ts": {
+    "mtime": 1777562725.9280396,
+    "ast_hash": "93855d7ba4b1ee4295f7a37d37a0e9a9",
+    "semantic_hash": "93855d7ba4b1ee4295f7a37d37a0e9a9"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\routes\\error-analyzer.routes.ts": {
+    "mtime": 1777492407.3228202,
+    "ast_hash": "ff20680f3bcd636806564a8e8ed11b0f",
+    "semantic_hash": "ff20680f3bcd636806564a8e8ed11b0f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\routes\\log.routes.ts": {
+    "mtime": 1776866286.4356482,
+    "ast_hash": "6a501d372e01ea05dd5141351e63ecb1",
+    "semantic_hash": "6a501d372e01ea05dd5141351e63ecb1"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\routes\\opensearch.routes.ts": {
+    "mtime": 1777492396.16409,
+    "ast_hash": "f6ea9fd4035983b9d70a2adb5cb984de",
+    "semantic_hash": "f6ea9fd4035983b9d70a2adb5cb984de"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\routes\\release-workflow.routes.ts": {
+    "mtime": 1780083760.0,
+    "ast_hash": "eace6530ff000f7ecadbed9a7f27fc93",
+    "semantic_hash": "eace6530ff000f7ecadbed9a7f27fc93"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\routes\\url-trace.routes.ts": {
+    "mtime": 1777963836.896888,
+    "ast_hash": "1294c303b34afb0c959b3dbcc6e32dff",
+    "semantic_hash": "1294c303b34afb0c959b3dbcc6e32dff"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\akamai.service.ts": {
+    "mtime": 1777569463.7082093,
+    "ast_hash": "de5a3b24e9c6d5ec22c0247e2fb9cb71",
+    "semantic_hash": "de5a3b24e9c6d5ec22c0247e2fb9cb71"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\artifactory.service.ts": {
+    "mtime": 1780091357.7101862,
+    "ast_hash": "029e82bf63d699585ce7c37a17fb8d3e",
+    "semantic_hash": "029e82bf63d699585ce7c37a17fb8d3e"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\confluence.service.ts": {
+    "mtime": 1780084597.0,
+    "ast_hash": "1d02b65f32e698523d1ad34316c096d8",
+    "semantic_hash": "1d02b65f32e698523d1ad34316c096d8"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\da-teams.service.ts": {
+    "mtime": 1780084624.0,
+    "ast_hash": "c7a9b5b5123af7794950cff247cde364",
+    "semantic_hash": "c7a9b5b5123af7794950cff247cde364"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\dynatrace.service.ts": {
+    "mtime": 1776825287.6601872,
+    "ast_hash": "498bf60e639e5ca9cfceff8d39cfed53",
+    "semantic_hash": "498bf60e639e5ca9cfceff8d39cfed53"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\github.service.ts": {
+    "mtime": 1778699536.016577,
+    "ast_hash": "287b226041e55f9ebbfa763541139590",
+    "semantic_hash": "287b226041e55f9ebbfa763541139590"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\jira.service.ts": {
+    "mtime": 1778102382.9210374,
+    "ast_hash": "9249610394c34d34ad92bf004d4ed3f5",
+    "semantic_hash": "9249610394c34d34ad92bf004d4ed3f5"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\log.service.ts": {
+    "mtime": 1776878672.1806076,
+    "ast_hash": "a0a89edfd572b6677d15fa23fe92ab36",
+    "semantic_hash": "a0a89edfd572b6677d15fa23fe92ab36"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\opensearch.service.ts": {
+    "mtime": 1777486751.6173427,
+    "ast_hash": "354ac077d476c365941362694e630373",
+    "semantic_hash": "354ac077d476c365941362694e630373"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\papi-baseline-extractor.ts": {
+    "mtime": 1777551464.6713235,
+    "ast_hash": "b7a9ad75a899d0f63f831967c12659b2",
+    "semantic_hash": "b7a9ad75a899d0f63f831967c12659b2"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\papi-naive-matcher.ts": {
+    "mtime": 1777563469.1817338,
+    "ast_hash": "e80a3dca42b7fc3563b344b69e1c2465",
+    "semantic_hash": "e80a3dca42b7fc3563b344b69e1c2465"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\papi-resolution-resolver.ts": {
+    "mtime": 1777569443.1827877,
+    "ast_hash": "dd9d355691b79b9e8d74dbbfe01d7439",
+    "semantic_hash": "dd9d355691b79b9e8d74dbbfe01d7439"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\release-workflow.loader.ts": {
+    "mtime": 1779675620.0784159,
+    "ast_hash": "5183d94a482bf34838c96fd8027e19b7",
+    "semantic_hash": "5183d94a482bf34838c96fd8027e19b7"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\release-workflow.runners.ts": {
+    "mtime": 1780091382.288192,
+    "ast_hash": "b18124ded8816c4e0ef28276e0d751e4",
+    "semantic_hash": "b18124ded8816c4e0ef28276e0d751e4"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\release-workflow.service.ts": {
+    "mtime": 1780148709.9466372,
+    "ast_hash": "533283da7126f78cfe4aa3791bc0bd55",
+    "semantic_hash": "533283da7126f78cfe4aa3791bc0bd55"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\tech-governance-releases-intake.service.ts": {
+    "mtime": 1780084542.0,
+    "ast_hash": "8fba750eea8bf06e6f4ed421fbd2fbe4",
+    "semantic_hash": "8fba750eea8bf06e6f4ed421fbd2fbe4"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\src\\services\\url-trace.service.ts": {
+    "mtime": 1777963823.7593153,
+    "ast_hash": "204446381f0eafcf75f1ff3597604cbd",
+    "semantic_hash": "204446381f0eafcf75f1ff3597604cbd"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\akamai tests\\Akamai-EdgeDiagnostics.postman_collection.json": {
+    "mtime": 1777515183.7951741,
+    "ast_hash": "9b0cc84249f1087b0d6a4904b94106b3",
+    "semantic_hash": "9b0cc84249f1087b0d6a4904b94106b3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\api-usage-test\\endpoint-tracker.sh": {
+    "mtime": 1779312230.1321573,
+    "ast_hash": "36a0c7426c77069ae5a5938397783a07",
+    "semantic_hash": "36a0c7426c77069ae5a5938397783a07"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\api-usage-test\\find-traces-by-url-precise.sh": {
+    "mtime": 1779129964.030486,
+    "ast_hash": "8d4ecaf9c691cac857c9f1bcb1cb916a",
+    "semantic_hash": "8d4ecaf9c691cac857c9f1bcb1cb916a"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\api-usage-test\\find-traces-by-url.sh": {
+    "mtime": 1779129932.3448572,
+    "ast_hash": "5d05de2e66abf686078f790bb25214e3",
+    "semantic_hash": "5d05de2e66abf686078f790bb25214e3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\endpoint dashboard\\endpoint-v2.json": {
+    "mtime": 1780007930.3504033,
+    "ast_hash": "9a3e903f8bbc13b58eb32e315532fdf4",
+    "semantic_hash": "9a3e903f8bbc13b58eb32e315532fdf4"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\endpoint dashboard\\endpoint.json": {
+    "mtime": 1779112852.879774,
+    "ast_hash": "2c42e41d001fb308eb609e0308b2bed3",
+    "semantic_hash": "2c42e41d001fb308eb609e0308b2bed3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\mobile analysis\\mobile-error-dashboard-v2.json": {
+    "mtime": 1778789343.4667015,
+    "ast_hash": "0338927b6b033b3c786da1e7e5f4b924",
+    "semantic_hash": "0338927b6b033b3c786da1e7e5f4b924"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\mobile analysis\\mobile-error-dashboard-v3.json": {
+    "mtime": 1778861372.3216622,
+    "ast_hash": "d95b6a3bdbda8ace5364e0c96d4c148e",
+    "semantic_hash": "d95b6a3bdbda8ace5364e0c96d4c148e"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\mobile analysis\\mobile-error-dashboard-v4.json": {
+    "mtime": 1778869199.561107,
+    "ast_hash": "cb5e866845deef17250cb25584a601db",
+    "semantic_hash": "cb5e866845deef17250cb25584a601db"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\mobile analysis\\mobile-error-dashboard-v5.json": {
+    "mtime": 1778871425.9648561,
+    "ast_hash": "8942ef3e73adf023320d0de888e0d82b",
+    "semantic_hash": "8942ef3e73adf023320d0de888e0d82b"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\mobile analysis\\mobile-error-dashboard.json": {
+    "mtime": 1778779608.001685,
+    "ast_hash": "b97c76854e8fc168cecfbb40e1bb308f",
+    "semantic_hash": "b97c76854e8fc168cecfbb40e1bb308f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\mobile analysis\\onetrust-consent-flow-dashboard copy.json": {
+    "mtime": 1778778223.0553331,
+    "ast_hash": "e760bb00e3b86f3ce45ab05c1fe74f13",
+    "semantic_hash": "e760bb00e3b86f3ce45ab05c1fe74f13"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\mobile analysis\\updated_dashboard.json": {
+    "mtime": 1779775996.6775446,
+    "ast_hash": "dee7cbfbb16fc3875f4c673e3f6f1e56",
+    "semantic_hash": "dee7cbfbb16fc3875f4c673e3f6f1e56"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\pii-data-test\\logquery.json": {
+    "mtime": 1779483038.3522398,
+    "ast_hash": "5e71d2fcb79ce7972b559f5082674725",
+    "semantic_hash": "5e71d2fcb79ce7972b559f5082674725"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\pii-data-test\\scan_pi-v2.sh": {
+    "mtime": 1779463167.480444,
+    "ast_hash": "775086ef3067a39f55dd25bd7840b224",
+    "semantic_hash": "775086ef3067a39f55dd25bd7840b224"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\pii-data-test\\scan_pi-v3.sh": {
+    "mtime": 1779464661.643762,
+    "ast_hash": "244986f86f645b1e147a7916c6468fb4",
+    "semantic_hash": "244986f86f645b1e147a7916c6468fb4"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\pii-data-test\\scan_pi-v4.sh": {
+    "mtime": 1779484616.7664573,
+    "ast_hash": "2298992795e7d395af060595a2101ae0",
+    "semantic_hash": "2298992795e7d395af060595a2101ae0"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\pii-data-test\\scan_pi.sh": {
+    "mtime": 1779460208.15173,
+    "ast_hash": "4142cd5a9adfb03f988d4911c8c8e337",
+    "semantic_hash": "4142cd5a9adfb03f988d4911c8c8e337"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\app.debug3.js": {
+    "mtime": 1779916058.379394,
+    "ast_hash": "9a3c2652828a02952bdbe888a1e92635",
+    "semantic_hash": "9a3c2652828a02952bdbe888a1e92635"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\app.debug4.js": {
+    "mtime": 1779938253.9346838,
+    "ast_hash": "0ad7f118e0dd35f65a3956a95b4cae22",
+    "semantic_hash": "0ad7f118e0dd35f65a3956a95b4cae22"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\app.js": {
+    "mtime": 1779916058.3274548,
+    "ast_hash": "fbc4f4e9702aba5789af36a042aefaf8",
+    "semantic_hash": "fbc4f4e9702aba5789af36a042aefaf8"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\libs\\html5-qrcode.min.js": {
+    "mtime": 1779916058.3639052,
+    "ast_hash": "d88d3200cb547c9e86ee972975561dcd",
+    "semantic_hash": "d88d3200cb547c9e86ee972975561dcd"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\libs\\pako.min.js": {
+    "mtime": 1779916058.3543115,
+    "ast_hash": "e4fcc3960266e171263331ea7052bb7d",
+    "semantic_hash": "e4fcc3960266e171263331ea7052bb7d"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\libs\\qrcode-local.js": {
+    "mtime": 1779916058.3587663,
+    "ast_hash": "d248a19f374b7f48ec4c3624b360cfcc",
+    "semantic_hash": "d248a19f374b7f48ec4c3624b360cfcc"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\governance-section\\governance-section.component.ts": {
+    "mtime": 1780084894.0,
+    "ast_hash": "66e6119220bfa2748563b5cc54b3aac5",
+    "semantic_hash": "66e6119220bfa2748563b5cc54b3aac5"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\release-workflow-section.component.ts": {
+    "mtime": 1778092281.303665,
+    "ast_hash": "0f2ac2f04e2d8a80affb10bf94e4f130",
+    "semantic_hash": "0f2ac2f04e2d8a80affb10bf94e4f130"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\stage-view\\check-result-display.ts": {
+    "mtime": 1779245761.7083187,
+    "ast_hash": "b2be3e2443b17ef4e926f827068d4a24",
+    "semantic_hash": "b2be3e2443b17ef4e926f827068d4a24"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\stage-view\\stage-view.component.ts": {
+    "mtime": 1780082839.0,
+    "ast_hash": "f8fd92e3575d3ed98ba1a3d35f699c95",
+    "semantic_hash": "f8fd92e3575d3ed98ba1a3d35f699c95"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\views\\create-release\\create-release.component.ts": {
+    "mtime": 1778510713.2969258,
+    "ast_hash": "128192c84c6a2c8601e3fab7e46aed76",
+    "semantic_hash": "128192c84c6a2c8601e3fab7e46aed76"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\views\\release-detail\\release-detail.component.ts": {
+    "mtime": 1780082767.0,
+    "ast_hash": "159113873b17622d94f56e5c4cd99e6e",
+    "semantic_hash": "159113873b17622d94f56e5c4cd99e6e"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\views\\releases-list\\releases-list.component.ts": {
+    "mtime": 1780082645.0,
+    "ast_hash": "30bd6ce02b037293eeeca8131ac15c20",
+    "semantic_hash": "30bd6ce02b037293eeeca8131ac15c20"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\models\\release-workflow.model.ts": {
+    "mtime": 1780148704.9498234,
+    "ast_hash": "1d07544277be10f743d1ec41613f164a",
+    "semantic_hash": "1d07544277be10f743d1ec41613f164a"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\services\\release-workflow.check-formatters.ts": {
+    "mtime": 1778100686.087069,
+    "ast_hash": "2d8196fc9b9a734cd77819b20add0e7a",
+    "semantic_hash": "2d8196fc9b9a734cd77819b20add0e7a"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\services\\release-workflow.service.ts": {
+    "mtime": 1780082507.0,
+    "ast_hash": "321fe11fed02527a8e4dc715e66b0e74",
+    "semantic_hash": "321fe11fed02527a8e4dc715e66b0e74"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\utils\\release-components.util.ts": {
+    "mtime": 1780082461.0,
+    "ast_hash": "39830dc2000b8a075f745f9651c3b775",
+    "semantic_hash": "39830dc2000b8a075f745f9651c3b775"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\error-analyzer.component.ts": {
+    "mtime": 1777964319.2384262,
+    "ast_hash": "5de5f613b453917e0110eed21f417fbf",
+    "semantic_hash": "5de5f613b453917e0110eed21f417fbf"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\akamai-flow\\akamai-flow.component.ts": {
+    "mtime": 1777964263.5092351,
+    "ast_hash": "edfe261c181efe5359f70f769902dc1f",
+    "semantic_hash": "edfe261c181efe5359f70f769902dc1f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\akamai-flow\\matched-rule\\matched-rule.component.ts": {
+    "mtime": 1777563595.874543,
+    "ast_hash": "5a543b3965fb2f8b78825815d93d12d3",
+    "semantic_hash": "5a543b3965fb2f8b78825815d93d12d3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\flow-diagram\\flow-diagram.component.ts": {
+    "mtime": 1776320122.0,
+    "ast_hash": "9b0150ae1b09dbe9da0554d57118a43e",
+    "semantic_hash": "9b0150ae1b09dbe9da0554d57118a43e"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\flow-diagram\\flow-layout.ts": {
+    "mtime": 1776559870.136364,
+    "ast_hash": "1fd6cc9f2cbb8565e1df1fe534a3c260",
+    "semantic_hash": "1fd6cc9f2cbb8565e1df1fe534a3c260"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\log-search\\log-search.component.ts": {
+    "mtime": 1776878714.1469326,
+    "ast_hash": "ce8d01cea355c84292e929a35c517fdc",
+    "semantic_hash": "ce8d01cea355c84292e929a35c517fdc"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\opensearch-log-search\\opensearch-log-search.component.ts": {
+    "mtime": 1777504948.1274235,
+    "ast_hash": "ff4f9cd812021e4317bbf5fa47f99479",
+    "semantic_hash": "ff4f9cd812021e4317bbf5fa47f99479"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\search\\search.component.ts": {
+    "mtime": 1776825287.6606874,
+    "ast_hash": "554a960df819835102284697ba52083c",
+    "semantic_hash": "554a960df819835102284697ba52083c"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\session-results\\session-results.component.ts": {
+    "mtime": 1776320124.0,
+    "ast_hash": "d6a811d78cd307c79261fcf8e8f377e2",
+    "semantic_hash": "d6a811d78cd307c79261fcf8e8f377e2"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\trace-results\\trace-results.component.ts": {
+    "mtime": 1776564972.8035133,
+    "ast_hash": "3c9e788bd12d04f0daca281cc02f205f",
+    "semantic_hash": "3c9e788bd12d04f0daca281cc02f205f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\trace-results-table\\trace-results-table.component.ts": {
+    "mtime": 1776353963.7950675,
+    "ast_hash": "7c375b0888cbd26421633698a74f0669",
+    "semantic_hash": "7c375b0888cbd26421633698a74f0669"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\url-trace\\url-trace.component.ts": {
+    "mtime": 1777963885.821184,
+    "ast_hash": "95d5bce70aed6c86e9f7db2bfe4a53ff",
+    "semantic_hash": "95d5bce70aed6c86e9f7db2bfe4a53ff"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\models\\akamai.model.ts": {
+    "mtime": 1777569489.672135,
+    "ast_hash": "29027e18c351262cd0779ab0ae2055d7",
+    "semantic_hash": "29027e18c351262cd0779ab0ae2055d7"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\models\\environment.model.ts": {
+    "mtime": 1775299320.4885914,
+    "ast_hash": "a5696b0b3e6a747deb4900e7cfcd13cb",
+    "semantic_hash": "a5696b0b3e6a747deb4900e7cfcd13cb"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\models\\log.model.ts": {
+    "mtime": 1776873535.7943892,
+    "ast_hash": "06595fa65b2dbc5d265c9fab8546454f",
+    "semantic_hash": "06595fa65b2dbc5d265c9fab8546454f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\models\\trace.model.ts": {
+    "mtime": 1776825287.6616871,
+    "ast_hash": "9ff769ffd0eeedbc869bd759384ae7e5",
+    "semantic_hash": "9ff769ffd0eeedbc869bd759384ae7e5"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\models\\url-trace.model.ts": {
+    "mtime": 1777963853.6222668,
+    "ast_hash": "988b3932ee03121540626e265564b1e0",
+    "semantic_hash": "988b3932ee03121540626e265564b1e0"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\akamai.service.ts": {
+    "mtime": 1777563263.7854502,
+    "ast_hash": "3cb42ec6b963cdcb619ed57a80502944",
+    "semantic_hash": "3cb42ec6b963cdcb619ed57a80502944"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\config.service.ts": {
+    "mtime": 1777034680.9376993,
+    "ast_hash": "ffbba0699c179be1cce7e58edc624ab0",
+    "semantic_hash": "ffbba0699c179be1cce7e58edc624ab0"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\dynatrace.service.ts": {
+    "mtime": 1776825287.6616871,
+    "ast_hash": "9d2653540daafdf71a11035c3939a303",
+    "semantic_hash": "9d2653540daafdf71a11035c3939a303"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\log.service.ts": {
+    "mtime": 1776825473.1405406,
+    "ast_hash": "697d8c6c2d5b73d66ca35d0984fa8c2f",
+    "semantic_hash": "697d8c6c2d5b73d66ca35d0984fa8c2f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\opensearch.service.ts": {
+    "mtime": 1777486786.8821971,
+    "ast_hash": "0c063a9f7358e363d9c009db85b439d3",
+    "semantic_hash": "0c063a9f7358e363d9c009db85b439d3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\session-analyzer.ts": {
+    "mtime": 1776131904.3196032,
+    "ast_hash": "53f062bcd76d068da33deefb0887927f",
+    "semantic_hash": "53f062bcd76d068da33deefb0887927f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\trace-analyzer.ts": {
+    "mtime": 1776195499.9473917,
+    "ast_hash": "9d4b89f29d284c37e8144dace6efa6ed",
+    "semantic_hash": "9d4b89f29d284c37e8144dace6efa6ed"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\services\\url-trace.service.ts": {
+    "mtime": 1777963861.0756474,
+    "ast_hash": "f3574ce072c04a867946a28a09751f6a",
+    "semantic_hash": "f3574ce072c04a867946a28a09751f6a"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\server\\server.js": {
+    "mtime": 1775574934.2563777,
+    "ast_hash": "7718e4dc727a7ef2166edad3e69da097",
+    "semantic_hash": "7718e4dc727a7ef2166edad3e69da097"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\server\\mocks\\trace-sample.json": {
+    "mtime": 1775387654.0830755,
+    "ast_hash": "90f72b81c76d13424f09fb67994a07cd",
+    "semantic_hash": "90f72b81c76d13424f09fb67994a07cd"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\server\\routes\\config-routes.js": {
+    "mtime": 1776275023.549666,
+    "ast_hash": "56638cd1f6cf74742621aead6f72b963",
+    "semantic_hash": "56638cd1f6cf74742621aead6f72b963"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\server\\routes\\dynatrace-routes.js": {
+    "mtime": 1776825287.6621876,
+    "ast_hash": "31b52dd0f87ce50700bb3b17a0050d56",
+    "semantic_hash": "31b52dd0f87ce50700bb3b17a0050d56"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\server\\services\\dynatrace-service.js": {
+    "mtime": 1776825287.662687,
+    "ast_hash": "65624cec53ca1b81107bcb7ea7ff04b0",
+    "semantic_hash": "65624cec53ca1b81107bcb7ea7ff04b0"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\main.ts": {
+    "mtime": 1775304620.6875975,
+    "ast_hash": "4a1cd2d01a5c23bf8aa68b02854ce204",
+    "semantic_hash": "4a1cd2d01a5c23bf8aa68b02854ce204"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\app.component.ts": {
+    "mtime": 1776825287.6631875,
+    "ast_hash": "92ec7e2b0d5ca3091aea3ece1db1387e",
+    "semantic_hash": "92ec7e2b0d5ca3091aea3ece1db1387e"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\app.config.ts": {
+    "mtime": 1775299493.5393374,
+    "ast_hash": "7544f3b0c2601efcd08a872870c3b90a",
+    "semantic_hash": "7544f3b0c2601efcd08a872870c3b90a"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\app.routes.ts": {
+    "mtime": 1775299490.6250339,
+    "ast_hash": "9e82134f3e41732656270447c4c872fe",
+    "semantic_hash": "9e82134f3e41732656270447c4c872fe"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\flow-diagram\\flow-diagram.component.ts": {
+    "mtime": 1776198628.643169,
+    "ast_hash": "424876e1df6452ca212d9c4cd7b52a9e",
+    "semantic_hash": "424876e1df6452ca212d9c4cd7b52a9e"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\flow-diagram\\flow-layout.ts": {
+    "mtime": 1776550389.8361883,
+    "ast_hash": "1fd6cc9f2cbb8565e1df1fe534a3c260",
+    "semantic_hash": "1fd6cc9f2cbb8565e1df1fe534a3c260"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\search\\search.component.ts": {
+    "mtime": 1776825287.6631875,
+    "ast_hash": "18dee92c19fb1a6e7860e965f2b08ea3",
+    "semantic_hash": "18dee92c19fb1a6e7860e965f2b08ea3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\session-results\\session-results.component.ts": {
+    "mtime": 1776174506.072374,
+    "ast_hash": "27a7318fc9fb8e581cff82e334a55e72",
+    "semantic_hash": "27a7318fc9fb8e581cff82e334a55e72"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\trace-results\\trace-results.component.ts": {
+    "mtime": 1776564919.2619765,
+    "ast_hash": "675c5573d1f306b81d400a4cfa2b44b9",
+    "semantic_hash": "675c5573d1f306b81d400a4cfa2b44b9"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\trace-results-table\\trace-results-table.component.ts": {
+    "mtime": 1776353895.020991,
+    "ast_hash": "954d8637cb59ccb5f5a453b42c9b1abd",
+    "semantic_hash": "954d8637cb59ccb5f5a453b42c9b1abd"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\models\\environment.model.ts": {
+    "mtime": 1775299320.4885914,
+    "ast_hash": "a5696b0b3e6a747deb4900e7cfcd13cb",
+    "semantic_hash": "a5696b0b3e6a747deb4900e7cfcd13cb"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\models\\trace.model.ts": {
+    "mtime": 1776825287.6636882,
+    "ast_hash": "9ff769ffd0eeedbc869bd759384ae7e5",
+    "semantic_hash": "9ff769ffd0eeedbc869bd759384ae7e5"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\services\\config.service.ts": {
+    "mtime": 1776275130.377668,
+    "ast_hash": "d11892cf284de3fd739a3c7f0b708306",
+    "semantic_hash": "d11892cf284de3fd739a3c7f0b708306"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\services\\dynatrace.service.ts": {
+    "mtime": 1776825287.6641881,
+    "ast_hash": "af513f8a5ae2c15327f7a870f7915b31",
+    "semantic_hash": "af513f8a5ae2c15327f7a870f7915b31"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\services\\session-analyzer.ts": {
+    "mtime": 1776131904.3196032,
+    "ast_hash": "53f062bcd76d068da33deefb0887927f",
+    "semantic_hash": "53f062bcd76d068da33deefb0887927f"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\services\\trace-analyzer.ts": {
+    "mtime": 1776195499.9473917,
+    "ast_hash": "9d4b89f29d284c37e8144dace6efa6ed",
+    "semantic_hash": "9d4b89f29d284c37e8144dace6efa6ed"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\CHANGES-TO-EXISTING-FILES.md": {
+    "mtime": 1777564288.0634048,
+    "ast_hash": "c4ea0ffd45b384b6e25a195828040b07",
+    "semantic_hash": "c4ea0ffd45b384b6e25a195828040b07"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\backend\\config\\release-workflow.yaml": {
+    "mtime": 1780148715.9439912,
+    "ast_hash": "3213a08495139d2bc9f846a05cc917ea",
+    "semantic_hash": "3213a08495139d2bc9f846a05cc917ea"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\api-usage-test\\urls.txt": {
+    "mtime": 1778873971.489537,
+    "ast_hash": "bacad920494b04e53475318d7be0200c",
+    "semantic_hash": "bacad920494b04e53475318d7be0200c"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\docker-compose.yml": {
+    "mtime": 1779916058.3426552,
+    "ast_hash": "a3858bdb9db03a8c56d83c9e08592b9c",
+    "semantic_hash": "a3858bdb9db03a8c56d83c9e08592b9c"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\index.html": {
+    "mtime": 1779938259.4780507,
+    "ast_hash": "d2149384271b380a813400d23136e655",
+    "semantic_hash": "d2149384271b380a813400d23136e655"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\README-DEBUG3.md": {
+    "mtime": 1779916058.3958485,
+    "ast_hash": "d995c4fece042e6df9401b3906804b5a",
+    "semantic_hash": "d995c4fece042e6df9401b3906804b5a"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\README-UNRAID.md": {
+    "mtime": 1779916058.3478928,
+    "ast_hash": "0aef2fe5dc371c1c944e04925c8949b9",
+    "semantic_hash": "0aef2fe5dc371c1c944e04925c8949b9"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\text-to-qr\\version.txt": {
+    "mtime": 1779938263.0227451,
+    "ast_hash": "6ed1ec5d2073d1d20e44fa798107fedb",
+    "semantic_hash": "6ed1ec5d2073d1d20e44fa798107fedb"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\governance-section\\governance-section.component.html": {
+    "mtime": 1780084817.0,
+    "ast_hash": "1826d2b188c1d3f8d0caebd2c678e2df",
+    "semantic_hash": "1826d2b188c1d3f8d0caebd2c678e2df"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\release-workflow-section.component.html": {
+    "mtime": 1778092286.7057137,
+    "ast_hash": "6a0fafd30a6b79d1e52f02f32413e6fd",
+    "semantic_hash": "6a0fafd30a6b79d1e52f02f32413e6fd"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\stage-view\\stage-view.component.html": {
+    "mtime": 1780082817.0,
+    "ast_hash": "07b527f663403bd03d8bc05f613828b4",
+    "semantic_hash": "07b527f663403bd03d8bc05f613828b4"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\views\\create-release\\create-release.component.html": {
+    "mtime": 1778510090.5006292,
+    "ast_hash": "b661d99f382bfa44ec3d635abaab2cb5",
+    "semantic_hash": "b661d99f382bfa44ec3d635abaab2cb5"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\views\\release-detail\\release-detail.component.html": {
+    "mtime": 1780082677.0,
+    "ast_hash": "b3b8e04cce035462865343b4d2f4f70a",
+    "semantic_hash": "b3b8e04cce035462865343b4d2f4f70a"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\admin\\components\\release-workflow-section\\views\\releases-list\\releases-list.component.html": {
+    "mtime": 1780082589.0,
+    "ast_hash": "3ba569f3faa2fadb9140df7dff5b535b",
+    "semantic_hash": "3ba569f3faa2fadb9140df7dff5b535b"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\error-analyzer.component.html": {
+    "mtime": 1777964330.6460414,
+    "ast_hash": "cebeb60295d4a6cbf9ff9e79dc5d3188",
+    "semantic_hash": "cebeb60295d4a6cbf9ff9e79dc5d3188"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\akamai-flow\\akamai-flow.component.html": {
+    "mtime": 1777964279.016375,
+    "ast_hash": "1c42ed07b2d1c8b8a3b494ffaab8c3a3",
+    "semantic_hash": "1c42ed07b2d1c8b8a3b494ffaab8c3a3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\akamai-flow\\matched-rule\\matched-rule.component.html": {
+    "mtime": 1777563615.1367486,
+    "ast_hash": "b84fa4ad5d8564f1049c9efae7112409",
+    "semantic_hash": "b84fa4ad5d8564f1049c9efae7112409"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\flow-diagram\\flow-diagram.component.html": {
+    "mtime": 1776565001.9351783,
+    "ast_hash": "3365be3303838a56bf56963102901737",
+    "semantic_hash": "3365be3303838a56bf56963102901737"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\log-search\\log-search.component.html": {
+    "mtime": 1776878722.43322,
+    "ast_hash": "4081f65e47e697d39f55cb0f48dd2db7",
+    "semantic_hash": "4081f65e47e697d39f55cb0f48dd2db7"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\opensearch-log-search\\opensearch-log-search.component.html": {
+    "mtime": 1777486850.0702462,
+    "ast_hash": "10f7c8d3b51233650a1c89092de8b9b4",
+    "semantic_hash": "10f7c8d3b51233650a1c89092de8b9b4"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\search\\search.component.html": {
+    "mtime": 1776360505.581196,
+    "ast_hash": "49dc5318245c8f23523677d748f25e91",
+    "semantic_hash": "49dc5318245c8f23523677d748f25e91"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\session-results\\session-results.component.html": {
+    "mtime": 1776174532.5337436,
+    "ast_hash": "5b94b86ffb97a3f1e1b88844a376b6d3",
+    "semantic_hash": "5b94b86ffb97a3f1e1b88844a376b6d3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\trace-results\\trace-results.component.html": {
+    "mtime": 1776564983.1590383,
+    "ast_hash": "14a709dc8c54d7a0d3071bd770bd4133",
+    "semantic_hash": "14a709dc8c54d7a0d3071bd770bd4133"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\trace-results-table\\trace-results-table.component.html": {
+    "mtime": 1776559791.3588243,
+    "ast_hash": "62e1d82605d84618aa060f4baaad93d8",
+    "semantic_hash": "62e1d82605d84618aa060f4baaad93d8"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\frontend\\src\\app\\pages\\error-analyzer\\components\\url-trace\\url-trace.component.html": {
+    "mtime": 1777963906.839085,
+    "ast_hash": "b80d58c0d8d3377f2215ff9fae355793",
+    "semantic_hash": "b80d58c0d8d3377f2215ff9fae355793"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\index.html": {
+    "mtime": 1775299502.4032803,
+    "ast_hash": "eab58783a7b6a9eb0070080277acc0e6",
+    "semantic_hash": "eab58783a7b6a9eb0070080277acc0e6"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\flow-diagram\\flow-diagram.component.html": {
+    "mtime": 1776564949.059034,
+    "ast_hash": "3365be3303838a56bf56963102901737",
+    "semantic_hash": "3365be3303838a56bf56963102901737"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\search\\search.component.html": {
+    "mtime": 1776360474.3997147,
+    "ast_hash": "0937f49670b20e71931ad8f7de5193c0",
+    "semantic_hash": "0937f49670b20e71931ad8f7de5193c0"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\session-results\\session-results.component.html": {
+    "mtime": 1776174532.5337436,
+    "ast_hash": "5b94b86ffb97a3f1e1b88844a376b6d3",
+    "semantic_hash": "5b94b86ffb97a3f1e1b88844a376b6d3"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\trace-results\\trace-results.component.html": {
+    "mtime": 1776564931.349822,
+    "ast_hash": "14a709dc8c54d7a0d3071bd770bd4133",
+    "semantic_hash": "14a709dc8c54d7a0d3071bd770bd4133"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\src\\app\\components\\trace-results-table\\trace-results-table.component.html": {
+    "mtime": 1776549767.9416296,
+    "ast_hash": "62e1d82605d84618aa060f4baaad93d8",
+    "semantic_hash": "62e1d82605d84618aa060f4baaad93d8"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\release workflow\\image copy 2.png": {
+    "mtime": 1777922804.9156067,
+    "ast_hash": "01c8e519cfdc475a7892ce9071e0abcd",
+    "semantic_hash": "01c8e519cfdc475a7892ce9071e0abcd"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\release workflow\\image copy 3.png": {
+    "mtime": 1777922863.6216328,
+    "ast_hash": "4f656e6870c3fb025be8708e90a5e8c5",
+    "semantic_hash": "4f656e6870c3fb025be8708e90a5e8c5"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\release workflow\\image copy 4.png": {
+    "mtime": 1778527144.5293405,
+    "ast_hash": "832a5ae102348fbcdab8869c98655505",
+    "semantic_hash": "832a5ae102348fbcdab8869c98655505"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\release workflow\\image copy.png": {
+    "mtime": 1777922487.7605956,
+    "ast_hash": "d3ab80319e0bca68d629b80a44830f30",
+    "semantic_hash": "d3ab80319e0bca68d629b80a44830f30"
+  },
+  "E:\\Repositories\\testproj-angular-v2\\dashboard-conversion\\documentation\\release workflow\\image.png": {
+    "mtime": 1777922426.0225239,
+    "ast_hash": "54bc68a700f2cd3c32e0b36ee9a59c30",
+    "semantic_hash": "54bc68a700f2cd3c32e0b36ee9a59c30"
+  }
+}

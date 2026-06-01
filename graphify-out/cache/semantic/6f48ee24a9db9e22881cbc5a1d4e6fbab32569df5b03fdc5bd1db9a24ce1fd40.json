@@ -1,0 +1,1 @@
+{"nodes": [{"id": "configservice_ConfigService", "label": "ConfigService", "file_type": "code", "source_file": "dashboard-conversion/frontend/src/app/pages/error-analyzer/services/config.service.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
