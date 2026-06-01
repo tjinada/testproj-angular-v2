@@ -1,0 +1,32 @@
+Pointer 1 — optional one-liner to add to your Summary:
+
+The reported duration is unreliable because it means different things in different sessions — sometimes a Visually Complete runaway, sometimes an action that stalled and hit its 3-minute cap. loadEventEnd always means the same thing, so we report that instead.
+
+Pointer 2 — replace the line "In the example below… 3 minutes… within 1 second" and the duplicate "What we measured…" header with a new section header:
+
+Why the reported duration is inflated (two causes)
+Dynatrace keeps a Load action open until it is confident the page is "done." In our hybrid webview it often cannot tell, and that shows up two different ways. The duration field is therefore a composite — it can mean different things in different sessions, which is why it cannot be trusted on its own.
+Cause 1 — The action never gets a completion signal and hits the maximum cap
+Sometimes the webview never sends a clean "page is done" signal. When that happens, Dynatrace cannot determine a natural end for the action, so it holds the action open and eventually force-closes it at its maximum duration limit.
+In the example below, loading of page /login reports a duration of 3 minutes — but the page was fully loaded in about 2.5 seconds (Visually complete 0.198s, DOM complete 2.42s, Load event end 2.46s). The user could see and use the login screen almost immediately. The "3 min 0 s" figure is not real load time; it is Dynatrace's maximum action-duration cap. The action simply never received a completion signal and ran until it was force-closed.
+Note that in this session Visually Complete was fast (0.198s). This case is not caused by VC — it is the action-completion logic failing outright. This is why we cannot attribute every inflated duration to VC.
+
+[Embed here: the 3-minute /login session screenshot — IMG_2444. This is your "VC was fast, duration still 3 min" exhibit.]
+
+Cause 2 — Visually Complete runs away
+For Load (full page load) actions with Visually Complete (VC) enabled, VC is the signal Dynatrace uses to mark the action's end — so the reported duration follows VC directly. VC is calculated by watching the screen for visual changes and waiting for them to stop. On a standard web page that works well. In our webview the screen never fully settles, so VC keeps extending and drags the duration with it.
+Why VC fails in our webview:
+
+BioCatch behavioral monitoring continuously mutates the DOM (no stable state).
+The native biometric overlay animates over the webview.
+UI spinners and small animations keep running, so there is no quiet period for VC to settle.
+iOS WKWebView limitation: requestIdleCallback errors prevent reliable idle detection.
+
+In the example below, loading of page /login reports a duration of 34.1 seconds, and Visually Complete is 34.091 seconds — effectively identical. This is the fingerprint of VC runaway: the duration is whatever VC happened to be, not how long the page took to load.
+
+[Embed here: the 34.1-second /login session screenshot — the one where duration ≈ Visually Complete. This is your VC-runaway exhibit.]
+
+
+Pointer 3 — keep your "Using loadEventEnd to correctly identify durations" section, but add this sentence after your existing opening:
+
+Because it does not depend on VC, idle detection, or action-completion heuristics, loadEventEnd is immune to both causes above — unaffected by a runaway VC and unaffected by an action that stalls and gets capped. It always means the same thing: the page finished loading.
