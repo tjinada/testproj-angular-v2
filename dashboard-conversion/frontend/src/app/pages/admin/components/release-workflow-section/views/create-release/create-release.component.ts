@@ -14,7 +14,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReleaseWorkflowService } from '../../../../services/release-workflow.service';
-import { Release, ReleaseType } from '../../../../models/release-workflow.model';
+import { Release, ReleaseType } from '../../../../../../models/release-workflow.model';
 
 type Mode = 'create' | 'edit';
 

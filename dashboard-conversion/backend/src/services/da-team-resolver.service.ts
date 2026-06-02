@@ -1,6 +1,5 @@
 import daTeamsService from './da-teams.service';
 import { DATeam } from '../models/da-team.models';
-import { TechGovernanceReleaseIntake } from '../models/tech-governance.models';
 
 export interface DATeamResolution {
   /** Distinct DA teams that own at least one of the supplied codes. */
@@ -58,12 +57,18 @@ export function resolveDATeamsByCodes(codes: string[]): DATeamResolution {
   return { matched: [...matchedByName.values()], unmatched };
 }
 
+/** Minimal shape this module needs: anything carrying a `jira` code field. */
+interface CodeBearingIntake {
+  jira: string;
+}
+
 /**
  * Pull the codes out of tech-governance intakes. Each intake's `jira` field
  * already holds the code extracted from its Confluence page title
- * (e.g. "R82 - BNPL - ..." -> "BNPL").
+ * (e.g. "R82 - BNPL - ..." -> "BNPL"). Typed structurally so the backend stays
+ * decoupled from any tech-governance model definition.
  */
-export function codesFromIntakes(intakes: TechGovernanceReleaseIntake[]): string[] {
+export function codesFromIntakes(intakes: CodeBearingIntake[]): string[] {
   return intakes
     .map((intake) => intake.jira)
     .filter((code): code is string => !!code && code.trim().length > 0);

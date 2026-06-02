@@ -1,4 +1,4 @@
-import { Release, ReleaseComponents, Stage, SubStep, SubStepTrack } from '../models/release-workflow.model';
+import { Release, ReleaseComponents, Stage, SubStep, SubStepTrack } from '../../../models/release-workflow.model';
 
 export function normalizeReleaseComponents(
   input?: Partial<ReleaseComponents> | null,
