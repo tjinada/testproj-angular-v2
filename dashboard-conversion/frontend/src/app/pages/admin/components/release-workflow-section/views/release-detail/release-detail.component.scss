@@ -346,6 +346,41 @@
 
 }
 
+.da-teams {
+  &__state {
+    color: #777;
+    font-size: 12px;
+    padding: 12px 0 2px;
+
+    &--error { color: #791F1F; }
+  }
+
+  &__list {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__chip {
+    background: #E6F1FB;
+    color: #0C447C;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 12px;
+  }
+
+  &__unmatched {
+    color: #888;
+    font-size: 11px;
+    font-style: italic;
+    margin-top: 12px;
+  }
+}
+
 // ---------- two-column shell ----------
 
 .rd-shell {

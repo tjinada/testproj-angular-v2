@@ -204,6 +204,35 @@
           </div>
         </div>
 
+        <div class="details-card">
+          <div class="details-card__header">
+            <h2 class="details-card__title">Participating DA Teams</h2>
+          </div>
+
+          @if (daTeamsLoading()) {
+            <div class="da-teams__state">Loading DA teams…</div>
+          } @else if (daTeamsError()) {
+            <div class="da-teams__state da-teams__state--error">{{ daTeamsError() }}</div>
+          } @else if (daTeams().length === 0 && daTeamsUnmatched().length === 0) {
+            <div class="da-teams__state">
+              No DA teams identified yet. Teams are picked up from the release intake page once its link is set.
+            </div>
+          } @else {
+            @if (daTeams().length > 0) {
+              <ul class="da-teams__list">
+                @for (team of daTeams(); track team.name) {
+                  <li class="da-teams__chip">{{ team.name }}</li>
+                }
+              </ul>
+            }
+            @if (daTeamsUnmatched().length > 0) {
+              <div class="da-teams__unmatched">
+                Unmatched intake codes (no DA team): {{ daTeamsUnmatched().join(', ') }}
+              </div>
+            }
+          }
+        </div>
+
         <div class="details-stages">
           @if (detailsStages(r).length === 0) {
             <section class="details-stage">

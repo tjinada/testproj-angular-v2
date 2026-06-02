@@ -27,6 +27,16 @@ import {
 type ReleaseDetailTab = 'details' | 'stages';
 type BasicEditableKey = 'title' | 'sheriff' | 'backupSheriff' | 'releaseComponents' | 'preProdDate' | 'prodDate' | 'jiraTracker';
 
+interface ParticipatingDATeam {
+  name: string;
+  jiraProjects: string[];
+}
+
+interface ParticipatingDATeams {
+  matched: ParticipatingDATeam[];
+  unmatched: string[];
+}
+
 @Component({
   selector: 'app-release-detail',
   standalone: true,
@@ -56,6 +66,11 @@ export class ReleaseDetailComponent implements OnInit {
   readonly admins = signal<Admin[]>([]);
   readonly adminsLoading = signal<boolean>(false);
 
+  readonly daTeams = signal<ParticipatingDATeam[]>([]);
+  readonly daTeamsUnmatched = signal<string[]>([]);
+  readonly daTeamsLoading = signal<boolean>(false);
+  readonly daTeamsError = signal<string | null>(null);
+
   /** Stage ID currently shown in the right pane. */
   readonly activeStageId = signal<string | null>(null);
 
@@ -75,6 +90,7 @@ export class ReleaseDetailComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadDATeams();
   }
 
   loadAdmins(): void {
@@ -117,6 +133,30 @@ export class ReleaseDetailComponent implements OnInit {
     if (!this.userPickedStage || !visibleStages.some((stage) => stage.id === this.activeStageId())) {
       this.activeStageId.set(this.pickDefaultStageId(release));
     }
+  }
+
+  /**
+   * Pull the DA teams participating in this release. The backend refreshes the
+   * tech-governance intakes from Confluence on each call, so late intake pages
+   * are picked up on reload.
+   */
+  loadDATeams(): void {
+    this.daTeamsLoading.set(true);
+    this.daTeamsError.set(null);
+    this.api.getParticipatingDATeams(this.releaseId).subscribe({
+      next: (res: ParticipatingDATeams) => {
+        this.daTeams.set(res?.matched ?? []);
+        this.daTeamsUnmatched.set(res?.unmatched ?? []);
+        this.daTeamsLoading.set(false);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to load participating DA teams', err);
+        this.daTeamsError.set(err?.error?.error ?? 'Failed to load participating DA teams');
+        this.daTeamsLoading.set(false);
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   private refreshAfterStageAction(): void {

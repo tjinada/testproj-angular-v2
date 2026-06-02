@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import releaseWorkflowService from '../services/release-workflow.service';
+import techGovernanceReleasesIntakeService, { TechGovernanceRelease } from '../services/tech-governance-releases-intake.service';
+import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
 import { requireAuth } from '../middleware/auth';
-import { ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
+import { Release, ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
 
 const router = Router();
 
@@ -40,6 +42,21 @@ function isReleaseComponents(v: unknown): v is Partial<ReleaseComponents> {
     && (cdbbos === undefined || typeof cdbbos === 'boolean');
 }
 
+/**
+ * Create-or-refresh the tech-governance entry for a release from its Confluence
+ * intake page. The branch key is derived from the release ID (e.g. "R82" ->
+ * "release/r82"). Returns null when the release has no intake page link set.
+ */
+async function syncReleaseTechGovernance(release: Release): Promise<TechGovernanceRelease | null> {
+  const intakePageId = release.metadata.intakePageId;
+  if (!intakePageId) return null;
+  return techGovernanceReleasesIntakeService.upsertFromIntakePage({
+    branch: `release/${release.releaseId.toLowerCase()}`,
+    intakePageId,
+    details: release.title,
+  });
+}
+
 // ----- GET /api/release-workflow -----
 
 /**
@@ -67,6 +84,30 @@ router.get('/:releaseId', requireAuth, (req: Request<ReleaseParams>, res: Respon
   } catch (error) {
     console.error('Error fetching release:', error);
     res.status(500).json({ error: 'Failed to fetch release' });
+  }
+});
+
+// ----- GET /api/release-workflow/:releaseId/da-teams -----
+
+/**
+ * GET /api/release-workflow/:releaseId/da-teams
+ * Refreshes the tech-governance intakes for the release from Confluence and
+ * returns the DA teams participating in the release, plus any intake codes
+ * that map to no DA team.
+ */
+router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
+  try {
+    const { releaseId } = req.params;
+    const release = releaseWorkflowService.getById(releaseId);
+    if (!release) return notFound(res, `Release '${releaseId}' not found`);
+    const entry = await syncReleaseTechGovernance(release);
+    const resolution = entry
+      ? resolveDATeamsByCodes(codesFromIntakes(entry.intakes))
+      : { matched: [], unmatched: [] };
+    res.json(resolution);
+  } catch (error) {
+    console.error('Error resolving participating DA teams:', error);
+    res.status(500).json({ error: 'Failed to resolve participating DA teams' });
   }
 });
 
@@ -200,6 +241,22 @@ router.patch(
         patch as Record<string, string | null>,
         actor,
       );
+
+      // When the Release Confluence page link (intakePageId) is set, create or
+      // refresh the tech-governance entry from that page. A failure here (a
+      // Confluence call) must not fail the metadata save — it is retried on the
+      // next release load.
+      if ('intakePageId' in patch && release.metadata.intakePageId) {
+        try {
+          await syncReleaseTechGovernance(release);
+        } catch (err: any) {
+          console.error(
+            `[release-workflow] tech-governance sync failed for ${releaseId} after intakePageId update:`,
+            err?.message ?? err,
+          );
+        }
+      }
+
       res.json({ message: 'Metadata updated', release });
     } catch (error: any) {
       if (error?.message?.includes('not found')) {

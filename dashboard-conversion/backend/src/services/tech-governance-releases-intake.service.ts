@@ -104,6 +104,50 @@ class TechGovernanceReleasesIntakeService {
   }
 
   /**
+   * Create-or-update a release entry (keyed by branch) from its Confluence
+   * intake page, refreshing the intake child-page list from Confluence.
+   *
+   * Manually-edited per-intake fields (platformVeto) and the entry-level
+   * details / gracePeriodInDays are preserved across refreshes; the rest of
+   * each intake (title, dates, author, contributors) is taken fresh from
+   * Confluence. New intake pages are added and removed pages drop off.
+   */
+  async upsertFromIntakePage(input: {
+    branch: string;
+    intakePageId: string;
+    details?: string;
+    gracePeriodInDays?: number;
+  }): Promise<TechGovernanceRelease> {
+    const { branch, intakePageId } = input;
+    if (!branch) throw new Error('branch is required');
+    if (!intakePageId) throw new Error('intakePageId is required');
+
+    const fetched = await this.fetchConfluenceChildPagesDetails(intakePageId);
+    const existing = this.releases[branch];
+
+    // Preserve manually-set platformVeto for intakes that still exist.
+    const previousVetoById = new Map(
+      (existing?.intakes ?? []).map((intake) => [intake.id, intake.platformVeto]),
+    );
+    const intakes = fetched.map((intake) => ({
+      ...intake,
+      platformVeto: previousVetoById.get(intake.id) ?? intake.platformVeto,
+    }));
+
+    const release: TechGovernanceRelease = {
+      branch,
+      intakePageId,
+      details: existing?.details ?? input.details ?? '',
+      gracePeriodInDays: existing?.gracePeriodInDays ?? input.gracePeriodInDays ?? 0,
+      intakes,
+    };
+
+    this.releases[branch] = release;
+    await this.save();
+    return release;
+  }
+
+  /**
    * Fetch details of child pages for a given Confluence parent page ID.
    * @param parentPageId - The Confluence parent page ID.
    * @returns Array of child page details mapped to TechGovernanceReleaseIntake.
