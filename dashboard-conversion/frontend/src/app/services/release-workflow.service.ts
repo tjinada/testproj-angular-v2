@@ -25,6 +25,14 @@ export class ReleaseWorkflowService {
     return this.http.get<Release>(`${this.base}/${encodeURIComponent(releaseId)}`);
   }
 
+  getParticipatingDATeams(
+    releaseId: string,
+  ): Observable<{ matched: { name: string; jiraProjects: string[] }[]; unmatched: string[] }> {
+    return this.http.get<{ matched: { name: string; jiraProjects: string[] }[]; unmatched: string[] }>(
+      `${this.base}/${encodeURIComponent(releaseId)}/da-teams`,
+    );
+  }
+
   create(input: CreateReleaseInput): Observable<{ message: string; release: Release }> {
     return this.http.post<{ message: string; release: Release }>(this.base, input);
   }
