@@ -30,3 +30,33 @@ In the example below, loading of page /login reports a duration of 34.1 seconds,
 Pointer 3 — keep your "Using loadEventEnd to correctly identify durations" section, but add this sentence after your existing opening:
 
 Because it does not depend on VC, idle detection, or action-completion heuristics, loadEventEnd is immune to both causes above — unaffected by a runaway VC and unaffected by an action that stalls and gets capped. It always means the same thing: the page finished loading.
+
+SELECT startTime,
+       usersession.osFamily AS "OS",
+       usersession.osVersion AS "OS Version",
+       usersession.appVersion AS "App Version",
+       usersession.manufacturer AS "Make",
+       usersession.connectionType AS "Connection",
+       domInteractiveTime,
+       domContentLoadedTime,
+       domCompleteTime,
+       loadEventEnd
+FROM useraction
+WHERE name STARTSWITH "loading of page /login"
+  AND usersession.osFamily IN ("Android", "iOS")
+  AND loadEventEnd > 5000
+ORDER BY loadEventEnd DESC
+LIMIT 50
+
+SELECT usersession.appVersion AS "App Version",
+       usersession.osFamily AS "OS",
+       usersession.osVersion AS "OS Version",
+       COUNT(*) AS "Slow loads",
+       median(loadEventEnd) AS "Median",
+       PERCENTILE(loadEventEnd, 90) AS "P90"
+FROM useraction
+WHERE name STARTSWITH "loading of page /login"
+  AND usersession.osFamily IN ("Android", "iOS")
+  AND loadEventEnd > 5000
+GROUP BY usersession.appVersion, usersession.osFamily, usersession.osVersion
+ORDER BY COUNT(*) DESC
