@@ -215,7 +215,7 @@
             <div class="da-teams__state da-teams__state--error">{{ daTeamsError() }}</div>
           } @else if (daTeams().length === 0 && daTeamsUnmatched().length === 0) {
             <div class="da-teams__state">
-              No DA teams identified yet. Teams are picked up from the release intake page once its link is set.
+              No DA teams identified. This release has no matching tech-governance intakes yet.
             </div>
           } @else {
             @if (daTeams().length > 0) {

@@ -91,16 +91,18 @@ router.get('/:releaseId', requireAuth, (req: Request<ReleaseParams>, res: Respon
 
 /**
  * GET /api/release-workflow/:releaseId/da-teams
- * Refreshes the tech-governance intakes for the release from Confluence and
- * returns the DA teams participating in the release, plus any intake codes
- * that map to no DA team.
+ * Identifies the DA teams participating in a release by matching the Release ID
+ * to a tech-governance entry (case-insensitive) and resolving teams from that
+ * entry's intakes. Independent of the release intake link and the auto-create
+ * path — it reads whatever governance currently holds. Returns matched teams
+ * plus any intake codes that map to no DA team.
  */
-router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
+router.get('/:releaseId/da-teams', requireAuth, (req: Request<ReleaseParams>, res: Response) => {
   try {
     const { releaseId } = req.params;
     const release = releaseWorkflowService.getById(releaseId);
     if (!release) return notFound(res, `Release '${releaseId}' not found`);
-    const entry = await syncReleaseTechGovernance(release);
+    const entry = techGovernanceReleasesIntakeService.findByBranch(releaseId);
     const resolution = entry
       ? resolveDATeamsByCodes(codesFromIntakes(entry.intakes))
       : { matched: [], unmatched: [] };

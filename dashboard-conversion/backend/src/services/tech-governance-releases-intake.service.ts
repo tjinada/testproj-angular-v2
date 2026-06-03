@@ -65,6 +65,20 @@ class TechGovernanceReleasesIntakeService {
   }
 
   /**
+   * Case-insensitive branch lookup. Matches a release-workflow Release ID
+   * (e.g. "release/r83") to a governance entry keyed by branch regardless of
+   * case. Returns undefined if no entry matches.
+   */
+  findByBranch(branch: string): TechGovernanceRelease | undefined {
+    const target = (branch ?? '').trim().toLowerCase();
+    if (!target) return undefined;
+    for (const [key, release] of Object.entries(this.releases)) {
+      if (key.trim().toLowerCase() === target) return release;
+    }
+    return undefined;
+  }
+
+  /**
    * Add a new release entry. Throws if the key already exists.
    */
   async add(key: string, release: TechGovernanceRelease): Promise<TechGovernanceRelease> {
