@@ -9,33 +9,38 @@ export interface DATeamResolution {
 }
 
 /**
- * Build a case-insensitive index from JIRA project key -> DA team.
- * First team to claim a key wins (registry iteration order).
+ * Build a case-insensitive index from match key -> DA team. A team is indexed
+ * by both its `name` and each of its `jiraProjects`, so a code resolves if it
+ * equals either. First team to claim a key wins (registry iteration order).
  */
-function buildJiraProjectIndex(teams: Record<string, DATeam>): Map<string, DATeam> {
+function buildCodeIndex(teams: Record<string, DATeam>): Map<string, DATeam> {
   const index = new Map<string, DATeam>();
+  const addKey = (raw: string | undefined, team: DATeam): void => {
+    const key = (raw ?? '').trim().toUpperCase();
+    if (key && !index.has(key)) {
+      index.set(key, team);
+    }
+  };
   for (const team of Object.values(teams)) {
+    addKey(team.name, team);
     for (const project of team.jiraProjects ?? []) {
-      const key = (project ?? '').trim().toUpperCase();
-      if (key && !index.has(key)) {
-        index.set(key, team);
-      }
+      addKey(project, team);
     }
   }
   return index;
 }
 
 /**
- * Resolve a list of codes (JIRA project keys) to the DA teams that own them.
+ * Resolve a list of codes to the DA teams that own them.
  *
- * Reusable single source of truth: callers pass codes from any source. Codes
- * are matched against each team's `jiraProjects` (case-insensitive). A code
- * that matches no team is surfaced in `unmatched` rather than dropped, so the
- * caller can see gaps. Each matched team appears once even if several codes
- * map to it.
+ * Reusable single source of truth: callers pass codes from any source. A code
+ * matches a team if it equals (case-insensitive) either the team's `name` or
+ * one of its `jiraProjects`. A code that matches no team is surfaced in
+ * `unmatched` rather than dropped, so the caller can see gaps. Each matched
+ * team appears once even if several codes map to it.
  */
 export function resolveDATeamsByCodes(codes: string[]): DATeamResolution {
-  const index = buildJiraProjectIndex(daTeamsService.getAll());
+  const index = buildCodeIndex(daTeamsService.getAll());
 
   const matchedByName = new Map<string, DATeam>();
   const unmatched: string[] = [];
