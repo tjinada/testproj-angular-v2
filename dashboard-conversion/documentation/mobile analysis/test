@@ -1,22 +1,5 @@
-SELECT usersession.osFamily AS "OS Family",
-       AVG(loadEventEnd) AS "Average",
-       median(loadEventEnd) AS "Median",
-       PERCENTILE(loadEventEnd, 90) AS "P90",
-       PERCENTILE(loadEventEnd, 99) AS "P99"
+SELECT startTime, name, internalUserId
 FROM useraction
-WHERE name STARTSWITH "loading of page /login"
+WHERE name IN ("loading of page /login", "/login")
   AND usersession.osFamily IN ("Android", "iOS")
-GROUP BY usersession.osFamily
-ORDER BY usersession.osFamily DESC
-
-SELECT usersession.osFamily AS "OS Family",
-       median(duration) AS "Duration median (contaminated)",
-       PERCENTILE(duration, 90) AS "Duration P90 (contaminated)",
-       median(domCompleteTime) AS "DOM Complete median",
-       median(loadEventEnd) AS "Load End median",
-       PERCENTILE(loadEventEnd, 90) AS "Load End P90"
-FROM useraction
-WHERE name STARTSWITH "loading of page /login"
-  AND usersession.osFamily IN ("Android", "iOS")
-GROUP BY usersession.osFamily
-ORDER BY usersession.osFamily DESC
+ORDER BY internalUserId, startTime ASC
