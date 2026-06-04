@@ -3,3 +3,9 @@ FROM useraction
 WHERE name IN ("loading of page /login", "/login")
   AND usersession.osFamily IN ("Android", "iOS")
 ORDER BY internalUserId, startTime ASC
+
+
+SELECT startTime, name, application
+FROM useraction
+WHERE usersession.userId = "<paste the +0002 id>"
+ORDER BY startTime ASC
