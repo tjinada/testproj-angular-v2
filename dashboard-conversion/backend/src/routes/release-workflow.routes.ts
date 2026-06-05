@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import releaseWorkflowService from '../services/release-workflow.service';
-import techGovernanceReleasesIntakeService, { TechGovernanceRelease } from '../services/tech-governance-releases-intake.service';
+import techGovernanceReleasesIntakeService from '../services/tech-governance-releases-intake.service';
 import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
 import { requireAuth } from '../middleware/auth';
-import { Release, ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
+import { ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
 
 const router = Router();
 
@@ -40,21 +40,6 @@ function isReleaseComponents(v: unknown): v is Partial<ReleaseComponents> {
   const cdbbos = candidate['cdbbos'];
   return (cdbui === undefined || typeof cdbui === 'boolean')
     && (cdbbos === undefined || typeof cdbbos === 'boolean');
-}
-
-/**
- * Create-or-refresh the tech-governance entry for a release from its Confluence
- * intake page. The branch key is derived from the release ID (e.g. "R82" ->
- * "release/r82"). Returns null when the release has no intake page link set.
- */
-async function syncReleaseTechGovernance(release: Release): Promise<TechGovernanceRelease | null> {
-  const intakePageId = release.metadata.intakePageId;
-  if (!intakePageId) return null;
-  return techGovernanceReleasesIntakeService.upsertFromIntakePage({
-    branch: `release/${release.releaseId.toLowerCase()}`,
-    intakePageId,
-    details: release.title,
-  });
 }
 
 // ----- GET /api/release-workflow -----
@@ -243,22 +228,6 @@ router.patch(
         patch as Record<string, string | null>,
         actor,
       );
-
-      // When the Release Confluence page link (intakePageId) is set, create or
-      // refresh the tech-governance entry from that page. A failure here (a
-      // Confluence call) must not fail the metadata save — it is retried on the
-      // next release load.
-      if ('intakePageId' in patch && release.metadata.intakePageId) {
-        try {
-          await syncReleaseTechGovernance(release);
-        } catch (err: any) {
-          console.error(
-            `[release-workflow] tech-governance sync failed for ${releaseId} after intakePageId update:`,
-            err?.message ?? err,
-          );
-        }
-      }
-
       res.json({ message: 'Metadata updated', release });
     } catch (error: any) {
       if (error?.message?.includes('not found')) {
