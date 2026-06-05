@@ -65,15 +65,24 @@ class TechGovernanceReleasesIntakeService {
   }
 
   /**
-   * Case-insensitive branch lookup. Matches a release-workflow Release ID
-   * (e.g. "release/r83") to a governance entry keyed by branch regardless of
-   * case. Returns undefined if no entry matches.
+   * Normalize a branch / release identifier for matching: trim, lowercase, and
+   * drop a leading "release/" prefix. So "R83", "r83", and "release/r83" all
+   * normalize to "r83".
+   */
+  private normalizeBranch(value: string): string {
+    return (value ?? '').trim().toLowerCase().replace(/^release\//, '');
+  }
+
+  /**
+   * Branch lookup that is case-insensitive and tolerant of the "release/"
+   * prefix. Matches a release-workflow Release ID (e.g. "R83" or "release/r83")
+   * to a governance entry keyed by branch. Returns undefined if none match.
    */
   findByBranch(branch: string): TechGovernanceRelease | undefined {
-    const target = (branch ?? '').trim().toLowerCase();
+    const target = this.normalizeBranch(branch);
     if (!target) return undefined;
     for (const [key, release] of Object.entries(this.releases)) {
-      if (key.trim().toLowerCase() === target) return release;
+      if (this.normalizeBranch(key) === target) return release;
     }
     return undefined;
   }
