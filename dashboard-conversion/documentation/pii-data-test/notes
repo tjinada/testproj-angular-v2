@@ -51,3 +51,22 @@
     }
   }
 }
+
+"filter": [
+  {"match_phrase": {"fields.appType": "BOSServices"}},
+  {
+    "bool": {
+      "should": [
+        {"match_phrase": {"message": "SI/D/"}},
+        {"match_phrase": {"message": "SI/H/"}},
+        {"match_phrase": {"message": "ER/"}}
+      ],
+      "minimum_should_match": 1
+    }
+  },
+  {"range": {"@timestamp": {
+    "gte": "2026-06-07T17:11:20.963Z",
+    "lte": "2026-06-08T17:11:20.963Z",
+    "format": "strict_date_optional_time"
+  }}}
+]
