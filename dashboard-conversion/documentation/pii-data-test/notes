@@ -70,3 +70,33 @@
     "format": "strict_date_optional_time"
   }}}
 ]
+
+
+# OpenSearch endpoint configuration for fetch-errors.sh
+#
+# Copy this file to `.env` in the same directory and fill in your values.
+# Lines beginning with # are comments.
+
+# Full POST URL for the OpenSearch / Dashboards search endpoint.
+OPENSEARCH_URL=https://vpc-eao-rg-ops-sit-domain-xxxx.ca-central-1.es.amazonaws.com/_dashboards/internal/search/opensearch
+
+# Index pattern to query (default: channels-olb*).
+OPENSEARCH_INDEX=channels-olb*
+
+# --- Pick ONE auth method, leave the others blank ---
+
+# Cookie auth (most common for Dashboards — copy from your browser DevTools).
+# Open OpenSearch in your browser, F12 → Network → any request → Headers →
+# Cookie. Paste the entire Cookie value here.
+OPENSEARCH_COOKIE=
+
+# Bearer / Basic token (value after "Authorization: ").
+# e.g. "Bearer eyJhbGc..." or "Basic dXNlcjpwYXNz"
+OPENSEARCH_AUTH=
+
+# XSRF / CSRF header that Dashboards usually requires.
+OPENSEARCH_XSRF=true
+
+# Optional extra headers, semicolon-separated, e.g.
+# OPENSEARCH_EXTRA_HEADERS="x-tenant: bmo; x-correlation-id: scan-1"
+OPENSEARCH_EXTRA_HEADERS=
