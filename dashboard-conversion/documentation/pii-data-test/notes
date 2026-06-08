@@ -24,3 +24,30 @@
     }
   }
 }
+
+
+{
+  "params": {
+    "index": "channels-olb*",
+    "body": {
+      "version": true,
+      "size": 10000,
+      "sort": [{"@timestamp": {"order": "desc", "unmapped_type": "boolean"}}],
+      "_source": true,
+      "query": {
+        "bool": {
+          "must": [],
+          "filter": [
+            {"match_phrase": {"fields.appType": "BOSServices"}},
+            {"match_phrase": {"message": "SI/D/"}},
+            {"range": {"@timestamp": {
+              "gte": "2026-06-07T17:11:20.963Z",
+              "lte": "2026-06-08T17:11:20.963Z",
+              "format": "strict_date_optional_time"
+            }}}
+          ]
+        }
+      }
+    }
+  }
+}
