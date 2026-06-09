@@ -50,6 +50,10 @@ API="https://api.github.com"
 TOKEN="${GITHUB_TOKEN:-}"
 STALE_MONTHS="${STALE_MONTHS:-6}"
 RELEASE_PREFIX="${RELEASE_PREFIX:-release/r}"
+# A branch counts as a real release ONLY if it matches this regex. Default accepts
+# release/r<NUM>[.<NUM>...] (e.g. release/r92, release/r51.1.3) and rejects junk like
+# release/r10001-test-dss-devops-standardization. Override if your scheme differs.
+RELEASE_REGEX="${RELEASE_REGEX:-^release/r[0-9]+([.][0-9]+)*$}"
 TOP_FILES="${TOP_FILES:-25}"
 MAX_RELEASE_CHK="${MAX_RELEASE_CHK:-0}"
 LOCAL_REPO="${LOCAL_REPO:-}"   # path to an existing local clone for history analysis
@@ -159,24 +163,26 @@ while :; do
   cursor="$(jq -c '.data.repository.refs.pageInfo.endCursor' <<<"$page")"
 done
 
-# Release branches (sorted by trailing number desc so newest checked first).
-# Portable read loop instead of `mapfile` (bash 4+) so this runs on stock macOS bash 3.2.
+# Real release branches (strict regex match), sorted version-desc so newest first.
 RELEASE_BRANCHES=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && RELEASE_BRANCHES+=("$line")
 done < <(
-  jq -r --arg p "$RELEASE_PREFIX" 'select(.name|startswith($p)) | .name' "$TMP/branches.ndjson" \
-  | sort -t r -k2 -n -r
+  jq -r --arg re "$RELEASE_REGEX" 'select(.name|test($re)) | .name' "$TMP/branches.ndjson" \
+  | { sort -rV 2>/dev/null || sort -t r -k2 -n -r; }
 )
-echo "Release branches matching '${RELEASE_PREFIX}*': ${#RELEASE_BRANCHES[@]}"
+echo "Release branches matching /${RELEASE_REGEX}/: ${#RELEASE_BRANCHES[@]}"
 (( ${#RELEASE_BRANCHES[@]} )) && printf '  - %s\n' "${RELEASE_BRANCHES[@]}"
 
 # Stale branches: now - committedDate > threshold. All math in jq (portable).
-jq -c --argjson cut "$STALE_SECS" --arg def "$DEFAULT_BRANCH" --arg p "$RELEASE_PREFIX" '
+# Excludes the default branch and real release branches (which we treat as targets,
+# not cleanup candidates). Note: junk like release/r10001-test-* does NOT match the
+# release regex, so it WILL show up here as a review candidate - which is what we want.
+jq -c --argjson cut "$STALE_SECS" --arg def "$DEFAULT_BRANCH" --arg re "$RELEASE_REGEX" '
   ( (now - (.date | fromdateiso8601)) ) as $age
   | select($age > $cut)
-  | select(.name != $def)                 # never flag the default branch
-  | select(.name|startswith($p)|not)      # don'\''t flag release branches themselves
+  | select(.name != $def)              # never flag the default branch
+  | select(.name|test($re)|not)        # don'\''t flag real release branches
   | {name, date, oid, age_days: (($age/86400)|floor)}
 ' "$TMP/branches.ndjson" | jq -s 'sort_by(.age_days) | reverse' > "$TMP/stale.json"
 
@@ -198,7 +204,7 @@ echo "Found $STALE_COUNT stale branches (excludes default + release/* branches).
 
 # Default branch tip + release (name<TAB>oid) list, newest-first.
 DEFAULT_OID="$(jq -r --arg d "$DEFAULT_BRANCH" 'select(.name==$d) | .oid' "$TMP/branches.ndjson" | head -1)"
-jq -r --arg p "$RELEASE_PREFIX" 'select(.name|startswith($p)) | "\(.name)\t\(.oid)"' \
+jq -r --arg re "$RELEASE_REGEX" 'select(.name|test($re)) | "\(.name)\t\(.oid)"' \
   "$TMP/branches.ndjson" > "$TMP/release_raw.tsv"
 # newest-first; -V (version sort) is ideal but absent on older BSD sort, so fall back.
 sort -rV "$TMP/release_raw.tsv" 2>/dev/null > "$TMP/release_pairs.tsv" \
@@ -264,17 +270,19 @@ CSV="$WORKDIR/stale-branches-${REPO}.csv"
 echo "branch,last_commit_date,age_days,merged_into,safe_to_delete" > "$CSV"
 
 if (( STALE_COUNT > 0 )); then
-  printf "\n%-45s %-12s %-22s %s\n" "BRANCH" "AGE(days)" "LAST COMMIT" "MERGED INTO"
+  printf "\n%-50s %-9s %-12s %s\n" "BRANCH" "AGE(d)" "LAST COMMIT" "MERGED INTO"
   i=0
   while IFS=$'\t' read -r name date age oid; do
     i=$((i+1))
     (( i % 50 == 0 )) && log "   ...processed $i/$STALE_COUNT branches"
     merged_into="$(merge_target "$name" "$oid")"
+    # Truncate for the on-screen table only (CSV keeps full, untruncated names).
+    disp="$name"; (( ${#disp} > 50 )) && disp="${name:0:49}>"
     if [[ -n "$merged_into" ]]; then
-      printf "%-45s %-12s %-22s \033[32m%s\033[0m\n" "$name" "$age" "${date:0:10}" "$merged_into"
+      printf "%-50s %-9s %-12s \033[32m%s\033[0m\n" "$disp" "$age" "${date:0:10}" "$merged_into"
       echo "\"$name\",${date:0:10},$age,$merged_into,YES" >> "$CSV"
     else
-      printf "%-45s %-12s %-22s \033[33m%s\033[0m\n" "$name" "$age" "${date:0:10}" "(unmerged - review)"
+      printf "%-50s %-9s %-12s \033[33m%s\033[0m\n" "$disp" "$age" "${date:0:10}" "(unmerged)"
       echo "\"$name\",${date:0:10},$age,,REVIEW" >> "$CSV"
     fi
   done < <(jq -r '.[] | [.name,.date,.age_days,.oid] | @tsv' "$TMP/stale.json")
