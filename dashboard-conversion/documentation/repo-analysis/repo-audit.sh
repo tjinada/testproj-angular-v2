@@ -160,7 +160,11 @@ while :; do
 done
 
 # Release branches (sorted by trailing number desc so newest checked first).
-mapfile -t RELEASE_BRANCHES < <(
+# Portable read loop instead of `mapfile` (bash 4+) so this runs on stock macOS bash 3.2.
+RELEASE_BRANCHES=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && RELEASE_BRANCHES+=("$line")
+done < <(
   jq -r --arg p "$RELEASE_PREFIX" 'select(.name|startswith($p)) | .name' "$TMP/branches.ndjson" \
   | sort -t r -k2 -n -r
 )
@@ -201,7 +205,7 @@ if (( STALE_COUNT > 0 )); then
     merged_into=""
     # 1) check release branches (newest first), stop at first hit
     checked=0
-    for rb in "${RELEASE_BRANCHES[@]}"; do
+    for rb in ${RELEASE_BRANCHES[@]+"${RELEASE_BRANCHES[@]}"}; do
       (( MAX_RELEASE_CHK > 0 && checked >= MAX_RELEASE_CHK )) && break
       checked=$((checked+1))
       if [[ "$(is_contained_in "$rb" "$name")" == "merged" ]]; then
