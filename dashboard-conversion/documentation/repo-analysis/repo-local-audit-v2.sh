@@ -78,6 +78,18 @@ trap 'rm -rf "$TMP"' EXIT
 bar() { printf '%s\n' "------------------------------------------------------------"; }
 log() { printf '%s\n' "$*" >&2; }
 
+# Bytes -> human-readable with explicit B/KB/MB/GB/TB units (1024-based).
+# Self-contained (no numfmt dependency, so it works on stock macOS too).
+human() {
+  awk -v b="${1:-0}" 'BEGIN{
+    split("B KB MB GB TB PB", u, " ");
+    i=1; x=b+0;
+    while (x>=1024 && i<6){ x/=1024; i++ }
+    if (i==1) printf "%d %s", x, u[i];
+    else      printf "%.1f %s", x, u[i];
+  }'
+}
+
 # Label used for output filenames: REPO if known, else the clone's directory name.
 if   [[ -n "$REPO"       ]]; then REPO_LABEL="$REPO"
 elif [[ -n "$LOCAL_REPO" ]]; then REPO_LABEL="$(basename "$LOCAL_REPO")"
@@ -180,12 +192,12 @@ analyze_history_locally() {
   bar; echo "HISTORY: largest individual objects across ALL refs (top $TOP_FILES)"; bar
   printf "%12s  %s\n" "SIZE" "PATH"
   head -n "$TOP_FILES" "$TMP/objects.sorted" | while IFS=$'\t' read -r sha size path; do
-    printf "%12s  %s\n" "$(numfmt --to=iec "$size" 2>/dev/null || echo "${size}B")" "${path:-(no path)}"
+    printf "%12s  %s\n" "$(human "$size")" "${path:-(no path)}"
   done
   echo "object_sha,size_bytes,size_human,path" > "$OBJ_CSV"
   head -n "$HISTORY_CSV_ROWS" "$TMP/objects.sorted" | while IFS=$'\t' read -r sha size path; do
-    printf '%s,%s,%s,"%s"\n' "$sha" "$size" \
-      "$(numfmt --to=iec "$size" 2>/dev/null || echo "$size")" "${path//\"/\"\"}" >> "$OBJ_CSV"
+    printf '%s,%s,"%s","%s"\n' "$sha" "$size" \
+      "$(human "$size")" "${path//\"/\"\"}" >> "$OBJ_CSV"
   done
 
   # ---- largest paths by total bytes across all versions ----
@@ -195,12 +207,12 @@ analyze_history_locally() {
   echo "(best signal for what to purge with 'git filter-repo --path <p> --invert-paths')"
   printf "%12s  %6s  %s\n" "TOTAL" "VERS" "PATH"
   head -n "$TOP_FILES" "$TMP/paths.sorted" | while IFS=$'\t' read -r total vers path; do
-    printf "%12s  %6s  %s\n" "$(numfmt --to=iec "$total" 2>/dev/null || echo "${total}B")" "$vers" "$path"
+    printf "%12s  %6s  %s\n" "$(human "$total")" "$vers" "$path"
   done
   echo "path,total_bytes,total_human,versions" > "$PATH_CSV"
   head -n "$HISTORY_CSV_ROWS" "$TMP/paths.sorted" | while IFS=$'\t' read -r total vers path; do
     printf '"%s",%s,%s,%s\n' "${path//\"/\"\"}" "$total" \
-      "$(numfmt --to=iec "$total" 2>/dev/null || echo "$total")" "$vers" >> "$PATH_CSV"
+      "$(human "$total")" "$vers" >> "$PATH_CSV"
   done
 
   echo
@@ -234,8 +246,8 @@ repo_json="$(rest "/repos/$OWNER/$REPO")"
 DEFAULT_BRANCH="$(jq -r '.default_branch' <<<"$repo_json")"
 size_kb="$(jq -r '.size' <<<"$repo_json")"   # KB, includes .git
 printf "Default branch : %s\n" "$DEFAULT_BRANCH"
-printf "Repo size      : %.1f MB  (GitHub-reported, includes git history)\n" \
-  "$(awk "BEGIN{print $size_kb/1024}")"
+printf "Repo size      : %s  (GitHub-reported, includes git history)\n" \
+  "$(human "$(( size_kb * 1024 ))")"
 
 # branch + tag totals via GraphQL (single call each, cheap)
 counts="$(graphql 'query($o:String!,$r:String!){repository(owner:$o,name:$r){
@@ -444,7 +456,7 @@ jq -r --argjson n "$TOP_FILES" '
   | sort_by(.size) | reverse | .[:$n]
   | .[] | "\(.size)\t\(.path)"
 ' <<<"$tree_json" | while IFS=$'\t' read -r size path; do
-  printf "%12s  %s\n" "$(numfmt --to=iec "$size" 2>/dev/null || echo "${size}B")" "$path"
+  printf "%12s  %s\n" "$(human "$size")" "$path"
 done
 
 # size-by-extension breakdown
@@ -460,7 +472,7 @@ jq -r '
   | sort_by(.total) | reverse | .[:15]
   | .[] | "\(.total)\t\(.count)\t\(.ext)"
 ' <<<"$tree_json" | while IFS=$'\t' read -r total count ext; do
-  printf "%12s  %8s  %s\n" "$(numfmt --to=iec "$total" 2>/dev/null || echo "${total}B")" "$count" "$ext"
+  printf "%12s  %8s  %s\n" "$(human "$total")" "$count" "$ext"
 done
 
 # ----------------------------- 5. recommendations -----------------------------
