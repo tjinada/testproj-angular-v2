@@ -1,5 +1,4 @@
 import artifactoryService from './artifactory.service';
-import cacheSyncService, { CACHE_TOPIC } from './cache-sync.service';
 import techGovernanceReleasesIntakeService from './tech-governance-releases-intake.service';
 import {
   cloneStageTemplate,
@@ -26,40 +25,46 @@ class ReleaseWorkflowService {
   private readonly retrofitPleaseReleaseStageId = 'stage3-retrofit-please-release';
   private readonly dataFileName = 'release_workflow_data.json';
 
-  releases: ReleaseWorkflowData = {};
-
   constructor() {
     this.initialize();
-    cacheSyncService.register(CACHE_TOPIC.RELEASE_WORKFLOW, () => this.initialize());
   }
 
+  /**
+   * Boot-time template reconciliation only. All reads and mutations load
+   * the latest data from Artifactory on demand — there is no in-memory
+   * cache and no cross-pod cache sync for this topic.
+   */
   async initialize(): Promise<void> {
-    try {
-      const data = await artifactoryService.getFileContent(this.dataFileName);
-      this.releases = { ...data };
-      this.normalizeLegacyReleaseTypes();
-    } catch (error) {
-      console.log('No existing release_workflow_data found in artifactory');
-      // Expected error when file doesn't exist
-    }
-
     // Reconcile every existing release against the current STAGE_TEMPLATE.
     await this.reconcileWithTemplate();
   }
 
-  private async save(): Promise<void> {
-    await artifactoryService.saveFileContent(this.dataFileName, this.releases);
-    cacheSyncService.notifyPeers(CACHE_TOPIC.RELEASE_WORKFLOW);
+  /** Load the latest releases from Artifactory. Returns {} when the file doesn't exist yet. */
+  private async load(): Promise<ReleaseWorkflowData> {
+    try {
+      const data = await artifactoryService.getFileContent(this.dataFileName);
+      const releases: ReleaseWorkflowData = { ...data };
+      this.normalizeLegacyReleaseTypes(releases);
+      return releases;
+    } catch (error) {
+      console.log('No existing release_workflow_data found in artifactory');
+      // Expected error when file doesn't exist
+      return {};
+    }
   }
 
-  /** Returns the cached releases keyed by releaseId. */
-  getAll(): ReleaseWorkflowData {
-    return this.releases;
+  private async save(releases: ReleaseWorkflowData): Promise<void> {
+    await artifactoryService.saveFileContent(this.dataFileName, releases);
+  }
+
+  /** Returns the latest releases keyed by releaseId. */
+  async getAll(): Promise<ReleaseWorkflowData> {
+    return this.load();
   }
 
   /** Returns a single release by ID, or undefined if not found. */
-  getById(releaseId: string): Release | undefined {
-    return this.releases[releaseId];
+  async getById(releaseId: string): Promise<Release | undefined> {
+    return (await this.load())[releaseId];
   }
 
   private assertBundleReleaseCanSkip(release: Release, stage: Stage, action: 'sub-step' | 'stage'): void {
@@ -68,8 +73,8 @@ class ReleaseWorkflowService {
     throw new Error(`Bundle releases cannot be skipped at the ${action} level`);
   }
 
-  private normalizeLegacyReleaseTypes(): void {
-    for (const release of Object.values(this.releases)) {
+  private normalizeLegacyReleaseTypes(releases: ReleaseWorkflowData): void {
+    for (const release of Object.values(releases)) {
       if ((release.type as string) === 'EQF/hotfix') {
         release.type = 'hotfix';
       }
@@ -107,7 +112,8 @@ class ReleaseWorkflowService {
     if (!releaseId || typeof releaseId !== 'string') {
       throw new Error('releaseId is required');
     }
-    if (this.releases[releaseId]) {
+    const releases = await this.load();
+    if (releases[releaseId]) {
       throw new Error(`Release '${releaseId}' already exists`);
     }
 
@@ -145,8 +151,8 @@ class ReleaseWorkflowService {
 
     this.recomputeStatuses(release);
 
-    this.releases[releaseId] = release;
-    await this.save();
+    releases[releaseId] = release;
+    await this.save(releases);
 
     // Create a corresponding release in the tech governance source.
     try {
@@ -170,7 +176,8 @@ class ReleaseWorkflowService {
       releaseComponents?: Partial<ReleaseComponents>;
     },
   ): Promise<Release> {
-    const existing = this.releases[releaseId];
+    const releases = await this.load();
+    const existing = releases[releaseId];
     if (!existing) {
       throw new Error(`Release '${releaseId}' not found`);
     }
@@ -205,8 +212,8 @@ class ReleaseWorkflowService {
 
     this.recomputeStatuses(updated);
 
-    this.releases[releaseId] = updated;
-    await this.save();
+    releases[releaseId] = updated;
+    await this.save(releases);
     return updated;
   }
 
@@ -220,7 +227,8 @@ class ReleaseWorkflowService {
     subStepId: string,
     patch: { state: SubStepState; source: SubStepSource; actor?: string },
   ): Promise<SubStep> {
-    const release = this.releases[releaseId];
+    const releases = await this.load();
+    const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
 
     const stage = release.stages.find((s) => s.id === stageId);
@@ -242,7 +250,7 @@ class ReleaseWorkflowService {
     this.recomputeStatuses(release);
 
     release.updatedAt = now;
-    await this.save();
+    await this.save(releases);
     return subStep;
   }
 
@@ -252,7 +260,8 @@ class ReleaseWorkflowService {
     na: boolean,
     actor?: string,
   ): Promise<Stage> {
-    const release = this.releases[releaseId];
+    const releases = await this.load();
+    const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
 
     const stage = release.stages.find((s) => s.id === stageId);
@@ -305,7 +314,7 @@ class ReleaseWorkflowService {
     this.recomputeStatuses(release);
 
     release.updatedAt = now;
-    await this.save();
+    await this.save(releases);
     return stage;
   }
 
@@ -335,7 +344,8 @@ class ReleaseWorkflowService {
     actor?: string,
     specificCheckIds?: string[],
   ): Promise<AutomatedCheck[]> {
-    const release = this.releases[releaseId];
+    const releases = await this.load();
+    const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
 
     const stage = release.stages.find((s) => s.id === stageId);
@@ -369,8 +379,6 @@ class ReleaseWorkflowService {
         if (!checkIdsToRun.has(check.id)) return check;
         const runner = runners[check.id];
         if (!runner) return check;
-        // mark as running so the response (or a refetch mid-flight) reflects activity
-        check.status = 'running';
         try {
           return await runner(release, check);
         } catch (err: any) {
@@ -392,7 +400,7 @@ class ReleaseWorkflowService {
     this.recomputeStatuses(release);
 
     release.updatedAt = new Date().toISOString();
-    await this.save();
+    await this.save(releases);
     return stage.automatedChecks;
   }
 
@@ -449,9 +457,10 @@ class ReleaseWorkflowService {
   // ----- delete -----
 
   async delete(releaseId: string): Promise<boolean> {
-    if (!this.releases[releaseId]) return false;
-    delete this.releases[releaseId];
-    await this.save();
+    const releases = await this.load();
+    if (!releases[releaseId]) return false;
+    delete releases[releaseId];
+    await this.save(releases);
     return true;
   }
   
@@ -511,7 +520,8 @@ class ReleaseWorkflowService {
     patch: Record<string, string | null>,
     actor?: string,
   ): Promise<Release> {
-    const release = this.releases[releaseId];
+    const releases = await this.load();
+    const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
 
     // Update intakePageUrl to the corresponding tech-governance intake list.
@@ -567,7 +577,7 @@ class ReleaseWorkflowService {
     // Persist field changes immediately so a check run that throws still
     // leaves the field saved.
     release.updatedAt = new Date().toISOString();
-    await this.save();
+    await this.save(releases);
 
     // If the intakePageUrl changed, propagate it to the corresponding tech governance entry.
     if (intakePageIdToUpdate) {
@@ -624,12 +634,11 @@ class ReleaseWorkflowService {
       }
     }
 
-    return this.releases[releaseId];
-  }
-
-  /** Find a stage on a release by stage ID. Used by routes for validation. */
-  findStage(releaseId: string, stageId: string): Stage | undefined {
-    return this.releases[releaseId]?.stages.find((s) => s.id === stageId);
+    // Return the latest persisted state, including any check results written
+    // by the runChecks calls above (each runChecks call loads and saves fresh).
+    const updatedRelease = (await this.load())[releaseId];
+    if (!updatedRelease) throw new Error(`Release '${releaseId}' not found`);
+    return updatedRelease;
   }
 
   // ----- status auto-advance -----
@@ -726,11 +735,13 @@ class ReleaseWorkflowService {
    * Reconcile every persisted release against the current STAGE_TEMPLATE.
    */
   private async reconcileWithTemplate(): Promise<void> {
+    const releases = await this.load();
+
     let totalChanges = 0;
     const changedReleaseIds: string[] = [];
 
-    for (const releaseId of Object.keys(this.releases)) {
-      const release = this.releases[releaseId];
+    for (const releaseId of Object.keys(releases)) {
+      const release = releases[releaseId];
       const releaseChanges = this.reconcileRelease(release);
 
       // Always recompute statuses on boot. This catches releases whose
@@ -758,7 +769,7 @@ class ReleaseWorkflowService {
       console.log(
         `[release-workflow] template reconciliation: ${totalChanges} change(s) across ${changedReleaseIds.length} release(s); persisting`,
       );
-      await this.save();
+      await this.save(releases);
     }
   }
 

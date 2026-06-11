@@ -115,9 +115,9 @@ function validateOptionalSheriff(res: Response, fieldName: string, value: unknow
  * GET /api/release-workflow
  * Returns all releases as an array.
  */
-router.get('/', requireAuth, (_req: Request, res: Response) => {
+router.get('/', requireAuth, async (_req: Request, res: Response) => {
   try {
-    const releases = Object.values(releaseWorkflowService.getAll());
+    const releases = Object.values(await releaseWorkflowService.getAll());
     res.json(releases);
   } catch (error) {
     console.error('Error fetching release workflow data:', error);
@@ -127,10 +127,10 @@ router.get('/', requireAuth, (_req: Request, res: Response) => {
 
 // ----- GET /api/release-workflow/:releaseId -----
 
-router.get('/:releaseId', requireAuth, (req: Request<ReleaseParams>, res: Response) => {
+router.get('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
   try {
     const { releaseId } = req.params;
-    const release = releaseWorkflowService.getById(releaseId);
+    const release = await releaseWorkflowService.getById(releaseId);
     if (!release) return notFound(res, `Release '${releaseId}' not found`);
     res.json(release);
   } catch (error) {

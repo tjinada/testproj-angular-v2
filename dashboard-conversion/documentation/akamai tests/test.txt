@@ -1,0 +1,5 @@
+How it breaks (verified with the F5 team):
+- The VIP lives in the F5. Its pool (pool-tcp-443-PCCANADAOLB-198.96.174.25) has two members: 172.21.58.183:444 and 172.21.58.184:444.
+- The pool's HTTPS monitor sends "GET /banking/live.txt" and expects "HTTP/1.1 200 OK" — the same object Akamai uses for its liveness check.
+- When we rename live.txt to start the drain, Akamai correctly steers new traffic to SCC. But the F5 monitor now gets a 404 from both members within one interval (5s), marks both down, and the pool has no available members — so the VIP rejects the traffic still arriving at this site (in-flight / pinned sessions).
+- The F5 team verified this on the May 26 incident (~11:03 PM): the VIP logged "No members available for pool" at 23:03:48. Screenshots below.
