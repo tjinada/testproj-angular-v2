@@ -10,10 +10,33 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 0 0 14px;
+  padding: 12px 0 14px;
   border-bottom: 1px solid #f0f0f0;
   margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff; /* opaque background so rows scroll beneath */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   gap: 12px;
+}
+
+.sp__summary {
+  min-width: 0;
+}
+
+.sp__headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sp__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 .sp__title {
@@ -21,6 +44,41 @@
   font-weight: 700;
   margin: 0 0 4px;
   color: #1a1a1a;
+}
+
+.sp__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--locked {
+    background: #eaeaea;
+    color: #555;
+  }
+
+  &--ready {
+    background: #fff5e6;
+    color: #854F0B;
+  }
+
+  &--in-progress {
+    background: #e6f1fb;
+    color: #0C447C;
+  }
+
+  &--complete {
+    background: #eaf3de;
+    color: #27500A;
+  }
+
+  &--skipped {
+    background: #f1f1f1;
+    color: #666;
+  }
 }
 
 .sp__meta {
@@ -54,6 +112,29 @@
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
+.sp__stage-na {
+  background: #fff5e6;
+  color: #854F0B;
+  border: 1px solid #efc36c;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+
+  &:hover:not(:disabled) {
+    background: #ffefd6;
+    border-color: #d5a24e;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
 // ---------- sub-step rows ----------
 
 .ss-list {
@@ -61,8 +142,6 @@
   flex-direction: column;
   gap: 8px;
 }
-
-// ---------- track sections (only rendered when stage spans 2+ tracks) ----------
 
 .ss-track {
   display: flex;
@@ -158,6 +237,14 @@
 
     &--passed { color: #27500A; }
     &--failed { color: #791F1F; }
+  }
+
+  &__field-error {
+    font-size: 11px;
+    color: #791F1F;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    word-break: break-word;
   }
 
   // Per-URL list used by the multi-URL runner. One row per URL with a
@@ -274,13 +361,25 @@
   cursor: pointer;
   flex: 0 0 auto;
   white-space: nowrap;
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  &:disabled,
+  &--disabled {
+    opacity: 1;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 
   &--primary {
     background: #0079C1;
     color: #fff;
     border: none;
     &:hover:not(:disabled) { background: #006AAB; }
+    &:disabled,
+    &.ss-btn--disabled {
+      background: #d8e4ee;
+      color: #7a8a97;
+      border: 1px solid #c3d0db;
+      box-shadow: none;
+    }
   }
 
   &--ghost {

@@ -3,8 +3,11 @@
   @if (showHeader) {
     <!-- top action bar -->
     <div class="sp__bar">
-      <div>
-        <h2 class="sp__title">Stage — {{ stage.name }}</h2>
+      <div class="sp__summary">
+        <div class="sp__headline">
+          <h2 class="sp__title">Stage — {{ stage.name }}</h2>
+          <span class="sp__status" [class]="stageStatusClass()">{{ stageStatusLabel() }}</span>
+        </div>
         <div class="sp__meta">
           @if (stage.startedAt) {
             Started {{ stage.startedAt | date:'mediumDate' }}
@@ -17,16 +20,28 @@
           }
         </div>
       </div>
-      @if (hasChecks()) {
-        <button class="sp__run" type="button" (click)="runAllChecks()" [disabled]="runningAll()">
-          {{ runningAll() ? 'Running…' : 'Run all checks' }}
-        </button>
-      }
+      <div class="sp__actions">
+        @if (canShowStageNaAction()) {
+          <button
+            class="sp__stage-na"
+            type="button"
+            (click)="toggleStageNa()"
+            [disabled]="stageNaPending() || !hasVisibleSubSteps()"
+            [title]="hasVisibleSubSteps() ? '' : 'No applicable steps to skip in this stage'">
+            {{ stageNaPending() ? 'Updating…' : (allVisibleSubStepsNa() ? 'Unskip stage' : 'Skip stage') }}
+          </button>
+        }
+        @if (hasChecks()) {
+          <button class="sp__run" type="button" (click)="runAllChecks()" [disabled]="runningAll() || stageNaPending()">
+            {{ runningAll() ? 'Running…' : 'Run all checks' }}
+          </button>
+        }
+      </div>
     </div>
   }
 
-  @if (error()) {
-    <div class="sp__error">{{ error() }}</div>
+  @if (stageError()) {
+    <div class="sp__error">{{ stageError() }}</div>
   }
 
   <div class="ss-list">
@@ -91,6 +106,10 @@
         }
       </div>
 
+      @if (fieldError(s); as fieldError) {
+        <div class="ss-row__field-error">{{ fieldError }}</div>
+      }
+
       <!-- read-only value when passing (skipped for multi-URL where the per-URL list shows each value) -->
       @if (editable && status === 'passed' && fieldValue(s) && !isMultiUrlResult(s)) {
         <div class="ss-row__value">
@@ -144,7 +163,7 @@
               [disabled]="running"
             />
           }
-          <button class="ss-btn ss-btn--primary" type="button" (click)="saveAndRun(s)" [disabled]="running">
+          <button class="ss-btn ss-btn--primary" type="button" (click)="saveAndRun(s)" [disabled]="!canSaveAndRun(s)">
             Save & run
           </button>
           @if (isEditing(s)) {
@@ -163,14 +182,11 @@
           @if (editable && status === 'passed') {
             <a class="ss-link" (click)="beginEdit(s)">Edit</a>
           }
-          @if (autoTickable) {
-            <a class="ss-link ss-link--muted" (click)="override(s)">
-              {{ s.state === 'checked' ? 'Un-tick' : 'Tick' }}
+          @if (canExcludeSubSteps()) {
+            <a class="ss-link ss-link--muted" (click)="toggleNa(s)">
+              {{ s.state === 'n_a' ? 'Include' : 'Exclude' }}
             </a>
           }
-          <a class="ss-link ss-link--muted" (click)="toggleNa(s)">
-            {{ s.state === 'n_a' ? 'Un-N/A' : 'N/A' }}
-          </a>
         </div>
         @if (completedAtLabel(s); as label) {
           <div class="ss-row__actions-meta">{{ label }}</div>

@@ -25,21 +25,13 @@ export class ReleaseWorkflowService {
     return this.http.get<Release>(`${this.base}/${encodeURIComponent(releaseId)}`);
   }
 
-  getParticipatingDATeams(
-    releaseId: string,
-  ): Observable<{ matched: { name: string; jiraProjects: string[] }[]; unmatched: string[] }> {
-    return this.http.get<{ matched: { name: string; jiraProjects: string[] }[]; unmatched: string[] }>(
-      `${this.base}/${encodeURIComponent(releaseId)}/da-teams`,
-    );
-  }
-
   create(input: CreateReleaseInput): Observable<{ message: string; release: Release }> {
     return this.http.post<{ message: string; release: Release }>(this.base, input);
   }
 
   update(
     releaseId: string,
-    patch: Partial<Pick<Release, 'title' | 'sheriff' | 'backupSheriff' | 'status'>> & {
+    patch: Partial<Pick<Release, 'title' | 'uiSheriff' | 'uiBackupSheriff' | 'bosSheriff' | 'bosBackupSheriff' | 'status'>> & {
       releaseComponents?: Partial<ReleaseComponents>;
       metadata?: Partial<ReleaseMetadata>;
     },
@@ -58,6 +50,17 @@ export class ReleaseWorkflowService {
   ): Observable<{ message: string; subStep: SubStep }> {
     return this.http.put<{ message: string; subStep: SubStep }>(
       `${this.base}/${encodeURIComponent(releaseId)}/stages/${encodeURIComponent(stageId)}/sub-steps/${encodeURIComponent(subStepId)}`,
+      body,
+    );
+  }
+
+  updateStageNa(
+    releaseId: string,
+    stageId: string,
+    body: { na: boolean; actor?: string },
+  ): Observable<{ message: string; stage: Release['stages'][number] }> {
+    return this.http.put<{ message: string; stage: Release['stages'][number] }>(
+      `${this.base}/${encodeURIComponent(releaseId)}/stages/${encodeURIComponent(stageId)}/na`,
       body,
     );
   }

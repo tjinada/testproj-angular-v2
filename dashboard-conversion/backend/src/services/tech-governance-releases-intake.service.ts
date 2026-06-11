@@ -1,5 +1,5 @@
 import artifactoryService from './artifactory.service';
-import cacheSyncService from './cache-sync.service';
+import cacheSyncService, { CACHE_TOPIC } from './cache-sync.service';
 import ConfluenceService from './confluence.service';
 
 export interface TechGovernanceReleaseIntake {
@@ -31,7 +31,7 @@ class TechGovernanceReleasesIntakeService {
 
   constructor() {
     this.initialize();
-    cacheSyncService.register('tech-governance-releases-intake', () => this.initialize());
+    cacheSyncService.register(CACHE_TOPIC.TECH_GOVERNANCE_RELEASES_INTAKE, () => this.initialize());
   }
 
   async initialize(): Promise<void> {
@@ -45,7 +45,7 @@ class TechGovernanceReleasesIntakeService {
 
   private async save(): Promise<void> {
     await artifactoryService.saveFileContent(this.dataFilePath, this.releases);
-    cacheSyncService.notifyPeers('tech-governance-releases-intake');
+    cacheSyncService.notifyPeers(CACHE_TOPIC.TECH_GOVERNANCE_RELEASES_INTAKE);
   }
 
   /**
@@ -64,27 +64,8 @@ class TechGovernanceReleasesIntakeService {
     return this.releases[branch];
   }
 
-  /**
-   * Normalize a branch / release identifier for matching: trim, lowercase, and
-   * drop a leading "release/" prefix. So "R83", "r83", and "release/r83" all
-   * normalize to "r83".
-   */
-  private normalizeBranch(value: string): string {
-    return (value ?? '').trim().toLowerCase().replace(/^release\//, '');
-  }
-
-  /**
-   * Branch lookup that is case-insensitive and tolerant of the "release/"
-   * prefix. Matches a release-workflow Release ID (e.g. "R83" or "release/r83")
-   * to a governance entry keyed by branch. Returns undefined if none match.
-   */
-  findByBranch(branch: string): TechGovernanceRelease | undefined {
-    const target = this.normalizeBranch(branch);
-    if (!target) return undefined;
-    for (const [key, release] of Object.entries(this.releases)) {
-      if (this.normalizeBranch(key) === target) return release;
-    }
-    return undefined;
+  exists(key: string): boolean {
+    return Boolean(this.releases[key]);
   }
 
   /**
@@ -100,6 +81,44 @@ class TechGovernanceReleasesIntakeService {
     this.releases[key] = release;
     await this.save();
     return release;
+  }
+
+  async addEmptyRelease(key: string): Promise<TechGovernanceRelease> {
+    return this.add(key, {
+      details: '',
+      intakePageId: '',
+      branch: key,
+      intakes: [],
+      gracePeriodInDays: 0,
+    });
+  }
+
+  async setIntakePageId(key: string, intakePageId: string): Promise<TechGovernanceRelease> {
+    const existing = this.releases[key];
+    if (!existing) {
+      throw new Error(`Release '${key}' not found`);
+    }
+    if (!intakePageId || typeof intakePageId !== 'string') {
+      throw new Error('intakePageId is required');
+    }
+
+    const intakes = await this.fetchConfluenceChildPagesDetails(intakePageId);
+
+    // Preserve existing platformVeto values when refreshing intakes.
+    const prevById = new Map(existing.intakes.map((i) => [i.id, i]));
+    const mergedIntakes = intakes.map((intake) => {
+      const prev = prevById.get(intake.id);
+      if (prev && prev.platformVeto) {
+        return { ...intake, platformVeto: prev.platformVeto };
+      }
+      return intake;
+    });
+
+    return this.update(key, {
+      ...existing,
+      intakePageId,
+      intakes: mergedIntakes,
+    });
   }
 
   /**

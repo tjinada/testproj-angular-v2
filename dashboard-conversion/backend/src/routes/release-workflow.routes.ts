@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import releaseWorkflowService from '../services/release-workflow.service';
-import techGovernanceReleasesIntakeService from '../services/tech-governance-releases-intake.service';
-import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
+import appDataService from '../services/app-data.service';
 import { requireAuth } from '../middleware/auth';
 import { ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
 
@@ -42,6 +41,74 @@ function isReleaseComponents(v: unknown): v is Partial<ReleaseComponents> {
     && (cdbbos === undefined || typeof cdbbos === 'boolean');
 }
 
+function releaseIdFormatExample(type: ReleaseType): string {
+  switch (type) {
+    case 'bundle':
+      return 'R89';
+    case 'independent':
+      return 'R89.1';
+    case 'hotfix':
+      return 'R89.0.1';
+  }
+}
+
+function releaseIdMatchesType(releaseId: string, type: ReleaseType): boolean {
+  const trimmed = releaseId.trim();
+  switch (type) {
+    case 'bundle':
+      return /^R\d+$/i.test(trimmed);
+    case 'independent':
+      return /^R\d+\.\d+$/i.test(trimmed);
+    case 'hotfix':
+      return /^R\d+\.\d+\.\d+$/i.test(trimmed);
+  }
+}
+
+function validateReleaseIdForType(res: Response, releaseId: string, type: ReleaseType): Response | null {
+  if (releaseIdMatchesType(releaseId, type)) return null;
+  return badRequest(
+    res,
+    `Release ID must match the selected release type. Expected format for ${type} is ${releaseIdFormatExample(type)}.`,
+  );
+}
+
+function normalizeSheriffValue(value: string | null | undefined): string | null {
+  return appDataService.normalizeAdminUsername(value);
+}
+
+function validateRequiredSheriff(res: Response, fieldName: string, value: unknown): string | null {
+  if (typeof value !== 'string') {
+    badRequest(res, `Body field "${fieldName}" (string) is required`);
+    return null;
+  }
+
+  const normalized = normalizeSheriffValue(value);
+  if (!normalized || !appDataService.isAdminUsername(normalized)) {
+    badRequest(res, `Body field "${fieldName}" must match an admin username`);
+    return null;
+  }
+
+  return normalized;
+}
+
+function validateOptionalSheriff(res: Response, fieldName: string, value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'string') {
+    badRequest(res, `Body field "${fieldName}" must be a string or null`);
+    return undefined;
+  }
+
+  const normalized = normalizeSheriffValue(value);
+  if (!normalized) return null;
+  if (!appDataService.isAdminUsername(normalized)) {
+    badRequest(res, `Body field "${fieldName}" must match an admin username`);
+    return undefined;
+  }
+
+  return normalized;
+}
+
 // ----- GET /api/release-workflow -----
 
 /**
@@ -72,63 +139,62 @@ router.get('/:releaseId', requireAuth, (req: Request<ReleaseParams>, res: Respon
   }
 });
 
-// ----- GET /api/release-workflow/:releaseId/da-teams -----
-
-/**
- * GET /api/release-workflow/:releaseId/da-teams
- * Identifies the DA teams participating in a release by matching the Release ID
- * to a tech-governance entry (case-insensitive) and resolving teams from that
- * entry's intakes. Independent of the release intake link and the auto-create
- * path — it reads whatever governance currently holds. Returns matched teams
- * plus any intake codes that map to no DA team.
- */
-router.get('/:releaseId/da-teams', requireAuth, (req: Request<ReleaseParams>, res: Response) => {
-  try {
-    const { releaseId } = req.params;
-    const release = releaseWorkflowService.getById(releaseId);
-    if (!release) return notFound(res, `Release '${releaseId}' not found`);
-    const entry = techGovernanceReleasesIntakeService.findByBranch(releaseId);
-    const resolution = entry
-      ? resolveDATeamsByCodes(codesFromIntakes(entry.intakes))
-      : { matched: [], unmatched: [] };
-    res.json(resolution);
-  } catch (error) {
-    console.error('Error resolving participating DA teams:', error);
-    res.status(500).json({ error: 'Failed to resolve participating DA teams' });
-  }
-});
-
 // ----- POST /api/release-workflow -----
 
 /**
  * POST /api/release-workflow
- * Body: { releaseId, title, type, sheriff, backupSheriff?, releaseComponents?, metadata? }
+ * Body: { releaseId, title, type, uiSheriff?, uiBackupSheriff?, bosSheriff?, bosBackupSheriff?, releaseComponents?, metadata? }
  * Creates a new release seeded from the stage template.
  */
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { releaseId, title, type, sheriff, backupSheriff, releaseComponents, metadata } = req.body ?? {};
+    const {
+      releaseId,
+      title,
+      type,
+      uiSheriff,
+      uiBackupSheriff,
+      bosSheriff,
+      bosBackupSheriff,
+      releaseComponents,
+      metadata,
+    } = req.body ?? {};
 
     if (!releaseId || typeof releaseId !== 'string') return badRequest(res, 'Body field "releaseId" (string) is required');
     if (!title || typeof title !== 'string')         return badRequest(res, 'Body field "title" (string) is required');
     if (!isReleaseType(type))                         return badRequest(res, 'Body field "type" must be "bundle" | "independent" | "hotfix"');
-    if (!sheriff || typeof sheriff !== 'string')     return badRequest(res, 'Body field "sheriff" (string) is required');
-    if (backupSheriff !== undefined && backupSheriff !== null && typeof backupSheriff !== 'string') {
-      return badRequest(res, 'Body field "backupSheriff" must be a string or null');
-    }
+    const releaseIdTypeError = validateReleaseIdForType(res, releaseId, type);
+    if (releaseIdTypeError) return releaseIdTypeError;
     if (releaseComponents !== undefined && !isReleaseComponents(releaseComponents)) {
       return badRequest(res, 'Body field "releaseComponents" must be an object with boolean cdbui/cdbbos flags');
     }
     if (releaseComponents !== undefined && !releaseComponents.cdbui && !releaseComponents.cdbbos) {
        return badRequest(res, 'Body field "releaseComponents" must enable at least one of "cdbui" or "cdbbos"');
      }
+    const normalizedUiSheriff = validateOptionalSheriff(res, 'uiSheriff', uiSheriff);
+    if (uiSheriff !== undefined && normalizedUiSheriff === undefined) return;
+    const normalizedUiBackupSheriff = validateOptionalSheriff(res, 'uiBackupSheriff', uiBackupSheriff);
+    if (uiBackupSheriff !== undefined && normalizedUiBackupSheriff === undefined) return;
+    const normalizedBosSheriff = validateOptionalSheriff(res, 'bosSheriff', bosSheriff);
+    if (bosSheriff !== undefined && normalizedBosSheriff === undefined) return;
+    const normalizedBosBackupSheriff = validateOptionalSheriff(res, 'bosBackupSheriff', bosBackupSheriff);
+    if (bosBackupSheriff !== undefined && normalizedBosBackupSheriff === undefined) return;
+
+    if (releaseComponents?.cdbui && !normalizedUiSheriff) {
+      return badRequest(res, 'Body field "uiSheriff" must match an admin username when CDB UI is selected');
+    }
+    if (releaseComponents?.cdbbos && !normalizedBosSheriff) {
+      return badRequest(res, 'Body field "bosSheriff" must match an admin username when CDB BOS is selected');
+    }
 
     const release = await releaseWorkflowService.add({
       releaseId,
       title,
       type,
-      sheriff,
-      backupSheriff,
+      uiSheriff: normalizedUiSheriff,
+      uiBackupSheriff: normalizedUiBackupSheriff,
+      bosSheriff: normalizedBosSheriff,
+      bosBackupSheriff: normalizedBosBackupSheriff,
       releaseComponents,
       metadata,
     });
@@ -151,7 +217,24 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 router.put('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
   try {
     const { releaseId } = req.params;
-    const updated = await releaseWorkflowService.update(releaseId, req.body ?? {});
+    const body = req.body ?? {};
+    const patch = { ...body } as Record<string, unknown>;
+
+    for (const key of ['uiSheriff', 'bosSheriff'] as const) {
+      if (!(key in patch)) continue;
+      const normalized = validateRequiredSheriff(res, key, patch[key]);
+      if (normalized === null) return;
+      patch[key] = normalized;
+    }
+
+    for (const key of ['uiBackupSheriff', 'bosBackupSheriff'] as const) {
+      if (!(key in patch)) continue;
+      const normalized = validateOptionalSheriff(res, key, patch[key]);
+      if (normalized === undefined) return;
+      patch[key] = normalized;
+    }
+
+    const updated = await releaseWorkflowService.update(releaseId, patch);
     res.json({ message: 'Release updated successfully', release: updated });
   } catch (error: any) {
     if (error?.message?.includes('not found')) {
@@ -187,8 +270,43 @@ router.put(
       if (error?.message?.includes('not found')) {
         return notFound(res, error.message);
       }
+      if (error?.message?.includes('Bundle releases cannot be skipped')) {
+        return badRequest(res, error.message);
+      }
       console.error('Error updating sub-step:', error);
       res.status(500).json({ error: 'Failed to update sub-step' });
+    }
+  },
+);
+
+router.put(
+  '/:releaseId/stages/:stageId/na',
+  requireAuth,
+  async (req: Request<StageParams>, res: Response) => {
+    try {
+      const { releaseId, stageId } = req.params;
+      const { na, actor } = req.body ?? {};
+      if (typeof na !== 'boolean') {
+        return badRequest(res, 'Body field "na" must be a boolean');
+      }
+      if (actor !== undefined && typeof actor !== 'string') {
+        return badRequest(res, 'Body field "actor" must be a string');
+      }
+
+      const stage = await releaseWorkflowService.setStageNa(releaseId, stageId, na, actor);
+      res.json({ message: 'Stage updated', stage });
+    } catch (error: any) {
+      if (error?.message?.includes('not found')) {
+        return notFound(res, error.message);
+      }
+      if (error?.message?.includes('Bundle releases cannot be skipped')) {
+        return badRequest(res, error.message);
+      }
+      if (error?.message?.includes('cannot be updated with stage-level N/A')) {
+        return badRequest(res, error.message);
+      }
+      console.error('Error updating stage N/A:', error);
+      res.status(500).json({ error: 'Failed to update stage' });
     }
   },
 );
@@ -234,6 +352,12 @@ router.patch(
         return notFound(res, error.message);
       }
       if (error?.message?.includes('Unknown')) {
+        return badRequest(res, error.message);
+      }
+      if (error?.message?.includes('Could not parse a Confluence page ID from URL')) {
+        return badRequest(res, error.message);
+      }
+      if (error?.message?.includes('does not exist or could not be fetched')) {
         return badRequest(res, error.message);
       }
       console.error('Error updating metadata:', error);

@@ -19,12 +19,21 @@ import {
   AutomatedCheck,
   Release,
   Stage,
+  StageStatus,
   SubStep,
   SubStepState,
   SubStepTrack,
 } from '../../../../../models/release-workflow.model';
 import { formatCheckResult } from './check-result-display';
 import { visibleSubStepsForRelease } from '../../../../../utils/release-components.util';
+
+type StageDraftState = {
+  editingIds: string[];
+  inputValues: Record<string, string>;
+  fieldErrors: Record<string, string>;
+};
+
+const stageDraftCache = new Map<string, StageDraftState>();
 
 /**
  * Stage pane — renders one stage's sub-step rows with integrated check status
@@ -38,6 +47,8 @@ import { visibleSubStepsForRelease } from '../../../../../utils/release-componen
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StageViewComponent implements OnChanges {
+  private readonly retrofitPleaseReleaseStageId = 'stage3-retrofit-please-release';
+
   @Input({ required: true }) stage!: Stage;
   @Input({ required: true }) release!: Release;
   @Input() showHeader = true;
@@ -59,22 +70,92 @@ export class StageViewComponent implements OnChanges {
 
   /** Sub-step IDs whose row is currently running (spinner shown, actions disabled). */
   readonly runningIds = signal<Set<string>>(new Set());
+  readonly stageNaPending = signal<boolean>(false);
 
    readonly justSavedIds = signal<Set<string>>(new Set());
 
   /** Per-row staged input value, keyed by sub-step ID. Cleared on submit/cancel. */
   readonly inputValues = signal<Record<string, string>>({});
 
-  readonly error = signal<string | null>(null);
+  readonly stageError = signal<string | null>(null);
+  readonly fieldErrors = signal<Record<string, string>>({});
   readonly highlightedSubStepId = signal<string | null>(null);
 
   private lastAppliedFocusKey: string | null = null;
+
+  private stageDraftKey(): string | null {
+    const releaseId = this.release?.releaseId;
+    const stageId = this.stage?.id;
+    return releaseId && stageId ? `${releaseId}:${stageId}` : null;
+  }
+
+  private restoreDraftState(): void {
+    const key = this.stageDraftKey();
+    if (!key) return;
+    const draft = stageDraftCache.get(key);
+    if (!draft) return;
+    this.editingIds.set(new Set(draft.editingIds));
+    this.inputValues.set({ ...draft.inputValues });
+    this.fieldErrors.set({ ...draft.fieldErrors });
+  }
+
+  private persistDraftState(): void {
+    const key = this.stageDraftKey();
+    if (!key) return;
+
+    const stageSubStepIds = new Set(this.stage.subSteps.map((subStep) => subStep.id));
+    const editingIds = [...this.editingIds()].filter((id) => stageSubStepIds.has(id));
+    const inputValues = Object.fromEntries(
+      Object.entries(this.inputValues()).filter(([id]) => stageSubStepIds.has(id)),
+    );
+    const fieldErrors = Object.fromEntries(
+      Object.entries(this.fieldErrors()).filter(([id]) => stageSubStepIds.has(id)),
+    );
+
+    if (editingIds.length === 0 && Object.keys(inputValues).length === 0 && Object.keys(fieldErrors).length === 0) {
+      stageDraftCache.delete(key);
+      return;
+    }
+
+    stageDraftCache.set(key, {
+      editingIds,
+      inputValues,
+      fieldErrors,
+    });
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['release'] && this.justSavedIds().size > 0) {
       this.justSavedIds.set(new Set());
     }
+    if (changes['release']) {
+      this.fieldErrors.set({});
+    }
+    if (changes['stage'] || changes['release']) {
+      this.restoreDraftState();
+    }
     this.applyFocusRequest();
+  }
+
+  fieldError(s: SubStep): string | null {
+    return this.fieldErrors()[s.id] ?? null;
+  }
+
+  hasFieldError(s: SubStep): boolean {
+    return !!this.fieldErrors()[s.id];
+  }
+
+  private clearFieldError(subStepId: string): void {
+    this.fieldErrors.update((errors) => {
+      if (!(subStepId in errors)) return errors;
+      const next = { ...errors };
+      delete next[subStepId];
+      return next;
+    });
+  }
+
+  private setFieldError(subStepId: string, message: string): void {
+    this.fieldErrors.update((errors) => ({ ...errors, [subStepId]: message }));
   }
 
   private applyFocusRequest(): void {
@@ -188,14 +269,25 @@ export class StageViewComponent implements OnChanges {
     return this.inputValues()[s.id] ?? this.fieldValue(s) ?? '';
   }
 
+  canSaveAndRun(s: SubStep): boolean {
+    if (!s.editableField || this.isRunning(s)) return false;
+
+    const currentValue = this.inputValue(s).trim();
+    const persistedValue = (this.fieldValue(s) ?? '').trim();
+    if (currentValue === persistedValue) return false;
+    return true;
+  }
+
   onInputChange(s: SubStep, val: string): void {
     this.inputValues.update((v) => ({ ...v, [s.id]: val }));
+    this.persistDraftState();
   }
 
   // ----- actions: edit, save, cancel -----
 
   beginEdit(s: SubStep): void {
     if (!s.editableField) return;
+    this.clearFieldError(s.id);
     this.editingIds.update((set) => {
       const next = new Set(set);
       next.add(s.id);
@@ -203,9 +295,11 @@ export class StageViewComponent implements OnChanges {
     });
     // Pre-populate the input with the current persisted value.
     this.inputValues.update((v) => ({ ...v, [s.id]: this.fieldValue(s) ?? '' }));
+    this.persistDraftState();
   }
 
   cancelEdit(s: SubStep): void {
+    this.clearFieldError(s.id);
     this.editingIds.update((set) => {
       const next = new Set(set);
       next.delete(s.id);
@@ -216,13 +310,16 @@ export class StageViewComponent implements OnChanges {
       delete next[s.id];
       return next;
     });
+    this.persistDraftState();
   }
 
   saveAndRun(s: SubStep): void {
-    if (!s.editableField) return;
-    const newValue = (this.inputValues()[s.id] ?? '').trim();
+    const editableField = s.editableField;
+    if (!editableField || !this.canSaveAndRun(s)) return;
+    const newValue = this.inputValue(s).trim();
 
-    this.error.set(null);
+    this.stageError.set(null);
+    this.clearFieldError(s.id);
     this.runningIds.update((set) => {
       const next = new Set(set);
       next.add(s.id);
@@ -236,7 +333,7 @@ export class StageViewComponent implements OnChanges {
     });
 
     const patch: Record<string, string | null> = {
-      [s.editableField]: newValue || null,
+      [editableField]: newValue || null,
     };
 
     const actor = this.currentActor() ?? undefined;
@@ -258,6 +355,8 @@ export class StageViewComponent implements OnChanges {
           next.add(s.id);
           return next;
         });
+        this.clearFieldError(s.id);
+        this.persistDraftState();
         this.refresh.emit();
         this.cdr.detectChanges();
       },
@@ -267,7 +366,13 @@ export class StageViewComponent implements OnChanges {
           next.delete(s.id);
           return next;
         });
-        this.error.set(err?.error?.error ?? err?.message ?? 'Failed to save and run check');
+        this.editingIds.update((set) => {
+          const next = new Set(set);
+          next.add(s.id);
+          return next;
+        });
+        this.setFieldError(s.id, err?.error?.error ?? err?.message ?? 'Failed to save and run check');
+        this.persistDraftState();
         this.cdr.detectChanges();
       },
     });
@@ -293,7 +398,7 @@ export class StageViewComponent implements OnChanges {
   }
 
   private updateSubStep(s: SubStep, state: SubStepState, source: SubStep['source']): void {
-    this.error.set(null);
+    this.stageError.set(null);
     const actor = this.currentActor() ?? undefined;
     this.api
       .updateSubStep(this.release.releaseId, this.stage.id, s.id, { state, source, actor })
@@ -303,7 +408,7 @@ export class StageViewComponent implements OnChanges {
           this.cdr.detectChanges();
         },
         error: (err) => {
-          this.error.set(err?.error?.error ?? err?.message ?? 'Failed to update sub-step');
+          this.stageError.set(err?.error?.error ?? err?.message ?? 'Failed to update sub-step');
           this.cdr.detectChanges();
         },
       });
@@ -312,6 +417,7 @@ export class StageViewComponent implements OnChanges {
   /** Status indicator class for the row's left dot. */
   rowStatus(s: SubStep): 'passed' | 'failed' | 'running' | 'pending' | 'na' {
     if (this.isRunning(s)) return 'running';
+    if (this.hasFieldError(s)) return 'failed';
     if (s.state === 'n_a') return 'na';
     if (s.state === 'checked') return 'passed';
     if (this.isAutoTickable(s)) {
@@ -361,6 +467,79 @@ export class StageViewComponent implements OnChanges {
     return this.visibleAutomatedCheckCount() > 0;
   }
 
+  hasVisibleSubSteps(): boolean {
+    return this.visibleSubSteps().length > 0;
+  }
+
+  allVisibleSubStepsNa(): boolean {
+    const subSteps = this.visibleSubSteps();
+    return subSteps.length > 0 && subSteps.every((subStep) => subStep.state === 'n_a');
+  }
+
+  stageStatusLabel(): string {
+    switch (this.stage.status) {
+      case 'locked':
+        return 'locked';
+      case 'ready':
+        return 'ready';
+      case 'in_progress':
+        return 'in progress';
+      case 'complete':
+        return 'complete';
+      case 'skipped':
+        return 'skipped';
+      default:
+        return this.stage.status satisfies StageStatus;
+    }
+  }
+
+  stageStatusClass(): string {
+    return `sp__status sp__status--${this.stage.status.replace('_', '-')}`;
+  }
+
+  canShowStageNaAction(): boolean {
+    if (this.stage.status === 'complete') return false;
+    return this.release.type !== 'bundle' || this.stage.id === this.retrofitPleaseReleaseStageId;
+  }
+
+  canExcludeSubSteps(): boolean {
+    return this.release.type !== 'bundle' || this.stage.id === this.retrofitPleaseReleaseStageId;
+  }
+
+  private resetTransientRowState(): void {
+    this.editingIds.set(new Set());
+    this.runningIds.set(new Set());
+    this.justSavedIds.set(new Set());
+    this.inputValues.set({});
+    this.fieldErrors.set({});
+    this.highlightedSubStepId.set(null);
+    this.lastAppliedFocusKey = null;
+    this.persistDraftState();
+  }
+
+  toggleStageNa(): void {
+    if (this.stageNaPending() || !this.hasVisibleSubSteps() || !this.canShowStageNaAction()) return;
+
+    this.stageNaPending.set(true);
+    this.stageError.set(null);
+    const actor = this.currentActor() ?? undefined;
+    const nextNa = !this.allVisibleSubStepsNa();
+
+    this.api.updateStageNa(this.release.releaseId, this.stage.id, { na: nextNa, actor }).subscribe({
+      next: () => {
+        this.resetTransientRowState();
+        this.stageNaPending.set(false);
+        this.refresh.emit();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.stageNaPending.set(false);
+        this.stageError.set(err?.error?.error ?? err?.message ?? 'Failed to update stage');
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
   visibleSubSteps(): SubStep[] {
     return visibleSubStepsForRelease(this.stage, this.release);
   }
@@ -400,7 +579,7 @@ export class StageViewComponent implements OnChanges {
   runAllChecks(): void {
     if (this.runningAll()) return;
     this.runningAll.set(true);
-    this.error.set(null);
+    this.stageError.set(null);
     this.api.runChecks(this.release.releaseId, this.stage.id).subscribe({
       next: () => {
         this.runningAll.set(false);
@@ -409,7 +588,7 @@ export class StageViewComponent implements OnChanges {
       },
       error: (err) => {
         this.runningAll.set(false);
-        this.error.set(err?.error?.error ?? err?.message ?? 'Failed to run checks');
+        this.stageError.set(err?.error?.error ?? err?.message ?? 'Failed to run checks');
         this.cdr.detectChanges();
       },
     });

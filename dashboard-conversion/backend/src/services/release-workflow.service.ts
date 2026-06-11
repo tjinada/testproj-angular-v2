@@ -1,4 +1,6 @@
 import artifactoryService from './artifactory.service';
+import cacheSyncService, { CACHE_TOPIC } from './cache-sync.service';
+import techGovernanceReleasesIntakeService from './tech-governance-releases-intake.service';
 import {
   cloneStageTemplate,
   STAGE_TEMPLATE,
@@ -6,6 +8,7 @@ import {
   StageRunnerMap,
   stagesUsingField,
 } from './release-workflow.loader';
+import { parseConfluencePageIdFromUrl } from './release-workflow.runners';
 import {
   Release,
   ReleaseComponents,
@@ -20,20 +23,24 @@ import {
 } from '../models/release-workflow.model';
 
 class ReleaseWorkflowService {
-  private readonly dataFilePath = '/release_workflow_data.json';
+  private readonly retrofitPleaseReleaseStageId = 'stage3-retrofit-please-release';
+  private readonly dataFileName = 'release_workflow_data.json';
 
   releases: ReleaseWorkflowData = {};
 
   constructor() {
     this.initialize();
+    cacheSyncService.register(CACHE_TOPIC.RELEASE_WORKFLOW, () => this.initialize());
   }
 
   async initialize(): Promise<void> {
     try {
-      const data = await artifactoryService.getFileContent(this.dataFilePath);
+      const data = await artifactoryService.getFileContent(this.dataFileName);
       this.releases = { ...data };
+      this.normalizeLegacyReleaseTypes();
     } catch (error) {
       console.log('No existing release_workflow_data found in artifactory');
+      // Expected error when file doesn't exist
     }
 
     // Reconcile every existing release against the current STAGE_TEMPLATE.
@@ -41,7 +48,8 @@ class ReleaseWorkflowService {
   }
 
   private async save(): Promise<void> {
-    await artifactoryService.saveFileContent(this.dataFilePath, this.releases);
+    await artifactoryService.saveFileContent(this.dataFileName, this.releases);
+    cacheSyncService.notifyPeers(CACHE_TOPIC.RELEASE_WORKFLOW);
   }
 
   /** Returns the cached releases keyed by releaseId. */
@@ -54,6 +62,20 @@ class ReleaseWorkflowService {
     return this.releases[releaseId];
   }
 
+  private assertBundleReleaseCanSkip(release: Release, stage: Stage, action: 'sub-step' | 'stage'): void {
+    if (stage.id === this.retrofitPleaseReleaseStageId) return;
+    if (release.type !== 'bundle') return;
+    throw new Error(`Bundle releases cannot be skipped at the ${action} level`);
+  }
+
+  private normalizeLegacyReleaseTypes(): void {
+    for (const release of Object.values(this.releases)) {
+      if ((release.type as string) === 'EQF/hotfix') {
+        release.type = 'hotfix';
+      }
+    }
+  }
+
   // ----- create -----
 
   /**
@@ -63,12 +85,24 @@ class ReleaseWorkflowService {
     releaseId: string;
     title: string;
     type: ReleaseType;
-    sheriff: string;
-    backupSheriff?: string | null;
+    uiSheriff?: string | null;
+    uiBackupSheriff?: string | null;
+    bosSheriff?: string | null;
+    bosBackupSheriff?: string | null;
     releaseComponents?: Partial<ReleaseComponents>;
     metadata?: Partial<ReleaseMetadata>;
   }): Promise<Release> {
-    const { releaseId, title, type, sheriff, backupSheriff, releaseComponents, metadata } = input;
+    const {
+      releaseId,
+      title,
+      type,
+      uiSheriff,
+      uiBackupSheriff,
+      bosSheriff,
+      bosBackupSheriff,
+      releaseComponents,
+      metadata,
+    } = input;
 
     if (!releaseId || typeof releaseId !== 'string') {
       throw new Error('releaseId is required');
@@ -78,15 +112,25 @@ class ReleaseWorkflowService {
     }
 
     const now = new Date().toISOString();
+    const normalizedReleaseComponents = normalizeReleaseComponents(releaseComponents);
+    const sheriffFields = buildSheriffAssignments({
+      releaseComponents: normalizedReleaseComponents,
+      uiSheriff,
+      uiBackupSheriff,
+      bosSheriff,
+      bosBackupSheriff,
+    });
 
     const release: Release = {
       releaseId,
       title,
       type,
       status: 'in_progress',   // newly-created releases open in-progress on Stage 1
-      sheriff,
-      backupSheriff: normalizeOptionalSheriff(backupSheriff),
-      releaseComponents: normalizeReleaseComponents(releaseComponents),
+      uiSheriff: sheriffFields.uiSheriff,
+      uiBackupSheriff: sheriffFields.uiBackupSheriff,
+      bosSheriff: sheriffFields.bosSheriff,
+      bosBackupSheriff: sheriffFields.bosBackupSheriff,
+      releaseComponents: normalizedReleaseComponents,
       createdAt: now,
       updatedAt: now,
       metadata: this.buildMetadata(metadata),
@@ -103,15 +147,26 @@ class ReleaseWorkflowService {
 
     this.releases[releaseId] = release;
     await this.save();
+
+    // Create a corresponding release in the tech governance source.
+    try {
+      await techGovernanceReleasesIntakeService.addEmptyRelease(releaseId);
+    } catch (err: any) {
+      console.error(
+        `[release-workflow] Failed to create tech governance entry for '${releaseId}':`,
+        err?.message ?? err,
+      );
+    }
+
     return release;
   }
 
   /**
-   * Update top-level release metadata (title, sheriff, dates, etc).
+   * Update top-level release metadata (title, component sheriffs, dates, etc).
    */
   async update(
     releaseId: string,
-    patch: Partial<Pick<Release, 'title' | 'sheriff' | 'backupSheriff' | 'metadata' | 'status'>> & {
+    patch: Partial<Pick<Release, 'title' | 'uiSheriff' | 'uiBackupSheriff' | 'bosSheriff' | 'bosBackupSheriff' | 'metadata' | 'status'>> & {
       releaseComponents?: Partial<ReleaseComponents>;
     },
   ): Promise<Release> {
@@ -120,21 +175,30 @@ class ReleaseWorkflowService {
       throw new Error(`Release '${releaseId}' not found`);
     }
 
+    const normalizedReleaseComponents = patch.releaseComponents
+      ? normalizeReleaseComponents({
+          ...normalizeReleaseComponents(existing.releaseComponents),
+          ...patch.releaseComponents,
+        })
+      : normalizeReleaseComponents(existing.releaseComponents);
+    const sheriffFields = buildSheriffAssignments({
+      releaseComponents: normalizedReleaseComponents,
+      uiSheriff: patch.uiSheriff,
+      uiBackupSheriff: patch.uiBackupSheriff,
+      bosSheriff: patch.bosSheriff,
+      bosBackupSheriff: patch.bosBackupSheriff,
+      existing,
+    });
+
     const updated: Release = {
       ...existing,
       title: patch.title ?? existing.title,
-      sheriff: patch.sheriff ?? existing.sheriff,
-      backupSheriff:
-        patch.backupSheriff !== undefined
-          ? normalizeOptionalSheriff(patch.backupSheriff)
-          : normalizeOptionalSheriff(existing.backupSheriff),
+      uiSheriff: sheriffFields.uiSheriff,
+      uiBackupSheriff: sheriffFields.uiBackupSheriff,
+      bosSheriff: sheriffFields.bosSheriff,
+      bosBackupSheriff: sheriffFields.bosBackupSheriff,
       status: patch.status ?? existing.status,
-      releaseComponents: patch.releaseComponents
-        ? normalizeReleaseComponents({
-            ...normalizeReleaseComponents(existing.releaseComponents),
-            ...patch.releaseComponents,
-          })
-        : normalizeReleaseComponents(existing.releaseComponents),
+      releaseComponents: normalizedReleaseComponents,
       metadata: patch.metadata ? { ...existing.metadata, ...patch.metadata } : existing.metadata,
       updatedAt: new Date().toISOString(),
     };
@@ -162,6 +226,10 @@ class ReleaseWorkflowService {
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
 
+    if (patch.state === 'n_a') {
+      this.assertBundleReleaseCanSkip(release, stage, 'sub-step');
+    }
+
     const subStep = stage.subSteps.find((s) => s.id === subStepId);
     if (!subStep) throw new Error(`Sub-step '${subStepId}' not found in stage '${stageId}'`);
 
@@ -176,6 +244,86 @@ class ReleaseWorkflowService {
     release.updatedAt = now;
     await this.save();
     return subStep;
+  }
+
+  async setStageNa(
+    releaseId: string,
+    stageId: string,
+    na: boolean,
+    actor?: string,
+  ): Promise<Stage> {
+    const release = this.releases[releaseId];
+    if (!release) throw new Error(`Release '${releaseId}' not found`);
+
+    const stage = release.stages.find((s) => s.id === stageId);
+    if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
+    if (na) {
+      this.assertBundleReleaseCanSkip(release, stage, 'stage');
+    }
+    if (stage.status === 'complete') {
+      throw new Error(`Completed stage '${stageId}' cannot be updated with stage-level N/A`);
+    }
+
+    const applicableSubSteps = this.applicableSubSteps(release, stage);
+    const now = new Date().toISOString();
+    const editableFieldsToClear = new Set<string>();
+    const linkedCheckIdsToReset = new Set<string>();
+
+    for (const subStep of applicableSubSteps) {
+      if (na) {
+        subStep.state = 'n_a';
+        subStep.source = 'manual';
+        subStep.completedAt = now;
+        subStep.completedBy = actor ?? 'unknown';
+      } else {
+        subStep.state = 'unchecked';
+        subStep.source = null;
+        subStep.completedAt = null;
+        subStep.completedBy = null;
+        if (subStep.editableField) {
+          editableFieldsToClear.add(subStep.editableField);
+        }
+        for (const checkId of subStep.autoTickedBy) {
+          linkedCheckIdsToReset.add(checkId);
+        }
+      }
+    }
+
+    if (!na) {
+      for (const field of editableFieldsToClear) {
+        this.setMetadataFieldValue(release, field, null);
+      }
+      for (const check of stage.automatedChecks) {
+        if (!linkedCheckIdsToReset.has(check.id)) continue;
+        check.status = 'pending';
+        check.lastRunAt = null;
+        check.result = null;
+        check.errorMessage = null;
+      }
+    }
+
+    this.recomputeStatuses(release);
+
+    release.updatedAt = now;
+    await this.save();
+    return stage;
+  }
+
+  private setMetadataFieldValue(release: Release, field: string, value: string | null): void {
+    if (field.startsWith('branches.')) {
+      const branchKey = field.slice('branches.'.length) as keyof ReleaseMetadata['branches'];
+      if (!(branchKey in release.metadata.branches)) {
+        throw new Error(`Unknown branches field: ${field}`);
+      }
+      release.metadata.branches[branchKey] = value;
+      return;
+    }
+
+    if (!(field in release.metadata) || field === 'branches') {
+      throw new Error(`Unknown metadata field: ${field}`);
+    }
+
+    (release.metadata as any)[field] = value;
   }
 
   /**
@@ -312,17 +460,23 @@ class ReleaseWorkflowService {
       preProdDate: input?.preProdDate ?? null,
       prodDate: input?.prodDate ?? null,
       jiraTracker: input?.jiraTracker ?? null,
-      intakePageId: input?.intakePageId ?? null,
+      intakePageUrl: input?.intakePageUrl ?? null,
       intakeSheetUrl: input?.intakeSheetUrl ?? null,
       confluencePageId: input?.confluencePageId ?? null,
       fixVersion: input?.fixVersion ?? null,
       envMatrixPrUrl: input?.envMatrixPrUrl ?? null,
       cdbUiConfigJiraUrl: input?.cdbUiConfigJiraUrl ?? null,
+      cdbUiSwaggerBranchUrl: input?.cdbUiSwaggerBranchUrl ?? null,
       sealightsDisablePrUrl: input?.sealightsDisablePrUrl ?? null,
       preProdLetterUrl: input?.preProdLetterUrl ?? null,
       prodLetterUrl: input?.prodLetterUrl ?? null,
+      retrofitPleaseCdbUiPrUrl: input?.retrofitPleaseCdbUiPrUrl ?? null,
+      retrofitPleaseCdbUiConfigPrUrl: input?.retrofitPleaseCdbUiConfigPrUrl ?? null,
+      retrofitPleaseCdbbosPrUrl: input?.retrofitPleaseCdbbosPrUrl ?? null,
+      retrofitPleaseCdbbosConfigPrUrl: input?.retrofitPleaseCdbbosConfigPrUrl ?? null,
       retrofitCdbUiPrUrl: input?.retrofitCdbUiPrUrl ?? null,
       retrofitCdbConfigsPrUrl: input?.retrofitCdbConfigsPrUrl ?? null,
+      retrofitCdbUiSwaggerPrUrl: input?.retrofitCdbUiSwaggerPrUrl ?? null,
       retrofitFreddyPrUrl: input?.retrofitFreddyPrUrl ?? null,
       tagCdbUiUrl: input?.tagCdbUiUrl ?? null,
       tagCdbConfigsUrl: input?.tagCdbConfigsUrl ?? null,
@@ -333,6 +487,7 @@ class ReleaseWorkflowService {
       cdbbosJiraUrl: input?.cdbbosJiraUrl ?? null,
       retrofitCdbbosPrUrl: input?.retrofitCdbbosPrUrl ?? null,
       retrofitCdbbosConfigPrUrl: input?.retrofitCdbbosConfigPrUrl ?? null,
+      retrofitCdbbosSwaggerPrUrl: input?.retrofitCdbbosSwaggerPrUrl ?? null,
       tagCdbbosUrl: input?.tagCdbbosUrl ?? null,
       tagCdbbosConfigUrl: input?.tagCdbbosConfigUrl ?? null,
       dependencyJarBranchUrls: input?.dependencyJarBranchUrls ?? null,
@@ -358,6 +513,27 @@ class ReleaseWorkflowService {
   ): Promise<Release> {
     const release = this.releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
+
+    // Update intakePageUrl to the corresponding tech-governance intake list.
+    let intakePageIdToUpdate: string | null = null;
+    if (Object.prototype.hasOwnProperty.call(patch, 'intakePageUrl')) {
+      const raw = patch['intakePageUrl'];
+      const value = raw === '' ? null : raw;
+      if (value !== null && value !== release.metadata.intakePageUrl) {
+        const parsedPageId = parseConfluencePageIdFromUrl(value);
+        if (!parsedPageId) {
+          throw new Error(`Could not parse a Confluence page ID from URL: ${value}`);
+        }
+        try {
+          await techGovernanceReleasesIntakeService.fetchConfluenceChildPagesDetails(parsedPageId);
+        } catch (err: any) {
+          throw new Error(
+            `Intake Confluence page '${parsedPageId}' does not exist or could not be fetched: ${err?.message ?? err}`,
+          );
+        }
+        intakePageIdToUpdate = parsedPageId;
+      }
+    }
 
     const changedFields: string[] = [];
 
@@ -392,6 +568,24 @@ class ReleaseWorkflowService {
     // leaves the field saved.
     release.updatedAt = new Date().toISOString();
     await this.save();
+
+    // If the intakePageUrl changed, propagate it to the corresponding tech governance entry.
+    if (intakePageIdToUpdate) {
+      try {
+        if (!techGovernanceReleasesIntakeService.exists(releaseId)) {
+          await techGovernanceReleasesIntakeService.addEmptyRelease(releaseId);
+        }
+        await techGovernanceReleasesIntakeService.setIntakePageId(
+          releaseId,
+          intakePageIdToUpdate, // already the extracted page ID
+        );
+      } catch (err: any) {
+        console.error(
+          `[release-workflow] Failed to sync intakePageUrl to tech governance for '${releaseId}':`,
+          err?.message ?? err,
+        );
+      }
+    }
 
     // Re-run checks for every stage that uses any changed field, but only
     // for stages that aren't locked. runChecks() persists internally on
@@ -502,6 +696,9 @@ class ReleaseWorkflowService {
       return 'skipped';
     }
 
+    const allNa = applicableSubSteps.every((s) => s.state === 'n_a');
+    if (allNa) return 'skipped';
+
     const allDone = applicableSubSteps.every(
       (s) => s.state === 'checked' || s.state === 'n_a',
     );
@@ -571,14 +768,35 @@ class ReleaseWorkflowService {
   private reconcileRelease(release: Release): string[] {
     const changes: string[] = [];
 
-    const beforeBackupSheriff = release.backupSheriff ?? null;
-    release.backupSheriff = normalizeOptionalSheriff(release.backupSheriff);
-    if (beforeBackupSheriff !== release.backupSheriff) {
-      changes.push('backfilled backup sheriff to match current model shape');
+    const beforeSheriffFields = JSON.stringify({
+      uiSheriff: release.uiSheriff ?? null,
+      uiBackupSheriff: release.uiBackupSheriff ?? null,
+      bosSheriff: release.bosSheriff ?? null,
+      bosBackupSheriff: release.bosBackupSheriff ?? null,
+    });
+    const normalizedReleaseComponents = normalizeReleaseComponents(release.releaseComponents);
+    const reconciledSheriffFields = buildSheriffAssignments({
+      releaseComponents: normalizedReleaseComponents,
+      uiSheriff: release.uiSheriff,
+      uiBackupSheriff: release.uiBackupSheriff,
+      bosSheriff: release.bosSheriff,
+      bosBackupSheriff: release.bosBackupSheriff,
+    });
+    release.uiSheriff = reconciledSheriffFields.uiSheriff;
+    release.uiBackupSheriff = reconciledSheriffFields.uiBackupSheriff;
+    release.bosSheriff = reconciledSheriffFields.bosSheriff;
+    release.bosBackupSheriff = reconciledSheriffFields.bosBackupSheriff;
+    if (beforeSheriffFields !== JSON.stringify({
+      uiSheriff: release.uiSheriff ?? null,
+      uiBackupSheriff: release.uiBackupSheriff ?? null,
+      bosSheriff: release.bosSheriff ?? null,
+      bosBackupSheriff: release.bosBackupSheriff ?? null,
+    })) {
+      changes.push('backfilled component assignments to match current model shape');
     }
 
     const beforeReleaseComponents = JSON.stringify(release.releaseComponents ?? null);
-    release.releaseComponents = normalizeReleaseComponents(release.releaseComponents);
+    release.releaseComponents = normalizedReleaseComponents;
     if (beforeReleaseComponents !== JSON.stringify(release.releaseComponents)) {
       changes.push('backfilled release components to match current model shape');
     }
@@ -744,4 +962,74 @@ function normalizeOptionalSheriff(value: string | null | undefined): string | nu
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveSheriffField(
+  explicitValue: string | null | undefined,
+  existingValue: string | null | undefined,
+  enabled: boolean,
+  fallbackValue: string | null,
+): string | null {
+  if (explicitValue !== undefined) {
+    return normalizeOptionalSheriff(explicitValue);
+  }
+
+  const normalizedExisting = normalizeOptionalSheriff(existingValue);
+  if (normalizedExisting) {
+    return normalizedExisting;
+  }
+
+  return enabled ? fallbackValue : null;
+}
+
+function firstPresent(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    const normalized = normalizeOptionalSheriff(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function buildSheriffAssignments(input: {
+  releaseComponents: ReleaseComponents;
+  uiSheriff?: string | null;
+  uiBackupSheriff?: string | null;
+  bosSheriff?: string | null;
+  bosBackupSheriff?: string | null;
+  existing?: Release;
+}): Pick<Release, 'uiSheriff' | 'uiBackupSheriff' | 'bosSheriff' | 'bosBackupSheriff'> {
+  const uiSheriff = resolveSheriffField(
+    input.uiSheriff,
+    input.existing?.uiSheriff,
+    input.releaseComponents.cdbui,
+    null,
+  );
+  const uiBackupSheriff = resolveSheriffField(
+    input.uiBackupSheriff,
+    input.existing?.uiBackupSheriff,
+    input.releaseComponents.cdbui,
+    null,
+  );
+  const bosSheriff = resolveSheriffField(
+    input.bosSheriff,
+    input.existing?.bosSheriff,
+    input.releaseComponents.cdbbos,
+    null,
+  );
+  const bosBackupSheriff = resolveSheriffField(
+    input.bosBackupSheriff,
+    input.existing?.bosBackupSheriff,
+    input.releaseComponents.cdbbos,
+    null,
+  );
+
+  return {
+    uiSheriff,
+    uiBackupSheriff,
+    bosSheriff,
+    bosBackupSheriff,
+  };
 }

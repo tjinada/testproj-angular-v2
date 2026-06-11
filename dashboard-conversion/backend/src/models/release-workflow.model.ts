@@ -56,8 +56,8 @@ export interface Override {
 // ===== stage =====
 
 export interface Stage {
-  id: string;                    //ex: "stage4-mobile-build"
-  displayOrder: number;          // 1-10
+  id: string;                    //ex: "stage5-mobile-build"
+  displayOrder: number;          // 1-11
   name: string;                  // without "Stage N — " prefix
   kind: StageKind;
   status: StageStatus;
@@ -77,17 +77,23 @@ export interface ReleaseMetadata {
   preProdDate: string | null;
   prodDate: string | null;
   jiraTracker: string | null;
-  intakePageId: string | null;
+  intakePageUrl: string | null;
   intakeSheetUrl: string | null;
   confluencePageId: string | null;
   fixVersion: string | null;
   envMatrixPrUrl: string | null;
   cdbUiConfigJiraUrl: string | null;
+  cdbUiSwaggerBranchUrl: string | null;
   sealightsDisablePrUrl: string | null; 
   preProdLetterUrl: string | null;
   prodLetterUrl: string | null;
+  retrofitPleaseCdbUiPrUrl: string | null;
+  retrofitPleaseCdbUiConfigPrUrl: string | null;
+  retrofitPleaseCdbbosPrUrl: string | null;
+  retrofitPleaseCdbbosConfigPrUrl: string | null;
   retrofitCdbUiPrUrl: string | null;
   retrofitCdbConfigsPrUrl: string | null;
+  retrofitCdbUiSwaggerPrUrl: string | null;
   retrofitFreddyPrUrl: string | null;
   tagCdbUiUrl: string | null;
   tagCdbConfigsUrl: string | null;
@@ -98,6 +104,7 @@ export interface ReleaseMetadata {
   cdbbosJiraUrl: string | null;
   retrofitCdbbosPrUrl: string | null;
   retrofitCdbbosConfigPrUrl: string | null;
+  retrofitCdbbosSwaggerPrUrl: string | null;
   tagCdbbosUrl: string | null;
   tagCdbbosConfigUrl: string | null;
   dependencyJarBranchUrls: string | null;
@@ -116,13 +123,15 @@ export interface Release {
   title: string;
   type: ReleaseType;
   status: ReleaseStatus;
-  sheriff: string;
-  backupSheriff: string | null;
+  uiSheriff: string | null;
+  uiBackupSheriff: string | null;
+  bosSheriff: string | null;
+  bosBackupSheriff: string | null;
   releaseComponents: ReleaseComponents;
   createdAt: string;
   updatedAt: string;
   metadata: ReleaseMetadata;
-  stages: Stage[];               // always 10 entries, ordered by displayOrder
+  stages: Stage[];               // always 11 entries, ordered by displayOrder
 }
 
 export type ReleaseWorkflowData = Record<string, Release>;
