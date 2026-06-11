@@ -145,11 +145,7 @@ function parseUrl(url: string): { host: string; path: string } {
   return { host, path: urlPath };
 }
 
-function buildUrlSearchQuery(host: string, urlPath: string, timeframe?: Timeframe, hostExact: boolean = false): string {
-  const timeframeClause = timeframe && timeframe.from && timeframe.to
-    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
-    : 'from: -120m';
-
+function buildUrlSearchFilters(host: string, urlPath: string, hostExact: boolean = false): string[] {
   const filters: string[] = [];
   if (urlPath) {
     filters.push(`| filter contains(lower(url.path), lower("${urlPath}"))`);
@@ -161,10 +157,47 @@ function buildUrlSearchQuery(host: string, urlPath: string, timeframe?: Timefram
       filters.push(`| filter contains(lower(server.address), lower("${host}"))`);
     }
   }
+  return filters;
+}
+
+/**
+ * Normalizes a user-supplied client IPv4 address to its Dynatrace-masked
+ * form. Dynatrace's ID masking zeroes the last octet of captured client
+ * IPs (e.g. 24.157.71.45 is stored as 24.157.71.0), so searches must use
+ * the masked value. Idempotent for already-masked input.
+ */
+export function normalizeClientIp(input: string): string {
+  const trimmed = (input || '').trim();
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(trimmed);
+  if (!match) {
+    throw new Error('Invalid client IP. Enter an IPv4 address like 24.157.71.45.');
+  }
+  return `${match[1]}.${match[2]}.${match[3]}.0`;
+}
+
+/**
+ * Filter on the CDB ClientIP request attribute. Mirrors the filter the
+ * Dynatrace Distributed Tracing UI generates for this attribute: the
+ * attribute may be stored as a string or an ip type, scalar or array,
+ * so all four shapes are OR'd together.
+ */
+function buildClientIpFilter(maskedIp: string): string {
+  const field = '`request_attribute.ReqAttr.CDB.ClientIP`';
+  return `| filter (${field} == "${maskedIp}"`
+    + ` or iAny(matchesValue(toArray(${field})[], "${maskedIp}"))`
+    + ` or ${field} == toIp("${maskedIp}")`
+    + ` or iAny(toArray(${field})[] == toIp("${maskedIp}")))`;
+}
+
+/** Shared trace-match query shape: applies the given filter lines, then summarizes spans into one row per trace. */
+function buildTraceMatchQuery(filterLines: string[], timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
 
   return [
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
-    ...filters,
+    ...filterLines,
     `| fieldsAdd _kindRank = if(span.kind == "server", 0, else: 1)`,
     `| sort _kindRank asc`,
     `| summarize {`,
@@ -321,6 +354,82 @@ function loadMockResponse(): DynatracePollResponse {
   return JSON.parse(content);
 }
 
+function loadMockTraceMatches(): TraceMatch[] {
+  const mock = loadMockResponse();
+  const first = (mock.result?.records || [])[0];
+  if (!first) return [];
+  return [{
+    traceId: (first['trace.id'] as string) || '',
+    startTime: (first['start_time'] as string) || '',
+    endpoint: (first['endpoint.name'] as string) || '',
+    service: (first['dt.service.name'] as string) || '',
+    serverAddress: (first['server.address'] as string) || '',
+    httpStatus: String(first['http.response.status_code'] || ''),
+    isFailed: first['request.is_failed'] === true,
+    hasExceptions: false,
+    exceptionCount: 0,
+    duration: Number(first['duration']) || 0
+  }];
+}
+
+/**
+ * Runs a trace-match search: executes the shared summarize-by-trace query
+ * with the given filter lines, maps records to TraceMatch, then runs the
+ * second-pass exception check across all spans in the matched traces.
+ * Shared by URL search and Client IP search (single source of truth).
+ */
+async function runTraceMatchSearch(
+  config: ResolvedEnvConfig,
+  filterLines: string[],
+  timeframe?: Timeframe
+): Promise<TraceMatch[]> {
+  const query = buildTraceMatchQuery(filterLines, timeframe);
+  const requestToken = await executeQuery(config, query);
+  const result = await pollForResults(config, requestToken);
+  const records = result.result?.records || [];
+
+  const results: TraceMatch[] = records.map(r => ({
+    traceId: (r['trace.id'] as string) || '',
+    startTime: (r['startTime'] as string) || '',
+    endpoint: (r['endpoint'] as string) || '',
+    service: (r['service'] as string) || '',
+    serverAddress: (r['serverAddress'] as string) || '',
+    httpStatus: String(r['httpStatus'] || ''),
+    isFailed: r['isFailed'] === true,
+    hasExceptions: false,
+    exceptionCount: 0,
+    duration: Number(r['duration']) || 0
+  }));
+
+  // Second-pass: check for exceptions across ALL spans in the matched
+  // trace IDs. The trace-match query only sees spans matching the search
+  // filters, so exceptions on downstream/internal spans get missed.
+  if (results.length > 0) {
+    try {
+      const traceIds = results.map(r => r.traceId);
+      const exQuery = buildExceptionCheckQuery(traceIds, timeframe);
+      const exToken = await executeQuery(config, exQuery);
+      const exResult = await pollForResults(config, exToken);
+      const exRecords = exResult.result?.records || [];
+      const exMap = new Map(exRecords.map(r => [r['trace.id'], Number(r['exceptionCount']) || 0]));
+      for (const r of results) {
+        const count = exMap.get(r.traceId);
+        if (count && count > 0) {
+          r.hasExceptions = true;
+          r.exceptionCount = count;
+        }
+      }
+    } catch (err: unknown) {
+      // Non-fatal: if the exception check fails, results still show
+      // without exception badges rather than failing the whole search.
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('Exception check query failed:', msg);
+    }
+  }
+
+  return results;
+}
+
 // ── Public API ───────────────────────────────────────────────────────
 
 export async function findTraceIdByRequestId(
@@ -367,22 +476,7 @@ export async function searchTracesByUrl(
   userToken: string | null = null
 ): Promise<TraceMatch[]> {
   if (process.env.USE_MOCK === 'true') {
-    const mock = loadMockResponse();
-    const records = mock.result?.records || [];
-    const first = records[0];
-    if (!first) return [];
-    return [{
-      traceId: (first['trace.id'] as string) || '',
-      startTime: (first['start_time'] as string) || '',
-      endpoint: (first['endpoint.name'] as string) || '',
-      service: (first['dt.service.name'] as string) || '',
-      serverAddress: (first['server.address'] as string) || '',
-      httpStatus: String(first['http.response.status_code'] || ''),
-      isFailed: first['request.is_failed'] === true,
-      hasExceptions: false,
-      exceptionCount: 0,
-      duration: Number(first['duration']) || 0
-    }];
+    return loadMockTraceMatches();
   }
 
   const { host, path: urlPath } = parseUrl(url);
@@ -391,51 +485,23 @@ export async function searchTracesByUrl(
   }
 
   const config = getEnvConfig(environment, userToken);
-  const query = buildUrlSearchQuery(host, urlPath, timeframe, hostExact);
-  const requestToken = await executeQuery(config, query);
-  const result = await pollForResults(config, requestToken);
-  const records = result.result?.records || [];
+  return runTraceMatchSearch(config, buildUrlSearchFilters(host, urlPath, hostExact), timeframe);
+}
 
-  const results: TraceMatch[] = records.map(r => ({
-    traceId: (r['trace.id'] as string) || '',
-    startTime: (r['startTime'] as string) || '',
-    endpoint: (r['endpoint'] as string) || '',
-    service: (r['service'] as string) || '',
-    serverAddress: (r['serverAddress'] as string) || '',
-    httpStatus: String(r['httpStatus'] || ''),
-    isFailed: r['isFailed'] === true,
-    hasExceptions: false,
-    exceptionCount: 0,
-    duration: Number(r['duration']) || 0
-  }));
+export async function searchTracesByClientIp(
+  clientIp: string,
+  environment: string,
+  timeframe?: Timeframe,
+  userToken: string | null = null
+): Promise<TraceMatch[]> {
+  const maskedIp = normalizeClientIp(clientIp);
 
-  // Second-pass: check for exceptions across ALL spans in the matched
-  // trace IDs. The URL search query only sees spans matching the URL
-  // filters, so exceptions on downstream/internal spans get missed.
-  if (results.length > 0) {
-    try {
-      const traceIds = results.map(r => r.traceId);
-      const exQuery = buildExceptionCheckQuery(traceIds, timeframe);
-      const exToken = await executeQuery(config, exQuery);
-      const exResult = await pollForResults(config, exToken);
-      const exRecords = exResult.result?.records || [];
-      const exMap = new Map(exRecords.map(r => [r['trace.id'], Number(r['exceptionCount']) || 0]));
-      for (const r of results) {
-        const count = exMap.get(r.traceId);
-        if (count && count > 0) {
-          r.hasExceptions = true;
-          r.exceptionCount = count;
-        }
-      }
-    } catch (err: unknown) {
-      // Non-fatal: if the exception check fails, results still show
-      // without exception badges rather than failing the whole search.
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn('Exception check query failed:', msg);
-    }
+  if (process.env.USE_MOCK === 'true') {
+    return loadMockTraceMatches();
   }
 
-  return results;
+  const config = getEnvConfig(environment, userToken);
+  return runTraceMatchSearch(config, [buildClientIpFilter(maskedIp)], timeframe);
 }
 
 export async function fetchSessionEvents(

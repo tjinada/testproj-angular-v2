@@ -11,7 +11,7 @@ import { AkamaiFlowComponent } from './components/akamai-flow/akamai-flow.compon
 import { UrlTraceComponent } from './components/url-trace/url-trace.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
-import { SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
+import { SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
 type TabId = 'trace' | 'opensearch' | 'urlTrace' | 'akamai';
 
@@ -50,7 +50,7 @@ export class ErrorAnalyzerComponent implements OnInit {
   // Session search state
   sessionEvents: UserEventRecord[] = [];
   tracesFromSessionUrl: string | null = null;
-  lastSearchMode: 'trace' | 'request' | 'url' | 'session' | null = null;
+  lastSearchMode: SearchMode | null = null;
 
   constructor(
     private dynatraceService: DynatraceService,
@@ -148,6 +148,27 @@ export class ErrorAnalyzerComponent implements OnInit {
         },
         error: (err) => {
           this.errorMsg = err.error?.error || 'Failed to search by URL. Please try again.';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+      return;
+    }
+
+    if (event.mode === 'clientIp') {
+      this.lastUrlSearchTimeframe = event.timeframe;
+      this.dynatraceService.searchByClientIp(event.value, this.environment, event.timeframe).subscribe({
+        next: (response) => {
+          this.urlSearchResults = response.results || [];
+          this.urlSearchLimitReached = this.urlSearchResults.length >= 100;
+          if (this.urlSearchResults.length === 0) {
+            this.errorMsg = 'No traces found for that client IP in the selected time window.';
+          }
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.errorMsg = err.error?.error || 'Failed to search by client IP. Please try again.';
           this.isLoading = false;
           this.cdr.detectChanges();
         }

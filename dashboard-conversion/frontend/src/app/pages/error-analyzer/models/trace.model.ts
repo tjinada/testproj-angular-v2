@@ -1,5 +1,5 @@
-/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), by full URL, or by RUM session ID */
-export type SearchMode = 'trace' | 'request' | 'url' | 'session';
+/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), by full URL, by RUM session ID, or by client IP request attribute */
+export type SearchMode = 'trace' | 'request' | 'url' | 'session' | 'clientIp';
 
 /** A single trace match returned by a search (URL, hotspot, service, etc.) */
 export interface TraceMatch {

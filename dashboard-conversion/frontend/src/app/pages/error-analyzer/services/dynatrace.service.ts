@@ -85,6 +85,15 @@ export class DynatraceService {
     });
   }
 
+  searchByClientIp(clientIp: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<UrlSearchResponse> {
+    return this.http.post<UrlSearchResponse>(`${this.apiUrl}/search-by-client-ip`, {
+      clientIp,
+      environment,
+      timeframe,
+      userToken: this.getUserToken(environment)
+    });
+  }
+
   fetchSession(sessionId: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<SessionResponse> {
     return this.http.post<SessionResponse>(`${this.apiUrl}/session/${sessionId}`, {
       environment,

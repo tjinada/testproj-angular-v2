@@ -113,6 +113,16 @@
         </div>
       </div>
     </details>
+    <details class="search-guide-item" [attr.open]="hasSearched ? null : ''">
+      <summary class="search-guide-summary">Client IP search</summary>
+      <div class="search-guide-body">
+        <ol class="search-guide-steps">
+          <li>Enter the user's <strong>client IPv4 address</strong> (e.g. <code>24.157.71.45</code>).</li>
+          <li>Dynatrace masks the last octet of client IPs, so the search automatically zeroes it (e.g. <code>24.157.71.0</code>). All requests from that /24 range are returned.</li>
+          <li>From the results table, select the most relevant trace ID (based on your timestamp) to see the details.</li>
+        </ol>
+      </div>
+    </details>
   </details>
 
   <div *ngIf="previewImageSrc" class="search-guide-modal" (click)="closePreview()" role="dialog" aria-label="Image preview">

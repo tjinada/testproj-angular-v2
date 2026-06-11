@@ -3,6 +3,8 @@ import {
   fetchTraceById,
   findTraceIdByRequestId,
   searchTracesByUrl,
+  searchTracesByClientIp,
+  normalizeClientIp,
   fetchSessionEvents
 } from '../services/dynatrace.service';
 
@@ -123,6 +125,37 @@ router.post('/traces/search-by-url', async (req: Request, res: Response) => {
     res.json({ results });
   } catch (error: any) {
     console.error(`[Dynatrace] Error searching by URL ${url}:`, error.message);
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/error-analyzer/traces/search-by-client-ip
+ */
+router.post('/traces/search-by-client-ip', async (req: Request, res: Response) => {
+  const { clientIp, environment = 'NON-PROD', timeframe, userToken } = req.body;
+
+  if (!clientIp) {
+    return res.status(400).json({ error: 'Client IP is required' });
+  }
+
+  let maskedIp: string;
+  try {
+    maskedIp = normalizeClientIp(clientIp);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  try {
+    const results = await searchTracesByClientIp(maskedIp, environment, timeframe, userToken);
+    res.json({ results });
+  } catch (error: any) {
+    console.error(`[Dynatrace] Error searching by client IP ${maskedIp}:`, error.message);
     if (error.response?.data) {
       console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
     }
