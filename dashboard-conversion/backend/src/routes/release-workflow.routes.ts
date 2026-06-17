@@ -127,8 +127,7 @@ router.get('/', requireAuth, async (_req: Request, res: Response) => {
 
 // ----- GET /api/release-workflow/:releaseId -----
 
-router.get('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
-  try {
+router.get('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {  try {
     const { releaseId } = req.params;
     const release = await releaseWorkflowService.getById(releaseId);
     if (!release) return notFound(res, `Release '${releaseId}' not found`);

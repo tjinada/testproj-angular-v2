@@ -3,9 +3,8 @@ import config from '../config';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import fs from 'fs';
 import path from 'path';
-import cacheSyncService from './cache-sync.service';
-
 class ArtifactoryService {
+  private static readonly DEPLOYMENT_DETAILS_PATH = '/cdb-Snapshots/CDB_Deployment_Details';
   private client: AxiosInstance;
 
   constructor() {
@@ -19,7 +18,6 @@ class ArtifactoryService {
     });
 
     this.initializeSaaSProxySetupScript();
-    cacheSyncService.register('saas-proxy-setup', () => this.initializeSaaSProxySetupScript());
   }
 
   async initializeSaaSProxySetupScript() {
@@ -33,19 +31,20 @@ class ArtifactoryService {
     }
   }
 
+  private buildDeploymentPath(path: string): string {
+    return `${ArtifactoryService.DEPLOYMENT_DETAILS_PATH}/${path.replace(/^\/+/, '')}`;
+  }
+
   async getFileContent(path: string): Promise<any> {
-    const response = await this.client.get(`${path}`);
+    const response = await this.client.get(this.buildDeploymentPath(path));
     return response.data;
   }
 
-  /**
-   * Check whether an artifact exists at the given Artifactory repo path.
-   *
-   * Probes with HEAD (no body) and returns true on 2xx, false on 404.
-   * If the proxy rejects HEAD (405/501), retries once with GET and discards
-   * the body. Any other error (auth, proxy, 5xx) is re-thrown so the caller
-   * surfaces a real failure rather than masking it as "not found".
-   */
+  async saveFileContent(path: string, content: any): Promise<any> {
+    const response = await this.client.put(this.buildDeploymentPath(path), content);
+    return response.data;
+  }
+
   async artifactExists(artifactPath: string): Promise<boolean> {
     try {
       await this.client.head(`${artifactPath}`);
@@ -66,10 +65,14 @@ class ArtifactoryService {
       throw error;
     }
   }
-
-  async saveFileContent(path: string, content: any): Promise<any> {
-    const response = await this.client.put(`${path}`, content);
-    return response.data;
+  
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.client.get('/api/system/ping');
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 }
 
