@@ -336,7 +336,8 @@ class ReleaseWorkflowService {
   }
 
   /**
-   * Trigger automated checks for a stage.
+   * Trigger automated checks for a stage. Loads the release, runs the checks
+   * in memory, and persists once.
    */
   async runChecks(
     releaseId: string,
@@ -351,17 +352,42 @@ class ReleaseWorkflowService {
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
 
+    const changed = await this.runChecksInMemory(release, stageId, actor, specificCheckIds);
+    if (changed) {
+      await this.save(releases);
+    }
+    return stage.automatedChecks;
+  }
+
+  /**
+   * Run the applicable checks for a stage against an already-loaded release,
+   * mutating it in place (check results, auto-ticks, statuses, updatedAt).
+   * Does NOT persist. Returns true if any check ran (caller saves once).
+   *
+   * This is the seam that lets updateMetadata() run several stages' checks
+   * against one in-hand release and save a single time, instead of each
+   * runChecks() call reloading and rewriting the whole file.
+   */
+  private async runChecksInMemory(
+    release: Release,
+    stageId: string,
+    actor?: string,
+    specificCheckIds?: string[],
+  ): Promise<boolean> {
+    const stage = release.stages.find((s) => s.id === stageId);
+    if (!stage) throw new Error(`Stage '${stageId}' not found in release '${release.releaseId}'`);
+
     const runners = this.getRunnersForStage(stageId);
     if (!runners) {
-      // No runners registered for this stage yet — return the existing checks unchanged.
-      return stage.automatedChecks;
+      // No runners registered for this stage yet — nothing to run.
+      return false;
     }
 
     const applicableCheckIds = new Set(
       this.applicableSubSteps(release, stage).flatMap((subStep) => subStep.autoTickedBy),
     );
     if (applicableCheckIds.size === 0) {
-      return stage.automatedChecks;
+      return false;
     }
 
     let checkIdsToRun = applicableCheckIds;
@@ -370,7 +396,7 @@ class ReleaseWorkflowService {
       checkIdsToRun = new Set([...applicableCheckIds].filter((id) => requestedCheckIds.has(id)));
     }
     if (checkIdsToRun.size === 0) {
-      return stage.automatedChecks;
+      return false;
     }
 
     // Run all checks in parallel; failures inside one check don't fail the whole batch.
@@ -400,8 +426,7 @@ class ReleaseWorkflowService {
     this.recomputeStatuses(release);
 
     release.updatedAt = new Date().toISOString();
-    await this.save(releases);
-    return stage.automatedChecks;
+    return true;
   }
 
   /**
@@ -598,8 +623,9 @@ class ReleaseWorkflowService {
     }
 
     // Re-run checks for every stage that uses any changed field, but only
-    // for stages that aren't locked. runChecks() persists internally on
-    // each call.
+    // for stages that aren't locked. We run them in memory against the
+    // already-loaded release and persist once below, instead of letting each
+    // runChecks() reload and rewrite the whole file per stage.
     const affectedStageChecks = new Map<string, Set<string>>();
     for (const field of changedFields) {
       for (const stageId of stagesUsingField(field)) {
@@ -618,12 +644,14 @@ class ReleaseWorkflowService {
       }
     }
 
+    let ranAnyChecks = false;
     for (const [stageId, checkIds] of affectedStageChecks.entries()) {
       const stage = release.stages.find((s) => s.id === stageId);
       if (!stage || stage.status === 'locked') continue;
       if (checkIds.size === 0) continue;
       try {
-        await this.runChecks(releaseId, stageId, actor, [...checkIds]);
+        const changed = await this.runChecksInMemory(release, stageId, actor, [...checkIds]);
+        ranAnyChecks = ranAnyChecks || changed;
       } catch (err: any) {
         // Don't abort the whole patch if one stage's checks fail catastrophically;
         // the field is already saved. Log and continue.
@@ -634,11 +662,15 @@ class ReleaseWorkflowService {
       }
     }
 
-    // Return the latest persisted state, including any check results written
-    // by the runChecks calls above (each runChecks call loads and saves fresh).
-    const updatedRelease = (await this.load())[releaseId];
-    if (!updatedRelease) throw new Error(`Release '${releaseId}' not found`);
-    return updatedRelease;
+    // Persist check results + auto-ticks once. Field changes were already
+    // saved above, so skip a second write when no checks actually ran.
+    if (ranAnyChecks) {
+      await this.save(releases);
+    }
+
+    // `release` is the in-hand object we just mutated, so it already reflects
+    // every check result — no extra reload needed.
+    return release;
   }
 
   // ----- status auto-advance -----
@@ -819,6 +851,18 @@ class ReleaseWorkflowService {
     const afterBranchKeys = Object.keys(release.metadata.branches).sort().join(',');
     if (beforeKeys !== afterKeys || beforeBranchKeys !== afterBranchKeys) {
       changes.push('backfilled metadata to match current model shape');
+    }
+
+    // Drop stages no longer present in the template (e.g. renamed/renumbered
+    // stage IDs). Mirrors the orphan sub-step / check handling below — a stage
+    // whose id isn't in STAGE_TEMPLATE is treated as an orphan and removed.
+    const tplStageIds = new Set(STAGE_TEMPLATE.map((s) => s.id));
+    const droppedStages = release.stages.filter((s) => !tplStageIds.has(s.id));
+    if (droppedStages.length > 0) {
+      release.stages = release.stages.filter((s) => tplStageIds.has(s.id));
+      for (const dropped of droppedStages) {
+        changes.push(`dropped orphan stage '${dropped.id}'`);
+      }
     }
 
     for (const tplStage of STAGE_TEMPLATE) {
