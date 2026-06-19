@@ -156,7 +156,7 @@ class ReleaseWorkflowService {
 
     // Create a corresponding release in the tech governance source.
     try {
-      await techGovernanceReleasesIntakeService.addEmptyRelease(this.toGovernanceKey(releaseId));
+      await techGovernanceReleasesIntakeService.addEmptyRelease(this.toGovernanceKey(releaseId), title);
     } catch (err: any) {
       console.error(
         `[release-workflow] Failed to create tech governance entry for '${releaseId}':`,

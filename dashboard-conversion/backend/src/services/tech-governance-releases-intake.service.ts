@@ -98,9 +98,9 @@ class TechGovernanceReleasesIntakeService {
     return release;
   }
 
-  async addEmptyRelease(key: string): Promise<TechGovernanceRelease> {
+  async addEmptyRelease(key: string, details = ''): Promise<TechGovernanceRelease> {
     return this.add(key, {
-      details: '',
+      details,
       intakePageId: '',
       branch: key,
       intakes: [],
