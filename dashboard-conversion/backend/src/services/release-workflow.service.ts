@@ -156,7 +156,7 @@ class ReleaseWorkflowService {
 
     // Create a corresponding release in the tech governance source.
     try {
-      await techGovernanceReleasesIntakeService.addEmptyRelease(releaseId);
+      await techGovernanceReleasesIntakeService.addEmptyRelease(this.toGovernanceKey(releaseId));
     } catch (err: any) {
       console.error(
         `[release-workflow] Failed to create tech governance entry for '${releaseId}':`,
@@ -488,6 +488,11 @@ class ReleaseWorkflowService {
     await this.save(releases);
     return true;
   }
+
+  private toGovernanceKey(releaseId: string): string {
+    const bare = releaseId.trim().toLowerCase().replace(/^release\//, '');
+    return `release/${bare}`;
+  }
   
   private buildMetadata(input?: Partial<ReleaseMetadata>): ReleaseMetadata {
     return {
@@ -607,12 +612,9 @@ class ReleaseWorkflowService {
     // If the intakePageUrl changed, propagate it to the corresponding tech governance entry.
     if (intakePageIdToUpdate) {
       try {
-        if (!techGovernanceReleasesIntakeService.exists(releaseId)) {
-          await techGovernanceReleasesIntakeService.addEmptyRelease(releaseId);
-        }
         await techGovernanceReleasesIntakeService.setIntakePageId(
-          releaseId,
-          intakePageIdToUpdate, // already the extracted page ID
+          this.toGovernanceKey(releaseId),
+          intakePageIdToUpdate,
         );
       } catch (err: any) {
         console.error(

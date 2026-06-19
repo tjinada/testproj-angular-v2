@@ -1,5 +1,4 @@
 import artifactoryService from './artifactory.service';
-import cacheSyncService, { CACHE_TOPIC } from './cache-sync.service';
 import ConfluenceService from './confluence.service';
 
 export interface TechGovernanceReleaseIntake {
@@ -12,6 +11,11 @@ export interface TechGovernanceReleaseIntake {
   author: string;
   contributors: string[];
   platformVeto: number;
+  // Derived scope: comma-separated list e.g. "CDB UI Config, Akamai"
+  scope?: string;
+  // Optional Confluence-sourced dev lead contact info (preferred over DA tab)
+  confluenceDevLeadName?: string;
+  confluenceDevLeadEmail?: string;
 }
 
 export interface TechGovernanceRelease {
@@ -31,7 +35,6 @@ class TechGovernanceReleasesIntakeService {
 
   constructor() {
     this.initialize();
-    cacheSyncService.register(CACHE_TOPIC.TECH_GOVERNANCE_RELEASES_INTAKE, () => this.initialize());
   }
 
   async initialize(): Promise<void> {
@@ -45,7 +48,6 @@ class TechGovernanceReleasesIntakeService {
 
   private async save(): Promise<void> {
     await artifactoryService.saveFileContent(this.dataFilePath, this.releases);
-    cacheSyncService.notifyPeers(CACHE_TOPIC.TECH_GOVERNANCE_RELEASES_INTAKE);
   }
 
   /**
@@ -62,6 +64,19 @@ class TechGovernanceReleasesIntakeService {
    */
   getByBranch(branch: string): TechGovernanceRelease | undefined {
     return this.releases[branch];
+  }
+
+  private normalizeBranch(value: string): string {
+    return (value ?? '').trim().toLowerCase().replace(/^release\//, '');
+  }
+
+  findByBranch(branch: string): TechGovernanceRelease | undefined {
+    const target = this.normalizeBranch(branch);
+    if (!target) return undefined;
+    for (const [key, release] of Object.entries(this.releases)) {
+      if (this.normalizeBranch(key) === target) return release;
+    }
+    return undefined;
   }
 
   exists(key: string): boolean {
@@ -217,6 +232,177 @@ class TechGovernanceReleasesIntakeService {
           if (single) contributors = [single];
         }
 
+        // Helper to strip tags and whitespace
+        const strip = (html: string): string => (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+        // Extract table cell HTML (raw) for a row matching label in first cell
+        const extractFieldHtml = (html: string, label: string): string | undefined => {
+          if (!html) return undefined;
+          const rows = html.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+          for (const row of rows) {
+            const cells = row.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [];
+            if (cells.length < 2) continue;
+            const first = strip(cells[0] ?? '').toLowerCase();
+            if (first.includes(label.toLowerCase())) {
+              return cells[1];
+            }
+          }
+          return undefined;
+        };
+
+        // Extract a section that may span multiple table rows. Start at the
+        // row whose first cell contains the label, then include subsequent
+        // rows until a new bold header (<strong> or <b>) appears in the first cell.
+        const extractMultiRowFieldHtml = (html: string, label: string): string | undefined => {
+          if (!html) return undefined;
+          const rows = html.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+          let collecting = false;
+          let collected = '';
+          for (const row of rows) {
+            const cells = row.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [];
+            if (cells.length < 1) continue;
+            const firstCellHtml = cells[0] ?? '';
+            const firstCellText = strip(firstCellHtml).toLowerCase();
+
+            if (!collecting) {
+              if (firstCellText.includes(label.toLowerCase())) {
+                collecting = true;
+                collected += cells.join(' ');
+              }
+            } else {
+              // If we hit another header (strong/bold) in the first cell,
+              // stop collecting — it's the next section.
+              if (/\<strong\>|<b>/i.test(firstCellHtml)) break;
+              collected += cells.join(' ');
+            }
+          }
+          return collected ? collected : undefined;
+        };
+
+        // Determine whether a specific option is CHECKED inside the cell html.
+        // Tries Confluence storage ac:task entries first, then falls back to text checks for "[x] Option".
+        const isCheckedOption = (cellHtml: string | undefined, optionKeywords: string | string[]): boolean => {
+          if (!cellHtml) return false;
+          const keywords = Array.isArray(optionKeywords) ? optionKeywords : [optionKeywords];
+
+          // Check ac:task blocks if present
+          const taskMatches = cellHtml.match(/<ac:task[\s\S]*?<\/ac:task>/gi) || [];
+          if (taskMatches.length > 0) {
+            for (const task of taskMatches) {
+              const statusMatch = task.match(/<ac:task-status>([\w-]+)<\/ac:task-status>/i);
+              const completed = !!(statusMatch && /^(complete|done|true)$/i.test(statusMatch[1]));
+              if (!completed) continue;
+              const bodyMatch = task.match(/<ac:task-body[\s\S]*?>([\s\S]*?)<\/ac:task-body>/i);
+              const bodyText = bodyMatch ? strip(bodyMatch[1]) : strip(task);
+              for (const kw of keywords) {
+                if (new RegExp('\\b' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(bodyText)) return true;
+              }
+            }
+          }
+
+          // Fallback: look for explicit "[x] <option>" in the stripped text
+          const text = strip(cellHtml);
+          for (const kw of keywords) {
+            const rx = new RegExp('\\[x\\]\\s*' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+            if (rx.test(text)) return true;
+          }
+          return false;
+        };
+
+        // Parse checklist-like table fields from page body HTML
+        const bodyHtml: string = page.body?.storage?.value || '';
+
+        const addingToggleCell = extractMultiRowFieldHtml(bodyHtml, 'Adding/Updating Toggle') || extractFieldHtml(bodyHtml, 'Adding/Updating Toggle');
+        const changingConfigCell = extractMultiRowFieldHtml(bodyHtml, 'Changing Configurations') || extractFieldHtml(bodyHtml, 'Changing Configurations');
+        const addingOrChangingApisCell = extractMultiRowFieldHtml(bodyHtml, 'Adding or changing APIs') || extractFieldHtml(bodyHtml, 'Adding or changing APIs');
+        const devLeadNameVal = strip(extractFieldHtml(bodyHtml, 'Dev Lead Name') || extractFieldHtml(bodyHtml, 'Dev Lead') || '');
+        const devLeadEmailVal = strip(extractFieldHtml(bodyHtml, 'Dev Lead Email') || extractFieldHtml(bodyHtml, 'Dev Lead E-mail') || '');
+
+        const hasUIToggle = isCheckedOption(addingToggleCell, ['UI']);
+        const hasBOSToggle = isCheckedOption(addingToggleCell, ['CDBBOS', 'CDB BOS', 'BOS']);
+        const hasUIConfig = isCheckedOption(changingConfigCell, ['UI config', 'UI configuration', 'UI Config']);
+        const hasBOSConfig = isCheckedOption(changingConfigCell, ['CDBBOS Config', 'CDB BOS Config', 'BOS Config', 'CDBBOS Config']);
+        const hasAPIChanges = isCheckedOption(addingOrChangingApisCell, ['Yes', 'Y', 'New API endpoints']);
+
+
+        const touchesUI = hasUIToggle || hasUIConfig;
+        const touchesBOS = hasBOSToggle || hasBOSConfig || hasAPIChanges;
+
+        // --- PRIMARY: explicit Scope column from Confluence page ---
+        // Prefer exact "Change Scope" row in the new template, fall back to
+        // a broader "Scope" match for older pages.
+        const ALL_SCOPE_OPTIONS = [
+          'CDB UI',
+          'CDB UI Config',
+          'CDB BOS',
+          'CDB BOS Config',
+          'Akamai',
+          'Channels Changes',
+          'Lambda Changes',
+        ];
+        const changeScopeCellHtml = extractFieldHtml(bodyHtml, 'Change Scope') || extractFieldHtml(bodyHtml, 'Scope');
+        let scope: string | undefined;
+        let scopeSource = 'checklist-fallback';
+
+        if (changeScopeCellHtml) {
+          // Collect all explicitly checked options from the Change Scope row.
+          const checkedScopes: string[] = [];
+          for (const option of ALL_SCOPE_OPTIONS) {
+            if (isCheckedOption(changeScopeCellHtml, [option])) checkedScopes.push(option);
+          }
+          if (checkedScopes.length > 0) {
+            scope = checkedScopes.join(', ');
+            scopeSource = 'explicitScope';
+          }
+        }
+
+        // Diagnostic logs to help trace parsing decisions
+        try {
+          console.debug('[INTAKE DEBUG] pageId=%s title=%s changeScopeCellHtmlPresent=%s', page.id, page.title, !!changeScopeCellHtml);
+          console.debug(
+            '[INTAKE DEBUG] checks: hasUIToggle=%s hasBOSToggle=%s hasUIConfig=%s hasBOSConfig=%s hasAPIChanges=%s',
+            hasUIToggle,
+            hasBOSToggle,
+            hasUIConfig,
+            hasBOSConfig,
+            hasAPIChanges,
+          );
+          console.debug('[INTAKE DEBUG] touchesUI=%s touchesBOS=%s', touchesUI, touchesBOS);
+          console.debug('[INTAKE DEBUG] devLead: name=%s email=%s', devLeadNameVal || '(none)', devLeadEmailVal || '(none)');
+        } catch (logErr) {
+          // Swallow logging errors to avoid breaking parsing
+        }
+
+        // --- FALLBACK: derive scope from checklist fields (inferred signals) ---
+        if (!scope) {
+          scopeSource = 'checklist-fallback';
+          const inferredScopes: string[] = [];
+
+          if (hasUIConfig) inferredScopes.push('CDB UI Config');
+          else if (hasUIToggle) inferredScopes.push('CDB UI');
+
+          if (hasBOSConfig) inferredScopes.push('CDB BOS Config');
+          else if (hasBOSToggle) inferredScopes.push('CDB BOS');
+
+          // API changes imply BOS only if we haven't already added another BOS signal
+          if (hasAPIChanges && !hasBOSConfig && !hasBOSToggle) inferredScopes.push('CDB BOS');
+
+          if (inferredScopes.length > 0) {
+            scope = inferredScopes.join(', ');
+          }
+        }
+
+        // Final diagnostic of chosen scope, include which source determined it.
+        try {
+          console.debug(
+            '[INTAKE DEBUG] resolved scope=%s for pageId=%s (source: %s)',
+            scope || '(unset)',
+            page.id,
+            scopeSource,
+          );
+        } catch (logErr) {
+          // ignore
+        }
         return {
           id: page.id,
           title: page.title,
@@ -227,6 +413,9 @@ class TechGovernanceReleasesIntakeService {
           author,
           contributors,
           platformVeto: 0,
+          scope,
+          confluenceDevLeadName: devLeadNameVal || undefined,
+          confluenceDevLeadEmail: devLeadEmailVal || undefined,
         };
       });
     } catch (error: any) {
