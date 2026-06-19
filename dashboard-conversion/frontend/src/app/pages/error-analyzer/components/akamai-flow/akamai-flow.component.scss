@@ -296,3 +296,82 @@
   font-size: 13px;
   font-style: italic;
 }
+
+// ── Destination path (the answer) ──────────────────────────────────
+
+.destination {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+}
+
+.destination__header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.destination__paths {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.destination__from {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  color: #6b7280;
+  word-break: break-all;
+  background: transparent;
+}
+
+.destination__arrow {
+  color: #9ca3af;
+  font-size: 15px;
+}
+
+.destination__to {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1B4F72;
+  word-break: break-all;
+  background: transparent;
+
+  &--unchanged {
+    color: #6b7280;
+    font-weight: 400;
+  }
+}
+
+.destination__note {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.destination__property {
+  font-size: 12px;
+  color: #374151;
+}
+
+.destination__version {
+  color: #6b7280;
+}
+
+// ── Rewrite trace "from" path ──────────────────────────────────────
+
+.rewrite__from {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  color: #6b7280;
+  word-break: break-all;
+  background: transparent;
+}

@@ -64,48 +64,53 @@
       <code class="echoed-url__value">{{ res.url }}</code>
     </section>
 
-    <!-- Rewrites list — the answer. -->
-    @if (rewrites().length > 0) {
+    <!-- Destination path — the answer -->
+    <section class="destination">
+      <header class="destination__header">Destination path</header>
+      <div class="destination__paths">
+        <code class="destination__from">{{ res.parsedUrl.path }}</code>
+        <span class="destination__arrow">→</span>
+        <code
+          class="destination__to"
+          [class.destination__to--unchanged]="!res.pathChanged">{{ res.destinationPath }}</code>
+      </div>
+      @if (!res.pathChanged) {
+        <div class="destination__note">No rewrites applied — path is unchanged.</div>
+      }
+      <div class="destination__property">
+        {{ res.property.propertyName }}
+        <span class="destination__version">v{{ res.property.version }}</span>
+      </div>
+    </section>
+
+    <!-- Rewrite trace -->
+    @if (res.rewriteTrace.length > 0) {
       <section class="rewrites">
         <header class="rewrites__header">
-          Rewrites found
-          <span class="rewrites__count">{{ rewrites().length }}</span>
+          Rewrites applied
+          <span class="rewrites__count">{{ res.rewriteTrace.length }}</span>
         </header>
 
         <ol class="rewrites__list">
-          @for (rw of rewrites(); track $index) {
+          @for (step of res.rewriteTrace; track $index) {
             <li class="rewrite">
               <div class="rewrite__row">
-                <span class="rewrite__behavior">{{ rw.behaviorName }}</span>
-                @if (rw.mode) {
-                  <span class="rewrite__mode">{{ rw.mode }}</span>
-                }
+                <span class="rewrite__behavior">rewriteUrl</span>
+                <span class="rewrite__mode">{{ step.behavior }}</span>
               </div>
 
               <div class="rewrite__target-row">
+                <code class="rewrite__from">{{ step.from }}</code>
                 <span class="rewrite__arrow">→</span>
-                @if (rw.target) {
-                  <code class="rewrite__target">{{ rw.target }}</code>
-                } @else {
-                  <span class="rewrite__target rewrite__target--missing">— (target not in standard option keys)</span>
-                }
+                <code class="rewrite__target">{{ step.to }}</code>
               </div>
 
               <div class="rewrite__source">
-                from <code>{{ formatRulePath(rw.rulePath) }}</code>
+                by <code>{{ formatRulePath(step.rulePath) }}</code>
               </div>
-
-              <details class="rewrite__details">
-                <summary>raw options</summary>
-                <pre class="rewrite__options">{{ formatOptions(rw.options) }}</pre>
-              </details>
             </li>
           }
         </ol>
-      </section>
-    } @else {
-      <section class="no-rewrites">
-        No rewrite-style behaviors found on the matched rules for this URL.
       </section>
     }
   }

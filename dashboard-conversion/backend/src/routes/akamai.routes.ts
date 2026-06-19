@@ -7,7 +7,6 @@ import {
   evaluateUrl,
   EvaluateUrlError
 } from '../services/akamai.service';
-import { extractBaseline } from '../services/papi-baseline-extractor';
 import { matchUrl, parseRequestUrl } from '../services/papi-naive-matcher';
 
 const router = Router();
@@ -168,9 +167,8 @@ router.get('/_debug/hostnames', async (req: Request, res: Response) => {
  * Cached per (propertyId, version) for 10 minutes.
  */
 router.get('/_debug/rule-tree', async (req: Request, res: Response) => {
-  const withBaseline = req.query.withBaseline === 'true';
   const withMatchUrl = typeof req.query.withMatch === 'string' ? req.query.withMatch : undefined;
-  console.log(`[Akamai/route] GET /api/akamai/_debug/rule-tree (withBaseline=${withBaseline}, withMatch=${withMatchUrl ? '"' + withMatchUrl + '"' : 'no'})`);
+  console.log(`[Akamai/route] GET /api/akamai/_debug/rule-tree (withMatch=${withMatchUrl ? '"' + withMatchUrl + '"' : 'no'})`);
 
   try {
     const target = await resolvePropertyTarget(req);
@@ -185,12 +183,6 @@ router.get('/_debug/rule-tree', async (req: Request, res: Response) => {
       hostname: target.hostname,
       ruleTree
     };
-
-    if (withBaseline) {
-      const { baseline, diagnostics } = extractBaseline(ruleTree.rules);
-      payload.baseline = baseline;
-      payload.baselineDiagnostics = diagnostics;
-    }
 
     if (withMatchUrl) {
       const parsed = parseRequestUrl(withMatchUrl);
@@ -209,49 +201,6 @@ router.get('/_debug/rule-tree', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(`[Akamai/route] _debug/rule-tree failed: ${error.message}`);
     res.status(500).json({ error: error.message || 'Failed to fetch rule tree' });
-  }
-});
-
-/**
- * GET /api/akamai/_debug/baseline?hostname=<hostname>
- * GET /api/akamai/_debug/baseline?propertyId=prp_XXX&version=N
- *
- * Returns just the extracted baseline (origin, caching, cpCode) plus
- * extractor diagnostics. Does NOT include the full rule tree — much
- * smaller payload, suitable for quick verification of the extractor
- * without needing to grep through 26,000 lines of JSON.
- *
- * Diagnostics show which behaviors on the default rule were extracted
- * vs. ignored. If you see an "unextractedBehaviorNames" entry that
- * looks important, that's a signal to extend papi-baseline-extractor.ts
- * with a new case.
- */
-router.get('/_debug/baseline', async (req: Request, res: Response) => {
-  console.log(`[Akamai/route] GET /api/akamai/_debug/baseline`);
-
-  try {
-    const target = await resolvePropertyTarget(req);
-    if (!target.ok) {
-      return res.status(target.status).json({ error: target.error, hostname: req.query.hostname });
-    }
-
-    const ruleTree = await getRuleTree(target.propertyId, target.version);
-    const { baseline, diagnostics } = extractBaseline(ruleTree.rules);
-
-    res.json({
-      resolvedFromHostname: target.resolvedFromHostname,
-      hostname: target.hostname,
-      property: {
-        propertyId: ruleTree.propertyId,
-        propertyName: ruleTree.propertyName,
-        version: ruleTree.version
-      },
-      baseline,
-      diagnostics
-    });
-  } catch (error: any) {
-    console.error(`[Akamai/route] _debug/baseline failed: ${error.message}`);
-    res.status(500).json({ error: error.message || 'Failed to extract baseline' });
   }
 });
 

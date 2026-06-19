@@ -1,12 +1,6 @@
 import EdgeGrid = require('akamai-edgegrid');
-import { extractBaseline, type AkamaiBaseline, type AkamaiBaselineDiagnostics } from './papi-baseline-extractor';
-import { matchUrl, parseRequestUrl, type MatchedRule, type ParsedRequestUrl } from './papi-naive-matcher';
-import {
-  resolveOutcome,
-  categorizeRules,
-  type AkamaiResolution,
-  type CategorizedMatchedRule
-} from './papi-resolution-resolver';
+import { matchUrl, parseRequestUrl, type ParsedRequestUrl } from './papi-naive-matcher';
+import { resolveDestinationPath, type RewriteStep } from './papi-rewrite-resolver';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -633,21 +627,12 @@ export interface EvaluateUrlResult {
     propertyName: string;
     version: number;
   };
-  /**
-   * The "where does my URL go?" answer — final origin / caching / cpCode
-   * after walking matched rules in evaluation order. The headline result.
-   */
-  resolution: AkamaiResolution;
-  /** Default-rule baseline (origin, caching, cpCode). */
-  baseline: AkamaiBaseline;
-  baselineDiagnostics: AkamaiBaselineDiagnostics;
-  /**
-   * All rules that matched the URL (full or partial), each tagged with
-   * its category (decisive / path-specific / always-on) so the frontend
-   * can group them.
-   */
-  matchedRules: CategorizedMatchedRule[];
-  matchedRuleCount: number;
+  /** Final path after applying the matched rewriteUrl behaviors in order. */
+  destinationPath: string;
+  /** True when destinationPath differs from parsedUrl.path. */
+  pathChanged: boolean;
+  /** Ordered list of the rewrites that fired, each with from/to. */
+  rewriteTrace: RewriteStep[];
 }
 
 /**
@@ -715,12 +700,10 @@ export async function evaluateUrl(urlString: string): Promise<EvaluateUrlResult>
   }
 
   const ruleTree = await getRuleTree(match.propertyId, match.version);
-  const { baseline, diagnostics: baselineDiagnostics } = extractBaseline(ruleTree.rules);
   const matchedRules = matchUrl(ruleTree.rules, parsed);
-  const resolution = resolveOutcome(matchedRules);
-  const categorizedRules = categorizeRules(matchedRules);
+  const { destinationPath, pathChanged, rewriteTrace } = resolveDestinationPath(matchedRules, parsed.path);
 
-  console.log(`[Akamai] evaluateUrl("${urlString}"): ${matchedRules.length} matched rules on ${ruleTree.propertyName} v${ruleTree.version} — final origin: ${resolution.finalOrigin?.hostname || 'none'}`);
+  console.log(`[Akamai] evaluateUrl("${urlString}"): ${parsed.path} → ${destinationPath} (${rewriteTrace.length} rewrites) on ${ruleTree.propertyName} v${ruleTree.version}`);
 
   return {
     url: urlString,
@@ -730,10 +713,8 @@ export async function evaluateUrl(urlString: string): Promise<EvaluateUrlResult>
       propertyName: ruleTree.propertyName,
       version: ruleTree.version
     },
-    resolution,
-    baseline,
-    baselineDiagnostics,
-    matchedRules: categorizedRules,
-    matchedRuleCount: categorizedRules.length
+    destinationPath,
+    pathChanged,
+    rewriteTrace
   };
 }

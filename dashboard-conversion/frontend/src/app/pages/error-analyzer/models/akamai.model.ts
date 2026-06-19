@@ -28,10 +28,6 @@ export interface ParsedRequestUrl {
  * A single behavior or criterion entry inside a rule. Both share the
  * same shape: a name (e.g. "origin", "path", "requestCookie") and an
  * `options` object whose contents vary per name.
- *
- * The frontend treats `options` as opaque — the behavior-detail-panel
- * component renders it as formatted JSON rather than narrowing per
- * behavior type.
  */
 export interface AkamaiRuleEntry {
   name: string;
@@ -40,25 +36,17 @@ export interface AkamaiRuleEntry {
 
 // ── Matched rule (mirrors MatchedRule in the backend matcher) ───────
 
-/**
- * - "full":    every criterion in the rule was supported and evaluated,
- *              and the rule's criteriaMustSatisfy condition was met.
- * - "partial": the must-satisfy condition was met for criteria we could
- *              evaluate, but at least one criterion was unsupported
- *              (cookies, headers, geo, regex, etc.) so PAPI might decide
- *              differently at runtime.
- */
 export type MatchStatus = 'full' | 'partial';
 
 export interface MatchedRule {
-  /** Rule names from root to this rule, e.g. ["default", "Separate origins for DPs", "Origin for X"]. */
+  /** Rule names from root to this rule. */
   rulePath: string[];
   /** Convenience: last element of rulePath. */
   ruleName: string;
   matchStatus: MatchStatus;
   /** Names of criteria that couldn't be evaluated (unsupported type or operator). */
   unevaluatedCriteria: string[];
-  /** Names of behaviors defined on this rule (quick chip rendering, no options). */
+  /** Names of behaviors defined on this rule. */
   behaviorNames: string[];
   /** Full behaviors array — used by the expand-on-click detail view. */
   behaviors: AkamaiRuleEntry[];
@@ -68,99 +56,15 @@ export interface MatchedRule {
   criteriaMustSatisfy: 'all' | 'any';
 }
 
-// ── Rule categorization (mirrors RuleCategory + CategorizedMatchedRule) ──
+// ── Rewrite step (mirrors RewriteStep in the backend rewrite resolver) ──
 
-/**
- * - "decisive":      the rule defines origin, cpCode, or caching. These
- *                    actually determine where the URL goes and how it's
- *                    cached. The user's primary interest.
- * - "path-specific": the rule has at least one path or fileExtension
- *                    criterion. Proves the matcher walked into a
- *                    URL-specific subtree.
- * - "always-on":     unconditional rules + rules with only hostname-level
- *                    or unsupported criteria. Apply everywhere on the site.
- */
-export type RuleCategory = 'decisive' | 'path-specific' | 'always-on';
+export type RewriteBehaviorKind = 'REWRITE' | 'REPLACE' | 'REMOVE' | 'PREPEND';
 
-export interface CategorizedMatchedRule extends MatchedRule {
-  category: RuleCategory;
-}
-
-// ── Resolution outcome (mirrors AkamaiResolution in the backend) ────
-
-/**
- * The "where did the URL go?" answer. Computed by walking matched rules
- * in evaluation order. Each "final" field includes the rule path of the
- * rule that contributed it, so the UI can show "final origin set by:
- * default > Separate origins for DPs > Origin for X".
- *
- * fromPartialMatch is true when the contributing rule was a partial
- * match — i.e. the value might not actually win at runtime if the
- * unevaluated criterion (cookie/header/geo) doesn't match.
- */
-export interface AkamaiResolution {
-  finalOrigin?: {
-    hostname?: string;
-    forwardHostHeader?: string;
-    cacheKeyHostname?: string;
-    originType?: string;
-    httpPort?: number;
-    httpsPort?: number;
-    contributedBy: string[];
-    fromPartialMatch: boolean;
-  };
-  finalCaching?: {
-    behavior?: string;
-    ttl?: string;
-    mustRevalidate?: boolean;
-    contributedBy: string[];
-    fromPartialMatch: boolean;
-  };
-  finalCpCode?: {
-    id?: number;
-    name?: string;
-    contributedBy: string[];
-    fromPartialMatch: boolean;
-  };
-  hasPartialMatchInfluence: boolean;
-}
-
-// ── Baseline (mirrors AkamaiBaseline in the backend extractor) ──────
-
-/**
- * Baseline values pulled from the default (root) rule's behaviors.
- * Every field is optional — PAPI configs vary, and we never fabricate
- * defaults. Missing fields render as "—" (or similar) in the UI.
- */
-export interface AkamaiBaseline {
-  origin?: {
-    hostname?: string;
-    forwardHostHeader?: string;
-    cacheKeyHostname?: string;
-    originType?: string;
-    httpPort?: number;
-    httpsPort?: number;
-  };
-  caching?: {
-    behavior?: string;
-    ttl?: string;
-    mustRevalidate?: boolean;
-  };
-  cpCode?: {
-    id?: number;
-    name?: string;
-  };
-}
-
-export interface AkamaiBaselineDiagnostics {
-  defaultRuleBehaviorCount: number;
-  extractedBehaviorNames: string[];
-  /**
-   * Behaviors present on the default rule but not pulled into the
-   * structured baseline. Useful in the UI as a "the property also
-   * defines: X, Y, Z" hint.
-   */
-  unextractedBehaviorNames: string[];
+export interface RewriteStep {
+  rulePath: string[];
+  behavior: RewriteBehaviorKind;
+  from: string;
+  to: string;
 }
 
 // ── Property identifier (returned with every flow result) ───────────
@@ -177,13 +81,12 @@ export interface AkamaiFlowResult {
   url: string;
   parsedUrl: ParsedRequestUrl;
   property: AkamaiPropertySummary;
-  /** The headline "where did the URL go?" answer. */
-  resolution: AkamaiResolution;
-  baseline: AkamaiBaseline;
-  baselineDiagnostics: AkamaiBaselineDiagnostics;
-  /** All matched rules, each tagged with its category for grouping. */
-  matchedRules: CategorizedMatchedRule[];
-  matchedRuleCount: number;
+  /** Final path after applying the matched rewriteUrl behaviors in order. */
+  destinationPath: string;
+  /** True when destinationPath differs from parsedUrl.path. */
+  pathChanged: boolean;
+  /** Ordered list of the rewrites that fired, each with from/to. */
+  rewriteTrace: RewriteStep[];
 }
 
 // ── Error response shapes ───────────────────────────────────────────
@@ -222,9 +125,6 @@ export interface AkamaiFlowGenericError {
  *   - 400 → AkamaiFlowParseError
  *   - 404 → AkamaiFlowHostnameError
  *   - 500 → AkamaiFlowGenericError
- *
- * The component reads `error.status` from the HttpErrorResponse and
- * narrows accordingly.
  */
 export type AkamaiFlowError =
   | AkamaiFlowParseError
