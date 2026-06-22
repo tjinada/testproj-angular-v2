@@ -56,15 +56,27 @@ export interface MatchedRule {
   criteriaMustSatisfy: 'all' | 'any';
 }
 
-// ── Rewrite step (mirrors RewriteStep in the backend rewrite resolver) ──
+// ── Flow (mirrors FlowHop in the backend rewrite resolver) ──────────
 
-export type RewriteBehaviorKind = 'REWRITE' | 'REPLACE' | 'REMOVE' | 'PREPEND';
+export type FlowHopKind = 'request' | 'property' | 'rewrite' | 'origin' | 'backend';
 
-export interface RewriteStep {
+export interface HopAnnotation {
+  label: string;
+}
+
+export interface ConditionalBranch {
+  conditionLabel: string;
+  targetLabel: string;
   rulePath: string[];
-  behavior: RewriteBehaviorKind;
-  from: string;
-  to: string;
+}
+
+export interface FlowHop {
+  kind: FlowHopKind;
+  label: string;
+  detail: string;
+  rulePath: string[];
+  annotations: HopAnnotation[];
+  branches: ConditionalBranch[];
 }
 
 // ── Property identifier (returned with every flow result) ───────────
@@ -85,8 +97,8 @@ export interface AkamaiFlowResult {
   destinationPath: string;
   /** True when destinationPath differs from parsedUrl.path. */
   pathChanged: boolean;
-  /** Ordered list of the rewrites that fired, each with from/to. */
-  rewriteTrace: RewriteStep[];
+  /** Ordered request-to-origin flow (spine + conditional branches). */
+  flow: FlowHop[];
 }
 
 // ── Error response shapes ───────────────────────────────────────────

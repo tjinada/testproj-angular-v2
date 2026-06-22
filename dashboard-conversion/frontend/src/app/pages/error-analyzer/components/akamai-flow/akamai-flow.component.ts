@@ -8,19 +8,19 @@ import {
   type AkamaiFlowError,
   type AkamaiFlowResult
 } from '../../models/akamai.model';
+import { AkamaiGraphComponent } from './akamai-graph/akamai-graph.component';
 
 /**
  * Akamai Flow tab.
  *
  * Single URL input + Submit. Calls POST /api/akamai/flow and shows the
- * destination path the property config rewrites the URL to, plus the
- * ordered rewrites that produced it. The backend does all resolution —
- * this component only renders the result.
+ * destination path plus the request-to-origin flow graph. The backend
+ * does all resolution — this component only renders the result.
  */
 @Component({
   selector: 'app-akamai-flow',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AkamaiGraphComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './akamai-flow.component.html',
   styleUrls: ['./akamai-flow.component.scss']
@@ -102,12 +102,5 @@ export class AkamaiFlowComponent {
     }
 
     this.errorMessage.set(err.message || 'Request failed');
-  }
-
-  // ── Template helpers ───────────────────────────────────────────
-
-  /** Joins a rule path for compact display (e.g. "default › X › Y"). */
-  formatRulePath(path: string[]): string {
-    return path.join(' › ');
   }
 }

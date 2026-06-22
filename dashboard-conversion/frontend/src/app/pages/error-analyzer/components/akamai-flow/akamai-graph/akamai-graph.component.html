@@ -1,0 +1,65 @@
+<div class="akamai-graph" [class.akamai-graph--fullscreen]="isFullscreen()">
+
+  <div class="akamai-graph__controls">
+    <button type="button" (click)="zoomIn()" title="Zoom in">+</button>
+    <button type="button" (click)="zoomOut()" title="Zoom out">&#8722;</button>
+    <button type="button" (click)="resetView()" title="Reset view">&#8635;</button>
+    <button type="button" (click)="fitToScreen()" title="Fit">&#9633;</button>
+    <button type="button" (click)="toggleFullscreen()" title="Fullscreen">&#10530;</button>
+  </div>
+
+  <svg #svgEl class="akamai-graph__svg"
+       (mousedown)="onMouseDown($event)"
+       (mousemove)="onMouseMove($event)"
+       (mouseup)="onMouseUp()"
+       (mouseleave)="onMouseLeave()"
+       (wheel)="onWheel($event)">
+    <g [attr.transform]="transform()">
+
+      <g class="edges">
+        @for (edge of graph().edges; track trackEdge($index, edge)) {
+          <path class="edge"
+                [class.edge--conditional]="edge.isConditional"
+                [attr.d]="edgePath(edge)" />
+          @if (edge.label) {
+            <text class="edge-label"
+                  [attr.x]="edgeLabelX(edge)"
+                  [attr.y]="edgeLabelY(edge)"
+                  text-anchor="middle">{{ truncate(edge.label, 44) }}</text>
+          }
+        }
+      </g>
+
+      <g class="nodes">
+        @for (node of graph().nodes; track trackNode($index, node)) {
+          <g class="node"
+             [ngClass]="'node--' + node.kind"
+             [class.node--conditional]="node.isConditional">
+            <rect class="node__box"
+                  [attr.x]="node.x - node.width / 2"
+                  [attr.y]="nodeTop(node)"
+                  [attr.width]="node.width"
+                  [attr.height]="node.height"
+                  rx="6" />
+            <text class="node__title"
+                  [attr.x]="node.x" [attr.y]="titleY(node)"
+                  text-anchor="middle">{{ truncate(node.label, 26) }}</text>
+            <text class="node__detail"
+                  [attr.x]="node.x" [attr.y]="detailY(node)"
+                  text-anchor="middle">{{ truncate(node.detail, 30) }}</text>
+            @for (ann of node.annotations; track $index) {
+              <text class="node__annotation"
+                    [attr.x]="node.x" [attr.y]="annotationY(node, $index)"
+                    text-anchor="middle">{{ truncate(ann, 30) }}</text>
+            }
+          </g>
+        }
+      </g>
+
+    </g>
+  </svg>
+
+  @if (graph().nodes.length === 0) {
+    <div class="akamai-graph__empty">No flow to display.</div>
+  }
+</div>

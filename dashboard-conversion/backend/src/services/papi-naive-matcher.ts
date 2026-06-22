@@ -92,7 +92,7 @@ const SUPPORTED_OPERATORS = new Set([
  */
 export function matchUrl(rootRule: AkamaiRule, url: ParsedRequestUrl): MatchedRule[] {
   const results: MatchedRule[] = [];
-  walk(rootRule, [], url, results);
+  walk(rootRule, [], url, results, 'full');
   return results;
 }
 
@@ -123,7 +123,8 @@ function walk(
   rule: AkamaiRule,
   ancestors: string[],
   url: ParsedRequestUrl,
-  out: MatchedRule[]
+  out: MatchedRule[],
+  parentStatus: MatchStatus
 ): void {
   const rulePath = [...ancestors, rule.name];
   const evaluation = evaluateRule(rule, url);
@@ -135,11 +136,19 @@ function walk(
     return;
   }
 
+  // Effective status is the weakest link in the chain: a child can be no
+  // more confident than its ancestors. A "full" leaf under a gated (e.g.
+  // variable/header/cookie) parent is really conditional — without this,
+  // gated subtrees (Shape, Mobile-IDP, Conditional Origin Groups) would
+  // surface as full matches and pollute the mainline origin/rewrite winner.
+  const effectiveStatus: MatchStatus =
+    parentStatus === 'partial' ? 'partial' : evaluation.status;
+
   // Record this rule.
   out.push({
     rulePath,
     ruleName: rule.name,
-    matchStatus: evaluation.status,
+    matchStatus: effectiveStatus,
     unevaluatedCriteria: evaluation.unevaluatedCriteria,
     behaviorNames: (rule.behaviors || []).map(b => b.name),
     behaviors: rule.behaviors || [],
@@ -147,9 +156,9 @@ function walk(
     criteriaMustSatisfy: rule.criteriaMustSatisfy || 'all'
   });
 
-  // Walk children.
+  // Walk children, propagating this rule's effective status downward.
   for (const child of rule.children || []) {
-    walk(child, rulePath, url, out);
+    walk(child, rulePath, url, out, effectiveStatus);
   }
 }
 

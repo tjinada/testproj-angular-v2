@@ -1,0 +1,132 @@
+:host {
+  display: block;
+}
+
+.akamai-graph {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fafafa;
+  overflow: hidden;
+
+  &--fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    height: 100vh;
+    border-radius: 0;
+    background: #ffffff;
+  }
+}
+
+.akamai-graph__controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+
+  button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #fff;
+    color: #374151;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { background: #f3f4f6; }
+  }
+}
+
+.akamai-graph__svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  user-select: none;
+
+  &:active { cursor: grabbing; }
+}
+
+.akamai-graph__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+// ── Edges ──────────────────────────────────────────────────────────
+
+.edge {
+  fill: none;
+  stroke: #9ca3af;
+  stroke-width: 1.5;
+}
+
+.edge--conditional {
+  stroke: #c4b5fd;
+  stroke-dasharray: 5 4;
+}
+
+.edge-label {
+  font-size: 10px;
+  fill: #7c3aed;
+  font-style: italic;
+  paint-order: stroke;
+  stroke: #fafafa;
+  stroke-width: 3px;
+}
+
+// ── Nodes ──────────────────────────────────────────────────────────
+
+.node__box {
+  fill: #ffffff;
+  stroke: #cbd5e1;
+  stroke-width: 1.5;
+}
+
+.node__title {
+  font-size: 13px;
+  font-weight: 600;
+  fill: #1f2937;
+}
+
+.node__detail {
+  font-size: 11px;
+  fill: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.node__annotation {
+  font-size: 10px;
+  fill: #9ca3af;
+  font-style: italic;
+}
+
+// Per-kind accents (left/top stroke colour)
+.node--request .node__box { stroke: #94a3b8; }
+.node--property .node__box { stroke: #3b82f6; }
+.node--rewrite  .node__box { stroke: #f59e0b; }
+.node--origin   .node__box { stroke: #14b8a6; }
+.node--backend  .node__box { stroke: #1B4F72; stroke-width: 2; }
+
+.node--rewrite .node__title { color: #b45309; }
+
+// Conditional branch nodes
+.node--conditional {
+  .node__box {
+    stroke: #c4b5fd;
+    stroke-dasharray: 5 4;
+    fill: #faf5ff;
+  }
+  .node__title { fill: #7c3aed; font-weight: 500; }
+  opacity: 0.92;
+}

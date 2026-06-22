@@ -83,35 +83,10 @@
       </div>
     </section>
 
-    <!-- Rewrite trace -->
-    @if (res.rewriteTrace.length > 0) {
-      <section class="rewrites">
-        <header class="rewrites__header">
-          Rewrites applied
-          <span class="rewrites__count">{{ res.rewriteTrace.length }}</span>
-        </header>
-
-        <ol class="rewrites__list">
-          @for (step of res.rewriteTrace; track $index) {
-            <li class="rewrite">
-              <div class="rewrite__row">
-                <span class="rewrite__behavior">rewriteUrl</span>
-                <span class="rewrite__mode">{{ step.behavior }}</span>
-              </div>
-
-              <div class="rewrite__target-row">
-                <code class="rewrite__from">{{ step.from }}</code>
-                <span class="rewrite__arrow">→</span>
-                <code class="rewrite__target">{{ step.to }}</code>
-              </div>
-
-              <div class="rewrite__source">
-                by <code>{{ formatRulePath(step.rulePath) }}</code>
-              </div>
-            </li>
-          }
-        </ol>
-      </section>
-    }
+    <!-- Request-to-origin flow -->
+    <section class="flow">
+      <header class="flow__header">Flow</header>
+      <app-akamai-graph [flow]="res.flow" />
+    </section>
   }
 </div>

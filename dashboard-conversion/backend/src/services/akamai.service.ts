@@ -1,6 +1,6 @@
 import EdgeGrid = require('akamai-edgegrid');
 import { matchUrl, parseRequestUrl, type ParsedRequestUrl } from './papi-naive-matcher';
-import { resolveDestinationPath, type RewriteStep } from './papi-rewrite-resolver';
+import { resolveFlow, type FlowHop } from './papi-rewrite-resolver';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -631,8 +631,8 @@ export interface EvaluateUrlResult {
   destinationPath: string;
   /** True when destinationPath differs from parsedUrl.path. */
   pathChanged: boolean;
-  /** Ordered list of the rewrites that fired, each with from/to. */
-  rewriteTrace: RewriteStep[];
+  /** Ordered request-to-origin flow (spine + conditional branches). */
+  flow: FlowHop[];
 }
 
 /**
@@ -701,9 +701,12 @@ export async function evaluateUrl(urlString: string): Promise<EvaluateUrlResult>
 
   const ruleTree = await getRuleTree(match.propertyId, match.version);
   const matchedRules = matchUrl(ruleTree.rules, parsed);
-  const { destinationPath, pathChanged, rewriteTrace } = resolveDestinationPath(matchedRules, parsed.path);
+  const { destinationPath, pathChanged, flow } = resolveFlow(matchedRules, parsed, {
+    propertyName: ruleTree.propertyName,
+    version: ruleTree.version
+  });
 
-  console.log(`[Akamai] evaluateUrl("${urlString}"): ${parsed.path} → ${destinationPath} (${rewriteTrace.length} rewrites) on ${ruleTree.propertyName} v${ruleTree.version}`);
+  console.log(`[Akamai] evaluateUrl("${urlString}"): ${parsed.path} → ${destinationPath} (${flow.length} hops) on ${ruleTree.propertyName} v${ruleTree.version}`);
 
   return {
     url: urlString,
@@ -715,6 +718,6 @@ export async function evaluateUrl(urlString: string): Promise<EvaluateUrlResult>
     },
     destinationPath,
     pathChanged,
-    rewriteTrace
+    flow
   };
 }

@@ -375,3 +375,19 @@
   word-break: break-all;
   background: transparent;
 }
+
+// ── Flow section ───────────────────────────────────────────────────
+
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow__header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  font-weight: 600;
+}
