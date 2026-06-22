@@ -25,6 +25,19 @@ export class ReleaseWorkflowService {
     return this.http.get<Release>(`${this.base}/${encodeURIComponent(releaseId)}`);
   }
 
+  getParticipatingDATeams(releaseId: string) {
+    return this.http.get<{
+      matched: { name: string; jiraProjects: string[]; scope?: string; devLead?: { name: string; email: string } }[];
+      unmatched: string[];
+      emailsByScope: Record<string, string>;
+      teamsByScope: Record<string, { name: string; jiraProjects: string[]; scope?: string; devLead?: { name: string; email: string } }[]>;
+      emails?: {
+        cdbUI: { subject: string; to: string; body: string };
+        cdbBOS: { subject: string; to: string; body: string };
+      };
+    }>(`${this.base}/${encodeURIComponent(releaseId)}/da-teams`);
+  }
+
   create(input: CreateReleaseInput): Observable<{ message: string; release: Release }> {
     return this.http.post<{ message: string; release: Release }>(this.base, input);
   }

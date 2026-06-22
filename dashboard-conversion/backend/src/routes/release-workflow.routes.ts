@@ -2,7 +2,9 @@ import { Router, Request, Response } from 'express';
 import releaseWorkflowService from '../services/release-workflow.service';
 import appDataService from '../services/app-data.service';
 import { requireAuth } from '../middleware/auth';
-import { ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
+import { techGovernanceReleasesIntakeService } from '../services';
+import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
+import { Release, ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
 
 const router = Router();
 
@@ -135,6 +137,129 @@ router.get('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: 
   } catch (error) {
     console.error('Error fetching release:', error);
     res.status(500).json({ error: 'Failed to fetch release' });
+  }
+});
+
+// ----- GET /api/release-workflow/:releaseId/da-teams -----
+
+router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
+  try {
+    const { releaseId } = req.params;
+    const release = await releaseWorkflowService.getById(releaseId);
+    if (!release) return notFound(res, `Release '${releaseId}' not found`);
+    const entry = techGovernanceReleasesIntakeService.findByBranch(releaseId);
+    const resolution = entry
+      ? resolveDATeamsByCodes(codesFromIntakes(entry.intakes), entry.intakes)
+      : { matched: [], unmatched: [] };
+
+    // Group matched teams and emails by scope
+    const scopes = ['CDB UI', 'CDB BOS'];
+    const emailsByScope: Record<string, string> = {};
+    const teamsByScope: Record<string, typeof resolution.matched> = {};
+    for (const scope of scopes) {
+      // Only include teams whose comma-separated scope list contains a matching
+      // CDB UI or CDB BOS item. Teams with no scope are excluded — they have
+      // no config changes to PR.
+      const teamsInScope = resolution.matched.filter((t) => {
+        if (!t.scope) return false; // no scope signals = exclude from config emails
+        // Check if the comma-separated scope list contains CDB UI or CDB BOS
+        const scopeItems = t.scope.split(',').map(s => s.trim());
+        if (scope === 'CDB UI') {
+          return scopeItems.some(s => s.startsWith('CDB UI'));
+        } else if (scope === 'CDB BOS') {
+          return scopeItems.some(s => s.startsWith('CDB BOS'));
+        }
+        return false;
+      });
+      teamsByScope[scope] = teamsInScope;
+      const emails = new Set<string>();
+      for (const t of teamsInScope) {
+        if (t.devLead?.email) emails.add(t.devLead.email);
+      }
+      emailsByScope[scope] = [...emails].join('; ');
+    }
+
+    // Construct pre-filled email templates for CDB UI and CDB BOS
+    const entryBranch = entry?.branch ?? release.releaseId;
+    const releaseName =
+      (entryBranch ? entryBranch.replace(/^release\//i, '').toUpperCase() : '') ||
+      (release.title ? release.title.split('\n')[0].trim() : '') ||
+      releaseId;
+
+    // Helper to extract branch portion from a URL like '.../tree/release/r82.1.0' -> 'release/r82.1.0'
+    function extractBranchFromUrl(url: string): string {
+      const match = url.match(/\/tree\/(.+)$/);
+      return match ? match[1] : '';
+    }
+
+    // Prefer saved branch URLs in metadata; fall back to deriving from releaseName
+    const cdbUiBranchUrl =
+      release.metadata?.branches?.cdbUiConfigs ||
+      `https://github.com/BMO-Prod/CDB_configs_63623/tree/release/${releaseName.toLowerCase()}`;
+    const cdbUiBranchName = release.metadata?.branches?.cdbUiConfigs
+      ? extractBranchFromUrl(release.metadata.branches.cdbUiConfigs)
+      : `release/${releaseName.toLowerCase()}`;
+
+    const cdbBosBranchUrl =
+      release.metadata?.cdbbosConfigBranchUrl ||
+      `https://github.com/BMO-Prod/CDB_BOS_configs_63623/tree/release/${releaseName.toLowerCase()}`;
+    const cdbBosBranchName = release.metadata?.cdbbosConfigBranchUrl
+      ? extractBranchFromUrl(release.metadata.cdbbosConfigBranchUrl)
+      : `release/${releaseName.toLowerCase()}`;
+
+    const buildTeamTable = (teams: typeof resolution.matched) =>
+      (teams || [])
+        .map((t) => (t.devLead && t.devLead.name ? `${t.devLead.name}\t${t.name}` : null))
+        .filter((l): l is string => Boolean(l))
+        .join('\n');
+
+    const cdbUiTeamTable = buildTeamTable(teamsByScope['CDB UI'] || []);
+    const cdbBosTeamTable = buildTeamTable(teamsByScope['CDB BOS'] || []);
+
+    const emails = {
+      cdbUI: {
+        subject: `CDB UI Config ${releaseName} - Release Branch Created`,
+        to: emailsByScope['CDB UI'] ?? '',
+        body:
+          `Hello Team,\n\n` +
+          `I have created the CDB UI Config ${releaseName} release branch ${cdbUiBranchUrl}/PROD .\n\n` +
+          `Please raise PR's to above branch for CDB UI Config for ${releaseName} bundle.\n` +
+          `To all the ADM's who are part of ${releaseName}, Please forward this email to your developers if I have missed anyone.\n\n` +
+          `Steps/Process:\n` +
+          `1. Create a branch off ${cdbUiBranchName}\n` +
+          `2. Add/Update your project's config changes in prod/cdb-app-properties.json\n` +
+          `3. Create a PR with your project name in title and details in the description section\n\n` +
+          `Features with missed configs will not work as expected in pre-prod, so please make sure all the required config changes for your project are merged into the release branch (feature toggles, urls, entitlements, etc.)\n\n` +
+          `Dev Lead Name\tDA Team\n` +
+          `${cdbUiTeamTable}`,
+      },
+      cdbBOS: {
+        subject: `CDB BOS Config ${releaseName} - Release Branch Created`,
+        to: emailsByScope['CDB BOS'] ?? '',
+        body:
+          `Hello Team,\n\n` +
+          `I have created the CDB BOS Config ${releaseName} release branch ${cdbBosBranchUrl}/PROD .\n\n` +
+          `Please raise PR's to above branch for CDB BOS Config for ${releaseName} bundle.\n` +
+          `To all the ADM's who are part of ${releaseName}, Please forward this email to your developers if I have missed anyone.\n\n` +
+          `Steps/Process:\n` +
+          `1. Create a branch off ${cdbBosBranchName}\n` +
+          `2. Add/Update your project's config changes in prod/cdbbos-app-properties.json\n` +
+          `3. Create a PR with your project name in title and details in the description section\n\n` +
+          `Features with missed configs will not work as expected in pre-prod, so please make sure all the required config changes for your project are merged into the release branch (feature toggles, urls, entitlements, etc.)\n\n` +
+          `Dev Lead Name\tDA Team\n` +
+          `${cdbBosTeamTable}`,
+      },
+    };
+
+    res.json({
+      ...resolution,
+      emailsByScope,
+      teamsByScope,
+      emails,
+    });
+  } catch (error) {
+    console.error('Error resolving participating DA teams:', error);
+    res.status(500).json({ error: 'Failed to resolve participating DA teams' });
   }
 });
 

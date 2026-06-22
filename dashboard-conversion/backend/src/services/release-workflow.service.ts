@@ -22,18 +22,13 @@ import {
 } from '../models/release-workflow.model';
 
 class ReleaseWorkflowService {
-  private readonly retrofitPleaseReleaseStageId = 'stage3-retrofit-please-release';
+  private readonly earlyRetrofitReleaseStageId = 'stage3-early-retrofit-release';
   private readonly dataFileName = 'release_workflow_data.json';
 
   constructor() {
     this.initialize();
   }
 
-  /**
-   * Boot-time template reconciliation only. All reads and mutations load
-   * the latest data from Artifactory on demand — there is no in-memory
-   * cache and no cross-pod cache sync for this topic.
-   */
   async initialize(): Promise<void> {
     // Reconcile every existing release against the current STAGE_TEMPLATE.
     await this.reconcileWithTemplate();
@@ -68,7 +63,7 @@ class ReleaseWorkflowService {
   }
 
   private assertBundleReleaseCanSkip(release: Release, stage: Stage, action: 'sub-step' | 'stage'): void {
-    if (stage.id === this.retrofitPleaseReleaseStageId) return;
+    if (stage.id === this.earlyRetrofitReleaseStageId) return;
     if (release.type !== 'bundle') return;
     throw new Error(`Bundle releases cannot be skipped at the ${action} level`);
   }
@@ -360,13 +355,7 @@ class ReleaseWorkflowService {
   }
 
   /**
-   * Run the applicable checks for a stage against an already-loaded release,
-   * mutating it in place (check results, auto-ticks, statuses, updatedAt).
-   * Does NOT persist. Returns true if any check ran (caller saves once).
-   *
-   * This is the seam that lets updateMetadata() run several stages' checks
-   * against one in-hand release and save a single time, instead of each
-   * runChecks() call reloading and rewriting the whole file.
+   * Run the applicable checks for a stage against an already-loaded release
    */
   private async runChecksInMemory(
     release: Release,
@@ -509,10 +498,10 @@ class ReleaseWorkflowService {
       sealightsDisablePrUrl: input?.sealightsDisablePrUrl ?? null,
       preProdLetterUrl: input?.preProdLetterUrl ?? null,
       prodLetterUrl: input?.prodLetterUrl ?? null,
-      retrofitPleaseCdbUiPrUrl: input?.retrofitPleaseCdbUiPrUrl ?? null,
-      retrofitPleaseCdbUiConfigPrUrl: input?.retrofitPleaseCdbUiConfigPrUrl ?? null,
-      retrofitPleaseCdbbosPrUrl: input?.retrofitPleaseCdbbosPrUrl ?? null,
-      retrofitPleaseCdbbosConfigPrUrl: input?.retrofitPleaseCdbbosConfigPrUrl ?? null,
+      earlyRetrofitCdbUiPrUrl: input?.earlyRetrofitCdbUiPrUrl ?? null,
+      earlyRetrofitCdbUiConfigPrUrl: input?.earlyRetrofitCdbUiConfigPrUrl ?? null,
+      earlyRetrofitCdbbosPrUrl: input?.earlyRetrofitCdbbosPrUrl ?? null,
+      earlyRetrofitCdbbosConfigPrUrl: input?.earlyRetrofitCdbbosConfigPrUrl ?? null,
       retrofitCdbUiPrUrl: input?.retrofitCdbUiPrUrl ?? null,
       retrofitCdbConfigsPrUrl: input?.retrofitCdbConfigsPrUrl ?? null,
       retrofitCdbUiSwaggerPrUrl: input?.retrofitCdbUiSwaggerPrUrl ?? null,
@@ -856,8 +845,7 @@ class ReleaseWorkflowService {
     }
 
     // Drop stages no longer present in the template (e.g. renamed/renumbered
-    // stage IDs). Mirrors the orphan sub-step / check handling below — a stage
-    // whose id isn't in STAGE_TEMPLATE is treated as an orphan and removed.
+    // stage IDs).
     const tplStageIds = new Set(STAGE_TEMPLATE.map((s) => s.id));
     const droppedStages = release.stages.filter((s) => !tplStageIds.has(s.id));
     if (droppedStages.length > 0) {

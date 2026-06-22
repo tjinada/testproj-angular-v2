@@ -150,6 +150,7 @@
               <thead>
                 <tr>
                   <th>Title</th>
+                  <th>Scope</th>
                   <th>Dates</th>
                   <th>Author</th>
                   <th>Contributors</th>
@@ -167,6 +168,7 @@
                         {{ intake.title }}
                       </a>
                     </td>
+                    <td>{{ intake.scope || '—' }}</td>
                     <td class="dates-cell">
                       <div><strong>Created:</strong> {{ intake.createdDate | date: 'mediumDate' }}</div>
                       <div><strong>Discussed:</strong> {{ intake.discussedOn ? (intake.discussedOn | date: 'mediumDate') : '—' }}</div>

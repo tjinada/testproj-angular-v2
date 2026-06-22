@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReleaseWorkflowService } from '../../../../../../services/release-workflow.service';
-import { Release, ReleaseComponents, ReleaseMetadata, ReleaseStatus, Stage, StageStatus, SubStep, SubStepTrack } from '../../../../../../models/release-workflow.model';
+import { Release, ReleaseComponents, ReleaseMetadata, ReleaseStatus, ReleaseType, Stage, StageStatus, SubStep, SubStepTrack } from '../../../../../../models/release-workflow.model';
 import { StageViewComponent } from '../../stage-view/stage-view.component';
 import { AuthService } from '../../../../../../services/auth.service';
 import { Admin } from '../../../../../../models/admin.models';
@@ -25,16 +25,33 @@ import {
 } from '../../../../../../utils/release-components.util';
 
 type ReleaseDetailTab = 'details' | 'stages';
-type BasicEditableKey = 'title' | 'sheriff' | 'backupSheriff' | 'releaseComponents' | 'preProdDate' | 'prodDate' | 'jiraTracker';
+type BasicEditableKey =
+  | 'title'
+  | 'uiSheriff'
+  | 'uiBackupSheriff'
+  | 'bosSheriff'
+  | 'bosBackupSheriff'
+  | 'releaseComponents'
+  | 'preProdDate'
+  | 'prodDate'
+  | 'jiraTracker';
 
 interface ParticipatingDATeam {
   name: string;
   jiraProjects: string[];
+  scope?: string;
+  devLead?: { name: string; email: string };
 }
 
 interface ParticipatingDATeams {
   matched: ParticipatingDATeam[];
   unmatched: string[];
+  emailsByScope?: Record<string, string>;
+  teamsByScope?: Record<string, ParticipatingDATeam[]>;
+  emails?: {
+    cdbUI: { subject: string; to: string; body: string };
+    cdbBOS: { subject: string; to: string; body: string };
+  };
 }
 
 @Component({
@@ -135,11 +152,6 @@ export class ReleaseDetailComponent implements OnInit {
     }
   }
 
-  /**
-   * Pull the DA teams participating in this release. The backend refreshes the
-   * tech-governance intakes from Confluence on each call, so late intake pages
-   * are picked up on reload.
-   */
   loadDATeams(): void {
     this.daTeamsLoading.set(true);
     this.daTeamsError.set(null);
@@ -203,7 +215,7 @@ export class ReleaseDetailComponent implements OnInit {
   startBasicEdit(key: BasicEditableKey): void {
     const release = this.release();
     if (!release) return;
-    if ((key === 'sheriff' || key === 'backupSheriff') && this.admins().length === 0) {
+    if (this.isSheriffEditKey(key) && this.admins().length === 0) {
       this.loadAdmins();
     }
     this.error.set(null);
@@ -233,7 +245,16 @@ export class ReleaseDetailComponent implements OnInit {
 
     const value = this.basicDraft().trim();
     if (key === 'title') return value.length > 0;
-    if (key === 'sheriff') return normalizeSheriff(value).length > 0;
+    if (this.isSheriffEditKey(key)) {
+      if (this.adminsLoading() || this.admins().length === 0) {
+        return false;
+      }
+
+      return key === 'uiSheriff' || key === 'bosSheriff'
+        ? this.isValidAdminSheriff(value)
+        : this.isOptionalAdminSheriff(value);
+    }
+
     return true;
   }
 
@@ -252,7 +273,7 @@ export class ReleaseDetailComponent implements OnInit {
     const raw = this.basicDraft().trim();
     const textValue = raw;
 
-    let patch: Partial<Pick<Release, 'title' | 'sheriff' | 'backupSheriff'>> & {
+    let patch: Partial<Pick<Release, 'title' | 'uiSheriff' | 'uiBackupSheriff' | 'bosSheriff' | 'bosBackupSheriff'>> & {
       releaseComponents?: Partial<ReleaseComponents>;
       metadata?: Partial<ReleaseMetadata>;
     };
@@ -262,15 +283,23 @@ export class ReleaseDetailComponent implements OnInit {
         return;
       }
       patch = { title: textValue };
-    } else if (key === 'sheriff') {
-      const sheriff = normalizeSheriff(textValue);
-      if (!sheriff) {
-        this.error.set('Sheriff cannot be blank.');
+    } else if (key === 'uiSheriff' || key === 'bosSheriff') {
+      if (!this.isValidAdminSheriff(textValue)) {
+        this.error.set(`${this.basicLabel(key)} must match an admin username.`);
         return;
       }
-      patch = { sheriff };
-    } else if (key === 'backupSheriff') {
-      patch = { backupSheriff: normalizeSheriff(textValue) || null };
+      const sheriff = normalizeSheriff(textValue);
+      if (!sheriff) {
+        this.error.set(`${this.basicLabel(key)} cannot be blank.`);
+        return;
+      }
+      patch = { [key]: sheriff };
+    } else if (key === 'uiBackupSheriff' || key === 'bosBackupSheriff') {
+      if (!this.isOptionalAdminSheriff(textValue)) {
+        this.error.set(`${this.basicLabel(key)} must match an admin username.`);
+        return;
+      }
+      patch = { [key]: normalizeSheriff(textValue) || null };
     } else if (key === 'releaseComponents') {
       const releaseComponents = normalizeReleaseComponents(this.basicComponentsDraft());
       if (!releaseComponents.cdbui && !releaseComponents.cdbbos) {
@@ -301,10 +330,52 @@ export class ReleaseDetailComponent implements OnInit {
 
   basicFieldValue(r: Release, key: BasicEditableKey): string {
     if (key === 'title') return r.title;
-    if (key === 'sheriff') return r.sheriff;
-    if (key === 'backupSheriff') return r.backupSheriff ?? '';
+    if (key === 'uiSheriff') return r.uiSheriff ?? '';
+    if (key === 'uiBackupSheriff') return r.uiBackupSheriff ?? '';
+    if (key === 'bosSheriff') return r.bosSheriff ?? '';
+    if (key === 'bosBackupSheriff') return r.bosBackupSheriff ?? '';
     if (key === 'releaseComponents') return selectedReleaseComponentsLabel(r);
     return r.metadata[key] ?? '';
+  }
+
+  private isSheriffEditKey(key: BasicEditableKey): key is 'uiSheriff' | 'uiBackupSheriff' | 'bosSheriff' | 'bosBackupSheriff' {
+    return key === 'uiSheriff'
+      || key === 'uiBackupSheriff'
+      || key === 'bosSheriff'
+      || key === 'bosBackupSheriff';
+  }
+
+  basicLabel(key: Extract<BasicEditableKey, 'uiSheriff' | 'uiBackupSheriff' | 'bosSheriff' | 'bosBackupSheriff'>): string {
+    switch (key) {
+      case 'uiSheriff':
+        return 'CDB UI sheriff';
+      case 'uiBackupSheriff':
+        return 'CDB UI backup sheriff';
+      case 'bosSheriff':
+        return 'CDB BOS sheriff';
+      case 'bosBackupSheriff':
+        return 'CDB BOS backup sheriff';
+    }
+  }
+
+  releaseTypeLabel(type: ReleaseType | string): string {
+    return type === 'hotfix' || type === 'EQF/hotfix'
+      ? 'EQF/Hotfix'
+      : type[0].toUpperCase() + type.slice(1);
+  }
+
+  private validAdminUsernames(): Set<string> {
+    return new Set(this.admins().map((admin) => usernameFromEmail(admin.email).toLowerCase()));
+  }
+
+  private isValidAdminSheriff(value: string): boolean {
+    const normalized = normalizeSheriff(value).toLowerCase();
+    return normalized.length > 0 && this.validAdminUsernames().has(normalized);
+  }
+
+  private isOptionalAdminSheriff(value: string): boolean {
+    const normalized = normalizeSheriff(value);
+    return normalized.length === 0 || this.validAdminUsernames().has(normalized.toLowerCase());
   }
 
   usernameFromEmail(email: string): string {
@@ -355,9 +426,72 @@ export class ReleaseDetailComponent implements OnInit {
     return (r.metadata as any)[path] ?? 'Not set';
   }
 
-  fieldLinkByPath(path: string | null, r: Release): string | null {
+  fieldLinksByPath(path: string | null, r: Release): Array<{ href: string; label: string }> {
     const value = this.fieldValueByPath(path, r);
-    return /^https?:\/\//i.test(value) ? value : null;
+    if (value === 'Not set') return [];
+
+    return value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter((item) => /^https?:\/\//i.test(item))
+      .map((href) => ({ href, label: this.fieldLinkLabel(href) }));
+  }
+
+  fieldLinkByPath(path: string | null, r: Release): string | null {
+    return this.fieldLinksByPath(path, r)[0]?.href ?? null;
+  }
+
+  fieldLinkLabelByPath(path: string | null, r: Release): string {
+    const value = this.fieldValueByPath(path, r);
+    const link = this.fieldLinkByPath(path, r);
+    if (!link) return value;
+
+    return this.fieldLinkLabel(link);
+  }
+
+  private fieldLinkLabel(link: string): string {
+    try {
+      const parsed = new URL(link);
+      const segments = parsed.pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
+
+      if (parsed.hostname.includes('github.com')) {
+        const treeIndex = segments.indexOf('tree');
+        if (treeIndex >= 0 && treeIndex + 1 < segments.length) {
+          return segments.slice(treeIndex + 1).join('/');
+        }
+
+        const pullIndex = segments.indexOf('pull');
+        if (pullIndex >= 0 && pullIndex + 1 < segments.length) {
+          return `pull/${segments[pullIndex + 1]}`;
+        }
+
+        const tagIndex = segments.indexOf('tag');
+        if (tagIndex >= 0 && tagIndex + 1 < segments.length) {
+          return segments[tagIndex + 1];
+        }
+      }
+
+      if (parsed.hostname.includes('atlassian.net')) {
+        const browseIndex = segments.indexOf('browse');
+        if (browseIndex >= 0 && browseIndex + 1 < segments.length) {
+          return segments[browseIndex + 1];
+        }
+
+        const issuesIndex = segments.indexOf('issues');
+        if (issuesIndex >= 0 && issuesIndex + 1 < segments.length) {
+          return segments[issuesIndex + 1];
+        }
+
+        const pagesIndex = segments.indexOf('pages');
+        if (pagesIndex >= 0 && pagesIndex + 1 < segments.length) {
+          return segments[pagesIndex + 1];
+        }
+      }
+
+      return segments.at(-1) ?? link;
+    } catch {
+      return link;
+    }
   }
 
   jumpToStageEditor(stageId: string, subStepId: string): void {
@@ -446,8 +580,19 @@ export class ReleaseDetailComponent implements OnInit {
       .map((s) => s.name);
   }
 
-  backupSheriffLabel(r: Release): string {
-    return r.backupSheriff || 'Not set';
+  sheriffValue(value: string | null): string {
+    return value || 'Not set';
+  }
+
+  sheriffSummary(r: Release): string {
+    const parts: string[] = [];
+    if (r.releaseComponents.cdbui) {
+      parts.push(`CDB UI: ${this.sheriffValue(r.uiSheriff)}`);
+    }
+    if (r.releaseComponents.cdbbos) {
+      parts.push(`CDB BOS: ${this.sheriffValue(r.bosSheriff)}`);
+    }
+    return parts.join(' | ') || 'Not set';
   }
 
   releaseComponentsLabel(r: Release): string {

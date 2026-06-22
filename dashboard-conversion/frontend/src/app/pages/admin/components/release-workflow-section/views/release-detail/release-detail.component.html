@@ -22,7 +22,7 @@
         <span class="meta-item">JIRA: {{ r.metadata.jiraTracker }}</span>
       }
       <span class="meta-sep">·</span>
-      <span class="meta-item">Sheriff: {{ r.sheriff }}</span>
+      <span class="meta-item">Sheriffs: {{ sheriffSummary(r) }}</span>
       <span class="meta-sep">·</span>
       <span class="meta-item">{{ stagesComplete() }} / {{ totalStages() }} stages complete</span>
     </div>
@@ -86,52 +86,94 @@
             </div>
             <div class="details-row">
               <span class="details-row__label">Type</span>
-              <span class="details-row__value">{{ r.type }}</span>
+              <span class="details-row__value">{{ releaseTypeLabel(r.type) }}</span>
               <span class="details-row__meta">read-only</span>
             </div>
-            <div class="details-row">
-              <span class="details-row__label">Sheriff</span>
-              @if (isEditingBasic('sheriff')) {
-                <div class="details-row__editor">
-                  <input
-                    type="text"
-                    list="basicSheriffAdmins"
-                    placeholder="Select sheriff (admin)"
-                    [value]="basicDraft()"
-                    (input)="basicDraft.set($any($event.target).value)"
-                    [disabled]="basicSaving()" />
-                  <datalist id="basicSheriffAdmins">
-                    @for (a of admins(); track a.email) {
-                      <option [value]="usernameFromEmail(a.email)">{{ a.email }}</option>
-                    }
-                  </datalist>
-                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
-                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
-                </div>
-              } @else {
-                <span class="details-row__value">{{ r.sheriff }}</span>
-                <button type="button" class="details-link" (click)="startBasicEdit('sheriff')">Edit</button>
+            <datalist id="basicSheriffAdmins">
+              @for (a of admins(); track a.email) {
+                <option [value]="usernameFromEmail(a.email)">{{ a.email }}</option>
               }
-            </div>
-            <div class="details-row">
-              <span class="details-row__label">Backup sheriff</span>
-              @if (isEditingBasic('backupSheriff')) {
-                <div class="details-row__editor">
-                  <input
-                    type="text"
-                    list="basicSheriffAdmins"
-                    placeholder="Select backup sheriff (admin)"
-                    [value]="basicDraft()"
-                    (input)="basicDraft.set($any($event.target).value)"
-                    [disabled]="basicSaving()" />
-                  <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
-                  <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
-                </div>
-              } @else {
-                <span class="details-row__value">{{ backupSheriffLabel(r) }}</span>
-                <button type="button" class="details-link" (click)="startBasicEdit('backupSheriff')">Edit</button>
-              }
-            </div>
+            </datalist>
+            @if (r.releaseComponents.cdbui) {
+              <div class="details-row">
+                <span class="details-row__label">CDB UI sheriff</span>
+                @if (isEditingBasic('uiSheriff')) {
+                  <div class="details-row__editor">
+                    <input
+                      type="text"
+                      list="basicSheriffAdmins"
+                      placeholder="Select CDB UI sheriff (admin)"
+                      [value]="basicDraft()"
+                      (input)="basicDraft.set($any($event.target).value)"
+                      [disabled]="basicSaving()" />
+                    <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                    <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                  </div>
+                } @else {
+                  <span class="details-row__value">{{ sheriffValue(r.uiSheriff) }}</span>
+                  <button type="button" class="details-link" (click)="startBasicEdit('uiSheriff')">Edit</button>
+                }
+              </div>
+              <div class="details-row">
+                <span class="details-row__label">CDB UI backup sheriff</span>
+                @if (isEditingBasic('uiBackupSheriff')) {
+                  <div class="details-row__editor">
+                    <input
+                      type="text"
+                      list="basicSheriffAdmins"
+                      placeholder="Select CDB UI backup sheriff (admin)"
+                      [value]="basicDraft()"
+                      (input)="basicDraft.set($any($event.target).value)"
+                      [disabled]="basicSaving()" />
+                    <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                    <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                  </div>
+                } @else {
+                  <span class="details-row__value">{{ sheriffValue(r.uiBackupSheriff) }}</span>
+                  <button type="button" class="details-link" (click)="startBasicEdit('uiBackupSheriff')">Edit</button>
+                }
+              </div>
+            }
+            @if (r.releaseComponents.cdbbos) {
+              <div class="details-row">
+                <span class="details-row__label">CDB BOS sheriff</span>
+                @if (isEditingBasic('bosSheriff')) {
+                  <div class="details-row__editor">
+                    <input
+                      type="text"
+                      list="basicSheriffAdmins"
+                      placeholder="Select CDB BOS sheriff (admin)"
+                      [value]="basicDraft()"
+                      (input)="basicDraft.set($any($event.target).value)"
+                      [disabled]="basicSaving()" />
+                    <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                    <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                  </div>
+                } @else {
+                  <span class="details-row__value">{{ sheriffValue(r.bosSheriff) }}</span>
+                  <button type="button" class="details-link" (click)="startBasicEdit('bosSheriff')">Edit</button>
+                }
+              </div>
+              <div class="details-row">
+                <span class="details-row__label">CDB BOS backup sheriff</span>
+                @if (isEditingBasic('bosBackupSheriff')) {
+                  <div class="details-row__editor">
+                    <input
+                      type="text"
+                      list="basicSheriffAdmins"
+                      placeholder="Select CDB BOS backup sheriff (admin)"
+                      [value]="basicDraft()"
+                      (input)="basicDraft.set($any($event.target).value)"
+                      [disabled]="basicSaving()" />
+                    <button type="button" class="details-link" (click)="saveBasicEdit()" [disabled]="basicSaving() || !canSaveBasicEdit()">Save</button>
+                    <button type="button" class="details-link details-link--muted" (click)="cancelBasicEdit()" [disabled]="basicSaving()">Cancel</button>
+                  </div>
+                } @else {
+                  <span class="details-row__value">{{ sheriffValue(r.bosBackupSheriff) }}</span>
+                  <button type="button" class="details-link" (click)="startBasicEdit('bosBackupSheriff')">Edit</button>
+                }
+              </div>
+            }
             <div class="details-row">
               <span class="details-row__label">Release components</span>
               @if (isEditingBasic('releaseComponents')) {
@@ -205,33 +247,32 @@
         </div>
 
         <div class="details-card">
-          <div class="details-card__header">
-            <h2 class="details-card__title">Participating DA Teams</h2>
-          </div>
-
-          @if (daTeamsLoading()) {
-            <div class="da-teams__state">Loading DA teams…</div>
-          } @else if (daTeamsError()) {
-            <div class="da-teams__state da-teams__state--error">{{ daTeamsError() }}</div>
-          } @else if (daTeams().length === 0 && daTeamsUnmatched().length === 0) {
-            <div class="da-teams__state">
-              No DA teams identified. This release has no matching tech-governance intakes yet.
-            </div>
-          } @else {
-            @if (daTeams().length > 0) {
-              <ul class="da-teams__list">
-                @for (team of daTeams(); track team.name) {
-                  <li class="da-teams__chip">{{ team.name }}</li>
-                }
-              </ul>
-            }
-            @if (daTeamsUnmatched().length > 0) {
-              <div class="da-teams__unmatched">
-                Unmatched intake codes (no DA team): {{ daTeamsUnmatched().join(', ') }}
-              </div>
-            }
-          }
-        </div>
+  <div class="details-card__header">
+    <h2 class="details-card__title">Participating DA Teams</h2>
+  </div>
+  @if (daTeamsLoading()) {
+    <div class="da-teams__state">Loading DA teams…</div>
+  } @else if (daTeamsError()) {
+    <div class="da-teams__state da-teams__state--error">{{ daTeamsError() }}</div>
+  } @else if (daTeams().length === 0 && daTeamsUnmatched().length === 0) {
+    <div class="da-teams__state">
+      No DA teams identified. This release has no matching tech-governance intakes yet.
+    </div>
+  } @else {
+    @if (daTeams().length > 0) {
+      <ul class="da-teams__list">
+        @for (team of daTeams(); track team.name) {
+          <li class="da-teams__chip">{{ team.name }}</li>
+        }
+      </ul>
+    }
+    @if (daTeamsUnmatched().length > 0) {
+      <div class="da-teams__unmatched">
+        Unmatched intake codes (no DA team): {{ daTeamsUnmatched().join(', ') }}
+      </div>
+    }
+  }
+</div>
 
         <div class="details-stages">
           @if (detailsStages(r).length === 0) {
@@ -257,16 +298,22 @@
                           <div class="details-field-row__label">{{ subStep.label }}</div>
                           <div class="details-field-row__key">{{ subStep.editableField }}</div>
                         </div>
-                        @if (fieldLinkByPath(subStep.editableField, r); as link) {
-                          <a
-                            class="details-field-row__helplink"
-                            [href]="link"
-                            target="_blank"
-                            rel="noopener noreferrer">
-                            {{ fieldValueByPath(subStep.editableField, r) }}
-                          </a>
-                        } @else {
-                          <div class="details-field-row__value">{{ fieldValueByPath(subStep.editableField, r) }}</div>
+                        @if (fieldLinksByPath(subStep.editableField, r); as links) {
+                          @if (links.length > 0) {
+                            <div class="details-field-row__links">
+                              @for (link of links; track link.href) {
+                                <a
+                                  class="details-field-row__helplink"
+                                  [href]="link.href"
+                                  target="_blank"
+                                  rel="noopener noreferrer">
+                                    {{ link.label }} ↗
+                                </a>
+                              }
+                            </div>
+                          } @else {
+                            <div class="details-field-row__value">{{ fieldValueByPath(subStep.editableField, r) }}</div>
+                          }
                         }
                         <button type="button" class="details-link" (click)="jumpToStageEditor(stage.id, subStep.id)">Edit</button>
                       </div>
