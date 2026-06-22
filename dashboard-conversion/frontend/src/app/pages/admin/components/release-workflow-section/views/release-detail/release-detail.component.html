@@ -249,6 +249,9 @@
         <div class="details-card">
   <div class="details-card__header">
     <h2 class="details-card__title">Participating DA Teams</h2>
+    <button type="button" class="details-link" (click)="refreshDATeams()" [disabled]="daTeamsLoading()">
+      {{ daTeamsLoading() ? 'Refreshing…' : 'Refresh intakes' }}
+    </button>
   </div>
   @if (daTeamsLoading()) {
     <div class="da-teams__state">Loading DA teams…</div>

@@ -29,6 +29,7 @@ export class GovernanceSectionComponent implements OnInit, OnDestroy {
   editingKey = signal<string | null>(null);
   editBuffer: EditableRelease | null = null;
   saving = signal(false);
+  refreshingBranch = signal<string | null>(null);
 
   // Intakes modal
   intakesModalRelease = signal<TechGovernanceRelease | null>(null);
@@ -142,6 +143,22 @@ export class GovernanceSectionComponent implements OnInit, OnDestroy {
       await this.loadReleases();
     } catch (err: any) {
       this.error.set(err?.error?.error || 'Failed to delete release');
+    }
+  }
+
+  async refreshIntakes(release: TechGovernanceRelease): Promise<void> {
+    const id = release.branch.replace(/^release\//i, '');
+    this.refreshingBranch.set(release.branch);
+    this.error.set('');
+    this.success.set('');
+    try {
+      await this.api.request('POST', `/api/release-workflow/${encodeURIComponent(id)}/intakes/refresh`, {});
+      this.success.set('Intakes refreshed');
+      await this.loadReleases();
+    } catch (err: any) {
+      this.error.set(err?.error?.error || 'Failed to refresh intakes');
+    } finally {
+      this.refreshingBranch.set(null);
     }
   }
 

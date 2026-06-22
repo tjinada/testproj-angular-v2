@@ -263,6 +263,25 @@ router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParam
   }
 });
 
+// ----- POST /api/release-workflow/:releaseId/intakes/refresh -----
+
+router.post('/:releaseId/intakes/refresh', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
+  try {
+    const { releaseId } = req.params;
+    const entry = await techGovernanceReleasesIntakeService.refreshIntakes(releaseId);
+    res.json({ message: 'Intakes refreshed', entry });
+  } catch (error: any) {
+    if (error?.message?.includes('not found')) {
+      return notFound(res, error.message);
+    }
+    if (error?.message?.includes('no linked intake page')) {
+      return badRequest(res, error.message);
+    }
+    console.error('Error refreshing intakes:', error);
+    res.status(500).json({ error: 'Failed to refresh intakes' });
+  }
+});
+
 // ----- POST /api/release-workflow -----
 
 /**

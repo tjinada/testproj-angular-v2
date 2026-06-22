@@ -38,6 +38,13 @@ export class ReleaseWorkflowService {
     }>(`${this.base}/${encodeURIComponent(releaseId)}/da-teams`);
   }
 
+  refreshIntakes(releaseId: string): Observable<{ message: string; entry: unknown }> {
+    return this.http.post<{ message: string; entry: unknown }>(
+      `${this.base}/${encodeURIComponent(releaseId)}/intakes/refresh`,
+      {},
+    );
+  }
+
   create(input: CreateReleaseInput): Observable<{ message: string; release: Release }> {
     return this.http.post<{ message: string; release: Release }>(this.base, input);
   }
