@@ -32,11 +32,17 @@ export class AkamaiFlowComponent {
   // ── Form state ─────────────────────────────────────────────────
 
   protected readonly url = signal('');
-  protected readonly colour = signal('standard');
-  protected readonly site = signal('qa1');
+  protected readonly colour = signal('');   // pick — only for a GSS host with no colour prefix
+  protected readonly site = signal('');     // pick — only for a GSS host
 
-  protected readonly colourOptions = ['standard', 'blue', 'green'];
-  protected readonly siteOptions = ['qa1', 'qa2', 'qa3', 'qa4', 'qa5', 'qa6', 'qa7', 'qa8', 'qa9', 'qa10', 'qa11', 'qa12'];
+  protected readonly colourOptions = ['blue', 'green'];
+
+  // Hostname classification, derived from the URL as typed.
+  private readonly hostClass = computed(() => classifyHostnameFromUrl(this.url()));
+  protected readonly isGss = computed(() => this.hostClass().isGss);
+  protected readonly needsColour = computed(() => this.isGss() && !this.hostClass().colourPrefix);
+  protected readonly needsSite = computed(() => this.isGss());
+  protected readonly pairSites = computed(() => this.hostClass().pairSites);
 
   // ── Async state ────────────────────────────────────────────────
 
@@ -50,7 +56,12 @@ export class AkamaiFlowComponent {
 
   // ── Derived state ──────────────────────────────────────────────
 
-  readonly canSubmit = computed(() => !this.loading() && this.url().trim().length > 0);
+  readonly canSubmit = computed(() => {
+    if (this.loading() || this.url().trim().length === 0) return false;
+    if (this.needsColour() && !this.colour()) return false;
+    if (this.needsSite() && !this.site()) return false;
+    return true;
+  });
 
   // ── Event handlers ─────────────────────────────────────────────
 
@@ -84,6 +95,8 @@ export class AkamaiFlowComponent {
 
   reset(): void {
     this.url.set('');
+    this.colour.set('');
+    this.site.set('');
     this.result.set(null);
     this.errorMessage.set(null);
     this.hostnameErrorBody.set(null);
@@ -108,4 +121,37 @@ export class AkamaiFlowComponent {
 
     this.errorMessage.set(err.message || 'Request failed');
   }
+}
+
+
+// ── Hostname classification (mirrors backend classifyHostname) ──────
+
+interface UrlHostClass {
+  colourPrefix?: 'blue' | 'green';
+  isGss: boolean;
+  pairSites: string[];
+}
+
+const ENV_PAIRS: Record<string, string[]> = {
+  '34': ['qa3', 'qa4'],
+  '56': ['qa5', 'qa6'],
+  '78': ['qa7', 'qa8'],
+  '910': ['qa9', 'qa10'],
+  '1112': ['qa11', 'qa12']
+};
+
+function classifyHostnameFromUrl(raw: string): UrlHostClass {
+  let host = '';
+  try {
+    host = new URL(raw.trim()).hostname.toLowerCase();
+  } catch {
+    host = '';
+  }
+  const colourPrefix = host.startsWith('blue.') ? 'blue' : host.startsWith('green.') ? 'green' : undefined;
+  const gss = host.match(/gss-qa(\d+)/);
+  return {
+    colourPrefix,
+    isGss: !!gss,
+    pairSites: gss ? ENV_PAIRS[gss[1]] || [] : []
+  };
 }

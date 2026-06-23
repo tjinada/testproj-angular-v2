@@ -90,6 +90,8 @@ export interface MatchOptions {
   colour?: string;
   /** Site/env selector (e.g. "qa1") → resolves cloudletsOrigin arms. */
   site?: string;
+  /** Whether this URL routes through the cloudlet at all (colour-prefixed or GSS host). */
+  isCloudletUrl?: boolean;
   /** Drop the Shape routing subtree (unused in practice). */
   suppressShape?: boolean;
   /** Declared PM variable defaults (rules.variables) used to seed state. */
@@ -100,7 +102,14 @@ export interface MatchOptions {
 interface SimContext {
   vars: Record<string, string>;
   selectors: { colour?: string; site?: string };
+  isCloudletUrl: boolean;
   suppressShape: boolean;
+}
+
+/** Result of a match run: the matched rules plus the resolved variable state. */
+export interface MatchResult {
+  matchedRules: MatchedRule[];
+  vars: Record<string, string>;
 }
 
 // ── Public API ───────────────────────────────────────────────────────
@@ -120,15 +129,16 @@ export function matchUrl(
   rootRule: AkamaiRule,
   url: ParsedRequestUrl,
   options: MatchOptions = {}
-): MatchedRule[] {
+): MatchResult {
   const results: MatchedRule[] = [];
   const ctx: SimContext = {
     vars: seedVariables(url, options.variableDefaults),
     selectors: { colour: options.colour, site: options.site },
+    isCloudletUrl: options.isCloudletUrl === true,
     suppressShape: options.suppressShape === true
   };
   walk(rootRule, [], url, results, 'full', ctx);
-  return results;
+  return { matchedRules: results, vars: ctx.vars };
 }
 
 /**
@@ -151,6 +161,37 @@ export function parseRequestUrl(urlString: string): ParsedRequestUrl | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Classifies a hostname for cloudlet routing. Cloudlet/COG handling only
+ * applies when the host carries a colour prefix or a GSS pair token:
+ *   blue./green.        → colour known from the prefix
+ *   olb-gss-qa<NN>      → GSS pair (e.g. qa56 → [qa5, qa6]); needs a pick
+ *   olb-qa<N> (no gss)  → specific site, bypasses cloudlet
+ */
+export interface HostnameClass {
+  colourPrefix?: 'blue' | 'green';
+  specificSite?: string;
+  gssPair?: string;
+  pairSites: string[];
+  isCloudletUrl: boolean;
+}
+
+export function classifyHostname(hostname: string): HostnameClass {
+  const lo = (hostname || '').toLowerCase();
+  const colourPrefix = lo.startsWith('blue.') ? 'blue' : lo.startsWith('green.') ? 'green' : undefined;
+  const gss = lo.match(/gss-qa(\d+)/);
+  if (gss) {
+    return { colourPrefix, gssPair: 'qa' + gss[1], pairSites: expandEnvPair(gss[1]), isCloudletUrl: true };
+  }
+  const specific = lo.match(/olb-qa(\d+)/);
+  return {
+    colourPrefix,
+    specificSite: specific ? 'qa' + specific[1] : undefined,
+    pairSites: [],
+    isCloudletUrl: !!colourPrefix
+  };
 }
 
 // ── Internal: tree walk ──────────────────────────────────────────────
@@ -310,7 +351,7 @@ function evaluateCriterion(
     return evaluateMatchVariable(criterion.options || {}, ctx.vars);
   }
   if (criterion.name === 'cloudletsOrigin') {
-    return evaluateCloudletsOrigin(criterion.options || {}, rule, ctx.selectors);
+    return evaluateCloudletsOrigin(criterion.options || {}, rule, ctx.selectors, ctx.isCloudletUrl);
   }
 
   if (!SUPPORTED_CRITERIA.has(criterion.name)) {
@@ -527,10 +568,14 @@ function evaluateMatchVariable(
 function evaluateCloudletsOrigin(
   opts: Record<string, unknown>,
   rule: AkamaiRule,
-  selectors: { colour?: string; site?: string }
+  selectors: { colour?: string; site?: string },
+  isCloudletUrl: boolean
 ): CriterionResult {
   const id = asStr(opts.originId);
   if (!id) return 'unsupported';
+  // Plain (non-colour, non-GSS) URLs never enter the cloudlet — prune the
+  // whole Conditional Origin Group rather than showing it as conditional.
+  if (!isCloudletUrl) return 'fail';
   if (!selectors.colour && !selectors.site) return 'unsupported';
 
   const cls = classifyCloudletId(id, originHostOf(rule));

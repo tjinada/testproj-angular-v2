@@ -32,25 +32,31 @@
     }
   </section>
 
-  <!-- ── Routing selectors ───────────────────────────────────── -->
-  <section class="akamai-flow__selectors">
-    <label class="akamai-flow__select">
-      <span class="akamai-flow__select-label">Colour</span>
-      <select [ngModel]="colour()" (ngModelChange)="colour.set($event)" [disabled]="loading()">
-        @for (c of colourOptions; track c) {
-          <option [value]="c">{{ c }}</option>
-        }
-      </select>
-    </label>
-    <label class="akamai-flow__select">
-      <span class="akamai-flow__select-label">Site</span>
-      <select [ngModel]="site()" (ngModelChange)="site.set($event)" [disabled]="loading()">
-        @for (s of siteOptions; track s) {
-          <option [value]="s">{{ s }}</option>
-        }
-      </select>
-    </label>
-  </section>
+  <!-- ── Routing selectors (GSS hosts only) ──────────────────── -->
+  @if (isGss()) {
+    <section class="akamai-flow__selectors">
+      @if (needsColour()) {
+        <label class="akamai-flow__select">
+          <span class="akamai-flow__select-label">Colour</span>
+          <select [ngModel]="colour()" (ngModelChange)="colour.set($event)" [disabled]="loading()">
+            <option value="" disabled>Select…</option>
+            @for (c of colourOptions; track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select>
+        </label>
+      }
+      <label class="akamai-flow__select">
+        <span class="akamai-flow__select-label">Site</span>
+        <select [ngModel]="site()" (ngModelChange)="site.set($event)" [disabled]="loading()">
+          <option value="" disabled>Select…</option>
+          @for (s of pairSites(); track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+      </label>
+    </section>
+  }
 
   <!-- ── Loading ─────────────────────────────────────────────── -->
   @if (loading()) {

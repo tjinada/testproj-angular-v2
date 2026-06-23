@@ -1,5 +1,5 @@
 import EdgeGrid = require('akamai-edgegrid');
-import { matchUrl, parseRequestUrl, type ParsedRequestUrl } from './papi-naive-matcher';
+import { matchUrl, parseRequestUrl, classifyHostname, type ParsedRequestUrl, type HostnameClass, type MatchedRule } from './papi-naive-matcher';
 import { resolveFlow, type FlowHop } from './papi-rewrite-resolver';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -736,16 +736,32 @@ export async function evaluateUrl(urlString: string, options: EvaluateUrlOptions
   }
 
   const ruleTree = await getRuleTree(match.propertyId, match.version);
-  const matchedRules = matchUrl(ruleTree.rules, parsed, {
-    colour: options.colour,
-    site: options.site,
+
+  // Hostname decides cloudlet involvement + supplies/locks colour & site.
+  // GSS hosts need the user's pick; colour-prefixed and plain hosts don't.
+  const hostClass = classifyHostname(parsed.hostname);
+  const effectiveColour = hostClass.colourPrefix || options.colour;
+  const effectiveSite = hostClass.specificSite || options.site;
+  const datacenter = resolveDatacenter(hostClass, effectiveSite);
+
+  const { matchedRules, vars } = matchUrl(ruleTree.rules, parsed, {
+    colour: effectiveColour,
+    site: effectiveSite,
+    isCloudletUrl: hostClass.isCloudletUrl,
     suppressShape: options.suppressShape,
     variableDefaults: extractVariableDefaults(ruleTree.rules)
   });
+
   const { destinationPath, pathChanged, flow } = resolveFlow(matchedRules, parsed, {
     propertyName: ruleTree.propertyName,
     version: ruleTree.version
   });
+
+  // Replace any {{user.PMUSER_TARGET}} origin with the concrete host for the
+  // selected datacenter + computed origin type, read from the config's own
+  // setVariable literals (handles BOS / CMS / ISAM targets).
+  const targetHost = resolvePmuserTarget(matchedRules, datacenter, originTypeOf(vars));
+  if (targetHost) interpolateFlow(flow, { PMUSER_TARGET: targetHost });
 
   console.log(`[Akamai] evaluateUrl("${urlString}"): ${parsed.path} → ${destinationPath} (${flow.length} hops) on ${ruleTree.propertyName} v${ruleTree.version}`);
 
@@ -761,4 +777,83 @@ export async function evaluateUrl(urlString: string, options: EvaluateUrlOptions
     pathChanged,
     flow
   };
+}
+
+// ── Blue/green target resolution ────────────────────────────────────
+
+/**
+ * Within a GSS pair the lower site is BCC, the higher is SCC. Returns the
+ * datacenter for the chosen site, or undefined for non-GSS hosts.
+ */
+function resolveDatacenter(hostClass: HostnameClass, site?: string): 'BCC' | 'SCC' | undefined {
+  if (!hostClass.gssPair || !site) return undefined;
+  if (site === hostClass.pairSites[0]) return 'BCC';
+  if (site === hostClass.pairSites[1]) return 'SCC';
+  return undefined;
+}
+
+/** Maps PMUSER_ORIGINTYPE state to the target host family. */
+function originTypeOf(vars: Record<string, string>): string {
+  const t = (vars['PMUSER_ORIGINTYPE'] || '').toUpperCase();
+  if (t === 'CMS') return 'CMS';
+  if (t === 'ISAM') return 'ISAM';
+  return 'BOS';
+}
+
+/** Classifies a concrete target host into its origin-type family. */
+function hostTypeOf(host: string): string {
+  const lo = host.toLowerCase();
+  if (lo.includes('harrismycfo')) return 'CMS';
+  if (lo.includes('retailcanapi')) return 'ISAM';
+  return 'BOS';
+}
+
+/**
+ * Reads the concrete PMUSER_TARGET host from the config's own setVariable
+ * literals among the matched rules, choosing by datacenter (BCC/SCC, from
+ * the rule's stickiness cookie) and origin type (from the host family).
+ * Returns undefined when nothing suitable is found (origin stays symbolic).
+ */
+function resolvePmuserTarget(
+  matchedRules: MatchedRule[],
+  datacenter: 'BCC' | 'SCC' | undefined,
+  originType: string
+): string | undefined {
+  const candidates: { dc?: string; type: string; host: string }[] = [];
+  for (const rule of matchedRules) {
+    for (const behavior of rule.behaviors) {
+      const o = behavior.options || {};
+      if (behavior.name !== 'setVariable' || o.variableName !== 'PMUSER_TARGET') continue;
+      if (o.valueSource !== 'EXPRESSION') continue;
+      const host = typeof o.variableValue === 'string' ? o.variableValue : '';
+      if (!host || host.includes('{{')) continue;
+
+      let dc: string | undefined;
+      for (const criterion of rule.criteria) {
+        if (criterion.name !== 'requestCookie') continue;
+        const blob = JSON.stringify(criterion.options || {}).toUpperCase();
+        if (blob.includes('BCC')) dc = 'BCC';
+        else if (blob.includes('SCC')) dc = 'SCC';
+      }
+      candidates.push({ dc, type: hostTypeOf(host), host });
+    }
+  }
+
+  const byType = candidates.filter(c => c.type === originType);
+  return (
+    byType.find(c => c.dc === datacenter)?.host ||
+    byType.find(c => !c.dc)?.host ||
+    candidates.find(c => c.dc === datacenter)?.host ||
+    undefined
+  );
+}
+
+/** Substitutes {{user.X}} tokens in flow hop details and branch labels. */
+function interpolateFlow(flow: FlowHop[], values: Record<string, string>): void {
+  const sub = (s: string): string =>
+    s.replace(/\{\{user\.([A-Za-z0-9_]+)\}\}/g, (m, name) => values[String(name).toUpperCase()] ?? m);
+  for (const hop of flow) {
+    hop.detail = sub(hop.detail);
+    for (const branch of hop.branches) branch.targetLabel = sub(branch.targetLabel);
+  }
 }

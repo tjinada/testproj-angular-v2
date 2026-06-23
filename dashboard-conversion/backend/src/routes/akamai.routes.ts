@@ -190,7 +190,7 @@ router.get('/_debug/rule-tree', async (req: Request, res: Response) => {
         // Don't fail the whole request — surface as a soft error.
         payload.matchError = `Could not parse withMatch URL: "${withMatchUrl}"`;
       } else {
-        const matchedRules = matchUrl(ruleTree.rules, parsed);
+        const { matchedRules } = matchUrl(ruleTree.rules, parsed);
         payload.parsedUrl = parsed;
         payload.matchedRules = matchedRules;
         payload.matchedRuleCount = matchedRules.length;
