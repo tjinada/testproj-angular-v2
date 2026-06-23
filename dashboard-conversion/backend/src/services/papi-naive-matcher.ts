@@ -537,6 +537,12 @@ function evaluateMatchVariable(
   if (!name || !(name in vars)) return 'unsupported';
 
   const current = vars[name] ?? '';
+  // An empty value means the variable is unset/unknown — its declared
+  // default is blank and nothing on this path assigned it. Asserting a gate
+  // against an unknown produces false matches (e.g. an empty default
+  // satisfying an "IS <blank>" gate, turning a dormant subtree like
+  // ISAM_Mobile_IDP into an always-on mainline origin). Treat as conditional.
+  if (current === '') return 'unsupported';
   const operator = asStr(opts.matchOperator);
   const rawValues = Array.isArray(opts.variableValues)
     ? opts.variableValues
