@@ -391,3 +391,48 @@
   color: #6b7280;
   font-weight: 600;
 }
+
+// ── Routing selectors (colour + site) ──────────────────────────────
+
+.akamai-flow__selectors {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.akamai-flow__select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  select {
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #fff;
+    color: #111827;
+    cursor: pointer;
+    min-width: 110px;
+
+    &:focus {
+      outline: none;
+      border-color: #1B4F72;
+      box-shadow: 0 0 0 2px rgba(27, 79, 114, 0.15);
+    }
+
+    &:disabled {
+      background: #f3f4f6;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.akamai-flow__select-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  font-weight: 600;
+}

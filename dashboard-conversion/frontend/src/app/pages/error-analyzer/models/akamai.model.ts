@@ -11,6 +11,10 @@
 
 export interface AkamaiFlowRequest {
   url: string;
+  /** Blue/green colour selector (blue|green|standard). */
+  colour?: string;
+  /** Site/env selector (e.g. "qa1"). */
+  site?: string;
 }
 
 // ── Parsed URL (mirrors ParsedRequestUrl in the backend matcher) ────

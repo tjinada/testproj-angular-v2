@@ -216,6 +216,9 @@ router.get('/_debug/rule-tree', async (req: Request, res: Response) => {
  */
 router.get('/_debug/match', async (req: Request, res: Response) => {
   const url = typeof req.query.url === 'string' ? req.query.url : undefined;
+  const colour = typeof req.query.colour === 'string' ? req.query.colour : undefined;
+  const site = typeof req.query.site === 'string' ? req.query.site : undefined;
+  const suppressShape = req.query.suppressShape !== 'false';
   console.log(`[Akamai/route] GET /api/akamai/_debug/match (url=${url ? '"' + url + '"' : 'missing'})`);
 
   if (!url) {
@@ -223,7 +226,7 @@ router.get('/_debug/match', async (req: Request, res: Response) => {
   }
 
   try {
-    const result = await evaluateUrl(url);
+    const result = await evaluateUrl(url, { colour, site, suppressShape });
     res.json(result);
   } catch (error: any) {
     if (error instanceof EvaluateUrlError) {
@@ -259,15 +262,19 @@ router.get('/_debug/match', async (req: Request, res: Response) => {
  * Identical orchestration to GET /_debug/match — both call evaluateUrl().
  */
 router.post('/flow', async (req: Request, res: Response) => {
-  const url = req.body && typeof req.body.url === 'string' ? req.body.url : undefined;
-  console.log(`[Akamai/route] POST /api/akamai/flow (url=${url ? '"' + url + '"' : 'missing'})`);
+  const body = req.body || {};
+  const url = typeof body.url === 'string' ? body.url : undefined;
+  const colour = typeof body.colour === 'string' ? body.colour : undefined;
+  const site = typeof body.site === 'string' ? body.site : undefined;
+  const suppressShape = body.suppressShape !== false; // Shape unused → suppressed by default
+  console.log(`[Akamai/route] POST /api/akamai/flow (url=${url ? '"' + url + '"' : 'missing'}, colour=${colour || '-'}, site=${site || '-'})`);
 
   if (!url) {
     return res.status(400).json({ error: 'Request body must include url (full URL with scheme + host)' });
   }
 
   try {
-    const result = await evaluateUrl(url);
+    const result = await evaluateUrl(url, { colour, site, suppressShape });
     res.json(result);
   } catch (error: any) {
     if (error instanceof EvaluateUrlError) {

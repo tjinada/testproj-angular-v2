@@ -32,6 +32,11 @@ export class AkamaiFlowComponent {
   // ── Form state ─────────────────────────────────────────────────
 
   protected readonly url = signal('');
+  protected readonly colour = signal('standard');
+  protected readonly site = signal('qa1');
+
+  protected readonly colourOptions = ['standard', 'blue', 'green'];
+  protected readonly siteOptions = ['qa1', 'qa2', 'qa3', 'qa4', 'qa5', 'qa6', 'qa7', 'qa8', 'qa9', 'qa10', 'qa11', 'qa12'];
 
   // ── Async state ────────────────────────────────────────────────
 
@@ -58,7 +63,7 @@ export class AkamaiFlowComponent {
     this.result.set(null);
     this.loading.set(true);
 
-    this.akamai.resolveFlow(value).subscribe({
+    this.akamai.resolveFlow(value, this.colour(), this.site()).subscribe({
       next: (res) => {
         this.result.set(res);
         this.loading.set(false);

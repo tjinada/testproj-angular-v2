@@ -46,6 +46,20 @@ export interface AkamaiRuleEntry {
 }
 
 /**
+ * A declared Property Manager variable. Present on the root rule's
+ * `variables` array (PAPI returns them inside the rules document — there
+ * is no separate variables endpoint). `value` is the default before any
+ * setVariable fires; used to seed the matcher's simulation state.
+ */
+export interface AkamaiPmVariable {
+  name: string;
+  value?: string;
+  description?: string;
+  hidden?: boolean;
+  sensitive?: boolean;
+}
+
+/**
  * A rule node in the PAPI rule tree. The root rule is named "default"
  * and contains the baseline behaviors that apply unless overridden by
  * a child rule.
@@ -63,6 +77,8 @@ export interface AkamaiRule {
   /** "all" (AND between criteria) or "any" (OR). Default: "all". */
   criteriaMustSatisfy?: 'all' | 'any';
   comments?: string;
+  /** Declared PM variables — present on the root rule only. Seeds simulation state. */
+  variables?: AkamaiPmVariable[];
   /** PAPI internal — kept for completeness, ignored by matcher. */
   templateLink?: string;
   /** PAPI internal — kept for completeness, ignored by matcher. */
@@ -669,7 +685,27 @@ export class EvaluateUrlError extends Error {
  * sample of configured hostnames for use in the response body.
  * Other errors propagate (route layer renders 500).
  */
-export async function evaluateUrl(urlString: string): Promise<EvaluateUrlResult> {
+export interface EvaluateUrlOptions {
+  /** Blue/green colour selector (blue|green|standard). */
+  colour?: string;
+  /** Site/env selector (e.g. "qa1"). */
+  site?: string;
+  /** Drop the Shape routing subtree (unused in practice). */
+  suppressShape?: boolean;
+}
+
+/** Collects declared PM-variable defaults from the root rule for seeding. */
+function extractVariableDefaults(rootRule: AkamaiRule): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const v of rootRule.variables || []) {
+    if (v && typeof v.name === 'string') {
+      out[v.name] = typeof v.value === 'string' ? v.value : '';
+    }
+  }
+  return out;
+}
+
+export async function evaluateUrl(urlString: string, options: EvaluateUrlOptions = {}): Promise<EvaluateUrlResult> {
   console.log(`[Akamai] evaluateUrl("${urlString}")`);
 
   const parsed = parseRequestUrl(urlString);
@@ -700,7 +736,12 @@ export async function evaluateUrl(urlString: string): Promise<EvaluateUrlResult>
   }
 
   const ruleTree = await getRuleTree(match.propertyId, match.version);
-  const matchedRules = matchUrl(ruleTree.rules, parsed);
+  const matchedRules = matchUrl(ruleTree.rules, parsed, {
+    colour: options.colour,
+    site: options.site,
+    suppressShape: options.suppressShape,
+    variableDefaults: extractVariableDefaults(ruleTree.rules)
+  });
   const { destinationPath, pathChanged, flow } = resolveFlow(matchedRules, parsed, {
     propertyName: ruleTree.propertyName,
     version: ruleTree.version

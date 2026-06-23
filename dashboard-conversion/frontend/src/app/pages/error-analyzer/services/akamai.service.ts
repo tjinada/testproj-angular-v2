@@ -30,8 +30,10 @@ export class AkamaiService {
    * on success. Errors propagate as HttpErrorResponse — the component
    * is responsible for narrowing on .status.
    */
-  resolveFlow(url: string): Observable<AkamaiFlowResult> {
+  resolveFlow(url: string, colour?: string, site?: string): Observable<AkamaiFlowResult> {
     const body: AkamaiFlowRequest = { url };
+    if (colour) body.colour = colour;
+    if (site) body.site = site;
     return this.http.post<AkamaiFlowResult>(this.flowUrl, body);
   }
 }
