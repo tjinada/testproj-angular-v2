@@ -8,6 +8,16 @@
     <button type="button" (click)="toggleFullscreen()" title="Fullscreen">&#10530;</button>
   </div>
 
+  @if (hasBranches()) {
+    <label class="akamai-graph__alt-toggle">
+      <input
+        type="checkbox"
+        [checked]="showAlternatives()"
+        (change)="toggleAlternatives()" />
+      Show alternatives
+    </label>
+  }
+
   <svg #svgEl class="akamai-graph__svg"
        (mousedown)="onMouseDown($event)"
        (mousemove)="onMouseMove($event)"

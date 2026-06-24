@@ -649,6 +649,8 @@ export interface EvaluateUrlResult {
   pathChanged: boolean;
   /** Ordered request-to-origin flow (spine + conditional branches). */
   flow: FlowHop[];
+  /** Full backend URL the request lands on: origin host + destination path + query. Null when the origin can't be resolved concretely. */
+  backendEndpoint: string | null;
 }
 
 /**
@@ -763,6 +765,8 @@ export async function evaluateUrl(urlString: string, options: EvaluateUrlOptions
   const targetHost = resolvePmuserTarget(matchedRules, datacenter, originTypeOf(vars));
   if (targetHost) interpolateFlow(flow, { PMUSER_TARGET: targetHost });
 
+  const backendEndpoint = buildBackendEndpoint(flow, destinationPath, parsed.query);
+
   console.log(`[Akamai] evaluateUrl("${urlString}"): ${parsed.path} → ${destinationPath} (${flow.length} hops) on ${ruleTree.propertyName} v${ruleTree.version}`);
 
   return {
@@ -775,7 +779,8 @@ export async function evaluateUrl(urlString: string, options: EvaluateUrlOptions
     },
     destinationPath,
     pathChanged,
-    flow
+    flow,
+    backendEndpoint
   };
 }
 
@@ -856,4 +861,16 @@ function interpolateFlow(flow: FlowHop[], values: Record<string, string>): void 
     hop.detail = sub(hop.detail);
     for (const branch of hop.branches) branch.targetLabel = sub(branch.targetLabel);
   }
+}
+
+/**
+ * Builds the full backend URL the request lands on: scheme + origin host +
+ * destination path + query. Returns null when the origin isn't a concrete
+ * host (default/unchanged, or an unresolved {{user.*}} target).
+ */
+function buildBackendEndpoint(flow: FlowHop[], destinationPath: string, query: string): string | null {
+  const origin = flow.find(h => h.kind === 'origin');
+  const host = origin ? origin.detail : '';
+  if (!host || host.startsWith('(') || host.includes('{{')) return null;
+  return `https://${host}${destinationPath}${query ? '?' + query : ''}`;
 }

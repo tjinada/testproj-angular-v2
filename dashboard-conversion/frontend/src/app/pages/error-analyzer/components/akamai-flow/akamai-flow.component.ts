@@ -48,6 +48,7 @@ export class AkamaiFlowComponent {
 
   protected readonly loading = signal(false);
   protected readonly result = signal<AkamaiFlowResult | null>(null);
+  protected readonly copied = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly hostnameErrorBody = signal<{
     configuredHostnameCount: number;
@@ -91,6 +92,13 @@ export class AkamaiFlowComponent {
       event.preventDefault();
       this.submit();
     }
+  }
+
+  copy(text: string): void {
+    navigator.clipboard?.writeText(text).then(() => {
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 1500);
+    });
   }
 
   reset(): void {

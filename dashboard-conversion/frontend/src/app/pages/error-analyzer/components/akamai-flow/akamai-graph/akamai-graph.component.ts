@@ -34,6 +34,8 @@ export class AkamaiGraphComponent implements OnChanges {
   ty = signal(0);
   k = signal(1);
   isFullscreen = signal(false);
+  showAlternatives = signal(false);
+  hasBranches = signal(false);
 
   private isPanning = false;
   private panStartX = 0;
@@ -48,7 +50,18 @@ export class AkamaiGraphComponent implements OnChanges {
   transform = computed(() => `translate(${this.tx()} ${this.ty()}) scale(${this.k()})`);
 
   ngOnChanges(): void {
-    this.graph.set(buildAkamaiFlowGraph(this.flow || []));
+    this.hasBranches.set((this.flow || []).some(h => h.branches && h.branches.length > 0));
+    this.rebuild();
+    queueMicrotask(() => this.fitToScreen());
+  }
+
+  private rebuild(): void {
+    this.graph.set(buildAkamaiFlowGraph(this.flow || [], this.showAlternatives()));
+  }
+
+  toggleAlternatives(): void {
+    this.showAlternatives.update(v => !v);
+    this.rebuild();
     queueMicrotask(() => this.fitToScreen());
   }
 

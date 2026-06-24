@@ -103,6 +103,19 @@
       @if (!res.pathChanged) {
         <div class="destination__note">No rewrites applied — path is unchanged.</div>
       }
+      @if (res.backendEndpoint) {
+        <div class="destination__endpoint">
+          <span class="destination__endpoint-label">Backend endpoint</span>
+          <code class="destination__endpoint-value">{{ res.backendEndpoint }}</code>
+          <button
+            type="button"
+            class="destination__endpoint-copy"
+            (click)="copy(res.backendEndpoint)"
+            title="Copy backend endpoint">
+            {{ copied() ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+      }
       <div class="destination__property">
         {{ res.property.propertyName }}
         <span class="destination__version">v{{ res.property.version }}</span>

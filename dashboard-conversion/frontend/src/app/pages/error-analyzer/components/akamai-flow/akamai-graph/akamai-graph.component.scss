@@ -130,3 +130,26 @@
   .node__title { fill: #7c3aed; font-weight: 500; }
   opacity: 0.92;
 }
+
+.akamai-graph__alt-toggle {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  font-size: 12px;
+  color: #374151;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+
+  input {
+    cursor: pointer;
+    margin: 0;
+  }
+}

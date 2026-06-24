@@ -53,7 +53,7 @@ function capAnnotations(labels: string[]): string[] {
  * conditional branches stacked in a row beneath, each connected to the
  * hop it diverts from.
  */
-export function buildAkamaiFlowGraph(flow: FlowHop[]): AkGraph {
+export function buildAkamaiFlowGraph(flow: FlowHop[], showAlternatives = false): AkGraph {
   if (!flow || flow.length === 0) {
     return { nodes: [], edges: [], width: 0, height: 0 };
   }
@@ -92,36 +92,39 @@ export function buildAkamaiFlowGraph(flow: FlowHop[]): AkGraph {
   });
 
   // Branch row — all branches in a single row beneath, left to right.
+  // Skipped entirely unless the "show alternatives" toggle is on.
   const branchTopY = spineCenterY + maxSpineHeight / 2 + BRANCH_V_GAP;
   const firstBranchX = PAD + Math.min(1, flow.length - 1) * (NODE_WIDTH + H_GAP) + NODE_WIDTH / 2;
   let branchIdx = 0;
 
-  flow.forEach((hop, i) => {
-    hop.branches.forEach((branch, bi) => {
-      const id = `branch-${i}-${bi}`;
-      const h = nodeHeight(0);
-      nodes.push({
-        id,
-        kind: 'branch',
-        label: branch.targetLabel,
-        detail: branch.rulePath.length ? branch.rulePath[branch.rulePath.length - 1] : '',
-        annotations: [],
-        x: firstBranchX + branchIdx * (NODE_WIDTH + H_GAP),
-        y: branchTopY + h / 2,
-        width: NODE_WIDTH,
-        height: h,
-        isConditional: true
+  if (showAlternatives) {
+    flow.forEach((hop, i) => {
+      hop.branches.forEach((branch, bi) => {
+        const id = `branch-${i}-${bi}`;
+        const h = nodeHeight(0);
+        nodes.push({
+          id,
+          kind: 'branch',
+          label: branch.targetLabel,
+          detail: branch.rulePath.length ? branch.rulePath[branch.rulePath.length - 1] : '',
+          annotations: [],
+          x: firstBranchX + branchIdx * (NODE_WIDTH + H_GAP),
+          y: branchTopY + h / 2,
+          width: NODE_WIDTH,
+          height: h,
+          isConditional: true
+        });
+        edges.push({
+          id: `bedge-${i}-${bi}`,
+          sourceId: `hop-${i}`,
+          targetId: id,
+          label: branch.conditionLabel,
+          isConditional: true
+        });
+        branchIdx++;
       });
-      edges.push({
-        id: `bedge-${i}-${bi}`,
-        sourceId: `hop-${i}`,
-        targetId: id,
-        label: branch.conditionLabel,
-        isConditional: true
-      });
-      branchIdx++;
     });
-  });
+  }
 
   const maxX = nodes.reduce((m, n) => Math.max(m, n.x + n.width / 2), 0);
   const maxY = nodes.reduce((m, n) => Math.max(m, n.y + n.height / 2), 0);

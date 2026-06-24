@@ -103,6 +103,8 @@ export interface AkamaiFlowResult {
   pathChanged: boolean;
   /** Ordered request-to-origin flow (spine + conditional branches). */
   flow: FlowHop[];
+  /** Full backend URL the request lands on: origin host + path + query. Null when origin isn't concrete. */
+  backendEndpoint: string | null;
 }
 
 // ── Error response shapes ───────────────────────────────────────────
