@@ -28,6 +28,8 @@ export interface FlowHop {
   rulePath: string[];
   annotations: HopAnnotation[];
   branches: ConditionalBranch[];
+  /** Origin hops only: the Host header forwarded to origin (enum or custom value). */
+  forwardHostHeader?: string;
 }
 
 export interface FlowResolution {
@@ -54,7 +56,7 @@ export function resolveFlow(
   const rewriteHops: FlowHop[] = [];
   const annotations: HopAnnotation[] = [];
   const branches: ConditionalBranch[] = [];
-  let originHop: { detail: string; rulePath: string[] } | null = null;
+  let originHop: { detail: string; rulePath: string[]; forwardHostHeader?: string } | null = null;
 
   for (const rule of matchedRules) {
     if (rule.matchStatus !== 'full') {
@@ -84,7 +86,14 @@ export function resolveFlow(
         }
         case 'origin': {
           const host = asString(opts.hostname);
-          if (host) originHop = { detail: host, rulePath: rule.rulePath };
+          if (host) {
+            const fhh = asString(opts.forwardHostHeader);
+            originHop = {
+              detail: host,
+              rulePath: rule.rulePath,
+              forwardHostHeader: fhh === 'CUSTOM' ? asString(opts.customForwardHostHeader) : fhh
+            };
+          }
           break;
         }
         case 'modifyOutgoingRequestHeader': {
@@ -150,7 +159,8 @@ export function resolveFlow(
     detail: originHop ? originHop.detail : '(default / unchanged)',
     rulePath: originHop ? originHop.rulePath : [],
     annotations,
-    branches: []
+    branches: [],
+    forwardHostHeader: originHop?.forwardHostHeader
   });
 
   flow.push({

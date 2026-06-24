@@ -81,6 +81,8 @@ export interface FlowHop {
   rulePath: string[];
   annotations: HopAnnotation[];
   branches: ConditionalBranch[];
+  /** Origin hops only: the Host header forwarded to origin. */
+  forwardHostHeader?: string;
 }
 
 // ── Property identifier (returned with every flow result) ───────────

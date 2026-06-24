@@ -26,6 +26,7 @@ import { buildAkamaiFlowGraph, AkGraph, AkNode, AkEdge } from './akamai-flow-lay
 })
 export class AkamaiGraphComponent implements OnChanges {
   @Input() flow: FlowHop[] = [];
+  @Input() backendEndpoint: string | null = null;
 
   @ViewChild('svgEl', { static: false }) svgEl?: ElementRef<SVGSVGElement>;
 
@@ -36,6 +37,13 @@ export class AkamaiGraphComponent implements OnChanges {
   isFullscreen = signal(false);
   showAlternatives = signal(false);
   hasBranches = signal(false);
+  selectedId = signal<string | null>(null);
+  copied = signal(false);
+
+  selectedNode = computed<AkNode | null>(() => {
+    const id = this.selectedId();
+    return id ? (this.graph().nodes.find(n => n.id === id) ?? null) : null;
+  });
 
   private isPanning = false;
   private panStartX = 0;
@@ -56,6 +64,7 @@ export class AkamaiGraphComponent implements OnChanges {
   }
 
   private rebuild(): void {
+    this.selectedId.set(null);
     this.graph.set(buildAkamaiFlowGraph(this.flow || [], this.showAlternatives()));
   }
 
@@ -63,6 +72,36 @@ export class AkamaiGraphComponent implements OnChanges {
     this.showAlternatives.update(v => !v);
     this.rebuild();
     queueMicrotask(() => this.fitToScreen());
+  }
+
+  // ── Node inspector strip ───────────────────────────────────────
+
+  selectNode(node: AkNode, event?: Event): void {
+    event?.stopPropagation();
+    this.selectedId.update(id => (id === node.id ? null : node.id));
+  }
+
+  clearSelection(): void {
+    this.selectedId.set(null);
+  }
+
+  kindLabel(kind: string): string {
+    switch (kind) {
+      case 'request': return 'Request';
+      case 'property': return 'Property';
+      case 'rewrite': return 'Path rewrite';
+      case 'origin': return 'Origin';
+      case 'backend': return 'Backend';
+      case 'branch': return 'Conditional route';
+      default: return kind;
+    }
+  }
+
+  copyEndpoint(text: string): void {
+    navigator.clipboard?.writeText(text).then(() => {
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 1500);
+    });
   }
 
   // ── Edge geometry ──────────────────────────────────────────────

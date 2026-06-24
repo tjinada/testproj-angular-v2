@@ -44,7 +44,9 @@
         @for (node of graph().nodes; track trackNode($index, node)) {
           <g class="node"
              [ngClass]="'node--' + node.kind"
-             [class.node--conditional]="node.isConditional">
+             [class.node--conditional]="node.isConditional"
+             [class.node--selected]="node.id === selectedId()"
+             (click)="selectNode(node, $event)">
             <rect class="node__box"
                   [attr.x]="node.x - node.width / 2"
                   [attr.y]="nodeTop(node)"
@@ -71,5 +73,78 @@
 
   @if (graph().nodes.length === 0) {
     <div class="akamai-graph__empty">No flow to display.</div>
+  }
+
+  @if (selectedNode(); as n) {
+    <div class="akamai-graph__strip">
+      <div class="strip__header">
+        <span class="strip__kind">{{ kindLabel(n.kind) }}</span>
+        <span class="strip__title">{{ n.label }}</span>
+        <button type="button" class="strip__close" (click)="clearSelection()" title="Close">&#10005;</button>
+      </div>
+
+      <div class="strip__rows">
+        @if (n.kind === 'origin') {
+          <div class="strip__row">
+            <span class="strip__label">Host</span>
+            <code class="strip__value">{{ n.detail }}</code>
+          </div>
+          @if (n.forwardHostHeader) {
+            <div class="strip__row">
+              <span class="strip__label">Forward Host header</span>
+              <code class="strip__value">{{ n.forwardHostHeader }}</code>
+            </div>
+          }
+        }
+
+        @if (n.kind === 'rewrite') {
+          <div class="strip__row">
+            <span class="strip__label">Path</span>
+            <code class="strip__value">{{ n.detail }}</code>
+          </div>
+        }
+
+        @if (n.kind === 'backend' && backendEndpoint) {
+          <div class="strip__row">
+            <span class="strip__label">Endpoint</span>
+            <code class="strip__value">{{ backendEndpoint }}</code>
+            <button type="button" class="strip__copy" (click)="copyEndpoint(backendEndpoint)">
+              {{ copied() ? 'Copied' : 'Copy' }}
+            </button>
+          </div>
+        }
+
+        @if (n.kind === 'branch') {
+          @if (n.conditionLabel) {
+            <div class="strip__row">
+              <span class="strip__label">Condition</span>
+              <code class="strip__value">{{ n.conditionLabel }}</code>
+            </div>
+          }
+          <div class="strip__row">
+            <span class="strip__label">Target</span>
+            <code class="strip__value">{{ n.label }}</code>
+          </div>
+        }
+
+        @if (n.fullAnnotations.length) {
+          <div class="strip__row strip__row--top">
+            <span class="strip__label">Behaviors</span>
+            <span class="strip__anns">
+              @for (a of n.fullAnnotations; track $index) {
+                <span class="strip__ann">{{ a }}</span>
+              }
+            </span>
+          </div>
+        }
+
+        @if (n.rulePath.length) {
+          <div class="strip__row strip__row--top">
+            <span class="strip__label">Rule path</span>
+            <span class="strip__rulepath">{{ n.rulePath.join(' › ') }}</span>
+          </div>
+        }
+      </div>
+    </div>
   }
 </div>

@@ -12,6 +12,11 @@ export interface AkNode {
   width: number;
   height: number;
   isConditional: boolean;    // branch nodes render dimmed/dashed
+  // Full (untruncated) detail for the inspector strip.
+  rulePath: string[];
+  fullAnnotations: string[];
+  forwardHostHeader?: string;
+  conditionLabel?: string;   // branch nodes: the gate condition
 }
 
 /** A laid-out edge. Conditional edges carry a gate label and dash. */
@@ -78,7 +83,10 @@ export function buildAkamaiFlowGraph(flow: FlowHop[], showAlternatives = false):
       y: spineCenterY,
       width: NODE_WIDTH,
       height: nodeHeight(annotations.length),
-      isConditional: false
+      isConditional: false,
+      rulePath: hop.rulePath,
+      fullAnnotations: hop.annotations.map(a => a.label),
+      forwardHostHeader: hop.forwardHostHeader
     });
     if (i > 0) {
       edges.push({
@@ -112,7 +120,10 @@ export function buildAkamaiFlowGraph(flow: FlowHop[], showAlternatives = false):
           y: branchTopY + h / 2,
           width: NODE_WIDTH,
           height: h,
-          isConditional: true
+          isConditional: true,
+          rulePath: branch.rulePath,
+          fullAnnotations: [],
+          conditionLabel: branch.conditionLabel
         });
         edges.push({
           id: `bedge-${i}-${bi}`,
