@@ -4,22 +4,44 @@
   } @else if (error()) {
     <div class="da-teams__state da-teams__state--error">{{ error() }}</div>
   } @else {
-    <label class="details-card__note" for="dev-lead-emails">Dev Lead Emails</label>
-    <div class="da-teams__email-row">
-      <input id="dev-lead-emails" type="text" class="ss-input ss-input--inline" readonly [value]="emailList()" />
-      <button class="ss-btn ss-btn--primary" (click)="copyEmails()">{{ copied() ? '✓ Copied' : 'Copy' }}</button>
-    </div>
-
-    <div class="da-teams__email-body">
-      <label class="details-card__note" for="email-body">Sample Email Body</label>
-      <textarea id="email-body" class="ss-input ss-input--textarea" rows="10" readonly [value]="emailBody()"></textarea>
-      <div class="da-teams__email-body-actions">
-        <button class="ss-btn ss-btn--primary" (click)="copyEmailBody()">{{ bodyCopied() ? '✓ Copied' : 'Copy Email Body' }}</button>
-        <!-- Create/open master ticket controls moved to the config link box in the parent template -->
+    <div class="email-card">
+      <div class="email-card__header">
+        <span class="email-card__title">Email preview</span>
+        <span class="email-card__hint">Read-only — copy into your mail client</span>
       </div>
 
-      
+      <div class="email-card__field">
+        <span class="email-card__label">To</span>
+        <input
+          class="email-card__value email-card__value--mono"
+          type="text"
+          readonly
+          [value]="emailList()"
+          aria-label="Recipient emails" />
+        <button class="ss-btn ss-btn--ghost email-card__copy" (click)="copyEmails()">
+          {{ copied() ? '✓ Copied' : 'Copy' }}
+        </button>
+      </div>
 
+      <div class="email-card__field">
+        <span class="email-card__label">Subject</span>
+        <span class="email-card__value email-card__value--subject">{{ emailSubject() }}</span>
+      </div>
+
+      <div class="email-card__body">
+        <textarea
+          class="email-card__textarea"
+          rows="12"
+          readonly
+          [value]="emailBody()"
+          aria-label="Email body"></textarea>
+      </div>
+
+      <div class="email-card__footer">
+        <button class="ss-btn ss-btn--primary" (click)="copyEmailBody()">
+          {{ bodyCopied() ? '✓ Copied' : 'Copy email body' }}
+        </button>
+      </div>
     </div>
   }
 </div>
