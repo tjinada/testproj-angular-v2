@@ -1,0 +1,21 @@
+:host { display: block; padding: 6px 0; }
+
+.da-teams__state { color: #777; font-size: 12px; padding: 6px 0; }
+.da-teams__state--error { color: #791F1F; }
+
+/* Email row: match existing stage input + button layout */
+.da-teams__email-row { display: flex; gap: 8px; align-items: center; width: 100%; }
+.da-teams__email-row .ss-input { flex: 1 1 auto; min-width: 0; }
+.da-teams__email-row .ss-btn { flex: 0 0 auto; }
+.da-teams__email-row input.ss-input { height: 36px; padding: 6px 10px; }
+
+.da-teams__email-body { margin-top: 12px; }
+.da-teams__email-body .details-card__note { display: block; margin-bottom: 6px; }
+.da-teams__email-body .ss-input--textarea { width: 100%; min-height: 120px; max-height: 360px; resize: vertical; }
+.da-teams__email-body-actions { margin-top: 8px; }
+
+.da-teams__devlead-table { margin-top: 12px; overflow: auto; }
+.da-teams__devlead-table table { width: 100%; border-collapse: collapse; }
+.da-teams__devlead-table th,
+.da-teams__devlead-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
+

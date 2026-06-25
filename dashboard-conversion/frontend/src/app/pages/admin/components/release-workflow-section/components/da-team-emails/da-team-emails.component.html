@@ -1,0 +1,25 @@
+<div>
+  @if (loading()) {
+    <div class="da-teams__state">Loading emails…</div>
+  } @else if (error()) {
+    <div class="da-teams__state da-teams__state--error">{{ error() }}</div>
+  } @else {
+    <label class="details-card__note" for="dev-lead-emails">Dev Lead Emails</label>
+    <div class="da-teams__email-row">
+      <input id="dev-lead-emails" type="text" class="ss-input ss-input--inline" readonly [value]="emailList()" />
+      <button class="ss-btn ss-btn--primary" (click)="copyEmails()">{{ copied() ? '✓ Copied' : 'Copy' }}</button>
+    </div>
+
+    <div class="da-teams__email-body">
+      <label class="details-card__note" for="email-body">Sample Email Body</label>
+      <textarea id="email-body" class="ss-input ss-input--textarea" rows="10" readonly [value]="emailBody()"></textarea>
+      <div class="da-teams__email-body-actions">
+        <button class="ss-btn ss-btn--primary" (click)="copyEmailBody()">{{ bodyCopied() ? '✓ Copied' : 'Copy Email Body' }}</button>
+        <!-- Create/open master ticket controls moved to the config link box in the parent template -->
+      </div>
+
+      
+
+    </div>
+  }
+</div>

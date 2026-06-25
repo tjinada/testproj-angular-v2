@@ -104,6 +104,52 @@
             {{ s.helpUrlLabel ?? 'Open link' }} ↗
           </a>
         }
+        @if (s.id === 'open-master-jira') {
+          <span class="ss-config-inline">
+            <button class="ss-btn ss-btn--secondary" type="button" (click)="createMaster('ui')" [disabled]="creatingUi() || release.metadata.cdbUiConfigJiraUrl">
+              {{ creatingUi() ? 'Creating…' : (release.metadata.cdbUiConfigJiraUrl ? 'Master ticket created' : 'Create CDB UI Master Ticket') }}
+            </button>
+            @if (release.metadata.cdbUiConfigJiraUrl) {
+              <a class="ss-link" [href]="release.metadata.cdbUiConfigJiraUrl" target="_blank" rel="noopener noreferrer">{{ s.label }}</a>
+            }
+          </span>
+        }
+        @if (s.id === 'email-adms') {
+          <div class="ss-row__da-panel">
+            <app-da-team-emails
+              [releaseId]="release.releaseId"
+              [releaseName]="release.releaseId"
+              configType="CDB UI Config"
+              [branchUrl]="'https://github.com/BMO-Prod/CDB_configs_63623/tree/release/' + release.releaseId + '/PROD'"
+              configFilePath="prod/cdb-app-properties.json"
+              [existingJiraUrl]="release.metadata.cdbUiConfigJiraUrl"
+              (created)="refresh.emit()">
+            </app-da-team-emails>
+          </div>
+        }
+        @if (s.id === 'email-cdbbos-adms') {
+          <div class="ss-row__da-panel">
+            <app-da-team-emails
+              [releaseId]="release.releaseId"
+              [releaseName]="release.releaseId"
+              configType="CDB BOS Config"
+              [branchUrl]="'https://github.com/BMO-Prod/CDB_BOS_configs_63623/tree/release/' + release.releaseId + '/PROD'"
+              configFilePath="prod/cdbbos-app-properties.json"
+              [existingJiraUrl]="release.metadata.cdbbosJiraUrl"
+              (created)="refresh.emit()">
+            </app-da-team-emails>
+          </div>
+        }
+        @if (s.id === 'open-cdbbos-master-jira') {
+          <span class="ss-config-inline">
+            <button class="ss-btn ss-btn--secondary" type="button" (click)="createMaster('bos')" [disabled]="creatingBos() || release.metadata.cdbbosJiraUrl">
+              {{ creatingBos() ? 'Creating…' : (release.metadata.cdbbosJiraUrl ? 'Master ticket created' : 'Create CDBBOS Master Ticket') }}
+            </button>
+            @if (release.metadata.cdbbosJiraUrl) {
+              <a class="ss-link" [href]="release.metadata.cdbbosJiraUrl" target="_blank" rel="noopener noreferrer">{{ s.label }}</a>
+            }
+          </span>
+        }
       </div>
 
       @if (fieldError(s); as fieldError) {

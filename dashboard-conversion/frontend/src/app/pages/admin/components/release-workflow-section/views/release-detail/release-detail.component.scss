@@ -338,10 +338,20 @@
     font-size: 12px;
     word-break: break-word;
   }
+
+  &__links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+  }
+
   &__helplink {
     color: #0079C1;
     font-size: 12px;
     text-decoration: underline;
+    word-break: break-word;
   }
 
 }

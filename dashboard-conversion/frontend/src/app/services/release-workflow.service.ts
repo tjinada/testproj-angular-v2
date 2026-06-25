@@ -38,13 +38,6 @@ export class ReleaseWorkflowService {
     }>(`${this.base}/${encodeURIComponent(releaseId)}/da-teams`);
   }
 
-  refreshIntakes(releaseId: string): Observable<{ message: string; entry: unknown }> {
-    return this.http.post<{ message: string; entry: unknown }>(
-      `${this.base}/${encodeURIComponent(releaseId)}/intakes/refresh`,
-      {},
-    );
-  }
-
   create(input: CreateReleaseInput): Observable<{ message: string; release: Release }> {
     return this.http.post<{ message: string; release: Release }>(this.base, input);
   }
@@ -89,6 +82,17 @@ export class ReleaseWorkflowService {
     return this.http.post<{ checks: AutomatedCheck[] }>(
       `${this.base}/${encodeURIComponent(releaseId)}/stages/${encodeURIComponent(stageId)}/run-checks`,
       {},
+    );
+  }
+
+  createConfigJiras(
+    releaseId: string,
+    requestor: { name: string; email: string },
+    type: 'ui' | 'bos' | 'both' = 'both',
+  ): Observable<{ cdbUiConfigJiraUrl: string | null; cdbbosJiraUrl: string | null; subtaskErrors: string[]; message: string }> {
+    return this.http.post<{ cdbUiConfigJiraUrl: string | null; cdbbosJiraUrl: string | null; subtaskErrors: string[]; message: string }>(
+      `${this.base}/${encodeURIComponent(releaseId)}/create-config-jiras`,
+      { requestor, type },
     );
   }
 

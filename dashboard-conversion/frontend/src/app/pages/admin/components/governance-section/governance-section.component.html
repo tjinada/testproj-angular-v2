@@ -61,13 +61,6 @@
                   <td class="actions-col">
                     <button
                       class="icon-btn"
-                      title="Refresh intakes from Confluence"
-                      [disabled]="!!editingKey() || refreshingBranch() === release.branch"
-                      (click)="refreshIntakes(release)">
-                      <i class="bi bi-arrow-clockwise"></i>
-                    </button>
-                    <button
-                      class="icon-btn"
                       title="View intakes"
                       (click)="openIntakes(release)">
                       <i class="bi bi-eye"></i>

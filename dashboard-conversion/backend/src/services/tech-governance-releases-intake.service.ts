@@ -136,21 +136,6 @@ class TechGovernanceReleasesIntakeService {
     });
   }
 
-  async refreshIntakes(branch: string): Promise<TechGovernanceRelease> {
-    const target = this.normalizeBranch(branch);
-    const match = Object.entries(this.releases).find(
-      ([key]) => this.normalizeBranch(key) === target,
-    );
-    if (!match) {
-      throw new Error(`Release '${branch}' not found`);
-    }
-    const [key, entry] = match;
-    if (!entry.intakePageId) {
-      throw new Error(`Release '${branch}' has no linked intake page to refresh`);
-    }
-    return this.setIntakePageId(key, entry.intakePageId);
-  }
-
   /**
    * Replace an existing release entry. Throws if the key does not exist.
    */

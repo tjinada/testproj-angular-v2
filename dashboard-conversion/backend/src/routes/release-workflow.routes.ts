@@ -4,6 +4,7 @@ import appDataService from '../services/app-data.service';
 import { requireAuth } from '../middleware/auth';
 import { techGovernanceReleasesIntakeService } from '../services';
 import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
+import { createConfigJiras, CreateConfigJirasResult } from '../services/create-config-jiras.service';
 import { Release, ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
 
 const router = Router();
@@ -126,6 +127,69 @@ router.get('/', requireAuth, async (_req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch releases' });
   }
 });
+
+// ----- POST /api/release-workflow/:releaseId/create-config-jiras -----
+/**
+ * Create the two master config JIRA tickets and per-DA-team subtasks.
+ */
+router.post(
+  '/:releaseId/create-config-jiras',
+  requireAuth,
+  async (req: Request<ReleaseParams>, res: Response) => {
+    try {
+      const { releaseId } = req.params;
+      const release = await releaseWorkflowService.getById(releaseId);
+      if (!release) return notFound(res, `Release '${releaseId}' not found`);
+
+      // Load intake entry for this release (same as GET /da-teams)
+      const entry = techGovernanceReleasesIntakeService.findByBranch(releaseId);
+      const intakes = entry?.intakes ?? [];
+
+      // Determine requestor
+      const body = req.body ?? {};
+      const requestor = (body.requestor && typeof body.requestor === 'object')
+        ? { name: String((body.requestor as any).name || ''), email: String((body.requestor as any).email || '') }
+        : { name: '', email: '' };
+
+      // Determine which ticket(s) to create: 'ui' | 'bos' | 'both' (default)
+      const allowed = ['ui', 'bos', 'both'];
+      const requestedType = String((body.type ?? req.query.type ?? 'both') || 'both');
+      const only = allowed.includes(requestedType) ? (requestedType as 'ui' | 'bos' | 'both') : 'both';
+
+      // Guard: do not recreate if already present for the requested type
+      if (only === 'both') {
+        if (release.metadata?.cdbUiConfigJiraUrl || release.metadata?.cdbbosJiraUrl) {
+          return res.status(409).json({ error: 'Master config tickets have already been created for this release.' });
+        }
+      } else if (only === 'ui') {
+        if (release.metadata?.cdbUiConfigJiraUrl) {
+          return res.status(409).json({ error: 'CDB UI master ticket has already been created for this release.' });
+        }
+      } else if (only === 'bos') {
+        if (release.metadata?.cdbbosJiraUrl) {
+          return res.status(409).json({ error: 'CDBBOS master ticket has already been created for this release.' });
+        }
+      }
+
+      const requestorFinal = (requestor.name || requestor.email) ? requestor : { name: '', email: '' };
+
+      const result: CreateConfigJirasResult = await createConfigJiras(release, intakes, requestorFinal, only);
+
+      // Only patch the URL(s) that were actually created in this request.
+      // Never overwrite an existing URL with null — e.g. creating UI must not
+      // clear a previously saved BOS URL, and vice versa.
+      const patch: Record<string, string | null> = {};
+      if (only === 'ui' || only === 'both') patch['cdbUiConfigJiraUrl'] = result.cdbUiConfigJiraUrl ?? null;
+      if (only === 'bos' || only === 'both') patch['cdbbosJiraUrl'] = result.cdbbosJiraUrl ?? null;
+      await releaseWorkflowService.updateMetadata(releaseId, patch, requestorFinal.name || undefined);
+
+      res.json({ ...result, message: 'Master config tickets created successfully.' });
+    } catch (err: any) {
+      console.error('Error creating config JIRAs:', err?.message ?? err);
+      res.status(500).json({ error: err?.message ?? 'Failed to create master config JIRAs' });
+    }
+  },
+);
 
 // ----- GET /api/release-workflow/:releaseId -----
 
@@ -260,25 +324,6 @@ router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParam
   } catch (error) {
     console.error('Error resolving participating DA teams:', error);
     res.status(500).json({ error: 'Failed to resolve participating DA teams' });
-  }
-});
-
-// ----- POST /api/release-workflow/:releaseId/intakes/refresh -----
-
-router.post('/:releaseId/intakes/refresh', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
-  try {
-    const { releaseId } = req.params;
-    const entry = await techGovernanceReleasesIntakeService.refreshIntakes(releaseId);
-    res.json({ message: 'Intakes refreshed', entry });
-  } catch (error: any) {
-    if (error?.message?.includes('not found')) {
-      return notFound(res, error.message);
-    }
-    if (error?.message?.includes('no linked intake page')) {
-      return badRequest(res, error.message);
-    }
-    console.error('Error refreshing intakes:', error);
-    res.status(500).json({ error: 'Failed to refresh intakes' });
   }
 });
 

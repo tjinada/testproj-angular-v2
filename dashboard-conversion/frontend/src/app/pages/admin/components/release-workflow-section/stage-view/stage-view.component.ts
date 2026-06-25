@@ -26,6 +26,7 @@ import {
 } from '../../../../../models/release-workflow.model';
 import { formatCheckResult } from './check-result-display';
 import { visibleSubStepsForRelease } from '../../../../../utils/release-components.util';
+import { DaTeamEmailsComponent } from '../components/da-team-emails/da-team-emails.component';
 
 type StageDraftState = {
   editingIds: string[];
@@ -41,13 +42,13 @@ const stageDraftCache = new Map<string, StageDraftState>();
 @Component({
   selector: 'app-stage-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DaTeamEmailsComponent],
   templateUrl: './stage-view.component.html',
   styleUrl: './stage-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StageViewComponent implements OnChanges {
-  private readonly retrofitPleaseReleaseStageId = 'stage3-retrofit-please-release';
+  private readonly earlyRetrofitReleaseStageId = 'stage3-early-retrofit-release';
 
   @Input({ required: true }) stage!: Stage;
   @Input({ required: true }) release!: Release;
@@ -499,11 +500,11 @@ export class StageViewComponent implements OnChanges {
 
   canShowStageNaAction(): boolean {
     if (this.stage.status === 'complete') return false;
-    return this.release.type !== 'bundle' || this.stage.id === this.retrofitPleaseReleaseStageId;
+    return this.release.type !== 'bundle' || this.stage.id === this.earlyRetrofitReleaseStageId;
   }
 
   canExcludeSubSteps(): boolean {
-    return this.release.type !== 'bundle' || this.stage.id === this.retrofitPleaseReleaseStageId;
+    return this.release.type !== 'bundle' || this.stage.id === this.earlyRetrofitReleaseStageId;
   }
 
   private resetTransientRowState(): void {
@@ -575,6 +576,44 @@ export class StageViewComponent implements OnChanges {
 
 
   readonly runningAll = signal<boolean>(false);
+
+  readonly creatingUi = signal<boolean>(false);
+  readonly creatingBos = signal<boolean>(false);
+
+  createMaster(type: 'ui' | 'bos'): void {
+    if (!this.release?.releaseId) return;
+    const isUi = type === 'ui';
+    if ((isUi && this.creatingUi()) || (!isUi && this.creatingBos())) return;
+
+    const user = this.auth.currentUser();
+    const requestor = { name: user ? usernameFromEmail(user.email) : '', email: user?.email ?? '' };
+
+    if (isUi) this.creatingUi.set(true); else this.creatingBos.set(true);
+
+    this.api.createConfigJiras(this.release.releaseId, requestor, type).subscribe({
+      next: (res) => {
+        if (isUi) this.creatingUi.set(false); else this.creatingBos.set(false);
+        this.refresh.emit();
+        // show basic feedback
+        try {
+          if (res.subtaskErrors && res.subtaskErrors.length > 0) {
+            alert(`Master config ticket created. Some subtasks failed:\n${res.subtaskErrors.join('\n')}`);
+          } else {
+            alert('Master config ticket created.');
+          }
+        } catch (e) {
+          /* ignore */
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        if (isUi) this.creatingUi.set(false); else this.creatingBos.set(false);
+        this.stageError.set(err?.error?.error ?? err?.message ?? 'Failed to create master ticket');
+        alert(this.stageError());
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
   runAllChecks(): void {
     if (this.runningAll()) return;

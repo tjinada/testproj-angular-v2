@@ -171,23 +171,6 @@ export class ReleaseDetailComponent implements OnInit {
     });
   }
 
-  refreshDATeams(): void {
-    if (this.daTeamsLoading()) return;
-    this.daTeamsLoading.set(true);
-    this.daTeamsError.set(null);
-    this.api.refreshIntakes(this.releaseId).subscribe({
-      next: () => {
-        this.loadDATeams();
-      },
-      error: (err) => {
-        console.error('Failed to refresh intakes', err);
-        this.daTeamsError.set(err?.error?.error ?? 'Failed to refresh intakes');
-        this.daTeamsLoading.set(false);
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
   private refreshAfterStageAction(): void {
     this.error.set(null);
     this.api.getById(this.releaseId).subscribe({
