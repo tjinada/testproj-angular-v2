@@ -880,6 +880,32 @@ class ReleaseWorkflowService {
         changes.push(`${tplStage.id}: updated displayOrder to ${tplStage.displayOrder}`);
       }
 
+      // sync template-controlled structural fields so changes to a stage's
+      // parallelism, dependencies, or label reach existing releases. These are
+      // not user-editable per release; gating is re-derived from dependsOn by the
+      // recompute pass that runs after reconcile. (status is intentionally NOT
+      // touched here — that's computed progress.)
+      if (stage.name !== tplStage.name) {
+        stage.name = tplStage.name;
+        changes.push(`${tplStage.id}: updated name`);
+      }
+      if (stage.kind !== tplStage.kind) {
+        stage.kind = tplStage.kind;
+        changes.push(`${tplStage.id}: updated kind to ${tplStage.kind}`);
+      }
+      if (!arraysEqual(stage.dependsOn ?? [], tplStage.dependsOn ?? [])) {
+        stage.dependsOn = [...(tplStage.dependsOn ?? [])];
+        changes.push(`${tplStage.id}: updated dependsOn`);
+      }
+      if (!arraysEqual(stage.blocks ?? [], tplStage.blocks ?? [])) {
+        if (tplStage.blocks && tplStage.blocks.length > 0) {
+          stage.blocks = [...tplStage.blocks];
+        } else {
+          delete stage.blocks;
+        }
+        changes.push(`${tplStage.id}: updated blocks`);
+      }
+
       // ----- sub-steps -----
       const tplSubStepIds = new Set(tplStage.subSteps.map((s) => s.id));
 
