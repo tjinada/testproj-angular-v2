@@ -106,11 +106,12 @@
         }
         @if (s.id === 'open-master-jira') {
           <span class="ss-config-inline">
-            <button class="ss-btn ss-btn--secondary" type="button" (click)="createMaster('ui')" [disabled]="creatingUi() || release.metadata.cdbUiConfigJiraUrl">
-              {{ creatingUi() ? 'Creating…' : (release.metadata.cdbUiConfigJiraUrl ? 'Master ticket created' : 'Create CDB UI Master Ticket') }}
-            </button>
             @if (release.metadata.cdbUiConfigJiraUrl) {
-              <a class="ss-link" [href]="release.metadata.cdbUiConfigJiraUrl" target="_blank" rel="noopener noreferrer">{{ s.label }}</a>
+              <a class="ss-link" [href]="release.metadata.cdbUiConfigJiraUrl" target="_blank" rel="noopener noreferrer">{{ ticketKey(release.metadata.cdbUiConfigJiraUrl) }} ↗</a>
+            } @else {
+              <button class="ss-btn ss-btn--ghost" type="button" (click)="createMaster('ui')" [disabled]="creatingUi()">
+                {{ creatingUi() ? 'Creating…' : 'Create CDB UI Master Ticket' }}
+              </button>
             }
           </span>
         }
@@ -142,11 +143,12 @@
         }
         @if (s.id === 'open-cdbbos-master-jira') {
           <span class="ss-config-inline">
-            <button class="ss-btn ss-btn--secondary" type="button" (click)="createMaster('bos')" [disabled]="creatingBos() || release.metadata.cdbbosJiraUrl">
-              {{ creatingBos() ? 'Creating…' : (release.metadata.cdbbosJiraUrl ? 'Master ticket created' : 'Create CDBBOS Master Ticket') }}
-            </button>
             @if (release.metadata.cdbbosJiraUrl) {
-              <a class="ss-link" [href]="release.metadata.cdbbosJiraUrl" target="_blank" rel="noopener noreferrer">{{ s.label }}</a>
+              <a class="ss-link" [href]="release.metadata.cdbbosJiraUrl" target="_blank" rel="noopener noreferrer">{{ ticketKey(release.metadata.cdbbosJiraUrl) }} ↗</a>
+            } @else {
+              <button class="ss-btn ss-btn--ghost" type="button" (click)="createMaster('bos')" [disabled]="creatingBos()">
+                {{ creatingBos() ? 'Creating…' : 'Create CDBBOS Master Ticket' }}
+              </button>
             }
           </span>
         }

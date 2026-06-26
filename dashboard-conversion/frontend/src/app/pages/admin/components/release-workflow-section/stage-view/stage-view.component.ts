@@ -615,6 +615,13 @@ export class StageViewComponent implements OnChanges {
     });
   }
 
+  // Extracts the JIRA ticket key from a browse URL (".../browse/SSRELEASE-8759" -> "SSRELEASE-8759")
+  ticketKey(url: string | null | undefined): string {
+    if (!url) return '';
+    const last = url.split('/').filter(Boolean).pop() ?? '';
+    return last.split('?')[0];
+  }
+
   runAllChecks(): void {
     if (this.runningAll()) return;
     this.runningAll.set(true);
