@@ -802,6 +802,12 @@ class ReleaseWorkflowService {
   private reconcileRelease(release: Release): string[] {
     const changes: string[] = [];
 
+    // Snapshot per-instance sub-step state BEFORE any mutation, so a sub-step
+    // moved to a different stage can keep its checked state. Only ids that are
+    // globally unique across the release are eligible — stage-scoped ids mean a
+    // duplicated id can't be matched unambiguously across a move.
+    const priorSubStepState = snapshotUniqueSubStepState(release);
+
     const beforeSheriffFields = JSON.stringify({
       uiSheriff: release.uiSheriff ?? null,
       uiBackupSheriff: release.uiBackupSheriff ?? null,
@@ -865,6 +871,13 @@ class ReleaseWorkflowService {
         release.stages.push(cloned);
         changes.push(`added missing stage '${tplStage.id}'`);
         continue;
+      }
+
+      // sync template-controlled stage ordering so renumbered / inserted stages
+      // can reposition on existing releases (stages are sorted below)
+      if (stage.displayOrder !== tplStage.displayOrder) {
+        stage.displayOrder = tplStage.displayOrder;
+        changes.push(`${tplStage.id}: updated displayOrder to ${tplStage.displayOrder}`);
       }
 
       // ----- sub-steps -----
@@ -956,6 +969,40 @@ class ReleaseWorkflowService {
       );
     }
 
+    // Keep stages in template displayOrder so a newly added or renumbered stage
+    // lands in the right position on existing releases (the UI renders array
+    // order, so persisting the sorted array is what fixes placement).
+    const beforeOrder = release.stages.map((s) => s.id).join(',');
+    release.stages.sort((a, b) => a.displayOrder - b.displayOrder);
+    if (release.stages.map((s) => s.id).join(',') !== beforeOrder) {
+      changes.push('reordered stages to match template displayOrder');
+    }
+
+    // Carry sub-step state across a stage move. A sub-step whose id is globally
+    // unique in the result, was captured pre-reconcile, and now sits at template
+    // default (a freshly cloned move target) gets its prior state restored.
+    // In-place sub-steps snapshot to their own value, so this is a no-op for them.
+    const resultCounts = new Map<string, number>();
+    for (const stage of release.stages) {
+      for (const sub of stage.subSteps) {
+        resultCounts.set(sub.id, (resultCounts.get(sub.id) ?? 0) + 1);
+      }
+    }
+    for (const stage of release.stages) {
+      for (const sub of stage.subSteps) {
+        if (resultCounts.get(sub.id) !== 1) continue;
+        const prior = priorSubStepState.get(sub.id);
+        if (!prior) continue;
+        if (prior.state === 'unchecked' && prior.source === null) continue; // nothing to carry
+        if (sub.state !== 'unchecked' || sub.source !== null) continue;      // only fill template defaults
+        sub.state = prior.state;
+        sub.source = prior.source;
+        sub.completedAt = prior.completedAt;
+        sub.completedBy = prior.completedBy;
+        changes.push(`${stage.id}: carried sub-step state for '${sub.id}' across stage move`);
+      }
+    }
+
     return changes;
   }
 
@@ -982,6 +1029,36 @@ function indexOf<T>(arr: T[], pred: (item: T) => boolean): number {
     if (pred(arr[i])) return i;
   }
   return arr.length; // unmatched items sort to the end
+}
+
+type SubStepInstanceState = Pick<SubStep, 'state' | 'source' | 'completedAt' | 'completedBy'>;
+
+/**
+ * Capture per-instance state for every sub-step whose id occurs exactly once
+ * across the whole release. Stage-scoped ids mean a duplicated id can't be
+ * matched unambiguously across a move, so duplicates are excluded.
+ */
+function snapshotUniqueSubStepState(release: Release): Map<string, SubStepInstanceState> {
+  const counts = new Map<string, number>();
+  for (const stage of release.stages) {
+    for (const sub of stage.subSteps) {
+      counts.set(sub.id, (counts.get(sub.id) ?? 0) + 1);
+    }
+  }
+  const snapshot = new Map<string, SubStepInstanceState>();
+  for (const stage of release.stages) {
+    for (const sub of stage.subSteps) {
+      if (counts.get(sub.id) === 1) {
+        snapshot.set(sub.id, {
+          state: sub.state,
+          source: sub.source,
+          completedAt: sub.completedAt,
+          completedBy: sub.completedBy,
+        });
+      }
+    }
+  }
+  return snapshot;
 }
 
 function normalizeReleaseComponents(
