@@ -9,16 +9,17 @@ import { TokenSetupComponent } from './components/token-setup/token-setup.compon
 import { OpenSearchLogSearchComponent } from './components/opensearch-log-search/opensearch-log-search.component';
 import { AkamaiFlowComponent } from './components/akamai-flow/akamai-flow.component';
 import { UrlTraceComponent } from './components/url-trace/url-trace.component';
+import { EndpointResultsTableComponent } from './components/endpoint-results-table/endpoint-results-table.component';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
-import { SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
+import { EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
 type TabId = 'trace' | 'opensearch' | 'urlTrace' | 'akamai';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent, AkamaiFlowComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent, AkamaiFlowComponent, EndpointResultsTableComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -46,6 +47,10 @@ export class ErrorAnalyzerComponent implements OnInit {
   urlSearchLimitReached = false;
   selectedTraceId: string | null = null;
   private lastUrlSearchTimeframe: Timeframe | null = null;
+
+  // Endpoint search state
+  endpointResults: EndpointMatch[] = [];
+  endpointLimitReached = false;
 
   // Session search state
   sessionEvents: UserEventRecord[] = [];
@@ -125,6 +130,8 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.urlSearchLimitReached = false;
     this.selectedTraceId = null;
     this.lastUrlSearchTimeframe = null;
+    this.endpointResults = [];
+    this.endpointLimitReached = false;
     this.sessionEvents = [];
     this.tracesFromSessionUrl = null;
     this.lastSearchMode = event.mode;
@@ -148,6 +155,26 @@ export class ErrorAnalyzerComponent implements OnInit {
         },
         error: (err) => {
           this.errorMsg = err.error?.error || 'Failed to search by URL. Please try again.';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+      return;
+    }
+
+    if (event.mode === 'endpoint') {
+      this.dynatraceService.searchEndpoints(event.value, this.environment, event.timeframe).subscribe({
+        next: (response) => {
+          this.endpointResults = response.results || [];
+          this.endpointLimitReached = this.endpointResults.length >= 500;
+          if (this.endpointResults.length === 0) {
+            this.errorMsg = 'No endpoints found matching that URL in the selected time window.';
+          }
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.errorMsg = err.error?.error || 'Failed to search endpoints. Please try again.';
           this.isLoading = false;
           this.cdr.detectChanges();
         }

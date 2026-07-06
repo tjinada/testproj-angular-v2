@@ -4,6 +4,7 @@ import {
   findTraceIdByRequestId,
   searchTracesByUrl,
   searchTracesByClientIp,
+  searchUniqueUrls,
   normalizeClientIp,
   fetchSessionEvents
 } from '../services/dynatrace.service';
@@ -156,6 +157,30 @@ router.post('/traces/search-by-client-ip', async (req: Request, res: Response) =
     res.json({ results });
   } catch (error: any) {
     console.error(`[Dynatrace] Error searching by client IP ${maskedIp}:`, error.message);
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/error-analyzer/traces/search-endpoints
+ */
+router.post('/traces/search-endpoints', async (req: Request, res: Response) => {
+  const { url, environment = 'NON-PROD', timeframe, userToken } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  try {
+    const results = await searchUniqueUrls(url, environment, timeframe, userToken);
+    res.json({ results });
+  } catch (error: any) {
+    console.error(`[Dynatrace] Error searching endpoints for ${url}:`, error.message);
     if (error.response?.data) {
       console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
     }

@@ -1,0 +1,93 @@
+.results-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.results-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.results-limit {
+  font-weight: 400;
+  color: #6b7280;
+  margin-left: 4px;
+}
+
+.results-table-wrap {
+  max-height: 480px;
+  overflow: auto;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.results-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.results-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #1f2937;
+}
+
+.results-row:hover {
+  background: #f9fafb;
+}
+
+.method-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.cell-path {
+  font-family: monospace;
+  font-size: 11px;
+  color: #1f2937;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-truncate {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

@@ -1,5 +1,5 @@
-/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), by full URL, by RUM session ID, or by client IP request attribute */
-export type SearchMode = 'trace' | 'request' | 'url' | 'session' | 'clientIp';
+/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), by full URL, by RUM session ID, by client IP request attribute, or by endpoint (unique URLs for attestation) */
+export type SearchMode = 'trace' | 'request' | 'url' | 'session' | 'clientIp' | 'endpoint';
 
 /** A single trace match returned by a search (URL, hotspot, service, etc.) */
 export interface TraceMatch {
@@ -13,6 +13,18 @@ export interface TraceMatch {
   hasExceptions: boolean;
   exceptionCount: number;
   duration: number;
+}
+
+/** A unique endpoint (method + URL path pair) returned by the endpoint
+ *  search. Used to attest whether an endpoint sees traffic in a given
+ *  environment. Sorted server-side alphabetically by path, then method. */
+export interface EndpointMatch {
+  method: string;
+  urlPath: string;
+  service: string;
+  serverAddress: string;
+  count: number;
+  lastSeen: string;
 }
 
 /** Raw user.events record from Dynatrace. Fields are loose because the

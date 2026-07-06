@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { DynatraceResponse, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
+import { DynatraceResponse, EndpointMatch, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
 import { ConfigService } from './config.service';
 
 export interface RequestIdLookupResponse {
@@ -11,6 +11,10 @@ export interface RequestIdLookupResponse {
 
 export interface UrlSearchResponse {
   results: TraceMatch[];
+}
+
+export interface EndpointSearchResponse {
+  results: EndpointMatch[];
 }
 
 export interface SessionResponse {
@@ -81,6 +85,15 @@ export class DynatraceService {
       environment,
       timeframe,
       hostExact,
+      userToken: this.getUserToken(environment)
+    });
+  }
+
+  searchEndpoints(url: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<EndpointSearchResponse> {
+    return this.http.post<EndpointSearchResponse>(`${this.apiUrl}/search-endpoints`, {
+      url,
+      environment,
+      timeframe,
       userToken: this.getUserToken(environment)
     });
   }

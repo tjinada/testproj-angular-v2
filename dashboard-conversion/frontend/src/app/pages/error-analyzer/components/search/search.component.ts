@@ -22,7 +22,8 @@ export const SEARCH_FIELDS: SearchField[] = [
   { mode: 'url', label: 'URL / URL path', placeholder: 'Paste a full URL, hostname, or path (e.g. host.com/foo, /banking, services/signin)' },
   { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
   { mode: 'session', label: 'RUM Session ID', placeholder: 'Enter a RUM session ID (e.g. AQSNRLGUDIM...)' },
-  { mode: 'clientIp', label: 'Client IP', placeholder: 'Enter a client IPv4 address (e.g. 24.157.71.45) — Dynatrace masks the last octet' }
+  { mode: 'clientIp', label: 'Client IP', placeholder: 'Enter a client IPv4 address (e.g. 24.157.71.45) — Dynatrace masks the last octet' },
+  { mode: 'endpoint', label: 'Endpoint search (unique URLs)', placeholder: 'Enter a URL, hostname, or path fragment (e.g. /cdb/credit-card) — lists unique endpoints with traffic' }
 ];
 
 /** Time window presets. Add/remove entries here to change the dropdown options. */

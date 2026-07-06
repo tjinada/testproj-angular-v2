@@ -49,6 +49,15 @@ interface TraceMatch {
   duration: number;
 }
 
+interface EndpointMatch {
+  method: string;
+  urlPath: string;
+  service: string;
+  serverAddress: string;
+  count: number;
+  lastSeen: string;
+}
+
 // ── Constants ────────────────────────────────────────────────────────
 
 const ENV_CONFIG: Record<string, EnvConfigEntry> = {
@@ -211,6 +220,32 @@ function buildTraceMatchQuery(filterLines: string[], timeframe?: Timeframe): str
     `  }, by: { trace.id }`,
     `| sort startTime desc`,
     `| limit 100`
+  ].join('\n');
+}
+
+/**
+ * Unique-endpoint query: applies the given URL filter lines, then
+ * summarizes spans into one row per (url.path, http.request.method)
+ * pair. Sorted alphabetically by path (method as tiebreaker) so
+ * attestation scans are stable and predictable across runs.
+ */
+function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    ...filterLines,
+    `| filter isNotNull(url.path)`,
+    `| summarize {`,
+    `    count = count(),`,
+    `    lastSeen = takeMax(start_time),`,
+    `    service = takeFirst(dt.service.name),`,
+    `    serverAddress = takeFirst(server.address)`,
+    `  }, by: { url.path, http.request.method }`,
+    `| sort url.path asc, http.request.method asc`,
+    `| limit 500`
   ].join('\n');
 }
 
@@ -502,6 +537,37 @@ export async function searchTracesByClientIp(
 
   const config = getEnvConfig(environment, userToken);
   return runTraceMatchSearch(config, [buildClientIpFilter(maskedIp)], timeframe);
+}
+
+export async function searchUniqueUrls(
+  url: string,
+  environment: string,
+  timeframe?: Timeframe,
+  userToken: string | null = null
+): Promise<EndpointMatch[]> {
+  if (process.env.USE_MOCK === 'true') {
+    return [];
+  }
+
+  const { host, path: urlPath } = parseUrl(url);
+  if (!host && !urlPath) {
+    throw new Error('Invalid URL: could not parse hostname or path');
+  }
+
+  const config = getEnvConfig(environment, userToken);
+  const query = buildEndpointSearchQuery(buildUrlSearchFilters(host, urlPath), timeframe);
+  const requestToken = await executeQuery(config, query);
+  const result = await pollForResults(config, requestToken);
+  const records = result.result?.records || [];
+
+  return records.map(r => ({
+    method: (r['http.request.method'] as string) || '',
+    urlPath: (r['url.path'] as string) || '',
+    service: (r['service'] as string) || '',
+    serverAddress: (r['serverAddress'] as string) || '',
+    count: Number(r['count']) || 0,
+    lastSeen: (r['lastSeen'] as string) || ''
+  }));
 }
 
 export async function fetchSessionEvents(

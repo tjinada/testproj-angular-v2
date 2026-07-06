@@ -114,6 +114,11 @@
         (resultClick)="onUrlResultClick($event)">
       </app-trace-results-table>
 
+      <app-endpoint-results-table
+        [results]="endpointResults"
+        [limitReached]="endpointLimitReached">
+      </app-endpoint-results-table>
+
       <app-trace-results
         [spans]="spans"
         [isLoading]="isLoading"
