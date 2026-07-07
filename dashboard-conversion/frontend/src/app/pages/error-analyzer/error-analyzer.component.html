@@ -116,7 +116,8 @@
 
       <app-endpoint-results-table
         [results]="endpointResults"
-        [limitReached]="endpointLimitReached">
+        [limitReached]="endpointLimitReached"
+        (latestTraceClick)="onEndpointLatestTrace($event)">
       </app-endpoint-results-table>
 
       <app-trace-results

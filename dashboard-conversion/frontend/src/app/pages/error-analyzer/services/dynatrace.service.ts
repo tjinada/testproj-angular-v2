@@ -17,6 +17,10 @@ export interface EndpointSearchResponse {
   results: EndpointMatch[];
 }
 
+export interface LatestTraceResponse {
+  traceId: string;
+}
+
 export interface SessionResponse {
   events: UserEventRecord[];
 }
@@ -92,6 +96,16 @@ export class DynatraceService {
   searchEndpoints(url: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<EndpointSearchResponse> {
     return this.http.post<EndpointSearchResponse>(`${this.apiUrl}/search-endpoints`, {
       url,
+      environment,
+      timeframe,
+      userToken: this.getUserToken(environment)
+    });
+  }
+
+  findLatestTraceForEndpoint(urlPath: string, method: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<LatestTraceResponse> {
+    return this.http.post<LatestTraceResponse>(`${this.apiUrl}/latest-for-endpoint`, {
+      urlPath,
+      method,
       environment,
       timeframe,
       userToken: this.getUserToken(environment)

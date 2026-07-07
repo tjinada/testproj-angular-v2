@@ -1,8 +1,16 @@
 <div *ngIf="results.length > 0" class="results-card">
   <div class="results-header">
     <div class="results-title">
-      Found {{ results.length }} unique endpoint(s)
+      Showing {{ filtered().length }} of {{ results.length }} unique endpoint(s)
       <span *ngIf="limitReached" class="results-limit">(showing first 500 — narrow the search to see all)</span>
+    </div>
+    <div class="results-filters">
+      <input
+        type="text"
+        class="results-filter-input"
+        [(ngModel)]="filterText"
+        placeholder="Filter results…"
+        aria-label="Filter endpoint results" />
     </div>
   </div>
   <div class="results-table-wrap">
@@ -15,16 +23,31 @@
           <th>Server address</th>
           <th>Hits</th>
           <th>Last seen</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let r of results; trackBy: trackByEndpoint" class="results-row">
+        <tr *ngFor="let r of filtered(); trackBy: trackByEndpoint" class="results-row">
           <td><span class="method-badge">{{ r.method || '—' }}</span></td>
           <td class="cell-path" [title]="r.urlPath">{{ r.urlPath }}</td>
           <td class="cell-truncate" [title]="r.service">{{ r.service || '—' }}</td>
           <td class="cell-truncate" [title]="r.serverAddress">{{ r.serverAddress || '—' }}</td>
           <td class="cell-count">{{ r.count }}</td>
           <td>{{ formatTime(r.lastSeen) }}</td>
+          <td class="cell-action">
+            <button
+              type="button"
+              class="latest-trace-btn"
+              title="Load the most recent trace for this endpoint"
+              (click)="onLatestTraceClick(r)">
+              Latest trace
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="filtered().length === 0">
+          <td colspan="7" class="results-empty">
+            No endpoints match the current filter.
+          </td>
         </tr>
       </tbody>
     </table>

@@ -245,7 +245,70 @@ function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe):
     `    serverAddress = takeFirst(server.address)`,
     `  }, by: { url.path, http.request.method }`,
     `| sort url.path asc, http.request.method asc`,
-    `| limit 500`
+    `| limit 10000`
+  ].join('\n');
+}
+
+/**
+ * Replaces ID-like path segments with "{id}" so URL variants collapse
+ * into one logical endpoint (e.g. statementSummary/R1008 and
+ * statementSummary/R101 both become statementSummary/{id}).
+ *
+ * A segment is treated as an ID when it is:
+ *   - all digits (12345)
+ *   - a UUID
+ *   - a hex string of 8+ chars (trace/session tokens)
+ *   - contains 3 or more digits (R1008, card refs)
+ * The 3-digit threshold deliberately spares segments like v1, v2,
+ * oauth2, and 2fa.
+ */
+function normalizeUrlPath(rawPath: string): string {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const HEX_RE = /^[0-9a-f]{8,}$/i;
+  const ALL_DIGITS_RE = /^\d+$/;
+
+  const looksLikeId = (segment: string): boolean => {
+    if (ALL_DIGITS_RE.test(segment)) return true;
+    if (UUID_RE.test(segment)) return true;
+    if (HEX_RE.test(segment)) return true;
+    const digitCount = (segment.match(/\d/g) || []).length;
+    return digitCount >= 3;
+  };
+
+  return rawPath
+    .split('/')
+    .map(segment => (segment && looksLikeId(segment)) ? '{id}' : segment)
+    .join('/');
+}
+
+/**
+ * Latest-trace lookup for a logical endpoint from the endpoint search.
+ * Normalized paths may contain "{id}" placeholders which match nothing
+ * in Dynatrace, so when present the filter falls back to contains() on
+ * the prefix up to the first "{id}" segment — covering all variants of
+ * the group. Exact paths use an exact match.
+ */
+function buildLatestTraceQuery(urlPath: string, method: string, timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  const idIndex = urlPath.indexOf('{id}');
+  const pathFilter = idIndex === -1
+    ? `| filter url.path == "${urlPath}"`
+    : `| filter contains(lower(url.path), lower("${urlPath.substring(0, idIndex)}"))`;
+
+  const filters = [pathFilter];
+  if (method) {
+    filters.push(`| filter http.request.method == "${method}"`);
+  }
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    ...filters,
+    `| sort start_time desc`,
+    `| fields trace.id`,
+    `| limit 1`
   ].join('\n');
 }
 
@@ -560,14 +623,53 @@ export async function searchUniqueUrls(
   const result = await pollForResults(config, requestToken);
   const records = result.result?.records || [];
 
-  return records.map(r => ({
-    method: (r['http.request.method'] as string) || '',
-    urlPath: (r['url.path'] as string) || '',
-    service: (r['service'] as string) || '',
-    serverAddress: (r['serverAddress'] as string) || '',
-    count: Number(r['count']) || 0,
-    lastSeen: (r['lastSeen'] as string) || ''
-  }));
+  // Normalize ID-like path segments and re-aggregate, so URL variants
+  // that differ only by embedded IDs collapse into one logical endpoint.
+  const grouped = new Map<string, EndpointMatch>();
+  for (const r of records) {
+    const method = (r['http.request.method'] as string) || '';
+    const normalizedPath = normalizeUrlPath((r['url.path'] as string) || '');
+    const service = (r['service'] as string) || '';
+    const serverAddress = (r['serverAddress'] as string) || '';
+    const count = Number(r['count']) || 0;
+    const lastSeen = (r['lastSeen'] as string) || '';
+
+    const key = `${method} ${normalizedPath}`;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.count += count;
+      if (lastSeen > existing.lastSeen) existing.lastSeen = lastSeen;
+      if (!existing.service) existing.service = service;
+      if (!existing.serverAddress) existing.serverAddress = serverAddress;
+    } else {
+      grouped.set(key, { method, urlPath: normalizedPath, service, serverAddress, count, lastSeen });
+    }
+  }
+
+  return Array.from(grouped.values())
+    .sort((a, b) => a.urlPath.localeCompare(b.urlPath) || a.method.localeCompare(b.method))
+    .slice(0, 500);
+}
+
+export async function findLatestTraceIdForEndpoint(
+  urlPath: string,
+  method: string,
+  environment: string,
+  timeframe?: Timeframe,
+  userToken: string | null = null
+): Promise<string | null> {
+  if (process.env.USE_MOCK === 'true') {
+    return loadMockResponse().result?.records?.[0]?.['trace.id'] as string || null;
+  }
+
+  const config = getEnvConfig(environment, userToken);
+  const query = buildLatestTraceQuery(urlPath, method, timeframe);
+  const requestToken = await executeQuery(config, query);
+  const result = await pollForResults(config, requestToken);
+  const records = result.result?.records || [];
+
+  if (records.length === 0) return null;
+  return (records[0]['trace.id'] as string) || null;
 }
 
 export async function fetchSessionEvents(

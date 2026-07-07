@@ -5,6 +5,7 @@ import {
   searchTracesByUrl,
   searchTracesByClientIp,
   searchUniqueUrls,
+  findLatestTraceIdForEndpoint,
   normalizeClientIp,
   fetchSessionEvents
 } from '../services/dynatrace.service';
@@ -181,6 +182,33 @@ router.post('/traces/search-endpoints', async (req: Request, res: Response) => {
     res.json({ results });
   } catch (error: any) {
     console.error(`[Dynatrace] Error searching endpoints for ${url}:`, error.message);
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/error-analyzer/traces/latest-for-endpoint
+ */
+router.post('/traces/latest-for-endpoint', async (req: Request, res: Response) => {
+  const { urlPath, method, environment = 'NON-PROD', timeframe, userToken } = req.body;
+
+  if (!urlPath) {
+    return res.status(400).json({ error: 'urlPath is required' });
+  }
+
+  try {
+    const traceId = await findLatestTraceIdForEndpoint(urlPath, method || '', environment, timeframe, userToken);
+    if (!traceId) {
+      return res.status(404).json({ error: 'No trace found for this endpoint in the selected time window.' });
+    }
+    res.json({ traceId });
+  } catch (error: any) {
+    console.error(`[Dynatrace] Error finding latest trace for ${urlPath}:`, error.message);
     if (error.response?.data) {
       console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
     }

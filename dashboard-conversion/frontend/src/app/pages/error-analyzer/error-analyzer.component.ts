@@ -163,6 +163,7 @@ export class ErrorAnalyzerComponent implements OnInit {
     }
 
     if (event.mode === 'endpoint') {
+      this.lastUrlSearchTimeframe = event.timeframe;
       this.dynatraceService.searchEndpoints(event.value, this.environment, event.timeframe).subscribe({
         next: (response) => {
           this.endpointResults = response.results || [];
@@ -299,6 +300,30 @@ export class ErrorAnalyzerComponent implements OnInit {
       to: new Date().toISOString()
     };
     this.fetchTrace(result.traceId, timeframe);
+  }
+
+  onEndpointLatestTrace(row: EndpointMatch): void {
+    this.isLoading = true;
+    this.errorMsg = '';
+    this.spans = [];
+    this.selectedTraceId = null;
+
+    const timeframe = this.lastUrlSearchTimeframe || {
+      from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      to: new Date().toISOString()
+    };
+
+    this.dynatraceService.findLatestTraceForEndpoint(row.urlPath, row.method, this.environment, timeframe).subscribe({
+      next: (response) => {
+        this.selectedTraceId = response.traceId;
+        this.fetchTrace(response.traceId, timeframe);
+      },
+      error: (err) => {
+        this.errorMsg = err.error?.error || 'Failed to find the latest trace for this endpoint.';
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   private fetchTrace(traceId: string, timeframe: Timeframe): void {
