@@ -42,6 +42,16 @@ export interface ComponentRow {
   spanCount: number;
 }
 
+/** A deduped (caller, host) pair from the component-callers search:
+ *  the root/entry span apps of traces containing the component,
+ *  sampled across the time window without any URL filter. */
+export interface CallerRow {
+  name: string;
+  host: string;
+  traceCount: number;
+  lastSeen: string;
+}
+
 /** Raw user.events record from Dynatrace. Fields are loose because the
  *  Grail RUM schema varies by event kind and agent config; the analyzer
  *  guards every access. */

@@ -6,6 +6,7 @@ import {
   searchTracesByClientIp,
   searchUniqueUrls,
   searchComponentsByUrl,
+  searchComponentCallers,
   findLatestTraceIdForEndpoint,
   normalizeClientIp,
   fetchSessionEvents
@@ -209,6 +210,32 @@ router.post('/traces/search-components', async (req: Request, res: Response) => 
     res.json(result);
   } catch (error: any) {
     console.error(`[Dynatrace] Error searching components for ${urlPath}:`, error.message);
+    if (error.response?.data) {
+      console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
+    }
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || error.message;
+    res.status(status).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/error-analyzer/traces/search-callers
+ * Declared before the parameterized /traces/:traceId route so Express
+ * matches the literal path first.
+ */
+router.post('/traces/search-callers', async (req: Request, res: Response) => {
+  const { component, environment = 'NON-PROD', timeframe, userToken } = req.body;
+
+  if (!component || !String(component).trim()) {
+    return res.status(400).json({ error: 'component is required' });
+  }
+
+  try {
+    const result = await searchComponentCallers(String(component), environment, timeframe, userToken);
+    res.json(result);
+  } catch (error: any) {
+    console.error(`[Dynatrace] Error searching callers for ${component}:`, error.message);
     if (error.response?.data) {
       console.error('[Dynatrace] Response body:', JSON.stringify(error.response.data, null, 2));
     }

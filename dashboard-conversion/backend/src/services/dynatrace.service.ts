@@ -70,6 +70,27 @@ interface ComponentSpanSearchResult {
   tracesRequested: number;
 }
 
+/** One deduped (caller, host) pair from the component-callers search. */
+interface CallerMatch {
+  name: string;
+  host: string;
+  traceCount: number;
+  lastSeen: string;
+}
+
+/**
+ * Result of the component-callers search: root/entry spans of traces
+ * that contain the component, deduped by (caller name, host).
+ * tracesWithRoot < tracesAnalyzed means some sampled traces had no
+ * request.is_root_span record (e.g. partially ingested traces).
+ */
+interface CallerSearchResult {
+  callers: CallerMatch[];
+  tracesAnalyzed: number;
+  tracesRequested: number;
+  tracesWithRoot: number;
+}
+
 // ── Constants ────────────────────────────────────────────────────────
 
 const ENV_CONFIG: Record<string, EnvConfigEntry> = {
@@ -102,6 +123,19 @@ const DEFAULT_COMPONENT_SEARCH_MAX_TRACES = 20;
 function getComponentSearchMaxTraces(): number {
   const raw = parseInt(process.env.COMPONENT_SEARCH_MAX_TRACES || '', 10);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_COMPONENT_SEARCH_MAX_TRACES;
+}
+
+/**
+ * Trace sample size for the component-callers search. Separate variable
+ * from the components search: pass 2 here is root-spans-only (~1 record
+ * per trace), so a larger sample is nearly free and coverage matters for
+ * the "is this a common component" question.
+ */
+const DEFAULT_CALLER_SEARCH_MAX_TRACES = 100;
+
+function getCallerSearchMaxTraces(): number {
+  const raw = parseInt(process.env.CALLER_SEARCH_MAX_TRACES || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_CALLER_SEARCH_MAX_TRACES;
 }
 
 // ── Proxy setup ──────────────────────────────────────────────────────
@@ -396,6 +430,52 @@ function buildComponentSpansQuery(traceIds: string[], timeframe?: Timeframe): st
     `| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")`,
     `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`,
     `| limit 20000`
+  ].join('\n');
+}
+
+/**
+ * Pass 1 of the component-callers search: samples the most recent trace
+ * IDs containing the component — deliberately NOT filtered by URL, so a
+ * component reached from many entry points surfaces all of them. The
+ * component name is matched against both the entityAttr-resolved name
+ * and dt.service.name, mirroring the getServiceName() precedence used
+ * to produce the component list in the first place.
+ */
+function buildCallerTraceIdQuery(component: string, maxTraces: number, timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    `| fieldsAdd resolvedName = entityAttr(dt.entity.service, "entity.name")`,
+    `| filter resolvedName == "${component}" or dt.service.name == "${component}"`,
+    `| summarize { lastSeen = takeMax(start_time) }, by: { trace.id }`,
+    `| sort lastSeen desc`,
+    `| limit ${maxTraces}`
+  ].join('\n');
+}
+
+/**
+ * Pass 2 of the component-callers search: fetches ONLY the root/entry
+ * span of each sampled trace (request.is_root_span) with the fields
+ * needed to resolve the caller's name and host. Result is ~1 record per
+ * trace, so the execute endpoint's default record cap is not a concern.
+ */
+function buildCallerRootSpanQuery(traceIds: string[], timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  const uidList = traceIds.map(id => `toUid("${id}")`).join(', ');
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000`,
+    `| filter in(trace.id, {${uidList}})`,
+    `| filter request.is_root_span == true`,
+    `| fields trace.id, start_time, dt.service.name, dt.entity.service, k8s.container.name, websphere.server.name, host.name, dt.entity.host`,
+    `| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")`,
+    `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`
   ].join('\n');
 }
 
@@ -815,6 +895,96 @@ export async function searchComponentsByUrl(
     records: spanResult.result?.records || [],
     tracesAnalyzed: traceIds.length,
     tracesRequested: maxTraces
+  };
+}
+
+/**
+ * Component-callers search. Two sequential Grail queries:
+ *   1. Sample the most recent N traces containing the component
+ *      (N from CALLER_SEARCH_MAX_TRACES, default 100) — no URL filter.
+ *   2. Fetch each trace's root/entry span (request.is_root_span).
+ * Node-side, root spans are deduped by (caller name, host) with trace
+ * counts — one caller means dedicated, many callers means common
+ * component. Name/host resolution mirrors the flow diagram precedence:
+ * entity name > dt.service.name > entity ID, and websphere.server.name
+ * > k8s.container.name > host.name > entity host name.
+ */
+export async function searchComponentCallers(
+  component: string,
+  environment: string,
+  timeframe?: Timeframe,
+  userToken: string | null = null
+): Promise<CallerSearchResult> {
+  const maxTraces = getCallerSearchMaxTraces();
+
+  if (process.env.USE_MOCK === 'true') {
+    return { callers: [], tracesAnalyzed: 0, tracesRequested: maxTraces, tracesWithRoot: 0 };
+  }
+
+  const config = getEnvConfig(environment, userToken);
+
+  const idQuery = buildCallerTraceIdQuery(component.trim(), maxTraces, timeframe);
+  const idToken = await executeQuery(config, idQuery);
+  const idResult = await pollForResults(config, idToken);
+  const traceIds = (idResult.result?.records || [])
+    .map(r => (r['trace.id'] as string) || '')
+    .filter(Boolean);
+
+  if (traceIds.length === 0) {
+    return { callers: [], tracesAnalyzed: 0, tracesRequested: maxTraces, tracesWithRoot: 0 };
+  }
+
+  const rootQuery = buildCallerRootSpanQuery(traceIds, timeframe);
+  const rootToken = await executeQuery(config, rootQuery);
+  const rootResult = await pollForResults(config, rootToken);
+  const records = rootResult.result?.records || [];
+
+  // Dedupe by (caller name, host). A Set of trace IDs per key guards
+  // against a trace contributing twice if it carries more than one
+  // is_root_span record.
+  const grouped = new Map<string, { match: CallerMatch; traceIds: Set<string> }>();
+  const tracesWithRoot = new Set<string>();
+
+  for (const r of records) {
+    const traceId = (r['trace.id'] as string) || '';
+    if (!traceId) continue;
+    tracesWithRoot.add(traceId);
+
+    const name =
+      (r['dt.entity.service.entity.name'] as string) ||
+      (r['dt.service.name'] as string) ||
+      (r['dt.entity.service'] as string) ||
+      'Unknown';
+    const host =
+      (r['websphere.server.name'] as string) ||
+      (r['k8s.container.name'] as string) ||
+      (r['host.name'] as string) ||
+      (r['dt.entity.host.entity.name'] as string) ||
+      '';
+    const startTime = (r['start_time'] as string) || '';
+
+    const key = `${name}||${host}`;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.traceIds.add(traceId);
+      if (startTime > existing.match.lastSeen) existing.match.lastSeen = startTime;
+    } else {
+      grouped.set(key, {
+        match: { name, host, traceCount: 0, lastSeen: startTime },
+        traceIds: new Set([traceId])
+      });
+    }
+  }
+
+  const callers = Array.from(grouped.values())
+    .map(g => ({ ...g.match, traceCount: g.traceIds.size }))
+    .sort((a, b) => b.traceCount - a.traceCount || a.name.localeCompare(b.name));
+
+  return {
+    callers,
+    tracesAnalyzed: traceIds.length,
+    tracesRequested: maxTraces,
+    tracesWithRoot: tracesWithRoot.size
   };
 }
 

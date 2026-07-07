@@ -1,0 +1,45 @@
+<div *ngIf="componentName" class="results-card">
+  <div class="results-header">
+    <div class="results-title">
+      Upstream callers of <code class="component-code">{{ componentName }}</code>
+      <span class="results-limit">
+        — across {{ tracesAnalyzed }} of {{ tracesRequested }} sampled traces (any URL)
+        <ng-container *ngIf="tracesWithRoot < tracesAnalyzed">
+          · {{ tracesAnalyzed - tracesWithRoot }} without a root span
+        </ng-container>
+      </span>
+    </div>
+    <div class="results-verdict" *ngIf="results.length > 0">
+      <span class="verdict-badge" [class.verdict-common]="results.length > 1">
+        {{ results.length > 1 ? 'Common component' : 'Single caller' }}
+      </span>
+    </div>
+  </div>
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Caller</th>
+          <th>Host / Container</th>
+          <th>Traces</th>
+          <th>Share</th>
+          <th>Last seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of results; trackBy: trackByCaller" class="results-row">
+          <td class="cell-name" [title]="r.name">{{ r.name }}</td>
+          <td class="cell-truncate" [title]="r.host">{{ r.host || '—' }}</td>
+          <td class="cell-count">{{ r.traceCount }}</td>
+          <td class="cell-count">{{ sharePct(r) }}</td>
+          <td>{{ formatTime(r.lastSeen) }}</td>
+        </tr>
+        <tr *ngIf="results.length === 0">
+          <td colspan="5" class="results-empty">
+            No root spans found in the sampled traces for this component in the selected time window.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

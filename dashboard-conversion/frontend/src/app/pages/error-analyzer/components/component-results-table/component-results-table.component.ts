@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ComponentRow } from '../../models/trace.model';
@@ -26,6 +26,10 @@ export class ComponentResultsTableComponent implements OnChanges {
   @Input() tracesAnalyzed = 0;
   @Input() tracesRequested = 0;
 
+  /** Emitted when "Find callers" is clicked on a real (non-synthetic)
+   *  component row; the parent runs the URL-independent caller search. */
+  @Output() findCallersClick = new EventEmitter<ComponentRow>();
+
   /** Case-insensitive substring filter across the visible text columns. */
   filterText = '';
 
@@ -43,6 +47,10 @@ export class ComponentResultsTableComponent implements OnChanges {
       r.type.toLowerCase().includes(needle) ||
       r.fullHostname.toLowerCase().includes(needle)
     );
+  }
+
+  onFindCallersClick(row: ComponentRow): void {
+    this.findCallersClick.emit(row);
   }
 
   trackByComponent = (_: number, r: ComponentRow) => r.id;

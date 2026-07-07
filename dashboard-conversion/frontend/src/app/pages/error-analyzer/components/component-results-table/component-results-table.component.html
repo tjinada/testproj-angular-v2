@@ -22,6 +22,7 @@
           <th>Host / Container</th>
           <th>Traces</th>
           <th>Spans</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -31,9 +32,19 @@
           <td class="cell-truncate" [title]="r.fullHostname">{{ r.hostname || '—' }}</td>
           <td class="cell-count">{{ r.isSynthetic ? '—' : r.traceCount }}</td>
           <td class="cell-count">{{ r.isSynthetic ? '—' : r.spanCount }}</td>
+          <td class="cell-action">
+            <button
+              *ngIf="!r.isSynthetic"
+              type="button"
+              class="find-callers-btn"
+              title="Sample recent traces containing this component (any URL) and list the root apps that called it"
+              (click)="onFindCallersClick(r)">
+              Find callers
+            </button>
+          </td>
         </tr>
         <tr *ngIf="filtered().length === 0">
-          <td colspan="5" class="results-empty">
+          <td colspan="6" class="results-empty">
             No components match the current filter.
           </td>
         </tr>

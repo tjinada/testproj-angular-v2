@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { DynatraceResponse, EndpointMatch, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
+import { CallerRow, DynatraceResponse, EndpointMatch, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
 import { ConfigService } from './config.service';
 
 export interface RequestIdLookupResponse {
@@ -24,6 +24,15 @@ export interface ComponentSearchResponse {
   records: SpanRecord[];
   tracesAnalyzed: number;
   tracesRequested: number;
+}
+
+/** Deduped upstream callers of a component. tracesWithRoot < tracesAnalyzed
+ *  means some sampled traces had no root span record. */
+export interface CallerSearchResponse {
+  callers: CallerRow[];
+  tracesAnalyzed: number;
+  tracesRequested: number;
+  tracesWithRoot: number;
 }
 
 export interface LatestTraceResponse {
@@ -114,6 +123,15 @@ export class DynatraceService {
   searchComponents(urlPath: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<ComponentSearchResponse> {
     return this.http.post<ComponentSearchResponse>(`${this.apiUrl}/search-components`, {
       urlPath,
+      environment,
+      timeframe,
+      userToken: this.getUserToken(environment)
+    });
+  }
+
+  searchCallers(component: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<CallerSearchResponse> {
+    return this.http.post<CallerSearchResponse>(`${this.apiUrl}/search-callers`, {
+      component,
       environment,
       timeframe,
       userToken: this.getUserToken(environment)

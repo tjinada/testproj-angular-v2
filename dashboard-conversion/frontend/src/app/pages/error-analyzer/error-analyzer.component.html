@@ -123,8 +123,17 @@
       <app-component-results-table
         [results]="componentResults"
         [tracesAnalyzed]="componentTracesAnalyzed"
-        [tracesRequested]="componentTracesRequested">
+        [tracesRequested]="componentTracesRequested"
+        (findCallersClick)="onFindCallers($event)">
       </app-component-results-table>
+
+      <app-caller-results-table
+        [results]="callerResults"
+        [componentName]="callerComponentName"
+        [tracesAnalyzed]="callerTracesAnalyzed"
+        [tracesRequested]="callerTracesRequested"
+        [tracesWithRoot]="callerTracesWithRoot">
+      </app-caller-results-table>
 
       <app-trace-results
         [spans]="spans"

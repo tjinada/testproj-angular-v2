@@ -11,17 +11,18 @@ import { AkamaiFlowComponent } from './components/akamai-flow/akamai-flow.compon
 import { UrlTraceComponent } from './components/url-trace/url-trace.component';
 import { EndpointResultsTableComponent } from './components/endpoint-results-table/endpoint-results-table.component';
 import { ComponentResultsTableComponent } from './components/component-results-table/component-results-table.component';
+import { CallerResultsTableComponent } from './components/caller-results-table/caller-results-table.component';
 import { buildFlowGraph, FlowNode } from './components/flow-diagram/flow-layout';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
-import { ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
+import { CallerRow, ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
 type TabId = 'trace' | 'opensearch' | 'urlTrace' | 'akamai';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent, AkamaiFlowComponent, EndpointResultsTableComponent, ComponentResultsTableComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent, AkamaiFlowComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -58,6 +59,13 @@ export class ErrorAnalyzerComponent implements OnInit {
   componentResults: ComponentRow[] = [];
   componentTracesAnalyzed = 0;
   componentTracesRequested = 0;
+
+  // Caller search state (per clicked component row)
+  callerResults: CallerRow[] = [];
+  callerComponentName = '';
+  callerTracesAnalyzed = 0;
+  callerTracesRequested = 0;
+  callerTracesWithRoot = 0;
 
   // Session search state
   sessionEvents: UserEventRecord[] = [];
@@ -142,6 +150,7 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.componentResults = [];
     this.componentTracesAnalyzed = 0;
     this.componentTracesRequested = 0;
+    this.clearCallerResults();
     this.sessionEvents = [];
     this.tracesFromSessionUrl = null;
     this.lastSearchMode = event.mode;
@@ -194,6 +203,7 @@ export class ErrorAnalyzerComponent implements OnInit {
     }
 
     if (event.mode === 'components') {
+      this.lastUrlSearchTimeframe = event.timeframe;
       this.dynatraceService.searchComponents(event.value.trim(), this.environment, event.timeframe).subscribe({
         next: (response) => {
           this.componentTracesAnalyzed = response.tracesAnalyzed;
@@ -351,6 +361,51 @@ export class ErrorAnalyzerComponent implements OnInit {
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to find the latest trace for this endpoint.';
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private clearCallerResults(): void {
+    this.callerResults = [];
+    this.callerComponentName = '';
+    this.callerTracesAnalyzed = 0;
+    this.callerTracesRequested = 0;
+    this.callerTracesWithRoot = 0;
+  }
+
+  /**
+   * "Find callers" on a component row: samples recent traces containing
+   * the component (any URL) and lists the deduped root/entry apps that
+   * called it. Reuses the time window of the components search.
+   */
+  onFindCallers(row: ComponentRow): void {
+    this.isLoading = true;
+    this.errorMsg = '';
+    this.clearCallerResults();
+
+    const timeframe = this.lastUrlSearchTimeframe || {
+      from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      to: new Date().toISOString()
+    };
+
+    this.dynatraceService.searchCallers(row.name, this.environment, timeframe).subscribe({
+      next: (response) => {
+        this.callerComponentName = row.name;
+        this.callerResults = response.callers || [];
+        this.callerTracesAnalyzed = response.tracesAnalyzed;
+        this.callerTracesRequested = response.tracesRequested;
+        this.callerTracesWithRoot = response.tracesWithRoot;
+        if (response.tracesAnalyzed === 0) {
+          this.errorMsg = 'No traces containing this component found in the selected time window.';
+          this.callerComponentName = '';
+        }
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.errorMsg = err.error?.error || 'Failed to search callers. Please try again.';
         this.isLoading = false;
         this.cdr.detectChanges();
       }
