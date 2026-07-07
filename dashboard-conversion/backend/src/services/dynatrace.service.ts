@@ -457,12 +457,15 @@ function buildCallerTraceIdQuery(component: string, maxTraces: number, timeframe
 }
 
 /**
- * Pass 2 of the component-callers search: fetches ONLY the root/entry
- * span of each sampled trace (request.is_root_span) with the fields
- * needed to resolve the caller's name and host. Result is ~1 record per
- * trace, so the execute endpoint's default record cap is not a concern.
+ * Pass 2 of the component-callers search: fetches ALL spans of the
+ * sampled traces, trimmed to identity fields (trace.id, span.id,
+ * span.parent_id, start_time) plus caller name/host resolution fields.
+ * The trace's entry span is derived in Node — the *.is_root_span flags
+ * (request/subtrace/transaction) are per-invocation markers in this
+ * tenant (every service request sets them), so they cannot identify
+ * the trace-wide entry point.
  */
-function buildCallerRootSpanQuery(traceIds: string[], timeframe?: Timeframe): string {
+function buildCallerSpansQuery(traceIds: string[], timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
     : 'from: -120m';
@@ -472,10 +475,10 @@ function buildCallerRootSpanQuery(traceIds: string[], timeframe?: Timeframe): st
   return [
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000`,
     `| filter in(trace.id, {${uidList}})`,
-    `| filter request.is_root_span == true`,
-    `| fields trace.id, start_time, dt.service.name, dt.entity.service, k8s.container.name, websphere.server.name, host.name, dt.entity.host`,
+    `| fields trace.id, span.id, span.parent_id, start_time, dt.service.name, dt.entity.service, k8s.container.name, websphere.server.name, host.name, dt.entity.host`,
     `| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")`,
-    `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`
+    `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`,
+    `| limit 50000`
   ].join('\n');
 }
 
@@ -902,8 +905,12 @@ export async function searchComponentsByUrl(
  * Component-callers search. Two sequential Grail queries:
  *   1. Sample the most recent N traces containing the component
  *      (N from CALLER_SEARCH_MAX_TRACES, default 100) — no URL filter.
- *   2. Fetch each trace's root/entry span (request.is_root_span).
- * Node-side, root spans are deduped by (caller name, host) with trace
+ *   2. Fetch all spans of those traces (skinny field list) and derive
+ *      each trace's entry span in Node: the span whose span.parent_id
+ *      is null or matches no span.id within the same trace. If several
+ *      qualify (broken context propagation), the earliest start_time
+ *      wins.
+ * Node-side, entry spans are deduped by (caller name, host) with trace
  * counts — one caller means dedicated, many callers means common
  * component. Name/host resolution mirrors the flow diagram precedence:
  * entity name > dt.service.name > entity ID, and websphere.server.name
@@ -934,18 +941,47 @@ export async function searchComponentCallers(
     return { callers: [], tracesAnalyzed: 0, tracesRequested: maxTraces, tracesWithRoot: 0 };
   }
 
-  const rootQuery = buildCallerRootSpanQuery(traceIds, timeframe);
-  const rootToken = await executeQuery(config, rootQuery);
-  const rootResult = await pollForResults(config, rootToken);
-  const records = rootResult.result?.records || [];
+  const spansQuery = buildCallerSpansQuery(traceIds, timeframe);
+  // Explicit result-size options: this is a multi-trace raw-span fetch,
+  // so the execute endpoint's ~1,000-record default would starve it.
+  const spansToken = await executeQuery(config, spansQuery, { maxResultRecords: 50000, maxResultBytes: 52428800 });
+  const spansResult = await pollForResults(config, spansToken);
+  const allSpans = spansResult.result?.records || [];
 
-  // Dedupe by (caller name, host). A Set of trace IDs per key guards
-  // against a trace contributing twice if it carries more than one
-  // is_root_span record.
+  // Group spans per trace, then derive each trace's entry span: the
+  // span whose span.parent_id is null or matches no span.id within the
+  // same trace (parents outside the ingested span set — e.g. the RUM /
+  // browser side — count as absent). Earliest start_time wins ties.
+  const byTrace = new Map<string, Record<string, unknown>[]>();
+  for (const s of allSpans) {
+    const traceId = (s['trace.id'] as string) || '';
+    if (!traceId) continue;
+    const list = byTrace.get(traceId);
+    if (list) {
+      list.push(s);
+    } else {
+      byTrace.set(traceId, [s]);
+    }
+  }
+
+  const entrySpans: Record<string, unknown>[] = [];
+  for (const spans of byTrace.values()) {
+    const spanIds = new Set(spans.map(s => s['span.id'] as string).filter(Boolean));
+    const candidates = spans.filter(s => {
+      const parentId = s['span.parent_id'] as string | undefined;
+      return !parentId || !spanIds.has(parentId);
+    });
+    if (candidates.length === 0) continue;
+    candidates.sort((a, b) => String(a['start_time'] || '').localeCompare(String(b['start_time'] || '')));
+    entrySpans.push(candidates[0]);
+  }
+
+  // Dedupe entry spans by (caller name, host). A Set of trace IDs per
+  // key guards against double-counting a trace.
   const grouped = new Map<string, { match: CallerMatch; traceIds: Set<string> }>();
   const tracesWithRoot = new Set<string>();
 
-  for (const r of records) {
+  for (const r of entrySpans) {
     const traceId = (r['trace.id'] as string) || '';
     if (!traceId) continue;
     tracesWithRoot.add(traceId);
