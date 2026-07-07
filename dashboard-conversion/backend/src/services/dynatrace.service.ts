@@ -258,19 +258,24 @@ function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe):
  *   - all digits (12345)
  *   - a UUID
  *   - a hex string of 8+ chars (trace/session tokens)
- *   - contains 3 or more digits (R1008, card refs)
- * The 3-digit threshold deliberately spares segments like v1, v2,
- * oauth2, and 2fa.
+ *   - 1-3 letters followed only by digits (R2, R10, R1008, ABC123),
+ *     except version tokens (v1, v2, V10) which stay literal
+ *   - contains 3 or more digits (card refs)
+ * The 3-digit threshold deliberately spares segments like oauth2
+ * and 2fa.
  */
 function normalizeUrlPath(rawPath: string): string {
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const HEX_RE = /^[0-9a-f]{8,}$/i;
   const ALL_DIGITS_RE = /^\d+$/;
+  const LETTER_PREFIX_ID_RE = /^[a-z]{1,3}\d+$/i;
+  const VERSION_RE = /^v\d+$/i;
 
   const looksLikeId = (segment: string): boolean => {
     if (ALL_DIGITS_RE.test(segment)) return true;
     if (UUID_RE.test(segment)) return true;
     if (HEX_RE.test(segment)) return true;
+    if (LETTER_PREFIX_ID_RE.test(segment) && !VERSION_RE.test(segment)) return true;
     const digitCount = (segment.match(/\d/g) || []).length;
     return digitCount >= 3;
   };
@@ -389,7 +394,18 @@ function getEnvConfig(environment: string = 'NON-PROD', userToken: string | null
   };
 }
 
-async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<string> {
+/**
+ * Optional result-size limits for the Grail query API. The execute
+ * endpoint defaults to ~1,000 records / ~1 MB regardless of the DQL
+ * "| limit" clause, so queries expecting large result sets must raise
+ * these explicitly in the request body.
+ */
+interface QueryExecuteOptions {
+  maxResultRecords?: number;
+  maxResultBytes?: number;
+}
+
+async function executeQuery(config: ResolvedEnvConfig, query: string, options?: QueryExecuteOptions): Promise<string> {
   const executeUrl = `${config.url}/query:execute`;
 
   const response = await httpClient.post<DynatraceExecuteResponse>(
@@ -397,7 +413,9 @@ async function executeQuery(config: ResolvedEnvConfig, query: string): Promise<s
     {
       query,
       defaultTimeframeStart: null,
-      defaultTimeframeEnd: null
+      defaultTimeframeEnd: null,
+      ...(options?.maxResultRecords && { maxResultRecords: options.maxResultRecords }),
+      ...(options?.maxResultBytes && { maxResultBytes: options.maxResultBytes })
     },
     {
       headers: {
@@ -619,7 +637,7 @@ export async function searchUniqueUrls(
 
   const config = getEnvConfig(environment, userToken);
   const query = buildEndpointSearchQuery(buildUrlSearchFilters(host, urlPath), timeframe);
-  const requestToken = await executeQuery(config, query);
+  const requestToken = await executeQuery(config, query, { maxResultRecords: 10000, maxResultBytes: 10000000 });
   const result = await pollForResults(config, requestToken);
   const records = result.result?.records || [];
 
