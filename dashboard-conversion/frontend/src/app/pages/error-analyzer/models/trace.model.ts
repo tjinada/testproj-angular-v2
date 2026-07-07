@@ -50,6 +50,8 @@ export interface CallerRow {
   host: string;
   traceCount: number;
   lastSeen: string;
+  /** Trace ID of the most recent trace where this caller was the entry point. */
+  exampleTraceId: string;
 }
 
 /** Raw user.events record from Dynatrace. Fields are loose because the

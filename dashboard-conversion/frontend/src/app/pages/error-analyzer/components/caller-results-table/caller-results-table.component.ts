@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CallerRow } from '../../models/trace.model';
 
@@ -21,6 +21,16 @@ export class CallerResultsTableComponent {
   @Input() tracesAnalyzed = 0;
   @Input() tracesRequested = 0;
   @Input() tracesWithRoot = 0;
+
+  /** Emitted when an example trace ID is clicked; the parent runs the
+   *  regular trace-by-ID flow (summary, flow diagram, span timeline). */
+  @Output() traceClick = new EventEmitter<string>();
+
+  onTraceClick(traceId: string): void {
+    if (traceId) {
+      this.traceClick.emit(traceId);
+    }
+  }
 
   sharePct(r: CallerRow): string {
     if (!this.tracesWithRoot) return '—';

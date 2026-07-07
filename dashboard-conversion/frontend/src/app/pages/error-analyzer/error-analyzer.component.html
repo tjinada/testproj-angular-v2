@@ -132,7 +132,8 @@
         [componentName]="callerComponentName"
         [tracesAnalyzed]="callerTracesAnalyzed"
         [tracesRequested]="callerTracesRequested"
-        [tracesWithRoot]="callerTracesWithRoot">
+        [tracesWithRoot]="callerTracesWithRoot"
+        (traceClick)="onCallerTraceClick($event)">
       </app-caller-results-table>
 
       <app-trace-results

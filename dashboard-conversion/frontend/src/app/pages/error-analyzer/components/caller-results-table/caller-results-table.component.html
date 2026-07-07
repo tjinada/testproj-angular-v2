@@ -24,6 +24,7 @@
           <th>Traces</th>
           <th>Share</th>
           <th>Last seen</th>
+          <th>Example trace</th>
         </tr>
       </thead>
       <tbody>
@@ -33,9 +34,20 @@
           <td class="cell-count">{{ r.traceCount }}</td>
           <td class="cell-count">{{ sharePct(r) }}</td>
           <td>{{ formatTime(r.lastSeen) }}</td>
+          <td>
+            <button
+              *ngIf="r.exampleTraceId"
+              type="button"
+              class="trace-link"
+              [title]="'Analyze trace ' + r.exampleTraceId"
+              (click)="onTraceClick(r.exampleTraceId)">
+              {{ r.exampleTraceId }}
+            </button>
+            <ng-container *ngIf="!r.exampleTraceId">—</ng-container>
+          </td>
         </tr>
         <tr *ngIf="results.length === 0">
-          <td colspan="5" class="results-empty">
+          <td colspan="6" class="results-empty">
             No root spans found in the sampled traces for this component in the selected time window.
           </td>
         </tr>

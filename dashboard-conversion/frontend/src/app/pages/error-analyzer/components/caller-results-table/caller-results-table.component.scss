@@ -105,6 +105,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+.trace-link {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #0079C1;
+  font-family: monospace;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  vertical-align: middle;
+}
+
+.trace-link:hover {
+  color: #005a91;
+}
+
 .results-empty {
   text-align: center;
   color: #6b7280;

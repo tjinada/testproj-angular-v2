@@ -376,6 +376,23 @@ export class ErrorAnalyzerComponent implements OnInit {
   }
 
   /**
+   * Example-trace click from the caller results table: runs the regular
+   * trace-by-ID flow (summary, flow diagram, span timeline), mirroring
+   * onUrlResultClick. The caller/component tables stay on screen above.
+   */
+  onCallerTraceClick(traceId: string): void {
+    this.selectedTraceId = traceId;
+    this.isLoading = true;
+    this.errorMsg = '';
+    this.spans = [];
+    const timeframe = this.lastUrlSearchTimeframe || {
+      from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      to: new Date().toISOString()
+    };
+    this.fetchTrace(traceId, timeframe);
+  }
+
+  /**
    * "Find callers" on a component row: samples recent traces containing
    * the component (any URL) and lists the deduped root/entry apps that
    * called it. Reuses the time window of the components search.

@@ -76,6 +76,8 @@ interface CallerMatch {
   host: string;
   traceCount: number;
   lastSeen: string;
+  /** Trace ID of the most recent trace where this caller was the entry point. */
+  exampleTraceId: string;
 }
 
 /**
@@ -1003,10 +1005,13 @@ export async function searchComponentCallers(
     const existing = grouped.get(key);
     if (existing) {
       existing.traceIds.add(traceId);
-      if (startTime > existing.match.lastSeen) existing.match.lastSeen = startTime;
+      if (startTime > existing.match.lastSeen) {
+        existing.match.lastSeen = startTime;
+        existing.match.exampleTraceId = traceId;
+      }
     } else {
       grouped.set(key, {
-        match: { name, host, traceCount: 0, lastSeen: startTime },
+        match: { name, host, traceCount: 0, lastSeen: startTime, exampleTraceId: traceId },
         traceIds: new Set([traceId])
       });
     }
