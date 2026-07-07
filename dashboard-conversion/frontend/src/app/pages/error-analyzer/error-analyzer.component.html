@@ -120,6 +120,12 @@
         (latestTraceClick)="onEndpointLatestTrace($event)">
       </app-endpoint-results-table>
 
+      <app-component-results-table
+        [results]="componentResults"
+        [tracesAnalyzed]="componentTracesAnalyzed"
+        [tracesRequested]="componentTracesRequested">
+      </app-component-results-table>
+
       <app-trace-results
         [spans]="spans"
         [isLoading]="isLoading"

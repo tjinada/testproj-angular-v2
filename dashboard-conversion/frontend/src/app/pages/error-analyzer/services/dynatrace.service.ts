@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { DynatraceResponse, EndpointMatch, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
+import { DynatraceResponse, EndpointMatch, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from '../models/trace.model';
 import { ConfigService } from './config.service';
 
 export interface RequestIdLookupResponse {
@@ -15,6 +15,15 @@ export interface UrlSearchResponse {
 
 export interface EndpointSearchResponse {
   results: EndpointMatch[];
+}
+
+/** Raw spans of the sampled 200-status traces for the components-by-URL
+ *  search. The component list itself is derived client-side via
+ *  buildFlowGraph() so it matches the flow diagram box-for-box. */
+export interface ComponentSearchResponse {
+  records: SpanRecord[];
+  tracesAnalyzed: number;
+  tracesRequested: number;
 }
 
 export interface LatestTraceResponse {
@@ -96,6 +105,15 @@ export class DynatraceService {
   searchEndpoints(url: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<EndpointSearchResponse> {
     return this.http.post<EndpointSearchResponse>(`${this.apiUrl}/search-endpoints`, {
       url,
+      environment,
+      timeframe,
+      userToken: this.getUserToken(environment)
+    });
+  }
+
+  searchComponents(urlPath: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<ComponentSearchResponse> {
+    return this.http.post<ComponentSearchResponse>(`${this.apiUrl}/search-components`, {
+      urlPath,
       environment,
       timeframe,
       userToken: this.getUserToken(environment)

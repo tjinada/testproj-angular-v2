@@ -58,6 +58,18 @@ interface EndpointMatch {
   lastSeen: string;
 }
 
+/**
+ * Result of the components-by-URL search. Returns RAW span records (not a
+ * DQL aggregation) so the frontend can run the existing buildFlowGraph()
+ * over them — guaranteeing the deduped component list matches the flow
+ * diagram box-for-box, including synthetic external/DB nodes.
+ */
+interface ComponentSpanSearchResult {
+  records: Record<string, unknown>[];
+  tracesAnalyzed: number;
+  tracesRequested: number;
+}
+
 // ── Constants ────────────────────────────────────────────────────────
 
 const ENV_CONFIG: Record<string, EnvConfigEntry> = {
@@ -78,6 +90,19 @@ const ENV_CONFIG: Record<string, EnvConfigEntry> = {
 const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_ATTEMPTS = 60;
 const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
+
+/**
+ * Trace sample size for the components-by-URL search. Externalized via
+ * COMPONENT_SEARCH_MAX_TRACES in .env; falls back to 20 when unset or
+ * invalid. Read at call time (not module load) so behaviour is obvious
+ * after a backend restart with a changed .env.
+ */
+const DEFAULT_COMPONENT_SEARCH_MAX_TRACES = 20;
+
+function getComponentSearchMaxTraces(): number {
+  const raw = parseInt(process.env.COMPONENT_SEARCH_MAX_TRACES || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_COMPONENT_SEARCH_MAX_TRACES;
+}
 
 // ── Proxy setup ──────────────────────────────────────────────────────
 // Only activated when PROXY_TARGET is configured. Uses Dynatrace-specific
@@ -322,6 +347,55 @@ function buildLatestTraceQuery(urlPath: string, method: string, timeframe?: Time
     `| sort start_time desc`,
     `| fields trace.id`,
     `| limit 1`
+  ].join('\n');
+}
+
+/**
+ * Pass 1 of the components-by-URL search: samples the most recent trace
+ * IDs where the EXACT url.path returned HTTP 200. Exact match and exact
+ * 200 are per requirement — no contains(), no normalization, no other
+ * 2xx codes. toString() on the status makes the comparison robust
+ * whether Grail stores the field as long or string.
+ */
+function buildComponentTraceIdQuery(urlPath: string, maxTraces: number, timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    `| filter url.path == "${urlPath}"`,
+    `| filter toString(http.response.status_code) == "200"`,
+    `| summarize { lastSeen = takeMax(start_time) }, by: { trace.id }`,
+    `| sort lastSeen desc`,
+    `| limit ${maxTraces}`
+  ].join('\n');
+}
+
+/**
+ * Pass 2 of the components-by-URL search: fetches ALL spans for the
+ * sampled trace IDs, trimmed to exactly the fields buildFlowGraph()
+ * consumes (grouping, synthetic external/DB node derivation, type
+ * detection, failure predicate). Heavy payloads — span.events and
+ * code.call_stack — are deliberately omitted: the component table
+ * doesn't surface exceptions, and dropping them keeps 20 traces of
+ * spans to a small payload. entityAttr resolution mirrors buildDqlQuery
+ * so getServiceName() resolves identically to the flow diagram.
+ */
+function buildComponentSpansQuery(traceIds: string[], timeframe?: Timeframe): string {
+  const timeframeClause = timeframe && timeframe.from && timeframe.to
+    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
+    : 'from: -120m';
+
+  const uidList = traceIds.map(id => `toUid("${id}")`).join(', ');
+
+  return [
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000`,
+    `| filter in(trace.id, {${uidList}})`,
+    `| fields trace.id, span.id, span.parent_id, span.kind, span.name, start_time, endpoint.name, url.path, server.address, db.namespace, host.name, k8s.container.name, websphere.server.name, otel.scope.name, request.is_failed, dt.failure_detection.verdict, http.response.status_code, dt.entity.service, dt.service.name, dt.entity.host`,
+    `| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")`,
+    `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`,
+    `| limit 20000`
   ].join('\n');
 }
 
@@ -696,6 +770,52 @@ export async function findLatestTraceIdForEndpoint(
 
   if (records.length === 0) return null;
   return (records[0]['trace.id'] as string) || null;
+}
+
+/**
+ * Components-by-URL search. Two sequential Grail queries:
+ *   1. Sample the most recent N trace IDs (N from COMPONENT_SEARCH_MAX_TRACES,
+ *      default 20) where the exact url.path returned HTTP 200.
+ *   2. Fetch all spans for those traces with a trimmed field list.
+ * Pass 2 uses explicit result-size options — the execute endpoint's
+ * ~1,000-record default would silently starve a multi-trace span set
+ * (same root cause as the endpoint-search fix).
+ */
+export async function searchComponentsByUrl(
+  urlPath: string,
+  environment: string,
+  timeframe?: Timeframe,
+  userToken: string | null = null
+): Promise<ComponentSpanSearchResult> {
+  const maxTraces = getComponentSearchMaxTraces();
+
+  if (process.env.USE_MOCK === 'true') {
+    const records = loadMockResponse().result?.records || [];
+    return { records, tracesAnalyzed: records.length > 0 ? 1 : 0, tracesRequested: maxTraces };
+  }
+
+  const config = getEnvConfig(environment, userToken);
+
+  const idQuery = buildComponentTraceIdQuery(urlPath.trim(), maxTraces, timeframe);
+  const idToken = await executeQuery(config, idQuery);
+  const idResult = await pollForResults(config, idToken);
+  const traceIds = (idResult.result?.records || [])
+    .map(r => (r['trace.id'] as string) || '')
+    .filter(Boolean);
+
+  if (traceIds.length === 0) {
+    return { records: [], tracesAnalyzed: 0, tracesRequested: maxTraces };
+  }
+
+  const spanQuery = buildComponentSpansQuery(traceIds, timeframe);
+  const spanToken = await executeQuery(config, spanQuery, { maxResultRecords: 20000, maxResultBytes: 52428800 });
+  const spanResult = await pollForResults(config, spanToken);
+
+  return {
+    records: spanResult.result?.records || [],
+    tracesAnalyzed: traceIds.length,
+    tracesRequested: maxTraces
+  };
 }
 
 export async function fetchSessionEvents(

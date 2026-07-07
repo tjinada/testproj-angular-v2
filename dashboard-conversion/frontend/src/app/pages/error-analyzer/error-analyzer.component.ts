@@ -10,16 +10,18 @@ import { OpenSearchLogSearchComponent } from './components/opensearch-log-search
 import { AkamaiFlowComponent } from './components/akamai-flow/akamai-flow.component';
 import { UrlTraceComponent } from './components/url-trace/url-trace.component';
 import { EndpointResultsTableComponent } from './components/endpoint-results-table/endpoint-results-table.component';
+import { ComponentResultsTableComponent } from './components/component-results-table/component-results-table.component';
+import { buildFlowGraph, FlowNode } from './components/flow-diagram/flow-layout';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
-import { EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
+import { ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
 type TabId = 'trace' | 'opensearch' | 'urlTrace' | 'akamai';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent, AkamaiFlowComponent, EndpointResultsTableComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent, AkamaiFlowComponent, EndpointResultsTableComponent, ComponentResultsTableComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -51,6 +53,11 @@ export class ErrorAnalyzerComponent implements OnInit {
   // Endpoint search state
   endpointResults: EndpointMatch[] = [];
   endpointLimitReached = false;
+
+  // Component search state
+  componentResults: ComponentRow[] = [];
+  componentTracesAnalyzed = 0;
+  componentTracesRequested = 0;
 
   // Session search state
   sessionEvents: UserEventRecord[] = [];
@@ -132,6 +139,9 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.lastUrlSearchTimeframe = null;
     this.endpointResults = [];
     this.endpointLimitReached = false;
+    this.componentResults = [];
+    this.componentTracesAnalyzed = 0;
+    this.componentTracesRequested = 0;
     this.sessionEvents = [];
     this.tracesFromSessionUrl = null;
     this.lastSearchMode = event.mode;
@@ -176,6 +186,27 @@ export class ErrorAnalyzerComponent implements OnInit {
         },
         error: (err) => {
           this.errorMsg = err.error?.error || 'Failed to search endpoints. Please try again.';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+      return;
+    }
+
+    if (event.mode === 'components') {
+      this.dynatraceService.searchComponents(event.value.trim(), this.environment, event.timeframe).subscribe({
+        next: (response) => {
+          this.componentTracesAnalyzed = response.tracesAnalyzed;
+          this.componentTracesRequested = response.tracesRequested;
+          this.componentResults = this.buildComponentRows(response.records || []);
+          if (this.componentTracesAnalyzed === 0) {
+            this.errorMsg = 'No traces with an HTTP 200 response found for that exact url.path in the selected time window.';
+          }
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.errorMsg = err.error?.error || 'Failed to search components. Please try again.';
           this.isLoading = false;
           this.cdr.detectChanges();
         }
@@ -324,6 +355,40 @@ export class ErrorAnalyzerComponent implements OnInit {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  /**
+   * Maps the sampled spans to deduped component rows by running the SAME
+   * buildFlowGraph() the flow diagram uses — single source of truth, so
+   * the list matches the diagram box-for-box including synthetic
+   * external/DB nodes (which carry no spans; their counts render as —).
+   */
+  private buildComponentRows(records: SpanRecord[]): ComponentRow[] {
+    if (records.length === 0) return [];
+    const nodes = buildFlowGraph(records).nodes;
+    return nodes
+      .map(n => ({
+        id: n.id,
+        name: n.label,
+        type: this.componentType(n),
+        hostname: n.hostname,
+        fullHostname: n.fullHostname,
+        isSynthetic: n.isExternal,
+        traceCount: new Set(n.spans.map(s => s['trace.id'])).size,
+        spanCount: n.spanCount
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** Single display type per node, most specific flag first. */
+  private componentType(n: FlowNode): string {
+    if (n.isDb) return 'Database';
+    if (n.isExternal) return 'External';
+    if (n.isLambda) return 'Lambda';
+    if (n.isWebSphere) return 'WebSphere';
+    if (n.isChannels) return 'Channels';
+    if (n.spans.some(s => !!s['k8s.container.name'])) return 'Kubernetes';
+    return 'Service';
   }
 
   private fetchTrace(traceId: string, timeframe: Timeframe): void {

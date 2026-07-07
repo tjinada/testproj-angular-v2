@@ -1,0 +1,43 @@
+<div *ngIf="results.length > 0" class="results-card">
+  <div class="results-header">
+    <div class="results-title">
+      {{ filtered().length }} of {{ results.length }} unique component(s)
+      <span class="results-limit">— across {{ tracesAnalyzed }} of {{ tracesRequested }} sampled traces (HTTP 200, exact path)</span>
+    </div>
+    <div class="results-filters">
+      <input
+        type="text"
+        class="results-filter-input"
+        [(ngModel)]="filterText"
+        placeholder="Filter results…"
+        aria-label="Filter component results" />
+    </div>
+  </div>
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Type</th>
+          <th>Host / Container</th>
+          <th>Traces</th>
+          <th>Spans</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of filtered(); trackBy: trackByComponent" class="results-row">
+          <td class="cell-name" [title]="r.name">{{ r.name }}</td>
+          <td><span class="type-badge" [class.type-badge-synthetic]="r.isSynthetic">{{ r.type }}</span></td>
+          <td class="cell-truncate" [title]="r.fullHostname">{{ r.hostname || '—' }}</td>
+          <td class="cell-count">{{ r.isSynthetic ? '—' : r.traceCount }}</td>
+          <td class="cell-count">{{ r.isSynthetic ? '—' : r.spanCount }}</td>
+        </tr>
+        <tr *ngIf="filtered().length === 0">
+          <td colspan="5" class="results-empty">
+            No components match the current filter.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

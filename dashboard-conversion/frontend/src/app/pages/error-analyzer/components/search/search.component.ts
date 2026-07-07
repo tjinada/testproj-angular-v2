@@ -23,7 +23,8 @@ export const SEARCH_FIELDS: SearchField[] = [
   { mode: 'trace', label: 'Trace ID', placeholder: 'Enter a trace ID to search...' },
   { mode: 'session', label: 'RUM Session ID', placeholder: 'Enter a RUM session ID (e.g. AQSNRLGUDIM...)' },
   { mode: 'clientIp', label: 'Client IP', placeholder: 'Enter a client IPv4 address (e.g. 24.157.71.45) — Dynatrace masks the last octet' },
-  { mode: 'endpoint', label: 'Endpoint search (unique URLs)', placeholder: 'Enter a URL, hostname, or path fragment (e.g. /cdb/credit-card) — lists unique endpoints with traffic' }
+  { mode: 'endpoint', label: 'Endpoint search (unique URLs)', placeholder: 'Enter a URL, hostname, or path fragment (e.g. /cdb/credit-card) — lists unique endpoints with traffic' },
+  { mode: 'components', label: 'Components by URL path', placeholder: 'Enter the exact url.path (e.g. /banking/services/signin/verifyCredential) — lists every component it touches' }
 ];
 
 /** Time window presets. Add/remove entries here to change the dropdown options. */

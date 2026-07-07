@@ -1,5 +1,5 @@
-/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), by full URL, by RUM session ID, by client IP request attribute, or by endpoint (unique URLs for attestation) */
-export type SearchMode = 'trace' | 'request' | 'url' | 'session' | 'clientIp' | 'endpoint';
+/** Search mode: by trace ID directly, by request ID (resolved to a trace ID), by full URL, by RUM session ID, by client IP request attribute, by endpoint (unique URLs for attestation), or by components (all flow-diagram components touched by an exact url.path) */
+export type SearchMode = 'trace' | 'request' | 'url' | 'session' | 'clientIp' | 'endpoint' | 'components';
 
 /** A single trace match returned by a search (URL, hotspot, service, etc.) */
 export interface TraceMatch {
@@ -25,6 +25,21 @@ export interface EndpointMatch {
   serverAddress: string;
   count: number;
   lastSeen: string;
+}
+
+/** A deduped component row from the components-by-URL search. Derived
+ *  client-side by running buildFlowGraph() over the sampled spans — one
+ *  row per flow-diagram box, including synthetic external/DB nodes
+ *  (which carry no spans, so traceCount/spanCount are 0 for them). */
+export interface ComponentRow {
+  id: string;            // FlowNode.id — unique (name, or ext:/db: prefixed)
+  name: string;          // FlowNode.label
+  type: string;          // Database | External | Lambda | WebSphere | Channels | Kubernetes | Service
+  hostname: string;      // short host/container line
+  fullHostname: string;  // full value for tooltip
+  isSynthetic: boolean;
+  traceCount: number;
+  spanCount: number;
 }
 
 /** Raw user.events record from Dynatrace. Fields are loose because the
