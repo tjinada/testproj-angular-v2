@@ -260,6 +260,8 @@ function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe):
  *   - a hex string of 8+ chars (trace/session tokens)
  *   - 1-3 letters followed only by digits (R2, R10, R1008, ABC123),
  *     except version tokens (v1, v2, V10) which stay literal
+ *   - an opaque mixed-case token: 10+ chars containing at least one
+ *     digit and both upper- and lowercase letters (CAmAkp6kHKvP)
  *   - contains 3 or more digits (card refs)
  * The 3-digit threshold deliberately spares segments like oauth2
  * and 2fa.
@@ -276,6 +278,7 @@ function normalizeUrlPath(rawPath: string): string {
     if (UUID_RE.test(segment)) return true;
     if (HEX_RE.test(segment)) return true;
     if (LETTER_PREFIX_ID_RE.test(segment) && !VERSION_RE.test(segment)) return true;
+    if (segment.length >= 10 && /\d/.test(segment) && /[a-z]/.test(segment) && /[A-Z]/.test(segment)) return true;
     const digitCount = (segment.match(/\d/g) || []).length;
     return digitCount >= 3;
   };
