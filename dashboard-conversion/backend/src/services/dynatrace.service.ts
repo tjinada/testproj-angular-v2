@@ -295,6 +295,10 @@ function normalizeUrlPath(rawPath: string): string {
  * in Dynatrace, so when present the filter falls back to contains() on
  * the prefix up to the first "{id}" segment — covering all variants of
  * the group. Exact paths use an exact match.
+ *
+ * Only spans with a response status are considered: a status means the
+ * request span completed, so the trace has a loadable flow. In-flight
+ * or partially ingested traces (no status yet) are skipped.
  */
 function buildLatestTraceQuery(urlPath: string, method: string, timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
@@ -314,6 +318,7 @@ function buildLatestTraceQuery(urlPath: string, method: string, timeframe?: Time
   return [
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
     ...filters,
+    `| filter isNotNull(http.response.status_code)`,
     `| sort start_time desc`,
     `| fields trace.id`,
     `| limit 1`
