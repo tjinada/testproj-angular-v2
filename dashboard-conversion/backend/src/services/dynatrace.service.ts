@@ -114,6 +114,27 @@ function getCallerSearchMaxTraces(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_CALLER_SEARCH_MAX_TRACES;
 }
 
+const DEFAULT_ENDPOINT_SEARCH_RECORD_LIMIT = 10000;
+
+function getEndpointSearchRecordLimit(): number {
+  const raw = parseInt(process.env.ENDPOINT_SEARCH_RECORD_LIMIT || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_ENDPOINT_SEARCH_RECORD_LIMIT;
+}
+
+const DEFAULT_ENDPOINT_SEARCH_MAX_ENDPOINTS = 500;
+
+function getEndpointSearchMaxEndpoints(): number {
+  const raw = parseInt(process.env.ENDPOINT_SEARCH_MAX_ENDPOINTS || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_ENDPOINT_SEARCH_MAX_ENDPOINTS;
+}
+
+const DEFAULT_ENDPOINT_SEARCH_SCAN_LIMIT_GB = 500;
+
+function getEndpointSearchScanLimitGb(): number {
+  const raw = parseInt(process.env.ENDPOINT_SEARCH_SCAN_LIMIT_GB || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_ENDPOINT_SEARCH_SCAN_LIMIT_GB;
+}
+
 // ── Proxy setup ──────────────────────────────────────────────────────
 // Only activated when PROXY_TARGET is configured. Uses Dynatrace-specific
 // proxy credentials (DYNATRACE_PROXY_USERNAME / DYNATRACE_PROXY_PASSWORD)
@@ -252,7 +273,7 @@ function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe):
     : 'from: -120m';
 
   return [
-    `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
+    `fetch spans, ${timeframeClause}, scanLimitGBytes: ${getEndpointSearchScanLimitGb()}`,
     ...filterLines,
     `| filter isNotNull(url.path)`,
     `| summarize {`,
@@ -262,7 +283,7 @@ function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe):
     `    serverAddress = takeFirst(server.address)`,
     `  }, by: { url.path, http.request.method }`,
     `| sort url.path asc, http.request.method asc`,
-    `| limit 10000`
+    `| limit ${getEndpointSearchRecordLimit()}`
   ].join('\n');
 }
 
@@ -745,7 +766,11 @@ export async function searchUniqueUrls(
 
   const config = getEnvConfig(environment, userToken);
   const query = buildEndpointSearchQuery(buildUrlSearchFilters(host, urlPath), timeframe);
-  const requestToken = await executeQuery(config, query, { maxResultRecords: 10000, maxResultBytes: 10000000 });
+  const recordLimit = getEndpointSearchRecordLimit();
+  const requestToken = await executeQuery(config, query, {
+    maxResultRecords: recordLimit,
+    maxResultBytes: Math.max(recordLimit * 1000, 10000000)
+  });
   const result = await pollForResults(config, requestToken);
   const records = result.result?.records || [];
 
@@ -772,7 +797,7 @@ export async function searchUniqueUrls(
 
   return Array.from(grouped.values())
     .sort((a, b) => a.urlPath.localeCompare(b.urlPath) || a.method.localeCompare(b.method))
-    .slice(0, 500);
+    .slice(0, getEndpointSearchMaxEndpoints());
 }
 
 export async function findLatestTraceIdForEndpoint(
