@@ -386,40 +386,57 @@ function buildCallerTraceIdQuery(component: string, kind: CallerTargetKind, maxT
   ].join('\n');
 }
 
-/**
- * Pass 2 of the component-callers search: resolves each sampled trace's
- * ENTRY span (earliest start_time) via per-trace aggregation INSIDE
- * Dynatrace — one record per trace, so result size is bounded by the
- * sample count and can never hit record/byte ceilings, no matter how
- * many spans the traces contain. (A raw-span fetch here previously
- * truncated huge async traces, making mid-trace spans look parentless
- * and produce false callers.) The earliest span is equivalent to the
- * parent-not-in-trace rule on complete data: a root starts before its
- * children. The *.is_root_span flags remain unusable — they are
- * per-invocation markers in this tenant.
- *
- * The timeframe 'from' is widened by 60 minutes so a trace sampled near
- * the window's leading edge still includes its true entry span; the
- * trace-ID filter keeps results constrained.
- */
-function buildCallerEntrySpanQuery(traceIds: string[], timeframe?: Timeframe): string {
-  let timeframeClause: string;
+/** Shared timeframe clause for caller pass-2 queries: 'from' widened by
+ *  60 minutes so a trace sampled near the window's leading edge still
+ *  includes its true entry span; the trace-ID filter keeps results
+ *  constrained. */
+function widenedCallerTimeframeClause(timeframe?: Timeframe): string {
   if (timeframe && timeframe.from && timeframe.to) {
     const widenedFrom = new Date(new Date(timeframe.from).getTime() - 60 * 60 * 1000).toISOString();
-    timeframeClause = `timeframe: "${widenedFrom}/${timeframe.to}"`;
-  } else {
-    timeframeClause = 'from: -180m';
+    return `timeframe: "${widenedFrom}/${timeframe.to}"`;
   }
+  return 'from: -180m';
+}
 
+/**
+ * Pass 2a of the component-callers search: the entry TIMESTAMP of each
+ * sampled trace via takeMin — a true order-independent aggregate. (An
+ * earlier single-query variant used `sort | summarize takeFirst(...)`,
+ * but Grail's distributed summarize does not honor the preceding sort
+ * in this tenant, yielding arbitrary spans as "entry" and false
+ * callers.) pairKey is built with DQL's own toString so pass 2b can
+ * echo the exact strings back — immune to timestamp-format mismatches
+ * between DQL and JSON serialization.
+ */
+function buildCallerEntryTimesQuery(traceIds: string[], timeframe?: Timeframe): string {
   const uidList = traceIds.map(id => `toUid("${id}")`).join(', ');
 
   return [
-    `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000`,
+    `fetch spans, ${widenedCallerTimeframeClause(timeframe)}, scanLimitGBytes: 5000`,
     `| filter in(trace.id, {${uidList}})`,
+    `| summarize { entryStart = takeMin(start_time) }, by: { trace.id }`,
+    `| fieldsAdd pairKey = concat(toString(trace.id), "#", toString(entryStart))`
+  ].join('\n');
+}
+
+/**
+ * Pass 2b of the component-callers search: fetches exactly the entry
+ * spans identified by pass 2a, matching on the (trace.id, start_time)
+ * pairKey. Result is ~one record per trace — the provably earliest
+ * span — with the fields needed to resolve the caller's name and host.
+ */
+function buildCallerEntrySpanFetchQuery(traceIds: string[], pairKeys: string[], timeframe?: Timeframe): string {
+  const uidList = traceIds.map(id => `toUid("${id}")`).join(', ');
+  const keyList = pairKeys.map(k => `"${k}"`).join(', ');
+
+  return [
+    `fetch spans, ${widenedCallerTimeframeClause(timeframe)}, scanLimitGBytes: 5000`,
+    `| filter in(trace.id, {${uidList}})`,
+    `| fieldsAdd pairKey = concat(toString(trace.id), "#", toString(start_time))`,
+    `| filter in(pairKey, {${keyList}})`,
+    `| fields trace.id, start_time, dt.service.name, dt.entity.service, k8s.container.name, websphere.server.name, host.name, dt.entity.host`,
     `| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")`,
-    `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`,
-    `| sort start_time asc`,
-    `| summarize { startTime = takeFirst(start_time), entityName = takeFirst(dt.entity.service.entity.name), serviceName = takeFirst(dt.service.name), serviceEntity = takeFirst(dt.entity.service), wasServer = takeFirst(websphere.server.name), k8sContainer = takeFirst(k8s.container.name), hostName = takeFirst(host.name), hostEntityName = takeFirst(dt.entity.host.entity.name) }, by: { trace.id }`
+    `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`
   ].join('\n');
 }
 
@@ -842,37 +859,49 @@ export async function searchComponentCallers(
     return { callers: [], tracesAnalyzed: 0, tracesRequested: maxTraces, tracesWithRoot: 0 };
   }
 
-  const spansQuery = buildCallerEntrySpanQuery(traceIds, timeframe);
-  // Explicit result-size options kept for future-proofing (result is one
-  // record per sampled trace, so this never truncates in practice).
-  const spansToken = await executeQuery(config, spansQuery, { maxResultRecords: 50000, maxResultBytes: 52428800 });
-  const spansResult = await pollForResults(config, spansToken);
-  // One record per trace: its entry span (earliest start_time), already
-  // aggregated inside Dynatrace.
-  const entrySpans = spansResult.result?.records || [];
+  // Pass 2a: entry timestamp per trace (takeMin — order-independent).
+  const entryTimesQuery = buildCallerEntryTimesQuery(traceIds, timeframe);
+  const entryTimesToken = await executeQuery(config, entryTimesQuery, { maxResultRecords: 50000, maxResultBytes: 52428800 });
+  const entryTimesResult = await pollForResults(config, entryTimesToken);
+  const pairKeys = (entryTimesResult.result?.records || [])
+    .map(r => (r['pairKey'] as string) || '')
+    .filter(Boolean);
 
-  // Dedupe entry spans by (caller name, host). A Set of trace IDs per
-  // key guards against double-counting a trace.
+  if (pairKeys.length === 0) {
+    return { callers: [], tracesAnalyzed: traceIds.length, tracesRequested: maxTraces, tracesWithRoot: 0 };
+  }
+
+  // Pass 2b: fetch exactly those entry spans by echoing the pairKeys back.
+  const entrySpanQuery = buildCallerEntrySpanFetchQuery(traceIds, pairKeys, timeframe);
+  const entrySpanToken = await executeQuery(config, entrySpanQuery, { maxResultRecords: 50000, maxResultBytes: 52428800 });
+  const entrySpanResult = await pollForResults(config, entrySpanToken);
+  const entrySpans = entrySpanResult.result?.records || [];
+
+  // Dedupe entry spans by (caller name, host). seenTraces guards the
+  // rare same-timestamp tie (two spans matching one trace's pairKey):
+  // first record per trace wins.
   const grouped = new Map<string, { match: CallerMatch; traceIds: Set<string> }>();
   const tracesWithRoot = new Set<string>();
+  const seenTraces = new Set<string>();
 
   for (const r of entrySpans) {
     const traceId = (r['trace.id'] as string) || '';
-    if (!traceId) continue;
+    if (!traceId || seenTraces.has(traceId)) continue;
+    seenTraces.add(traceId);
     tracesWithRoot.add(traceId);
 
     const name =
-      (r['entityName'] as string) ||
-      (r['serviceName'] as string) ||
-      (r['serviceEntity'] as string) ||
+      (r['dt.entity.service.entity.name'] as string) ||
+      (r['dt.service.name'] as string) ||
+      (r['dt.entity.service'] as string) ||
       'Unknown';
     const host =
-      (r['wasServer'] as string) ||
-      (r['k8sContainer'] as string) ||
-      (r['hostName'] as string) ||
-      (r['hostEntityName'] as string) ||
+      (r['websphere.server.name'] as string) ||
+      (r['k8s.container.name'] as string) ||
+      (r['host.name'] as string) ||
+      (r['dt.entity.host.entity.name'] as string) ||
       '';
-    const startTime = (r['startTime'] as string) || '';
+    const startTime = (r['start_time'] as string) || '';
 
     const key = `${name}||${host}`;
     const existing = grouped.get(key);
