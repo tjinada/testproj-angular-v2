@@ -401,6 +401,10 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.isLoading = true;
     this.errorMsg = '';
     this.clearCallerResults();
+    // Clear any previously rendered trace so the old flow diagram
+    // doesn't persist under the new caller results.
+    this.spans = [];
+    this.selectedTraceId = null;
 
     const timeframe = this.lastUrlSearchTimeframe || {
       from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
