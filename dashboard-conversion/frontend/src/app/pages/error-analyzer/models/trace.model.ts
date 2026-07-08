@@ -38,6 +38,11 @@ export interface ComponentRow {
   hostname: string;      // short host/container line
   fullHostname: string;  // full value for tooltip
   isSynthetic: boolean;
+  /** For synthetic boxes: which raw field created the node. null for real services. */
+  syntheticKind: 'external' | 'db' | null;
+  /** For synthetic boxes: the raw server.address / db.namespace value —
+   *  used as the caller-search target instead of the display label. */
+  syntheticKey: string | null;
   traceCount: number;
   spanCount: number;
 }

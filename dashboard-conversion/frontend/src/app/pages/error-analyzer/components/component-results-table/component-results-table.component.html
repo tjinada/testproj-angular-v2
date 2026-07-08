@@ -34,7 +34,6 @@
           <td class="cell-count">{{ r.isSynthetic ? '—' : r.spanCount }}</td>
           <td class="cell-action">
             <button
-              *ngIf="!r.isSynthetic"
               type="button"
               class="find-callers-btn"
               title="Sample recent traces containing this component (any URL) and list the root apps that called it"

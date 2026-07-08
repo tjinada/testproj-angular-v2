@@ -26,8 +26,9 @@ export class ComponentResultsTableComponent implements OnChanges {
   @Input() tracesAnalyzed = 0;
   @Input() tracesRequested = 0;
 
-  /** Emitted when "Find callers" is clicked on a real (non-synthetic)
-   *  component row; the parent runs the URL-independent caller search. */
+  /** Emitted when "Find callers" is clicked on a component row; the
+   *  parent runs the URL-independent caller search (real services by
+   *  name, synthetic external/DB boxes by their raw key). */
   @Output() findCallersClick = new EventEmitter<ComponentRow>();
 
   /** Case-insensitive substring filter across the visible text columns. */

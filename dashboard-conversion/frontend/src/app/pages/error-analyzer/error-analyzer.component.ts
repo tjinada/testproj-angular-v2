@@ -407,7 +407,12 @@ export class ErrorAnalyzerComponent implements OnInit {
       to: new Date().toISOString()
     };
 
-    this.dynatraceService.searchCallers(row.name, this.environment, timeframe).subscribe({
+    // Synthetic rows search by the raw field that created the box
+    // (server.address / db.namespace); real services by name.
+    const target = row.syntheticKey || row.name;
+    const kind = row.syntheticKind || 'service';
+
+    this.dynatraceService.searchCallers(target, this.environment, timeframe, kind).subscribe({
       next: (response) => {
         this.callerComponentName = row.name;
         this.callerResults = response.callers || [];
@@ -446,6 +451,15 @@ export class ErrorAnalyzerComponent implements OnInit {
         hostname: n.hostname,
         fullHostname: n.fullHostname,
         isSynthetic: n.isExternal,
+        // Synthetic node IDs encode the raw key the box was built from:
+        // "db:<db.namespace>" / "ext:<server.address>". That raw value —
+        // not the (possibly shortened) display label — is the caller-
+        // search target for synthetic rows. DB check first: DB nodes
+        // carry isExternal=true as well.
+        syntheticKind: n.isDb ? 'db' as const : (n.isExternal ? 'external' as const : null),
+        syntheticKey: n.isDb
+          ? n.id.slice('db:'.length)
+          : (n.isExternal ? n.id.slice('ext:'.length) : null),
         traceCount: new Set(n.spans.map(s => s['trace.id'])).size,
         spanCount: n.spanCount
       }))

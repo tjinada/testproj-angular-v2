@@ -435,23 +435,42 @@ function buildComponentSpansQuery(traceIds: string[], timeframe?: Timeframe): st
   ].join('\n');
 }
 
+/** What kind of flow-diagram box the caller search targets. Determines
+ *  the pass-1 trace-sampling filter: real services match by resolved
+ *  name; synthetic external/DB boxes match by the raw field the box was
+ *  derived from. */
+type CallerTargetKind = 'service' | 'external' | 'db';
+
 /**
  * Pass 1 of the component-callers search: samples the most recent trace
  * IDs containing the component — deliberately NOT filtered by URL, so a
- * component reached from many entry points surfaces all of them. The
- * component name is matched against both the entityAttr-resolved name
- * and dt.service.name, mirroring the getServiceName() precedence used
- * to produce the component list in the first place.
+ * component reached from many entry points surfaces all of them. For
+ * real services the name is matched against both the entityAttr-resolved
+ * name and dt.service.name, mirroring the getServiceName() precedence
+ * used to produce the component list. Synthetic boxes filter on the raw
+ * field that created them (server.address / db.namespace) — cheaper, no
+ * entityAttr evaluation needed.
  */
-function buildCallerTraceIdQuery(component: string, maxTraces: number, timeframe?: Timeframe): string {
+function buildCallerTraceIdQuery(component: string, kind: CallerTargetKind, maxTraces: number, timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
     : 'from: -120m';
 
+  let filterLines: string[];
+  if (kind === 'external') {
+    filterLines = [`| filter server.address == "${component}"`];
+  } else if (kind === 'db') {
+    filterLines = [`| filter db.namespace == "${component}"`];
+  } else {
+    filterLines = [
+      `| fieldsAdd resolvedName = entityAttr(dt.entity.service, "entity.name")`,
+      `| filter resolvedName == "${component}" or dt.service.name == "${component}"`
+    ];
+  }
+
   return [
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 500`,
-    `| fieldsAdd resolvedName = entityAttr(dt.entity.service, "entity.name")`,
-    `| filter resolvedName == "${component}" or dt.service.name == "${component}"`,
+    ...filterLines,
     `| summarize { lastSeen = takeMax(start_time) }, by: { trace.id }`,
     `| sort lastSeen desc`,
     `| limit ${maxTraces}`
@@ -922,7 +941,8 @@ export async function searchComponentCallers(
   component: string,
   environment: string,
   timeframe?: Timeframe,
-  userToken: string | null = null
+  userToken: string | null = null,
+  kind: CallerTargetKind = 'service'
 ): Promise<CallerSearchResult> {
   const maxTraces = getCallerSearchMaxTraces();
 
@@ -932,7 +952,7 @@ export async function searchComponentCallers(
 
   const config = getEnvConfig(environment, userToken);
 
-  const idQuery = buildCallerTraceIdQuery(component.trim(), maxTraces, timeframe);
+  const idQuery = buildCallerTraceIdQuery(component.trim(), kind, maxTraces, timeframe);
   const idToken = await executeQuery(config, idQuery);
   const idResult = await pollForResults(config, idToken);
   const traceIds = (idResult.result?.records || [])

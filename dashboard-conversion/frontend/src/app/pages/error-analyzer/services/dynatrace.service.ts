@@ -129,11 +129,12 @@ export class DynatraceService {
     });
   }
 
-  searchCallers(component: string, environment: string = 'NON-PROD', timeframe?: Timeframe): Observable<CallerSearchResponse> {
+  searchCallers(component: string, environment: string = 'NON-PROD', timeframe?: Timeframe, kind: 'service' | 'external' | 'db' = 'service'): Observable<CallerSearchResponse> {
     return this.http.post<CallerSearchResponse>(`${this.apiUrl}/search-callers`, {
       component,
       environment,
       timeframe,
+      kind,
       userToken: this.getUserToken(environment)
     });
   }

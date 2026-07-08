@@ -226,13 +226,16 @@ router.post('/traces/search-components', async (req: Request, res: Response) => 
  */
 router.post('/traces/search-callers', async (req: Request, res: Response) => {
   const { component, environment = 'NON-PROD', timeframe, userToken } = req.body;
+  // Target kind selects the pass-1 filter: real services by resolved
+  // name, synthetic boxes by server.address / db.namespace.
+  const kind = ['service', 'external', 'db'].includes(req.body.kind) ? req.body.kind : 'service';
 
   if (!component || !String(component).trim()) {
     return res.status(400).json({ error: 'component is required' });
   }
 
   try {
-    const result = await searchComponentCallers(String(component), environment, timeframe, userToken);
+    const result = await searchComponentCallers(String(component), environment, timeframe, userToken, kind);
     res.json(result);
   } catch (error: any) {
     console.error(`[Dynatrace] Error searching callers for ${component}:`, error.message);
