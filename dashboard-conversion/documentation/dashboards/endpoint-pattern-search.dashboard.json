@@ -1,0 +1,77 @@
+{
+  "version": 17,
+  "variables": [
+    {
+      "key": "EndpointPattern",
+      "type": "csv",
+      "visible": true,
+      "editable": true,
+      "input": "/banking/services/",
+      "multiple": false
+    }
+  ],
+  "tiles": {
+    "0": {
+      "type": "markdown",
+      "content": "# Endpoint Pattern Search\n\nServer endpoints whose `url.path` contains the pattern typed into the **EndpointPattern** variable above. Change the pattern to search different endpoints. Adjust the time window via the dashboard timeframe selector."
+    },
+    "1": {
+      "type": "data",
+      "title": "Distinct Endpoints",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower($EndpointPattern))\n| filter span.kind == \"server\"\n| summarize distinctEndpoints = countDistinctExact(url.path)",
+      "davis": {
+        "davisVisualization": {
+          "isAvailable": true
+        },
+        "enabled": false
+      },
+      "querySettings": {
+        "defaultSamplingRatio": 10,
+        "defaultScanLimitGbytes": 500,
+        "enableSampling": false,
+        "maxResultMegaBytes": 1,
+        "maxResultRecords": 1000
+      },
+      "visualization": "singleValue",
+      "visualizationSettings": {
+        "singleValue": {
+          "label": "Endpoints",
+          "prefixIcon": "",
+          "recordField": "distinctEndpoints"
+        }
+      }
+    },
+    "2": {
+      "type": "data",
+      "title": "Matching Endpoints",
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower($EndpointPattern))\n| filter span.kind == \"server\"\n| summarize {\n    trafficCount = count(),\n    lastSeen = takeMax(start_time),\n    latestTraceId = takeFirst(trace.id)\n  }, by: { url.path }\n| sort lastSeen desc\n| limit 500",
+      "davis": {
+        "davisVisualization": {
+          "isAvailable": true
+        },
+        "enabled": false
+      },
+      "querySettings": {
+        "defaultSamplingRatio": 10,
+        "defaultScanLimitGbytes": 500,
+        "enableSampling": false,
+        "maxResultMegaBytes": 1,
+        "maxResultRecords": 1000
+      },
+      "visualization": "table",
+      "visualizationSettings": {
+        "table": {
+          "enableSparklines": false,
+          "firstVisibleRowIndex": 0,
+          "lineWrapIds": [],
+          "rowDensity": "condensed"
+        }
+      }
+    }
+  },
+  "layouts": {
+    "0": { "x": 0, "y": 0, "w": 24, "h": 2 },
+    "1": { "x": 0, "y": 2, "w": 6, "h": 4 },
+    "2": { "x": 0, "y": 6, "w": 24, "h": 12 }
+  }
+}
