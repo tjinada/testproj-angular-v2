@@ -245,6 +245,11 @@ export interface SuccessSummary {
   duration: string;         // formatted duration string (e.g. "4.27s")
   spanCount: number;
   timestamp: string;
+  /** True for traces that are neither HTTP-successful nor failed —
+   *  async/queue-driven traces with no server span or entry HTTP status
+   *  (e.g. SQS-triggered lambdas). Rendered as a neutral "Trace
+   *  Retrieved" card instead of "Request Successful". */
+  neutral?: boolean;
 }
 
 /**

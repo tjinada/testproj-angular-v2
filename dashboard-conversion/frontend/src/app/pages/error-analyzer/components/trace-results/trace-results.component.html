@@ -20,7 +20,7 @@
           <circle cx="9" cy="9" r="8" stroke="#2F9E5B" stroke-width="1.5"/>
           <path d="M5.5 9.2 L8 11.5 L12.5 6.5" stroke="#2F9E5B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
-        <span class="header-title">Request Successful</span>
+        <span class="header-title">{{ successSummary.neutral ? 'Trace Retrieved' : 'Request Successful' }}</span>
       </div>
       <span class="header-timestamp">{{ successSummary.timestamp }}</span>
     </div>
@@ -45,7 +45,8 @@
         <div class="top-row">
           <div class="field">
             <span class="field-label">HTTP Status</span>
-            <span class="status-badge-success">{{ successSummary.httpStatus }} (OK)</span>
+            <span class="status-badge-success" *ngIf="!successSummary.neutral">{{ successSummary.httpStatus }} (OK)</span>
+            <span class="status-badge-neutral" *ngIf="successSummary.neutral" title="Async/queue-driven trace with no HTTP entry span">— (async / no HTTP entry)</span>
           </div>
           <div class="field">
             <span class="field-label">Duration</span>
@@ -180,10 +181,11 @@
       </div>
     </div>
   </div>
-
-  <!-- Component Flow Diagram -->
-  <app-flow-diagram [spans]="spans" [rootCauseService]="rootCauseService"></app-flow-diagram>
 </div>
+
+<!-- Component Flow Diagram — renders whenever spans exist, independent of
+     the summary cards, so traces that produce neither summary still draw. -->
+<app-flow-diagram *ngIf="spans.length > 0 && !isLoading" [spans]="spans" [rootCauseService]="rootCauseService"></app-flow-diagram>
 
 <!-- Message Popup -->
 <div class="popup-overlay" *ngIf="showMessagePopup" (click)="showMessagePopup = false">

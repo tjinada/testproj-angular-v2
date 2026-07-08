@@ -83,7 +83,14 @@ export class TraceResultsComponent implements OnChanges {
     this.rootCauseService = analyzer.getRootCauseServiceName();
 
     if (!rootCause) {
+      // Neither successful (no HTTP entry span with 2xx) nor failed (no
+      // error spans): async/queue-driven traces — e.g. SQS-triggered
+      // lambda consumers with no server-kind span — land here. Render a
+      // neutral summary so the trace and its flow diagram still display
+      // instead of a blank screen.
       this.errorSummary = null;
+      this.successSummary = this.buildSuccessSummary(analyzer, true);
+      this.rootCauseService = null;
       return;
     }
 
@@ -101,12 +108,14 @@ export class TraceResultsComponent implements OnChanges {
     };
   }
 
-  private buildSuccessSummary(analyzer: TraceAnalyzer): SuccessSummary {
-    const root = analyzer.findRootSpan();
+  private buildSuccessSummary(analyzer: TraceAnalyzer, neutral = false): SuccessSummary {
+    // findRootSpan() needs a server-kind or flagged root span; async
+    // consumer traces have neither, so fall back to the earliest span.
+    const root = analyzer.findRootSpan() ?? this.earliestSpan();
     const component =
       (root && (root['dt.entity.service.entity.name'] || root['dt.service.name'])) || 'Unknown';
     const endpoint = (root && (root['endpoint.name'] || root['span.name'])) || 'Unknown';
-    const httpStatus = (root && root['http.response.status_code']) || '200';
+    const httpStatus = neutral ? '—' : ((root && root['http.response.status_code']) || '200');
     const durationNanos = root ? Number(root['duration']) || 0 : 0;
 
     return {
@@ -116,8 +125,17 @@ export class TraceResultsComponent implements OnChanges {
       httpStatus,
       duration: this.formatDuration(durationNanos),
       spanCount: this.spans.length,
-      timestamp: root ? this.formatTimestamp(root['start_time']) : ''
+      timestamp: root ? this.formatTimestamp(root['start_time']) : '',
+      neutral
     };
+  }
+
+  /** Earliest span by start_time, or null when there are no spans. */
+  private earliestSpan(): SpanRecord | null {
+    if (!this.spans || this.spans.length === 0) return null;
+    return [...this.spans].sort(
+      (a, b) => new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
+    )[0];
   }
 
   private extractErrorMessage(span: SpanRecord): string {
