@@ -58,34 +58,20 @@ interface EndpointMatch {
   lastSeen: string;
 }
 
-/**
- * Result of the components-by-URL search. Returns RAW span records (not a
- * DQL aggregation) so the frontend can run the existing buildFlowGraph()
- * over them — guaranteeing the deduped component list matches the flow
- * diagram box-for-box, including synthetic external/DB nodes.
- */
 interface ComponentSpanSearchResult {
   records: Record<string, unknown>[];
   tracesAnalyzed: number;
   tracesRequested: number;
 }
 
-/** One deduped (caller, host) pair from the component-callers search. */
 interface CallerMatch {
   name: string;
   host: string;
   traceCount: number;
   lastSeen: string;
-  /** Trace ID of the most recent trace where this caller was the entry point. */
   exampleTraceId: string;
 }
 
-/**
- * Result of the component-callers search: root/entry spans of traces
- * that contain the component, deduped by (caller name, host).
- * tracesWithRoot < tracesAnalyzed means some sampled traces had no
- * request.is_root_span record (e.g. partially ingested traces).
- */
 interface CallerSearchResult {
   callers: CallerMatch[];
   tracesAnalyzed: number;
@@ -114,12 +100,6 @@ const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_ATTEMPTS = 60;
 const MOCK_FILE_PATH = path.join(__dirname, '..', 'mocks', 'trace-sample.json');
 
-/**
- * Trace sample size for the components-by-URL search. Externalized via
- * COMPONENT_SEARCH_MAX_TRACES in .env; falls back to 20 when unset or
- * invalid. Read at call time (not module load) so behaviour is obvious
- * after a backend restart with a changed .env.
- */
 const DEFAULT_COMPONENT_SEARCH_MAX_TRACES = 20;
 
 function getComponentSearchMaxTraces(): number {
@@ -127,12 +107,6 @@ function getComponentSearchMaxTraces(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_COMPONENT_SEARCH_MAX_TRACES;
 }
 
-/**
- * Trace sample size for the component-callers search. Separate variable
- * from the components search: pass 2 here is root-spans-only (~1 record
- * per trace), so a larger sample is nearly free and coverage matters for
- * the "is this a common component" question.
- */
 const DEFAULT_CALLER_SEARCH_MAX_TRACES = 100;
 
 function getCallerSearchMaxTraces(): number {
@@ -143,8 +117,6 @@ function getCallerSearchMaxTraces(): number {
 // ── Proxy setup ──────────────────────────────────────────────────────
 // Only activated when PROXY_TARGET is configured. Uses Dynatrace-specific
 // proxy credentials (DYNATRACE_PROXY_USERNAME / DYNATRACE_PROXY_PASSWORD)
-// if set, otherwise falls back to shared proxy credentials. This allows
-// a different account for Dynatrace without affecting other services.
 
 const proxyAgent: HttpsProxyAgent<string> | null = (() => {
   const target = config.proxy?.target;
@@ -183,11 +155,6 @@ function buildRequestIdLookupQuery(requestId: string, timeframe?: Timeframe): st
  *   - Hostname only: "host.com"
  *   - Absolute path only: "/banking/services/foo"
  *   - Relative path fragments: "banking/services/foo", "verifyCredential"
- *
- * Disambiguation rule: when there's no scheme, the first segment is
- * treated as a hostname only if it contains a dot (e.g. "host.com",
- * "api.bmogc.net"). Otherwise the entire input is treated as a path
- * fragment.
  */
 function parseUrl(url: string): { host: string; path: string } {
   if (!url || typeof url !== 'string') return { host: '', path: '' };
@@ -232,9 +199,7 @@ function buildUrlSearchFilters(host: string, urlPath: string, hostExact: boolean
 
 /**
  * Normalizes a user-supplied client IPv4 address to its Dynatrace-masked
- * form. Dynatrace's ID masking zeroes the last octet of captured client
- * IPs (e.g. 24.157.71.45 is stored as 24.157.71.0), so searches must use
- * the masked value. Idempotent for already-masked input.
+ * form.
  */
 export function normalizeClientIp(input: string): string {
   const trimmed = (input || '').trim();
@@ -246,10 +211,7 @@ export function normalizeClientIp(input: string): string {
 }
 
 /**
- * Filter on the CDB ClientIP request attribute. Mirrors the filter the
- * Dynatrace Distributed Tracing UI generates for this attribute: the
- * attribute may be stored as a string or an ip type, scalar or array,
- * so all four shapes are OR'd together.
+ * Filter on the CDB ClientIP request attribute.
  */
 function buildClientIpFilter(maskedIp: string): string {
   const field = '`request_attribute.ReqAttr.CDB.ClientIP`';
@@ -284,12 +246,6 @@ function buildTraceMatchQuery(filterLines: string[], timeframe?: Timeframe): str
   ].join('\n');
 }
 
-/**
- * Unique-endpoint query: applies the given URL filter lines, then
- * summarizes spans into one row per (url.path, http.request.method)
- * pair. Sorted alphabetically by path (method as tiebreaker) so
- * attestation scans are stable and predictable across runs.
- */
 function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
@@ -310,23 +266,6 @@ function buildEndpointSearchQuery(filterLines: string[], timeframe?: Timeframe):
   ].join('\n');
 }
 
-/**
- * Replaces ID-like path segments with "{id}" so URL variants collapse
- * into one logical endpoint (e.g. statementSummary/R1008 and
- * statementSummary/R101 both become statementSummary/{id}).
- *
- * A segment is treated as an ID when it is:
- *   - all digits (12345)
- *   - a UUID
- *   - a hex string of 8+ chars (trace/session tokens)
- *   - 1-3 letters followed only by digits (R2, R10, R1008, ABC123),
- *     except version tokens (v1, v2, V10) which stay literal
- *   - an opaque mixed-case token: 10+ chars containing at least one
- *     digit and both upper- and lowercase letters (CAmAkp6kHKvP)
- *   - contains 3 or more digits (card refs)
- * The 3-digit threshold deliberately spares segments like oauth2
- * and 2fa.
- */
 function normalizeUrlPath(rawPath: string): string {
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const HEX_RE = /^[0-9a-f]{8,}$/i;
@@ -350,17 +289,6 @@ function normalizeUrlPath(rawPath: string): string {
     .join('/');
 }
 
-/**
- * Latest-trace lookup for a logical endpoint from the endpoint search.
- * Normalized paths may contain "{id}" placeholders which match nothing
- * in Dynatrace, so when present the filter falls back to contains() on
- * the prefix up to the first "{id}" segment — covering all variants of
- * the group. Exact paths use an exact match.
- *
- * Only spans with a response status are considered: a status means the
- * request span completed, so the trace has a loadable flow. In-flight
- * or partially ingested traces (no status yet) are skipped.
- */
 function buildLatestTraceQuery(urlPath: string, method: string, timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
@@ -388,10 +316,7 @@ function buildLatestTraceQuery(urlPath: string, method: string, timeframe?: Time
 
 /**
  * Pass 1 of the components-by-URL search: samples the most recent trace
- * IDs where the EXACT url.path returned HTTP 200. Exact match and exact
- * 200 are per requirement — no contains(), no normalization, no other
- * 2xx codes. toString() on the status makes the comparison robust
- * whether Grail stores the field as long or string.
+ * IDs where the EXACT url.path returned HTTP 200.
  */
 function buildComponentTraceIdQuery(urlPath: string, maxTraces: number, timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
@@ -411,12 +336,6 @@ function buildComponentTraceIdQuery(urlPath: string, maxTraces: number, timefram
 /**
  * Pass 2 of the components-by-URL search: fetches ALL spans for the
  * sampled trace IDs, trimmed to exactly the fields buildFlowGraph()
- * consumes (grouping, synthetic external/DB node derivation, type
- * detection, failure predicate). Heavy payloads — span.events and
- * code.call_stack — are deliberately omitted: the component table
- * doesn't surface exceptions, and dropping them keeps 20 traces of
- * spans to a small payload. entityAttr resolution mirrors buildDqlQuery
- * so getServiceName() resolves identically to the flow diagram.
  */
 function buildComponentSpansQuery(traceIds: string[], timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
@@ -435,21 +354,11 @@ function buildComponentSpansQuery(traceIds: string[], timeframe?: Timeframe): st
   ].join('\n');
 }
 
-/** What kind of flow-diagram box the caller search targets. Determines
- *  the pass-1 trace-sampling filter: real services match by resolved
- *  name; synthetic external/DB boxes match by the raw field the box was
- *  derived from. */
 type CallerTargetKind = 'service' | 'external' | 'db';
 
 /**
  * Pass 1 of the component-callers search: samples the most recent trace
- * IDs containing the component — deliberately NOT filtered by URL, so a
- * component reached from many entry points surfaces all of them. For
- * real services the name is matched against both the entityAttr-resolved
- * name and dt.service.name, mirroring the getServiceName() precedence
- * used to produce the component list. Synthetic boxes filter on the raw
- * field that created them (server.address / db.namespace) — cheaper, no
- * entityAttr evaluation needed.
+ * IDs containing the component
  */
 function buildCallerTraceIdQuery(component: string, kind: CallerTargetKind, maxTraces: number, timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
@@ -478,28 +387,39 @@ function buildCallerTraceIdQuery(component: string, kind: CallerTargetKind, maxT
 }
 
 /**
- * Pass 2 of the component-callers search: fetches ALL spans of the
- * sampled traces, trimmed to identity fields (trace.id, span.id,
- * span.parent_id, start_time) plus caller name/host resolution fields.
- * The trace's entry span is derived in Node — the *.is_root_span flags
- * (request/subtrace/transaction) are per-invocation markers in this
- * tenant (every service request sets them), so they cannot identify
- * the trace-wide entry point.
+ * Pass 2 of the component-callers search: resolves each sampled trace's
+ * ENTRY span (earliest start_time) via per-trace aggregation INSIDE
+ * Dynatrace — one record per trace, so result size is bounded by the
+ * sample count and can never hit record/byte ceilings, no matter how
+ * many spans the traces contain. (A raw-span fetch here previously
+ * truncated huge async traces, making mid-trace spans look parentless
+ * and produce false callers.) The earliest span is equivalent to the
+ * parent-not-in-trace rule on complete data: a root starts before its
+ * children. The *.is_root_span flags remain unusable — they are
+ * per-invocation markers in this tenant.
+ *
+ * The timeframe 'from' is widened by 60 minutes so a trace sampled near
+ * the window's leading edge still includes its true entry span; the
+ * trace-ID filter keeps results constrained.
  */
-function buildCallerSpansQuery(traceIds: string[], timeframe?: Timeframe): string {
-  const timeframeClause = timeframe && timeframe.from && timeframe.to
-    ? `timeframe: "${timeframe.from}/${timeframe.to}"`
-    : 'from: -120m';
+function buildCallerEntrySpanQuery(traceIds: string[], timeframe?: Timeframe): string {
+  let timeframeClause: string;
+  if (timeframe && timeframe.from && timeframe.to) {
+    const widenedFrom = new Date(new Date(timeframe.from).getTime() - 60 * 60 * 1000).toISOString();
+    timeframeClause = `timeframe: "${widenedFrom}/${timeframe.to}"`;
+  } else {
+    timeframeClause = 'from: -180m';
+  }
 
   const uidList = traceIds.map(id => `toUid("${id}")`).join(', ');
 
   return [
     `fetch spans, ${timeframeClause}, scanLimitGBytes: 5000`,
     `| filter in(trace.id, {${uidList}})`,
-    `| fields trace.id, span.id, span.parent_id, start_time, dt.service.name, dt.entity.service, k8s.container.name, websphere.server.name, host.name, dt.entity.host`,
     `| fieldsAdd dt.entity.service.entity.name = entityAttr(dt.entity.service, "entity.name")`,
     `| fieldsAdd dt.entity.host.entity.name = entityAttr(dt.entity.host, "entity.name")`,
-    `| limit 50000`
+    `| sort start_time asc`,
+    `| summarize { startTime = takeFirst(start_time), entityName = takeFirst(dt.entity.service.entity.name), serviceName = takeFirst(dt.service.name), serviceEntity = takeFirst(dt.entity.service), wasServer = takeFirst(websphere.server.name), k8sContainer = takeFirst(k8s.container.name), hostName = takeFirst(host.name), hostEntityName = takeFirst(dt.entity.host.entity.name) }, by: { trace.id }`
   ].join('\n');
 }
 
@@ -519,12 +439,6 @@ function buildSessionQuery(sessionId: string, timeframe?: Timeframe): string {
 /**
  * Builds a DQL query that checks for exceptions across ALL spans in the
  * given trace IDs — not just the spans that matched the URL filters.
- *
- * The URL search query's hasExceptions was unreliable because it only
- * counted span.events on spans matching the URL filters. Exceptions often
- * live on downstream/internal spans that don't match the searched URL.
- * This second-pass query scans all spans for the specific trace IDs and
- * returns which ones have exception events.
  */
 function buildExceptionCheckQuery(traceIds: string[], timeframe?: Timeframe): string {
   const timeframeClause = timeframe && timeframe.from && timeframe.to
@@ -580,12 +494,6 @@ function getEnvConfig(environment: string = 'NON-PROD', userToken: string | null
   };
 }
 
-/**
- * Optional result-size limits for the Grail query API. The execute
- * endpoint defaults to ~1,000 records / ~1 MB regardless of the DQL
- * "| limit" clause, so queries expecting large result sets must raise
- * these explicitly in the request body.
- */
 interface QueryExecuteOptions {
   maxResultRecords?: number;
   maxResultBytes?: number;
@@ -678,7 +586,6 @@ function loadMockTraceMatches(): TraceMatch[] {
  * Runs a trace-match search: executes the shared summarize-by-trace query
  * with the given filter lines, maps records to TraceMatch, then runs the
  * second-pass exception check across all spans in the matched traces.
- * Shared by URL search and Client IP search (single source of truth).
  */
 async function runTraceMatchSearch(
   config: ResolvedEnvConfig,
@@ -722,8 +629,6 @@ async function runTraceMatchSearch(
         }
       }
     } catch (err: unknown) {
-      // Non-fatal: if the exception check fails, results still show
-      // without exception badges rather than failing the whole search.
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('Exception check query failed:', msg);
     }
@@ -827,9 +732,7 @@ export async function searchUniqueUrls(
   const result = await pollForResults(config, requestToken);
   const records = result.result?.records || [];
 
-  // Normalize ID-like path segments and re-aggregate, so URL variants
-  // that differ only by embedded IDs collapse into one logical endpoint.
-  const grouped = new Map<string, EndpointMatch>();
+    const grouped = new Map<string, EndpointMatch>();
   for (const r of records) {
     const method = (r['http.request.method'] as string) || '';
     const normalizedPath = normalizeUrlPath((r['url.path'] as string) || '');
@@ -876,15 +779,6 @@ export async function findLatestTraceIdForEndpoint(
   return (records[0]['trace.id'] as string) || null;
 }
 
-/**
- * Components-by-URL search. Two sequential Grail queries:
- *   1. Sample the most recent N trace IDs (N from COMPONENT_SEARCH_MAX_TRACES,
- *      default 20) where the exact url.path returned HTTP 200.
- *   2. Fetch all spans for those traces with a trimmed field list.
- * Pass 2 uses explicit result-size options — the execute endpoint's
- * ~1,000-record default would silently starve a multi-trace span set
- * (same root cause as the endpoint-search fix).
- */
 export async function searchComponentsByUrl(
   urlPath: string,
   environment: string,
@@ -922,21 +816,6 @@ export async function searchComponentsByUrl(
   };
 }
 
-/**
- * Component-callers search. Two sequential Grail queries:
- *   1. Sample the most recent N traces containing the component
- *      (N from CALLER_SEARCH_MAX_TRACES, default 100) — no URL filter.
- *   2. Fetch all spans of those traces (skinny field list) and derive
- *      each trace's entry span in Node: the span whose span.parent_id
- *      is null or matches no span.id within the same trace. If several
- *      qualify (broken context propagation), the earliest start_time
- *      wins.
- * Node-side, entry spans are deduped by (caller name, host) with trace
- * counts — one caller means dedicated, many callers means common
- * component. Name/host resolution mirrors the flow diagram precedence:
- * entity name > dt.service.name > entity ID, and websphere.server.name
- * > k8s.container.name > host.name > entity host name.
- */
 export async function searchComponentCallers(
   component: string,
   environment: string,
@@ -963,40 +842,14 @@ export async function searchComponentCallers(
     return { callers: [], tracesAnalyzed: 0, tracesRequested: maxTraces, tracesWithRoot: 0 };
   }
 
-  const spansQuery = buildCallerSpansQuery(traceIds, timeframe);
-  // Explicit result-size options: this is a multi-trace raw-span fetch,
-  // so the execute endpoint's ~1,000-record default would starve it.
+  const spansQuery = buildCallerEntrySpanQuery(traceIds, timeframe);
+  // Explicit result-size options kept for future-proofing (result is one
+  // record per sampled trace, so this never truncates in practice).
   const spansToken = await executeQuery(config, spansQuery, { maxResultRecords: 50000, maxResultBytes: 52428800 });
   const spansResult = await pollForResults(config, spansToken);
-  const allSpans = spansResult.result?.records || [];
-
-  // Group spans per trace, then derive each trace's entry span: the
-  // span whose span.parent_id is null or matches no span.id within the
-  // same trace (parents outside the ingested span set — e.g. the RUM /
-  // browser side — count as absent). Earliest start_time wins ties.
-  const byTrace = new Map<string, Record<string, unknown>[]>();
-  for (const s of allSpans) {
-    const traceId = (s['trace.id'] as string) || '';
-    if (!traceId) continue;
-    const list = byTrace.get(traceId);
-    if (list) {
-      list.push(s);
-    } else {
-      byTrace.set(traceId, [s]);
-    }
-  }
-
-  const entrySpans: Record<string, unknown>[] = [];
-  for (const spans of byTrace.values()) {
-    const spanIds = new Set(spans.map(s => s['span.id'] as string).filter(Boolean));
-    const candidates = spans.filter(s => {
-      const parentId = s['span.parent_id'] as string | undefined;
-      return !parentId || !spanIds.has(parentId);
-    });
-    if (candidates.length === 0) continue;
-    candidates.sort((a, b) => String(a['start_time'] || '').localeCompare(String(b['start_time'] || '')));
-    entrySpans.push(candidates[0]);
-  }
+  // One record per trace: its entry span (earliest start_time), already
+  // aggregated inside Dynatrace.
+  const entrySpans = spansResult.result?.records || [];
 
   // Dedupe entry spans by (caller name, host). A Set of trace IDs per
   // key guards against double-counting a trace.
@@ -1009,17 +862,17 @@ export async function searchComponentCallers(
     tracesWithRoot.add(traceId);
 
     const name =
-      (r['dt.entity.service.entity.name'] as string) ||
-      (r['dt.service.name'] as string) ||
-      (r['dt.entity.service'] as string) ||
+      (r['entityName'] as string) ||
+      (r['serviceName'] as string) ||
+      (r['serviceEntity'] as string) ||
       'Unknown';
     const host =
-      (r['websphere.server.name'] as string) ||
-      (r['k8s.container.name'] as string) ||
-      (r['host.name'] as string) ||
-      (r['dt.entity.host.entity.name'] as string) ||
+      (r['wasServer'] as string) ||
+      (r['k8sContainer'] as string) ||
+      (r['hostName'] as string) ||
+      (r['hostEntityName'] as string) ||
       '';
-    const startTime = (r['start_time'] as string) || '';
+    const startTime = (r['startTime'] as string) || '';
 
     const key = `${name}||${host}`;
     const existing = grouped.get(key);
