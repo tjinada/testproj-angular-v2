@@ -67,6 +67,7 @@ const SubStepSchema = z.object({
   label: z.string().min(1),
   track: z.enum(['generic', 'cdbui', 'cdbbos']),
   editableField: z.string().optional(),
+  inputType: z.enum(['text', 'textarea']).optional(),
   runner: z.string().optional(),
   placeholder: z.string().optional(),
   helpUrl: z.string().optional(),
@@ -219,9 +220,12 @@ function buildStageTemplate(workflow: WorkflowYaml): Stage[] {
       const placeholder =
         s.placeholder ??
         (s.runner ? RUNNER_PLACEHOLDERS[s.runner] ?? null : null);
-      // Resolve inputType from the runner's declared type, defaulting to 'text'.
+      // Resolve inputType: explicit YAML value wins; otherwise the runner's
+      // declared type; otherwise 'text'.
       const inputType: 'text' | 'textarea' =
-        (s.runner ? RUNNER_INPUT_TYPES[s.runner] : undefined) ?? 'text';
+        s.inputType ??
+        (s.runner ? RUNNER_INPUT_TYPES[s.runner] : undefined) ??
+        'text';
       // Resolve helpUrl + helpUrlLabel: both come from YAML; if helpUrl is
       // set but helpUrlLabel isn't, fall back to a generic label so the UI
       // always has something to show.
