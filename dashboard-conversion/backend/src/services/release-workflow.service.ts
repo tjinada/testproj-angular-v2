@@ -521,7 +521,8 @@ class ReleaseWorkflowService {
       dependencyJarBranchUrls: input?.dependencyJarBranchUrls ?? null,
       cdbUiArtifactPath: input?.cdbUiArtifactPath ?? null,
       cdbbosEarArtifactPath: input?.cdbbosEarArtifactPath ?? null,
-      cdbbosConfigArtifactPath: input?.cdbbosConfigArtifactPath ?? null,
+      cdbbosConfigSccArtifactPath: input?.cdbbosConfigSccArtifactPath ?? null,
+      cdbbosConfigBccArtifactPath: input?.cdbbosConfigBccArtifactPath ?? null,
       branches: {
         cdbUi: input?.branches?.cdbUi ?? null,
         cdbUiConfigs: input?.branches?.cdbUiConfigs ?? null,

@@ -104,7 +104,8 @@ export interface ReleaseMetadata {
   dependencyJarBranchUrls: string | null;
   cdbUiArtifactPath: string | null;
   cdbbosEarArtifactPath: string | null;
-  cdbbosConfigArtifactPath: string | null;
+  cdbbosConfigSccArtifactPath: string | null;
+  cdbbosConfigBccArtifactPath: string | null;
   branches: {
     cdbUi: string | null;
     cdbUiConfigs: string | null;
