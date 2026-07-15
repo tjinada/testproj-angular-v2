@@ -90,6 +90,15 @@ function parseJiraIssueKey(raw: string): string | null {
   return null;
 }
 
+/**
+ * Accept either the Artifactory UI browse URL or the direct file URL/path.
+ * UI browse URLs contain "/ui/repos/tree/General/" — the direct download
+ * route replaces that segment with "/artifactory/".
+ */
+function normalizeArtifactoryPath(raw: string): string {
+  return raw.replace('/ui/repos/tree/General/', '/artifactory/');
+}
+
 function parseGithubTagUrl(url: string): { owner: string; repo: string; tag: string } | null {
   const m = url.match(/\/([^\/]+)\/([^\/]+)\/releases\/tag\/([^?#]+?)\/?(?:[?#]|$)/);
   if (!m) return null;
@@ -374,11 +383,12 @@ export function artifactExistsCheck(config: { field: FieldPath }): CheckRunner {
     const artifactPath = readField(release, field);
     if (!artifactPath || !artifactPath.trim()) return fail(check, `${field} is not set on this release`);
 
+    const normalizedPath = normalizeArtifactoryPath(artifactPath.trim());
     try {
-      const exists = await artifactoryService.artifactExists(artifactPath.trim());
+      const exists = await artifactoryService.artifactExists(normalizedPath);
       return exists
-        ? pass(check, { path: artifactPath.trim(), exists: true })
-        : fail(check, `Artifact not found in Artifactory: ${artifactPath.trim()}`);
+        ? pass(check, { path: normalizedPath, exists: true })
+        : fail(check, `Artifact not found in Artifactory: ${normalizedPath}`);
     } catch (err: any) {
       return fail(check, err?.message ?? 'Artifactory API call failed');
     }
@@ -422,6 +432,6 @@ export const RUNNER_PLACEHOLDERS: Record<string, string> = {
   githubTagUrlCheck:      'Paste GitHub tag URL, e.g. https://github.com/your-org/repo/releases/tag/v86.0.0',
   jiraTicketUrlCheck:     'Paste JIRA ticket URL, e.g. https://bmo.atlassian.net/browse/SSRELEASE-7001',
   jiraFixVersionCheck:    'Paste JIRA Fix Version name, e.g. R86',
-  artifactExistsCheck:    'Paste Artifactory repo path, e.g. cdb-releases-prod/cdbbos/cdbbos-86.0.0.ear',
+  artifactExistsCheck:    'Paste Artifactory direct path or UI browse URL (/ui/repos/tree/General/ is accepted), e.g. cdb-releases-prod/cdbbos/cdbbos-86.0.0.ear',
   valueIsSetCheck:        'Paste value',
 };
