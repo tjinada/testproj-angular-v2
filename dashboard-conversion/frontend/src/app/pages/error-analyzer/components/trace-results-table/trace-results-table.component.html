@@ -1,8 +1,8 @@
 <div *ngIf="results.length > 0" class="results-card">
   <div class="results-header">
     <div class="results-title">
-      Found {{ filtered().length }} of {{ results.length }} trace(s)
-      <span *ngIf="limitReached" class="results-limit">(showing most recent 100)</span>
+      Found {{ filtered().length }} of {{ results.length }} trace(s) loaded
+      <span *ngIf="canLoadMore" class="results-limit">(more traces available in this window)</span>
     </div>
     <div class="results-filters">
       <label class="results-filter-item" *ngIf="uniqueHosts.length > 1">
@@ -62,5 +62,14 @@
         </tr>
       </tbody>
     </table>
+  </div>
+  <div *ngIf="canLoadMore" class="results-footer">
+    <button
+      type="button"
+      class="load-more-btn"
+      [disabled]="isLoadingMore"
+      (click)="onLoadMoreClick()">
+      {{ isLoadingMore ? 'Loading…' : 'Load next 100 (older)' }}
+    </button>
   </div>
 </div>

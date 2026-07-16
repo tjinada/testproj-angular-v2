@@ -25,8 +25,12 @@ import { TraceMatch } from '../../models/trace.model';
 export class TraceResultsTableComponent implements OnChanges {
   @Input() results: TraceMatch[] = [];
   @Input() selectedTraceId: string | null = null;
-  @Input() limitReached = false;
+  /** True when the last page was full — older traces may exist in the window. */
+  @Input() canLoadMore = false;
+  /** True while a load-more request is in flight; disables the button. */
+  @Input() isLoadingMore = false;
   @Output() resultClick = new EventEmitter<TraceMatch>();
+  @Output() loadMore = new EventEmitter<void>();
 
   /** Toggle: show only rows that failed outright OR captured an exception. */
   showFailuresOnly = false;
@@ -35,12 +39,19 @@ export class TraceResultsTableComponent implements OnChanges {
   selectedHost = '';
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Reset the environment filter when a new result set arrives. Without
-    // this, a stale selection from a previous search can silently produce
-    // an empty table.
-    if (changes['results']) {
+    // Reset the environment filter when the result set changes and the
+    // selected host is no longer present. Without this, a stale selection
+    // from a previous search can silently produce an empty table. Keeping
+    // the selection when the host still exists means load-more appends
+    // don't wipe the user's filter.
+    if (changes['results'] && this.selectedHost && !this.uniqueHosts.includes(this.selectedHost)) {
       this.selectedHost = '';
     }
+  }
+
+  onLoadMoreClick(): void {
+    if (this.isLoadingMore) return;
+    this.loadMore.emit();
   }
 
   /**

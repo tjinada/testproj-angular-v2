@@ -48,8 +48,11 @@ export class ErrorAnalyzerComponent implements OnInit {
   // URL search state
   urlSearchResults: TraceMatch[] = [];
   urlSearchLimitReached = false;
+  isLoadingMoreTraces = false;
   selectedTraceId: string | null = null;
   private lastUrlSearchTimeframe: Timeframe | null = null;
+  /** Last trace-match search, kept so "Load next 100" can re-dispatch it with a narrower window. */
+  private lastTraceSearch: { mode: 'url' | 'clientIp'; value: string; hostExact: boolean; timeframe: Timeframe } | null = null;
 
   // Endpoint search state
   endpointResults: EndpointMatch[] = [];
@@ -143,6 +146,8 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.resolvedFromRequestId = null;
     this.urlSearchResults = [];
     this.urlSearchLimitReached = false;
+    this.isLoadingMoreTraces = false;
+    this.lastTraceSearch = null;
     this.selectedTraceId = null;
     this.lastUrlSearchTimeframe = null;
     this.endpointResults = [];
@@ -162,6 +167,7 @@ export class ErrorAnalyzerComponent implements OnInit {
 
     if (event.mode === 'url') {
       this.lastUrlSearchTimeframe = event.timeframe;
+      this.lastTraceSearch = { mode: 'url', value: event.value, hostExact: false, timeframe: event.timeframe };
       this.dynatraceService.searchByUrl(event.value, this.environment, event.timeframe).subscribe({
         next: (response) => {
           this.urlSearchResults = response.results || [];
@@ -226,6 +232,7 @@ export class ErrorAnalyzerComponent implements OnInit {
 
     if (event.mode === 'clientIp') {
       this.lastUrlSearchTimeframe = event.timeframe;
+      this.lastTraceSearch = { mode: 'clientIp', value: event.value, hostExact: false, timeframe: event.timeframe };
       this.dynatraceService.searchByClientIp(event.value, this.environment, event.timeframe).subscribe({
         next: (response) => {
           this.urlSearchResults = response.results || [];
@@ -287,12 +294,14 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.tracesFromSessionUrl = urlFull;
     this.urlSearchResults = [];
     this.urlSearchLimitReached = false;
+    this.isLoadingMoreTraces = false;
     this.selectedTraceId = null;
     this.spans = [];
     this.errorMsg = '';
     this.isLoading = true;
 
     const timeframe = this.buildNarrowTimeframe(eventStartTime);
+    this.lastTraceSearch = { mode: 'url', value: urlFull, hostExact: true, timeframe };
 
     this.dynatraceService.searchByUrl(urlFull, this.environment, timeframe, true).subscribe({
       next: (response) => {
@@ -307,6 +316,49 @@ export class ErrorAnalyzerComponent implements OnInit {
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to search backend traces. Please try again.';
         this.isLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * Keyset pagination for the trace-match table. DQL has no offset, so
+   * "next page" = the same search with the timeframe capped at the oldest
+   * loaded trace. The boundary trace re-appears (timeframe is inclusive)
+   * and is removed by the traceId dedupe below.
+   */
+  onLoadMoreTraces(): void {
+    if (!this.lastTraceSearch || this.isLoadingMoreTraces || this.urlSearchResults.length === 0) return;
+
+    const oldestMs = Math.min(...this.urlSearchResults.map(r => new Date(r.startTime).getTime()));
+    if (!Number.isFinite(oldestMs)) return;
+
+    const search = this.lastTraceSearch;
+    const cursorTimeframe: Timeframe = { from: search.timeframe.from, to: new Date(oldestMs).toISOString() };
+
+    this.isLoadingMoreTraces = true;
+    this.errorMsg = '';
+
+    const request$ = search.mode === 'clientIp'
+      ? this.dynatraceService.searchByClientIp(search.value, this.environment, cursorTimeframe)
+      : this.dynatraceService.searchByUrl(search.value, this.environment, cursorTimeframe, search.hostExact);
+
+    request$.subscribe({
+      next: (response) => {
+        const incoming = response.results || [];
+        const known = new Set(this.urlSearchResults.map(r => r.traceId));
+        const fresh = incoming.filter(r => !known.has(r.traceId));
+        this.urlSearchResults = [...this.urlSearchResults, ...fresh];
+        // A full page means more may exist; a short page means the window is
+        // exhausted. A full page of pure duplicates would loop forever, so
+        // treat zero fresh rows as exhausted too.
+        this.urlSearchLimitReached = incoming.length >= 100 && fresh.length > 0;
+        this.isLoadingMoreTraces = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.errorMsg = err.error?.error || 'Failed to load more traces. Please try again.';
+        this.isLoadingMoreTraces = false;
         this.cdr.detectChanges();
       }
     });

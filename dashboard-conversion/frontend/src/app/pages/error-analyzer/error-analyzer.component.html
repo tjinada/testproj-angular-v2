@@ -110,8 +110,10 @@
       <app-trace-results-table
         [results]="urlSearchResults"
         [selectedTraceId]="selectedTraceId"
-        [limitReached]="urlSearchLimitReached"
-        (resultClick)="onUrlResultClick($event)">
+        [canLoadMore]="urlSearchLimitReached"
+        [isLoadingMore]="isLoadingMoreTraces"
+        (resultClick)="onUrlResultClick($event)"
+        (loadMore)="onLoadMoreTraces()">
       </app-trace-results-table>
 
       <app-endpoint-results-table
