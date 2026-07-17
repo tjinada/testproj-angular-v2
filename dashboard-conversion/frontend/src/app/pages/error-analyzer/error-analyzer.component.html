@@ -121,13 +121,15 @@
         (traceClick)="onCallerTraceClick($event)">
       </app-caller-results-table>
 
-      <app-trace-results
-        [spans]="spans"
-        [isLoading]="isLoading"
-        [errorMsg]="errorMsg"
-        [environment]="environment"
-        [envHostnamePatterns]="envHostnamePatterns">
-      </app-trace-results>
+      <div #traceDetailAnchor style="scroll-margin-top: 72px;">
+        <app-trace-results
+          [spans]="spans"
+          [isLoading]="isTraceLoading"
+          [errorMsg]="errorMsg"
+          [environment]="environment"
+          [envHostnamePatterns]="envHostnamePatterns">
+        </app-trace-results>
+      </div>
     </ng-container>
   </div>
 

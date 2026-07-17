@@ -1,7 +1,26 @@
-<!-- Loading state -->
-<div *ngIf="isLoading" class="loading-container">
-  <div class="spinner"></div>
-  <span>Fetching trace data...</span>
+<!-- Loading state: skeleton mirroring the summary card + flow diagram -->
+<div *ngIf="isLoading" class="skeleton-wrap" aria-busy="true" aria-label="Loading trace data">
+  <div class="skeleton-card">
+    <div class="skeleton-card-header">
+      <span class="skeleton-block skeleton-title"></span>
+      <span class="skeleton-block skeleton-timestamp"></span>
+    </div>
+    <div class="skeleton-card-body">
+      <div class="skeleton-field-row">
+        <span class="skeleton-block skeleton-label"></span>
+        <span class="skeleton-block skeleton-label"></span>
+        <span class="skeleton-block skeleton-label"></span>
+      </div>
+      <div class="skeleton-field-row">
+        <span class="skeleton-block skeleton-value"></span>
+        <span class="skeleton-block skeleton-value"></span>
+        <span class="skeleton-block skeleton-value"></span>
+      </div>
+    </div>
+  </div>
+  <div class="skeleton-diagram">
+    <span class="skeleton-block skeleton-diagram-title"></span>
+  </div>
 </div>
 
 <!-- Error state -->

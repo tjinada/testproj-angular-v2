@@ -254,26 +254,67 @@ status-badge-neutral {
   flex-shrink: 0;
 }
 
-/* Loading */
-.loading-container {
-  text-align: center;
-  padding: 60px 20px;
-  color: #6b7280;
-  font-size: 14px;
+/* Loading skeleton (mirrors summary card + flow diagram layout) */
+.skeleton-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e5e7eb;
-  border-top-color: #1B4F72;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 12px;
+.skeleton-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.skeleton-card-header {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.skeleton-card-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skeleton-field-row {
+  display: flex;
+  gap: 40px;
+}
+
+.skeleton-block {
+  display: inline-block;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #eceef1 25%, #f6f7f8 50%, #eceef1 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-title { width: 180px; height: 16px; }
+.skeleton-timestamp { width: 140px; height: 12px; }
+.skeleton-label { width: 90px; height: 11px; }
+.skeleton-value { width: 200px; height: 15px; }
+
+.skeleton-diagram {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  height: 260px;
+  padding: 12px 16px;
+}
+
+.skeleton-diagram-title { width: 130px; height: 14px; }
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Error banner */

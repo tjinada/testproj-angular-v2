@@ -72,6 +72,7 @@
             [attr.transform]="'translate(' + (node.x - node.width/2) + ',' + (node.y - node.height/2) + ')'"
             (click)="onNodeClick(node, $event)"
           >
+            <title>{{ node.label }}{{ (node.fullHostname || node.hostname) ? ' — ' + (node.fullHostname || node.hostname) : '' }}</title>
             <rect
               class="flow-node-rect"
               [attr.width]="node.width"

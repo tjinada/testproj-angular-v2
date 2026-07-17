@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -26,8 +26,13 @@ type TabId = 'trace' | 'opensearch';
   styleUrls: ['./error-analyzer.component.scss']
 })
 export class ErrorAnalyzerComponent implements OnInit {
+  /** Anchor wrapping the trace detail (summary card + flow diagram) for auto-scroll. */
+  @ViewChild('traceDetailAnchor') traceDetailAnchor?: ElementRef<HTMLElement>;
+
   spans: SpanRecord[] = [];
   isLoading = false;
+  /** True only while a trace detail fetch is in flight; drives the detail skeleton. */
+  isTraceLoading = false;
   errorMsg = '';
   environment = 'NON-PROD';
   environments: EnvironmentOption[] = [];
@@ -147,6 +152,7 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   onSearch(event: SearchEvent): void {
     this.isLoading = true;
+    this.isTraceLoading = false;
     this.errorMsg = '';
     this.spans = [];
     this.resolvedFromRequestId = null;
@@ -167,6 +173,7 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.lastSearchMode = event.mode;
 
     if (event.mode === 'trace') {
+      this.isTraceLoading = true;
       this.fetchTrace(event.value, event.timeframe);
       return;
     }
@@ -280,6 +287,7 @@ export class ErrorAnalyzerComponent implements OnInit {
 
     // Request ID mode
     const requestId = event.value;
+    this.isTraceLoading = true;
     this.dynatraceService.lookupTraceIdByRequestId(requestId, this.environment, event.timeframe).subscribe({
       next: (response) => {
         this.resolvedFromRequestId = { traceId: response.traceId, requestId: response.requestId };
@@ -288,6 +296,7 @@ export class ErrorAnalyzerComponent implements OnInit {
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to look up request ID. Please try again.';
         this.isLoading = false;
+        this.isTraceLoading = false;
         this.cdr.detectChanges();
       }
     });
@@ -384,8 +393,10 @@ export class ErrorAnalyzerComponent implements OnInit {
   onUrlResultClick(result: TraceMatch): void {
     this.selectedTraceId = result.traceId;
     this.isLoading = true;
+    this.isTraceLoading = true;
     this.errorMsg = '';
     this.spans = [];
+    this.scrollToTraceDetail();
     const timeframe = this.lastUrlSearchTimeframe || {
       from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       to: new Date().toISOString()
@@ -395,9 +406,11 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   onEndpointLatestTrace(row: EndpointMatch): void {
     this.isLoading = true;
+    this.isTraceLoading = true;
     this.errorMsg = '';
     this.spans = [];
     this.selectedTraceId = null;
+    this.scrollToTraceDetail();
 
     const timeframe = this.lastUrlSearchTimeframe || {
       from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
@@ -412,6 +425,7 @@ export class ErrorAnalyzerComponent implements OnInit {
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to find the latest trace for this endpoint.';
         this.isLoading = false;
+        this.isTraceLoading = false;
         this.cdr.detectChanges();
       }
     });
@@ -428,8 +442,10 @@ export class ErrorAnalyzerComponent implements OnInit {
   onCallerTraceClick(traceId: string): void {
     this.selectedTraceId = traceId;
     this.isLoading = true;
+    this.isTraceLoading = true;
     this.errorMsg = '';
     this.spans = [];
+    this.scrollToTraceDetail();
     const timeframe = this.lastUrlSearchTimeframe || {
       from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       to: new Date().toISOString()
@@ -510,6 +526,20 @@ export class ErrorAnalyzerComponent implements OnInit {
     return 'Service';
   }
 
+  /**
+   * Scrolls the viewport to the trace detail area. Called when a trace
+   * fetch starts, so the user lands on the loading skeleton and the
+   * summary card + flow diagram fill in where they're already looking.
+   * detectChanges first so the skeleton exists before scrolling; the
+   * setTimeout lets the browser finish layout in the same frame.
+   */
+  private scrollToTraceDetail(): void {
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      this.traceDetailAnchor?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }
+
   private fetchTrace(traceId: string, timeframe: Timeframe): void {
     this.dynatraceService.fetchTrace(traceId, this.environment, timeframe).subscribe({
       next: (response) => {
@@ -518,11 +548,13 @@ export class ErrorAnalyzerComponent implements OnInit {
           this.errorMsg = 'No spans found for this trace ID. Check the trace ID and try again.';
         }
         this.isLoading = false;
+        this.isTraceLoading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         this.errorMsg = err.error?.error || 'Failed to fetch trace data. Please try again.';
         this.isLoading = false;
+        this.isTraceLoading = false;
         this.cdr.detectChanges();
       }
     });
