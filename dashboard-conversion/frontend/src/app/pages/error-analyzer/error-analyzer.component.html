@@ -73,6 +73,10 @@
     <!-- Main app content (hidden when setup modal is blocking) -->
     <ng-container *ngIf="!showTokenSetup">
       <app-search (search)="onSearch($event)"></app-search>
+      <div *ngIf="isLoading && !isTraceLoading && lastSearchMode !== 'session'" class="search-progress" role="status">
+        <span class="search-progress-spinner"></span>
+        Searching&hellip;
+      </div>
       <div *ngIf="resolvedFromRequestId" class="resolved-banner">
         Found trace <code>{{ resolvedFromRequestId.traceId }}</code>
         for request <code>{{ resolvedFromRequestId.requestId }}</code>

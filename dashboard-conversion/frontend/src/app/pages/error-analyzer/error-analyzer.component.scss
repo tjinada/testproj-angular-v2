@@ -1,6 +1,25 @@
 .error-analyzer-container {
   padding: 24px 0;
 }
+.search-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  font-size: 13px;
+  color: #6b7280;
+}
+.search-progress-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #1B4F72;
+  border-radius: 50%;
+  animation: search-progress-spin 0.8s linear infinite;
+}
+@keyframes search-progress-spin {
+  to { transform: rotate(360deg); }
+}
 .app-header-row {
   display: flex;
   justify-content: space-between;
