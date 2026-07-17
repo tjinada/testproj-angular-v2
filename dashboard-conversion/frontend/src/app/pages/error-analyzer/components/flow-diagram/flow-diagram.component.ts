@@ -112,6 +112,25 @@ export class FlowDiagramComponent implements OnChanges {
       });
   });
 
+  /**
+   * Requests this component received and performed work for: server and
+   * consumer spans, plus internal/unknown kinds (work done inside the
+   * component, closest in meaning to "handled" rather than "outgoing").
+   */
+  handledRequests = computed<TimelineEntry[]>(() =>
+    this.nodeTimeline().filter(e => !this.isOutgoingKind(e.kind))
+  );
+
+  /** Calls this component made to other services: client and producer spans. */
+  outgoingRequests = computed<TimelineEntry[]>(() =>
+    this.nodeTimeline().filter(e => this.isOutgoingKind(e.kind))
+  );
+
+  private isOutgoingKind(kind: string): boolean {
+    const k = (kind || '').toLowerCase();
+    return k === 'client' || k === 'producer';
+  }
+
   highlightedNodeIds = computed<Set<string> | null>(() => {
     const id = this.selectedNodeId();
     if (!id) return null;

@@ -278,16 +278,44 @@
             </div>
           </div>
 
-          <!-- Span timeline -->
-          <div class="flow-drawer-section" *ngIf="nodeTimeline().length > 0">
-            <div class="flow-section-header" (click)="toggleSection('timeline')">
-              <span class="flow-section-toggle">{{ isSectionExpanded('timeline') ? '▾' : '▸' }}</span>
-              <span class="flow-drawer-section-label">Span Timeline ({{ nodeTimeline().length }})</span>
+          <!-- Handled requests (server/consumer/internal spans on this component) -->
+          <div class="flow-drawer-section" *ngIf="handledRequests().length > 0">
+            <div class="flow-section-header" (click)="toggleSection('handled')">
+              <span class="flow-section-toggle">{{ isSectionExpanded('handled') ? '▾' : '▸' }}</span>
+              <span class="flow-drawer-section-label">Handled Requests ({{ handledRequests().length }})</span>
             </div>
-            <div class="flow-section-body" *ngIf="isSectionExpanded('timeline')">
+            <div class="flow-section-body" *ngIf="isSectionExpanded('handled')">
               <div class="flow-timeline">
                 <div
-                  *ngFor="let entry of nodeTimeline(); trackBy: trackTimeline"
+                  *ngFor="let entry of handledRequests(); trackBy: trackTimeline"
+                  class="flow-timeline-row"
+                  [class.flow-timeline-row-failed]="entry.isFailed"
+                >
+                  <span class="flow-timeline-kind" [attr.data-kind]="entry.kind">
+                    {{ entry.kind }}
+                  </span>
+                  <span class="flow-timeline-name" [title]="entry.name">{{ entry.name }}</span>
+                  <span class="flow-timeline-meta">
+                    <span *ngIf="entry.status" class="flow-timeline-status">{{ entry.status }}</span>
+                    <span *ngIf="entry.durationNanos" class="flow-timeline-duration">
+                      {{ formatDuration(entry.durationNanos) }}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Outgoing requests (client/producer spans — calls made to other services) -->
+          <div class="flow-drawer-section" *ngIf="outgoingRequests().length > 0">
+            <div class="flow-section-header" (click)="toggleSection('outgoing')">
+              <span class="flow-section-toggle">{{ isSectionExpanded('outgoing') ? '▾' : '▸' }}</span>
+              <span class="flow-drawer-section-label">Outgoing Requests ({{ outgoingRequests().length }})</span>
+            </div>
+            <div class="flow-section-body" *ngIf="isSectionExpanded('outgoing')">
+              <div class="flow-timeline">
+                <div
+                  *ngFor="let entry of outgoingRequests(); trackBy: trackTimeline"
                   class="flow-timeline-row"
                   [class.flow-timeline-row-failed]="entry.isFailed"
                 >
