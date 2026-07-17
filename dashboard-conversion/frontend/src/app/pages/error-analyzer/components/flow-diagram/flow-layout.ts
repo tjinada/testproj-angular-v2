@@ -15,9 +15,11 @@ export interface FlowNode {
   isRootCause: boolean;    // true for the node identified as the root cause
   isExternal: boolean;     // true for synthetic upstream/downstream nodes
   isDb: boolean;           // true for synthetic database nodes (subset of external)
-  isLambda: boolean;       // true if otel.scope.name is dt.agent.nodejs.Lambda
+  isLambda: boolean;       // true if Dynatrace classifies the node as aws-lambda
   isWebSphere: boolean;    // true if websphere.server.name is present
   isChannels: boolean;     // true if k8s.container.name contains 'channels'
+  techBadge: string;       // display badge from icon.primaryIconType ('' = none)
+  callCount: number;       // real call count (aggregation-aware; >= spanCount)
   exceptionCount: number;  // count of captured exceptions on non-failing spans
   websphereServer: string; // websphere.server.name value (empty if not WAS)
   spanCount: number;
@@ -70,6 +72,54 @@ function firstSegment(host: string): string {
 /** Returns true if a span represents a database call (db.namespace is set). */
 function isDbSpan(span: SpanRecord): boolean {
   return !!(span['db.namespace'] as string | undefined);
+}
+
+/**
+ * Real call count for a span. Dynatrace aggregates repeated identical
+ * calls (DB CONNECTs etc.) into a single span carrying aggregation.count.
+ * Ignoring it silently undercounts what actually happened.
+ */
+function callsOf(span: SpanRecord): number {
+  const n = Number(span['aggregation.count']);
+  return Number.isFinite(n) && n > 1 ? n : 1;
+}
+
+/**
+ * Map Dynatrace's own tech classification (icon.primaryIconType) to a
+ * display badge. Authoritative and covers all runtimes, unlike scope-name
+ * heuristics (e.g. only nodejs lambdas have dt.agent.nodejs.Lambda).
+ * Unknown icon types render no badge rather than leaking raw strings.
+ */
+const ICON_BADGES: Record<string, string> = {
+  'web-sphere': 'WEBSPHERE',
+  'aws-lambda': 'LAMBDA',
+  'apache-tomcat': 'TOMCAT',
+  'spring-signet': 'SPRING',
+  'apache': 'APACHE',
+  'kafka-signet': 'KAFKA',
+  'ibm': 'IBM'
+};
+
+/** Majority icon type across the group, mapped to a badge label. */
+function deriveTechBadge(grp: SpanRecord[]): string {
+  const counts = new Map<string, number>();
+  for (const s of grp) {
+    const t = (s['icon'] as { primaryIconType?: string } | null | undefined)?.primaryIconType;
+    if (!t) continue;
+    counts.set(t, (counts.get(t) || 0) + 1);
+  }
+  let best = '';
+  let bestCount = 0;
+  for (const [t, c] of counts.entries()) {
+    if (c > bestCount) { best = t; bestCount = c; }
+  }
+  if (!best) return '';
+  // 'ibm' covers CICS, z/OS Connect, and MQ listeners; only genuine
+  // mainframe-sourced spans earn the MAINFRAME badge.
+  if (best === 'ibm' && grp.some(s => s['dt.system.monitoring_source'] === 'mainframe')) {
+    return 'MAINFRAME';
+  }
+  return ICON_BADGES[best] || '';
 }
 
 // isSpanFailed is imported from trace-analyzer to keep a single source of
@@ -152,10 +202,11 @@ export function buildFlowGraph(
     ] as string) || '';
     const isWebSphere = !!wasServerName;
 
-    // Lambda detection: otel.scope.name === 'dt.agent.nodejs.Lambda'
-    const isLambda = grp.some(
-      s => (s['otel.scope.name'] as string) === 'dt.agent.nodejs.Lambda'
-    );
+    // Tech badge from Dynatrace's icon classification; lambda status is
+    // derived from the same source (the old otel.scope.name check missed
+    // non-nodejs lambdas and lambdas whose spans report HttpClient scope).
+    const techBadge = deriveTechBadge(grp);
+    const isLambda = techBadge === 'LAMBDA';
 
     // Channels detection: k8s.container.name contains 'channels'
     const isChannels = !!k8sContainer && k8sContainer.toLowerCase().includes('channels');
@@ -173,10 +224,12 @@ export function buildFlowGraph(
       hostFull = entityHost;
     }
 
-    // Sublabel override for Lambda nodes
-    const sublabel = isLambda
-      ? `lambda \u00b7 ${grp.length} span${grp.length === 1 ? '' : 's'}`
-      : `${grp.length} span${grp.length === 1 ? '' : 's'}`;
+    // Aggregation-aware call count; shown only when it differs from the
+    // span count so unaggregated nodes look unchanged.
+    const callCount = grp.reduce((sum, s) => sum + callsOf(s), 0);
+    const spanPart = `${grp.length} span${grp.length === 1 ? '' : 's'}`;
+    const callPart = callCount !== grp.length ? ` \u00b7 ${callCount} calls` : '';
+    const sublabel = (isLambda ? 'lambda \u00b7 ' : '') + spanPart + callPart;
 
     const node: FlowNode = {
       id: name,
@@ -194,9 +247,16 @@ export function buildFlowGraph(
       isLambda,
       isWebSphere,
       isChannels,
+      techBadge,
+      callCount,
       exceptionCount: (() => {
         const failedSpanIds = new Set(grp.filter(isSpanFailed).map(s => s['span.id']));
-        return extractCapturedExceptions(grp).filter(ex => !failedSpanIds.has(ex.spanId)).length;
+        const captured = extractCapturedExceptions(grp).filter(ex => !failedSpanIds.has(ex.spanId)).length;
+        // Aggregated spans report exception totals separately from span.events.
+        const aggregated = grp.reduce(
+          (sum, s) => sum + (Number(s['aggregation.exception_count']) || 0), 0
+        );
+        return captured + aggregated;
       })(),
       websphereServer: wasServerName,
       spanCount: grp.length,
@@ -210,12 +270,12 @@ export function buildFlowGraph(
 
   // --- Build edges between real services ---
   const edgeMap = new Map<string, FlowEdge>();
-  const addEdge = (sourceId: string, targetId: string, failed: boolean) => {
+  const addEdge = (sourceId: string, targetId: string, failed: boolean, count: number = 1) => {
     if (sourceId === targetId) return;
     const key = `${sourceId}->${targetId}`;
     const existing = edgeMap.get(key);
     if (existing) {
-      existing.callCount += 1;
+      existing.callCount += count;
       if (failed) existing.isFailed = true;
     } else {
       edgeMap.set(key, {
@@ -223,7 +283,7 @@ export function buildFlowGraph(
         sourceId,
         targetId,
         isFailed: failed,
-        callCount: 1
+        callCount: count
       });
     }
   };
@@ -235,7 +295,7 @@ export function buildFlowGraph(
     if (!parent) continue;
     const childService = getServiceName(s);
     const parentService = getServiceName(parent);
-    addEdge(parentService, childService, isSpanFailed(s));
+    addEdge(parentService, childService, isSpanFailed(s), callsOf(s));
   }
 
   // --- Build DB synthetic nodes from client spans with db.namespace ---
@@ -268,6 +328,8 @@ export function buildFlowGraph(
         isLambda: false,
         isWebSphere: false,
         isChannels: false,
+        techBadge: '',
+        callCount: 0,
         exceptionCount: 0,
         websphereServer: '',
         spanCount: 0,
@@ -279,8 +341,23 @@ export function buildFlowGraph(
       nodeById.set(nodeId, node);
     }
 
+    // Attach the client span so the drawer can show the statements that
+    // actually hit this DB (previously spans stayed empty and clicking a
+    // DB node showed nothing).
+    node.spans.push(s);
+
     const callerService = getServiceName(s);
-    addEdge(callerService, nodeId, isSpanFailed(s));
+    addEdge(callerService, nodeId, isSpanFailed(s), callsOf(s));
+  }
+
+  // Finalize DB node counts and sublabels now that spans are attached:
+  // "oracle · 33 calls" instead of the generic "database".
+  for (const n of nodes) {
+    if (!n.isDb || n.spans.length === 0) continue;
+    n.spanCount = n.spans.length;
+    n.callCount = n.spans.reduce((sum, s) => sum + callsOf(s), 0);
+    const dbSystem = (n.spans.find(s => s['db.system'])?.['db.system'] as string) || 'database';
+    n.sublabel = `${dbSystem} \u00b7 ${n.callCount} call${n.callCount === 1 ? '' : 's'}`;
   }
 
   // --- Build DOWNSTREAM synthetic nodes from client-kind spans ---
@@ -319,6 +396,8 @@ export function buildFlowGraph(
         isLambda: false,
         isWebSphere: false,
         isChannels: false,
+        techBadge: '',
+        callCount: 0,
         exceptionCount: 0,
         websphereServer: '',
         spanCount: 0,
@@ -333,7 +412,7 @@ export function buildFlowGraph(
 
     const callerService = getServiceName(s);
     // Failing external edge: don't flag the external node itself — only the edge.
-    addEdge(callerService, nodeId, isSpanFailed(s));
+    addEdge(callerService, nodeId, isSpanFailed(s), callsOf(s));
   }
 
   // NOTE: We intentionally do NOT create upstream synthetic nodes from

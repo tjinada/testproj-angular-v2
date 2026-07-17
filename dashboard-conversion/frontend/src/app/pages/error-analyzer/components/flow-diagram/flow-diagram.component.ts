@@ -21,6 +21,17 @@ export interface TimelineEntry {
   name: string;
   status: string;
   durationNanos: number;
+  callCount: number;
+  isFailed: boolean;
+}
+
+/** A database statement row for synthetic DB nodes. */
+export interface DbStatement {
+  spanId: string;
+  operation: string;
+  query: string;
+  durationNanos: number;
+  callCount: number;
   isFailed: boolean;
 }
 
@@ -106,7 +117,10 @@ export class FlowDiagramComponent implements OnChanges {
           kind: s['span.kind'] || 'unknown',
           name,
           status: String(s['http.response.status_code'] ?? ''),
-          durationNanos: Number(s['duration']) || 0,
+          // Aggregated spans: duration_sum is the true total across the
+          // aggregated calls; plain duration is a single representative.
+          durationNanos: Number(s['aggregation.duration_sum']) || Number(s['duration']) || 0,
+          callCount: Number(s['aggregation.count']) || 1,
           isFailed: isSpanFailed(s)
         };
       });
@@ -129,6 +143,52 @@ export class FlowDiagramComponent implements OnChanges {
   private isOutgoingKind(kind: string): boolean {
     const k = (kind || '').toLowerCase();
     return k === 'client' || k === 'producer';
+  }
+
+  /**
+   * SQL/DB statements for a selected synthetic DB node, built from the
+   * client spans attached to it by flow-layout. Chronological order.
+   * CONNECTs have no query text; the operation chip carries the meaning.
+   */
+  dbStatements = computed<DbStatement[]>(() => {
+    const node = this.selectedNode();
+    if (!node || !node.isDb || !node.spans?.length) return [];
+    return [...node.spans]
+      .sort((a, b) =>
+        new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
+      )
+      .map(s => ({
+        spanId: s['span.id'],
+        operation: (s['db.operation.name'] as string) || (s['span.name'] as string) || 'QUERY',
+        query: (s['db.query.text'] as string) || '',
+        durationNanos: Number(s['aggregation.duration_sum']) || Number(s['duration']) || 0,
+        callCount: Number(s['aggregation.count']) || 1,
+        isFailed: isSpanFailed(s)
+      }));
+  });
+
+  trackDbStatement(_index: number, entry: DbStatement): string {
+    return entry.spanId;
+  }
+
+  /** Drawer badge label for DB nodes, e.g. "oracle" / "db2". */
+  dbSystemLabel = computed<string>(() => {
+    const node = this.selectedNode();
+    if (!node?.isDb) return 'Database';
+    const sys = node.spans?.find(s => s['db.system'])?.['db.system'] as string | undefined;
+    return sys || 'Database';
+  });
+
+  /** Pixel width for a tech badge tab, proportional to its label. */
+  techBadgeWidth(badge: string): number {
+    return badge.length * 7 + 18;
+  }
+
+  /** X position of the CHANNELS badge: left of the tech badge when both show. */
+  channelsBadgeX(node: FlowNode): number {
+    const channelsWidth = 74;
+    const base = node.width - channelsWidth - 4;
+    return node.techBadge ? base - this.techBadgeWidth(node.techBadge) - 4 : base;
   }
 
   highlightedNodeIds = computed<Set<string> | null>(() => {
@@ -466,7 +526,10 @@ export class FlowDiagramComponent implements OnChanges {
     event.stopPropagation();
     const current = this.selectedNodeId();
     this.selectedNodeId.set(current === node.id ? null : node.id);
-    this.expandedSections.set(new Set());
+    // Statements are the whole point of a DB node — start it expanded.
+    this.expandedSections.set(
+      this.selectedNodeId() !== null && node.isDb ? new Set(['db-statements']) : new Set()
+    );
     queueMicrotask(() => this.checkFlowBarOverflow());
     // Outside fullscreen the drawer opens below the full-height canvas,
     // possibly under the fold — nudge the page so it's visible. 'nearest'

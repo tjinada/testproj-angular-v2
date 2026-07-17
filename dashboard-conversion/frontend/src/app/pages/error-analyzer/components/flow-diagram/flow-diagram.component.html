@@ -84,20 +84,19 @@
               <rect x="8" y="-9" width="86" height="18" rx="9" ry="9" />
               <text x="51" y="3" text-anchor="middle">ROOT CAUSE</text>
             </g>
-            <!-- Lambda badge (top-right tab sticking up) -->
-            <g *ngIf="node.isLambda" class="flow-node-badge flow-badge-lambda">
-              <rect [attr.x]="node.width - 66" y="-18" width="62" height="20" rx="3" ry="3" />
-              <text [attr.x]="node.width - 35" y="-4" text-anchor="middle">LAMBDA</text>
+            <!-- Tech badge (top-right tab), from Dynatrace icon classification -->
+            <g *ngIf="node.techBadge"
+               [attr.class]="'flow-node-badge flow-badge-tech flow-badge-tech-' + node.techBadge.toLowerCase()">
+              <rect [attr.x]="node.width - techBadgeWidth(node.techBadge) - 4" y="-18"
+                    [attr.width]="techBadgeWidth(node.techBadge)" height="20" rx="3" ry="3" />
+              <text [attr.x]="node.width - 4 - techBadgeWidth(node.techBadge) / 2" y="-4" text-anchor="middle">
+                {{ node.techBadge }}
+              </text>
             </g>
-            <!-- WebSphere badge (top-right tab sticking up) -->
-            <g *ngIf="node.isWebSphere" class="flow-node-badge flow-badge-websphere">
-              <rect [attr.x]="node.width - 84" y="-18" width="80" height="20" rx="3" ry="3" />
-              <text [attr.x]="node.width - 44" y="-4" text-anchor="middle">WEBSPHERE</text>
-            </g>
-            <!-- Channels badge (top-right tab sticking up) -->
-            <g *ngIf="node.isChannels && !node.isWebSphere && !node.isLambda" class="flow-node-badge flow-badge-channels">
-              <rect [attr.x]="node.width - 78" y="-18" width="74" height="20" rx="3" ry="3" />
-              <text [attr.x]="node.width - 41" y="-4" text-anchor="middle">CHANNELS</text>
+            <!-- Channels badge (left of the tech badge when both are present) -->
+            <g *ngIf="node.isChannels" class="flow-node-badge flow-badge-channels">
+              <rect [attr.x]="channelsBadgeX(node)" y="-18" width="74" height="20" rx="3" ry="3" />
+              <text [attr.x]="channelsBadgeX(node) + 37" y="-4" text-anchor="middle">CHANNELS</text>
             </g>
             <!-- Exception badge (bottom-right, amber) -->
             <g *ngIf="node.exceptionCount > 0 && !node.isFailed" class="flow-node-badge flow-badge-exceptions">
@@ -130,10 +129,12 @@
           <span class="flow-badge-inline" [class.flow-badge-failed]="node.isFailed">
             {{ node.isFailed ? 'Failed' : 'OK' }}
           </span>
-          <span *ngIf="node.isLambda" class="flow-badge-inline flow-badge-inline-lambda">Lambda</span>
-          <span *ngIf="node.isWebSphere" class="flow-badge-inline flow-badge-inline-websphere">WebSphere</span>
+          <span *ngIf="node.techBadge"
+                [attr.class]="'flow-badge-inline flow-badge-inline-tech flow-badge-inline-tech-' + node.techBadge.toLowerCase()">
+            {{ node.techBadge }}
+          </span>
           <span *ngIf="node.isChannels" class="flow-badge-inline flow-badge-inline-channels">Channels</span>
-          <span *ngIf="node.isDb" class="flow-badge-inline flow-badge-inline-db">Database</span>
+          <span *ngIf="node.isDb" class="flow-badge-inline flow-badge-inline-db">{{ dbSystemLabel() }}</span>
           <span *ngIf="node.isExternal && !node.isDb" class="flow-badge-inline flow-badge-inline-ext">External</span>
           <span *ngIf="node.isRootCause" class="flow-badge-inline flow-badge-failed">Root Cause</span>
         </div>
@@ -193,6 +194,26 @@
                   <span class="flow-drawer-endpoint-name">{{ ep.name }}</span>
                   <span *ngIf="ep.path" class="flow-drawer-endpoint-path">{{ ep.path }}</span>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DB statements (synthetic database nodes only) -->
+          <div class="flow-drawer-section" *ngIf="dbStatements().length > 0">
+            <div class="flow-section-header" (click)="toggleSection('db-statements')">
+              <span class="flow-section-toggle">{{ isSectionExpanded('db-statements') ? '▾' : '▸' }}</span>
+              <span class="flow-drawer-section-label">Statements ({{ dbStatements().length }})</span>
+            </div>
+            <div class="flow-section-body" *ngIf="isSectionExpanded('db-statements')">
+              <div *ngFor="let st of dbStatements(); trackBy: trackDbStatement"
+                   class="flow-db-statement"
+                   [class.flow-db-statement-failed]="st.isFailed">
+                <div class="flow-db-statement-header">
+                  <span class="flow-db-op">{{ st.operation }}</span>
+                  <span *ngIf="st.callCount > 1" class="flow-mult">&times;{{ st.callCount }}</span>
+                  <span class="flow-db-duration">{{ formatDuration(st.durationNanos) }}</span>
+                </div>
+                <pre class="flow-db-query" *ngIf="st.query">{{ st.query }}</pre>
               </div>
             </div>
           </div>
@@ -295,6 +316,7 @@
                     {{ entry.kind }}
                   </span>
                   <span class="flow-timeline-name" [title]="entry.name">{{ entry.name }}</span>
+                  <span *ngIf="entry.callCount > 1" class="flow-mult">&times;{{ entry.callCount }}</span>
                   <span class="flow-timeline-meta">
                     <span *ngIf="entry.status" class="flow-timeline-status">{{ entry.status }}</span>
                     <span *ngIf="entry.durationNanos" class="flow-timeline-duration">
@@ -323,6 +345,7 @@
                     {{ entry.kind }}
                   </span>
                   <span class="flow-timeline-name" [title]="entry.name">{{ entry.name }}</span>
+                  <span *ngIf="entry.callCount > 1" class="flow-mult">&times;{{ entry.callCount }}</span>
                   <span class="flow-timeline-meta">
                     <span *ngIf="entry.status" class="flow-timeline-status">{{ entry.status }}</span>
                     <span *ngIf="entry.durationNanos" class="flow-timeline-duration">

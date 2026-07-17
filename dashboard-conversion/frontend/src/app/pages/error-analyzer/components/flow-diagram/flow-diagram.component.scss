@@ -175,13 +175,8 @@
   pointer-events: none;
 }
 
-/* Lambda badge (top-right tab) */
-.flow-badge-lambda rect {
-  fill: #d97706;
-  stroke: none;
-}
-
-.flow-badge-lambda text {
+/* Tech badge (top-right tab) — color per Dynatrace icon classification */
+.flow-badge-tech text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 9px;
   font-weight: 700;
@@ -190,20 +185,15 @@
   pointer-events: none;
 }
 
-/* WebSphere badge (top-right tab) */
-.flow-badge-websphere rect {
-  fill: #1d4ed8;
-  stroke: none;
-}
-
-.flow-badge-websphere text {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  fill: #ffffff;
-  letter-spacing: 0.5px;
-  pointer-events: none;
-}
+.flow-badge-tech rect { stroke: none; }
+.flow-badge-tech-lambda rect { fill: #d97706; }
+.flow-badge-tech-websphere rect { fill: #1d4ed8; }
+.flow-badge-tech-tomcat rect { fill: #92400e; }
+.flow-badge-tech-spring rect { fill: #3b6d11; }
+.flow-badge-tech-apache rect { fill: #6b7280; }
+.flow-badge-tech-kafka rect { fill: #3f3f46; }
+.flow-badge-tech-mainframe rect,
+.flow-badge-tech-ibm rect { fill: #0f3a5f; }
 
 /* Channels badge (top-right tab — green/teal) */
 .flow-badge-channels rect {
@@ -590,14 +580,40 @@
   color: #991b1b;
 }
 
-.flow-badge-inline-lambda {
+.flow-badge-inline-tech-lambda {
   background: #fef3c7;
   color: #92400e;
 }
 
-.flow-badge-inline-websphere {
+.flow-badge-inline-tech-websphere {
   background: #dbeafe;
   color: #1e40af;
+}
+
+.flow-badge-inline-tech-tomcat {
+  background: #fde8d7;
+  color: #92400e;
+}
+
+.flow-badge-inline-tech-spring {
+  background: #eaf3de;
+  color: #3b6d11;
+}
+
+.flow-badge-inline-tech-apache {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.flow-badge-inline-tech-kafka {
+  background: #e4e4e7;
+  color: #3f3f46;
+}
+
+.flow-badge-inline-tech-mainframe,
+.flow-badge-inline-tech-ibm {
+  background: #dbeafe;
+  color: #0f3a5f;
 }
 
 .flow-badge-inline-channels {
@@ -613,6 +629,70 @@
 .flow-badge-inline-ext {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+/* Call-count multiplier for aggregated spans (×N) */
+.flow-mult {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 0 6px;
+}
+
+/* DB statement rows (synthetic database node drawer) */
+.flow-db-statement {
+  padding: 6px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.flow-db-statement:last-child {
+  border-bottom: none;
+}
+
+.flow-db-statement-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-db-op {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #3730a3;
+  letter-spacing: 0.3px;
+}
+
+.flow-db-statement-failed .flow-db-op {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.flow-db-duration {
+  margin-left: auto;
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.flow-db-query {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Collapsible section headers */
