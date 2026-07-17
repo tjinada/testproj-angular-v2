@@ -1,14 +1,13 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { SearchComponent, SearchEvent } from './components/search/search.component';
 import { TraceResultsComponent } from './components/trace-results/trace-results.component';
 import { TraceResultsTableComponent } from './components/trace-results-table/trace-results-table.component';
 import { SessionResultsComponent } from './components/session-results/session-results.component';
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { OpenSearchLogSearchComponent } from './components/opensearch-log-search/opensearch-log-search.component';
-import { AkamaiFlowComponent } from './components/akamai-flow/akamai-flow.component';
-import { UrlTraceComponent } from './components/url-trace/url-trace.component';
 import { EndpointResultsTableComponent } from './components/endpoint-results-table/endpoint-results-table.component';
 import { ComponentResultsTableComponent } from './components/component-results-table/component-results-table.component';
 import { CallerResultsTableComponent } from './components/caller-results-table/caller-results-table.component';
@@ -17,12 +16,12 @@ import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
 import { CallerRow, ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
-type TabId = 'trace' | 'opensearch' | 'urlTrace' | 'akamai';
+type TabId = 'trace' | 'opensearch';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, UrlTraceComponent, AkamaiFlowComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -51,14 +50,13 @@ export class ErrorAnalyzerComponent implements OnInit {
   isLoadingMoreTraces = false;
   selectedTraceId: string | null = null;
   private lastUrlSearchTimeframe: Timeframe | null = null;
-  /** Last trace-match search, kept so "Load next 100" can re-dispatch it with a narrower window. */
   private lastTraceSearch: { mode: 'url' | 'clientIp'; value: string; hostExact: boolean; timeframe: Timeframe } | null = null;
 
   // Endpoint search state
   endpointResults: EndpointMatch[] = [];
   endpointLimitReached = false;
 
-  // Component search state
+   // Component search state
   componentResults: ComponentRow[] = [];
   componentTracesAnalyzed = 0;
   componentTracesRequested = 0;
@@ -70,6 +68,7 @@ export class ErrorAnalyzerComponent implements OnInit {
   callerTracesRequested = 0;
   callerTracesWithRoot = 0;
 
+
   // Session search state
   sessionEvents: UserEventRecord[] = [];
   tracesFromSessionUrl: string | null = null;
@@ -78,7 +77,8 @@ export class ErrorAnalyzerComponent implements OnInit {
   constructor(
     private dynatraceService: DynatraceService,
     private configService: ConfigService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -130,6 +130,12 @@ export class ErrorAnalyzerComponent implements OnInit {
   onTokenSetupDone(): void {
     this.showTokenSetup = false;
     this.cdr.detectChanges();
+  }
+
+  onTokenSetupClosed(): void {
+    this.showTokenSetup = false;
+    this.cdr.detectChanges();
+    this.router.navigate(['/envs-dashboard']);
   }
 
   onTokenSettingsDone(): void {
@@ -294,14 +300,12 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.tracesFromSessionUrl = urlFull;
     this.urlSearchResults = [];
     this.urlSearchLimitReached = false;
-    this.isLoadingMoreTraces = false;
     this.selectedTraceId = null;
     this.spans = [];
     this.errorMsg = '';
     this.isLoading = true;
 
     const timeframe = this.buildNarrowTimeframe(eventStartTime);
-    this.lastTraceSearch = { mode: 'url', value: urlFull, hostExact: true, timeframe };
 
     this.dynatraceService.searchByUrl(urlFull, this.environment, timeframe, true).subscribe({
       next: (response) => {
@@ -321,13 +325,7 @@ export class ErrorAnalyzerComponent implements OnInit {
     });
   }
 
-  /**
-   * Keyset pagination for the trace-match table. DQL has no offset, so
-   * "next page" = the same search with the timeframe capped at the oldest
-   * loaded trace. The boundary trace re-appears (timeframe is inclusive)
-   * and is removed by the traceId dedupe below.
-   */
-  onLoadMoreTraces(): void {
+   onLoadMoreTraces(): void {
     if (!this.lastTraceSearch || this.isLoadingMoreTraces || this.urlSearchResults.length === 0) return;
 
     const oldestMs = Math.min(...this.urlSearchResults.map(r => new Date(r.startTime).getTime()));
@@ -427,11 +425,6 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.callerTracesWithRoot = 0;
   }
 
-  /**
-   * Example-trace click from the caller results table: runs the regular
-   * trace-by-ID flow (summary, flow diagram, span timeline), mirroring
-   * onUrlResultClick. The caller/component tables stay on screen above.
-   */
   onCallerTraceClick(traceId: string): void {
     this.selectedTraceId = traceId;
     this.isLoading = true;
@@ -453,18 +446,13 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.isLoading = true;
     this.errorMsg = '';
     this.clearCallerResults();
-    // Clear any previously rendered trace so the old flow diagram
-    // doesn't persist under the new caller results.
     this.spans = [];
     this.selectedTraceId = null;
-
     const timeframe = this.lastUrlSearchTimeframe || {
       from: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       to: new Date().toISOString()
     };
 
-    // Synthetic rows search by the raw field that created the box
-    // (server.address / db.namespace); real services by name.
     const target = row.syntheticKey || row.name;
     const kind = row.syntheticKind || 'service';
 
@@ -490,12 +478,6 @@ export class ErrorAnalyzerComponent implements OnInit {
     });
   }
 
-  /**
-   * Maps the sampled spans to deduped component rows by running the SAME
-   * buildFlowGraph() the flow diagram uses — single source of truth, so
-   * the list matches the diagram box-for-box including synthetic
-   * external/DB nodes (which carry no spans; their counts render as —).
-   */
   private buildComponentRows(records: SpanRecord[]): ComponentRow[] {
     if (records.length === 0) return [];
     const nodes = buildFlowGraph(records).nodes;
@@ -507,11 +489,6 @@ export class ErrorAnalyzerComponent implements OnInit {
         hostname: n.hostname,
         fullHostname: n.fullHostname,
         isSynthetic: n.isExternal,
-        // Synthetic node IDs encode the raw key the box was built from:
-        // "db:<db.namespace>" / "ext:<server.address>". That raw value —
-        // not the (possibly shortened) display label — is the caller-
-        // search target for synthetic rows. DB check first: DB nodes
-        // carry isExternal=true as well.
         syntheticKind: n.isDb ? 'db' as const : (n.isExternal ? 'external' as const : null),
         syntheticKey: n.isDb
           ? n.id.slice('db:'.length)

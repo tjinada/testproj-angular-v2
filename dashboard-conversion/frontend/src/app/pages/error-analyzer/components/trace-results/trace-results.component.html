@@ -181,10 +181,10 @@
       </div>
     </div>
   </div>
+
+  <!-- Component Flow Diagram -->
 </div>
 
-<!-- Component Flow Diagram — renders whenever spans exist, independent of
-     the summary cards, so traces that produce neither summary still draw. -->
 <app-flow-diagram *ngIf="spans.length > 0 && !isLoading" [spans]="spans" [rootCauseService]="rootCauseService"></app-flow-diagram>
 
 <!-- Message Popup -->

@@ -83,11 +83,6 @@ export class TraceResultsComponent implements OnChanges {
     this.rootCauseService = analyzer.getRootCauseServiceName();
 
     if (!rootCause) {
-      // Neither successful (no HTTP entry span with 2xx) nor failed (no
-      // error spans): async/queue-driven traces — e.g. SQS-triggered
-      // lambda consumers with no server-kind span — land here. Render a
-      // neutral summary so the trace and its flow diagram still display
-      // instead of a blank screen.
       this.errorSummary = null;
       this.successSummary = this.buildSuccessSummary(analyzer, true);
       this.rootCauseService = null;
@@ -109,8 +104,6 @@ export class TraceResultsComponent implements OnChanges {
   }
 
   private buildSuccessSummary(analyzer: TraceAnalyzer, neutral = false): SuccessSummary {
-    // findRootSpan() needs a server-kind or flagged root span; async
-    // consumer traces have neither, so fall back to the earliest span.
     const root = analyzer.findRootSpan() ?? this.earliestSpan();
     const component =
       (root && (root['dt.entity.service.entity.name'] || root['dt.service.name'])) || 'Unknown';

@@ -34,24 +34,6 @@
       (click)="setTab('opensearch')">
       Application Logs
     </button>
-    <button
-      type="button"
-      class="tab-btn"
-      role="tab"
-      [attr.aria-selected]="activeTab === 'urlTrace'"
-      [class.tab-btn-active]="activeTab === 'urlTrace'"
-      (click)="setTab('urlTrace')">
-      URL Trace
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      role="tab"
-      [attr.aria-selected]="activeTab === 'akamai'"
-      [class.tab-btn-active]="activeTab === 'akamai'"
-      (click)="setTab('akamai')">
-      Akamai Flow
-    </button>
   </div>
 
   <!-- Tab: Trace Analysis ──────────────────────────────────────────── -->
@@ -74,7 +56,8 @@
       [mode]="'setup'"
       [environments]="nonProdEnvironments"
       [tokenUrls]="tokenUrls"
-      (saved)="onTokenSetupDone()">
+      (saved)="onTokenSetupDone()"
+      (closed)="onTokenSetupClosed()">
     </app-token-setup>
 
     <!-- Token settings modal (gear) -->
@@ -150,13 +133,5 @@
 
   <div [hidden]="activeTab !== 'opensearch'" class="tab-panel" role="tabpanel">
     <app-opensearch-log-search></app-opensearch-log-search>
-  </div>
-
-  <div [hidden]="activeTab !== 'urlTrace'" class="tab-panel" role="tabpanel">
-    <app-url-trace></app-url-trace>
-  </div>
-
-  <div [hidden]="activeTab !== 'akamai'" class="tab-panel" role="tabpanel">
-    <app-akamai-flow></app-akamai-flow>
   </div>
 </div>
