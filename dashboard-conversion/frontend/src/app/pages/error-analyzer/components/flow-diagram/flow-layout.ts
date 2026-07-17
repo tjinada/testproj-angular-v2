@@ -15,6 +15,7 @@ export interface FlowNode {
   isRootCause: boolean;    // true for the node identified as the root cause
   isExternal: boolean;     // true for synthetic upstream/downstream nodes
   isDb: boolean;           // true for synthetic database nodes (subset of external)
+  isMessaging: boolean;    // true for synthetic Kafka topic / MQ queue nodes (subset of external)
   isLambda: boolean;       // true if Dynatrace classifies the node as aws-lambda
   isWebSphere: boolean;    // true if websphere.server.name is present
   isChannels: boolean;     // true if k8s.container.name contains 'channels'
@@ -34,6 +35,7 @@ export interface FlowEdge {
   sourceId: string;
   targetId: string;
   isFailed: boolean;
+  isAsync: boolean;        // true for fire-and-forget messaging hops (rendered dashed)
   callCount: number;
 }
 
@@ -244,6 +246,7 @@ export function buildFlowGraph(
       isRootCause: rootCauseService !== null && name === rootCauseService,
       isExternal: false,
       isDb: false,
+      isMessaging: false,
       isLambda,
       isWebSphere,
       isChannels,
@@ -270,19 +273,21 @@ export function buildFlowGraph(
 
   // --- Build edges between real services ---
   const edgeMap = new Map<string, FlowEdge>();
-  const addEdge = (sourceId: string, targetId: string, failed: boolean, count: number = 1) => {
+  const addEdge = (sourceId: string, targetId: string, failed: boolean, count: number = 1, isAsync: boolean = false) => {
     if (sourceId === targetId) return;
     const key = `${sourceId}->${targetId}`;
     const existing = edgeMap.get(key);
     if (existing) {
       existing.callCount += count;
       if (failed) existing.isFailed = true;
+      if (isAsync) existing.isAsync = true;
     } else {
       edgeMap.set(key, {
         id: key,
         sourceId,
         targetId,
         isFailed: failed,
+        isAsync,
         callCount: count
       });
     }
@@ -293,6 +298,10 @@ export function buildFlowGraph(
     if (!parentId) continue;
     const parent = spanById.get(parentId);
     if (!parent) continue;
+    // Consumer spans parent directly onto the producer span; that async hop
+    // is re-routed through the topic/queue node in the messaging pass below,
+    // so the direct service-to-service edge is suppressed here.
+    if (s['span.kind'] === 'consumer' && s['messaging.destination.name']) continue;
     const childService = getServiceName(s);
     const parentService = getServiceName(parent);
     addEdge(parentService, childService, isSpanFailed(s), callsOf(s));
@@ -325,6 +334,7 @@ export function buildFlowGraph(
         isRootCause: false,
         isExternal: true,
         isDb: true,
+        isMessaging: false,
         isLambda: false,
         isWebSphere: false,
         isChannels: false,
@@ -360,6 +370,82 @@ export function buildFlowGraph(
     n.sublabel = `${dbSystem} \u00b7 ${n.callCount} call${n.callCount === 1 ? '' : 's'}`;
   }
 
+  // --- Build MESSAGING synthetic nodes (Kafka topics / MQ queues) ---
+  // Producer and consumer spans carry messaging.destination.name, and the
+  // consumer's parent_id points at the producer span. The direct
+  // producer→consumer edge was suppressed in the parent-edge loop above;
+  // here it is re-routed as producer → channel → consumer so the async
+  // hop is visible. Producers without an in-trace consumer leave the
+  // channel as a leaf.
+  for (const s of spans) {
+    const dest = s['messaging.destination.name'] as string | undefined;
+    if (!dest) continue;
+    const kind = s['span.kind'];
+    if (kind !== 'producer' && kind !== 'consumer') continue;
+
+    const system = ((s['messaging.system'] as string) || '').toLowerCase();
+    const nodeId = `msg:${dest}`;
+
+    let node = nodeById.get(nodeId);
+    if (!node) {
+      node = {
+        id: nodeId,
+        label: dest,
+        hostname: '',
+        sublabel: system === 'kafka' ? 'topic' : 'queue',
+        x: 0,
+        y: 0,
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT,
+        isFailed: false,
+        isRootCause: false,
+        isExternal: true,
+        isDb: false,
+        isMessaging: true,
+        isLambda: false,
+        isWebSphere: false,
+        isChannels: false,
+        techBadge: system === 'kafka' ? 'KAFKA' : 'MQ',
+        callCount: 0,
+        exceptionCount: 0,
+        websphereServer: '',
+        spanCount: 0,
+        endpoints: [],
+        spans: [],
+        fullHostname: dest
+      };
+      nodes.push(node);
+      nodeById.set(nodeId, node);
+    }
+
+    node.spans.push(s);
+
+    const svc = getServiceName(s);
+    if (kind === 'producer') {
+      addEdge(svc, nodeId, isSpanFailed(s), callsOf(s), true);
+    } else {
+      addEdge(nodeId, svc, isSpanFailed(s), callsOf(s), true);
+    }
+  }
+
+  // Finalize messaging sublabels: "topic · 1 producer · 1 consumer".
+  for (const n of nodes) {
+    if (!n.isMessaging || n.spans.length === 0) continue;
+    n.spanCount = n.spans.length;
+    n.callCount = n.spans.reduce((sum, s) => sum + callsOf(s), 0);
+    const system = ((n.spans[0]['messaging.system'] as string) || '').toLowerCase();
+    const parts = [system === 'kafka' ? 'topic' : 'queue'];
+    const producers = new Set(
+      n.spans.filter(s => s['span.kind'] === 'producer').map(getServiceName)
+    ).size;
+    const consumers = new Set(
+      n.spans.filter(s => s['span.kind'] === 'consumer').map(getServiceName)
+    ).size;
+    if (producers > 0) parts.push(`${producers} producer${producers === 1 ? '' : 's'}`);
+    if (consumers > 0) parts.push(`${consumers} consumer${consumers === 1 ? '' : 's'}`);
+    n.sublabel = parts.join(' \u00b7 ');
+  }
+
   // --- Build DOWNSTREAM synthetic nodes from client-kind spans ---
   const downstreamNodeIds = new Set<string>();
   for (const s of spans) {
@@ -393,6 +479,7 @@ export function buildFlowGraph(
         isRootCause: false,
         isExternal: true,
         isDb: false,
+        isMessaging: false,
         isLambda: false,
         isWebSphere: false,
         isChannels: false,
@@ -534,56 +621,63 @@ export function findConnectedNodeIds(
     }
   }
 
-  // --- Determine the starting set of spans for the click ---
-  // For real services: every span in the service.
-  // For DB/external: every client span targeting that DB/host. These spans
-  // become the upward-walk seeds; downward walks are empty for externals
-  // because the click target itself has no real spans of its own.
-  const startSpans: SpanRecord[] = [];
-  let downwardEnabled = true;
+  // --- Determine the starting spans for the click ---
+  // Real services: every span in the service seeds both directions.
+  // DB/external: client spans targeting them seed the upward walk only
+  // (they are leaves; there is nothing beneath them).
+  // Messaging channels: producer spans seed the upward walk (who led to
+  // the publish), consumer spans seed the downward walk (what the
+  // consumption triggered).
+  const upSeeds: SpanRecord[] = [];
+  const downSeeds: SpanRecord[] = [];
 
   if (startNodeId.startsWith('db:')) {
     const dbNamespace = startNodeId.substring(3);
-    downwardEnabled = false;
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
       if (String(s['db.namespace'] ?? '') !== dbNamespace) continue;
-      startSpans.push(s);
+      upSeeds.push(s);
     }
   } else if (startNodeId.startsWith('ext:')) {
     const host = startNodeId.substring(4);
-    downwardEnabled = false;
     for (const s of spans) {
       if (s['span.kind'] !== 'client') continue;
       if (s['db.namespace']) continue;
       if (String(s['server.address'] ?? '') !== host) continue;
-      startSpans.push(s);
+      upSeeds.push(s);
+    }
+  } else if (startNodeId.startsWith('msg:')) {
+    const dest = startNodeId.substring(4);
+    for (const s of spans) {
+      if (String(s['messaging.destination.name'] ?? '') !== dest) continue;
+      if (s['span.kind'] === 'producer') upSeeds.push(s);
+      else if (s['span.kind'] === 'consumer') downSeeds.push(s);
     }
   } else {
     for (const s of spans) {
       if (getServiceName(s) === startNodeId) {
-        startSpans.push(s);
+        upSeeds.push(s);
+        downSeeds.push(s);
       }
     }
   }
 
-  // --- Strictly-UP walk from each start span ---
+  // --- Strictly-UP walk from each up seed ---
   // Collect every service name encountered along the parent chain. We do
   // NOT collect external/DB neighbors of ancestors — those are siblings,
   // not on the path. We do NOT walk back downward from any ancestor.
-  for (const startSpan of startSpans) {
+  for (const startSpan of upSeeds) {
+    addMessagingNodeId(startSpan, result);
     const pid = startSpan['span.parent_id'];
     if (!pid) continue;
     walkStrictlyUp(spanById.get(pid), spanById, result);
   }
 
-  // --- Strictly-DOWN walk from each start span ---
+  // --- Strictly-DOWN walk from each down seed ---
   // Collect every service name in the entire subtree below the start span,
-  // plus any external/DB synthetic nodes encountered.
-  if (downwardEnabled) {
-    for (const startSpan of startSpans) {
-      walkStrictlyDown(startSpan, childrenByParent, result);
-    }
+  // plus any external/DB/messaging synthetic nodes encountered.
+  for (const startSpan of downSeeds) {
+    walkStrictlyDown(startSpan, childrenByParent, result);
   }
 
   console.log(
@@ -591,6 +685,19 @@ export function findConnectedNodeIds(
     Array.from(result)
   );
   return result;
+}
+
+/**
+ * If the span is a messaging producer/consumer, add its channel's
+ * synthetic node id so path highlighting flows through topics/queues.
+ */
+function addMessagingNodeId(span: SpanRecord, result: Set<string>): void {
+  const dest = span['messaging.destination.name'] as string | undefined;
+  if (!dest) return;
+  const kind = span['span.kind'];
+  if (kind === 'producer' || kind === 'consumer') {
+    result.add(`msg:${dest}`);
+  }
 }
 
 /**
@@ -610,6 +717,7 @@ function walkStrictlyUp(
     visited.add(current['span.id']);
     const svc = getServiceName(current);
     if (svc) result.add(svc);
+    addMessagingNodeId(current, result);
     const pid = current['span.parent_id'];
     if (!pid) return;
     current = spanById.get(pid);
@@ -636,6 +744,7 @@ function walkStrictlyDown(
 
     const svc = getServiceName(node);
     if (svc) result.add(svc);
+    addMessagingNodeId(node, result);
 
     // If this is a client span hitting an external/DB, add the synthetic id
     if (node['span.kind'] === 'client') {

@@ -49,6 +49,7 @@
             [attr.d]="edgePath(edge)"
             class="flow-edge"
             [class.flow-edge-failed]="edge.isFailed"
+            [class.flow-edge-async]="edge.isAsync"
             [class.flow-faded]="isEdgeFaded(edge)"
             [attr.marker-end]="edge.isFailed ? 'url(#fd-arrow-failed)' : 'url(#fd-arrow)'"
             fill="none"
@@ -63,6 +64,7 @@
             [class.flow-node-failed]="node.isFailed"
             [class.flow-node-external]="node.isExternal"
             [class.flow-node-db]="node.isDb"
+            [class.flow-node-messaging]="node.isMessaging"
             [class.flow-node-lambda]="node.isLambda"
             [class.flow-node-websphere]="node.isWebSphere"
             [class.flow-node-channels]="node.isChannels"
@@ -77,7 +79,8 @@
               class="flow-node-rect"
               [attr.width]="node.width"
               [attr.height]="node.height"
-              rx="6" ry="6"
+              [attr.rx]="node.isMessaging ? 16 : 6"
+              [attr.ry]="node.isMessaging ? 16 : 6"
             />
             <!-- Root cause badge (top-left) -->
             <g *ngIf="node.isRootCause" class="flow-node-badge flow-badge-rootcause">
@@ -104,7 +107,7 @@
               <text [attr.x]="node.width - 27" [attr.y]="node.height + 3" text-anchor="middle">⚠ {{ node.exceptionCount }}</text>
             </g>
             <text class="flow-node-label" [attr.x]="node.width/2" y="28" text-anchor="middle">
-              {{ truncate(node.label, 26) }}
+              {{ node.isMessaging ? truncateStart(node.label, 30) : truncate(node.label, 26) }}
             </text>
             <text class="flow-node-host" [attr.x]="node.width/2" y="48" text-anchor="middle"
                   *ngIf="node.hostname">
@@ -135,7 +138,7 @@
           </span>
           <span *ngIf="node.isChannels" class="flow-badge-inline flow-badge-inline-channels">Channels</span>
           <span *ngIf="node.isDb" class="flow-badge-inline flow-badge-inline-db">{{ dbSystemLabel() }}</span>
-          <span *ngIf="node.isExternal && !node.isDb" class="flow-badge-inline flow-badge-inline-ext">External</span>
+          <span *ngIf="node.isExternal && !node.isDb && !node.isMessaging" class="flow-badge-inline flow-badge-inline-ext">External</span>
           <span *ngIf="node.isRootCause" class="flow-badge-inline flow-badge-failed">Root Cause</span>
         </div>
         <button class="flow-drawer-close" (click)="closeDetails()">&times;</button>
@@ -174,6 +177,10 @@
               <span class="flow-drawer-meta-label">WAS Server</span>
               <span class="flow-drawer-meta-value">{{ node.websphereServer }}</span>
             </div>
+            <div class="flow-drawer-meta-item" *ngFor="let row of runtimeDetails()">
+              <span class="flow-drawer-meta-label">{{ row.label }}</span>
+              <span class="flow-drawer-meta-value">{{ row.value }}</span>
+            </div>
             <div class="flow-drawer-meta-item" *ngIf="nodeRequestIds().length > 0">
               <span class="flow-drawer-meta-label">X-Request-ID</span>
               <div class="flow-drawer-request-ids">
@@ -195,6 +202,15 @@
                   <span *ngIf="ep.path" class="flow-drawer-endpoint-path">{{ ep.path }}</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Mainframe / z/OS Connect details -->
+          <div class="flow-drawer-meta flow-drawer-mainframe" *ngIf="mainframeDetails().length > 0">
+            <span class="flow-drawer-section-label">Mainframe</span>
+            <div class="flow-drawer-meta-item" *ngFor="let row of mainframeDetails()">
+              <span class="flow-drawer-meta-label">{{ row.label }}</span>
+              <span class="flow-drawer-meta-value">{{ row.value }}</span>
             </div>
           </div>
 

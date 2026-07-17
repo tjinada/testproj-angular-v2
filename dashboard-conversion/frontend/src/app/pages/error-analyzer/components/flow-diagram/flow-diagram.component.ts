@@ -179,6 +179,78 @@ export class FlowDiagramComponent implements OnChanges {
     return sys || 'Database';
   });
 
+  /**
+   * Mainframe / z/OS Connect details for the selected node's spans.
+   * Empty for non-mainframe nodes, hiding the section entirely.
+   */
+  mainframeDetails = computed<{ label: string; value: string }[]>(() => {
+    const node = this.selectedNode();
+    if (!node?.spans?.length) return [];
+    const s = node.spans.find(
+      x => x['zosconnect.service.name'] || x['ibm.cics.program'] || x['zos.transaction.lpar_name']
+    );
+    if (!s) return [];
+    const rows: { label: string; value: string }[] = [];
+    const add = (label: string, v: unknown, suffix = '') => {
+      const str = v == null ? '' : String(v).trim();
+      if (str) rows.push({ label, value: str + suffix });
+    };
+    add('CICS Program', s['ibm.cics.program']);
+    add('SOR Resource', s['zosconnect.sor.resource']);
+    add('SOR Type', s['zosconnect.sor.type']);
+    add('API', s['zosconnect.api.name']);
+    add('Service', s['zosconnect.service.name']);
+    add('LPAR', s['zos.transaction.lpar_name']);
+    add('Job', s['zos.transaction.job_name']);
+    add('Request Size', s['zosconnect.request.body.size'], ' B');
+    add('Response Size', s['zosconnect.response.body.size'], ' B');
+    return rows;
+  });
+
+  /**
+   * Runtime details rendered as extra metadata rows: lambda region /
+   * version / cold start, and k8s namespace / pod for containerized
+   * services. Empty when the fields are absent.
+   */
+  runtimeDetails = computed<{ label: string; value: string }[]>(() => {
+    const node = this.selectedNode();
+    if (!node || node.isExternal || !node.spans?.length) return [];
+    const rows: { label: string; value: string }[] = [];
+    if (node.isLambda) {
+      const regionSpan = node.spans.find(s => s['aws.region'] || s['cloud.region']);
+      if (regionSpan) {
+        rows.push({ label: 'Region', value: String(regionSpan['aws.region'] || regionSpan['cloud.region']) });
+      }
+      const versionSpan = node.spans.find(s => s['faas.version']);
+      if (versionSpan) {
+        rows.push({ label: 'Version', value: String(versionSpan['faas.version']) });
+      }
+      // Warm lambdas aren't news — only surface genuine cold starts.
+      if (node.spans.some(s => String(s['faas.coldstart']).toLowerCase() === 'true')) {
+        rows.push({ label: 'Cold Start', value: 'yes' });
+      }
+    }
+    const k8sSpan = node.spans.find(s => s['k8s.namespace.name'] || s['k8s.pod.name']);
+    if (k8sSpan) {
+      if (k8sSpan['k8s.namespace.name']) {
+        rows.push({ label: 'K8s Namespace', value: String(k8sSpan['k8s.namespace.name']) });
+      }
+      if (k8sSpan['k8s.pod.name']) {
+        rows.push({ label: 'Pod', value: String(k8sSpan['k8s.pod.name']) });
+      }
+    }
+    return rows;
+  });
+
+  /**
+   * Tail-preserving truncation for messaging destinations — the last
+   * segments of "Enterprise.OO...LoginSuccess.L0" are the meaningful part.
+   */
+  truncateStart(text: string, max: number): string {
+    if (!text || text.length <= max) return text;
+    return '\u2026' + text.substring(text.length - (max - 1));
+  }
+
   /** Pixel width for a tech badge tab, proportional to its label. */
   techBadgeWidth(badge: string): number {
     return badge.length * 7 + 18;

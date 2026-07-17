@@ -106,6 +106,11 @@
   stroke-width: 2.25;
 }
 
+/* Async (messaging) edges — fire-and-forget hops render dashed */
+.flow-edge-async {
+  stroke-dasharray: 6 5;
+}
+
 /* Faded state */
 .flow-node {
   transition: opacity 0.2s;
@@ -192,6 +197,7 @@
 .flow-badge-tech-spring rect { fill: #3b6d11; }
 .flow-badge-tech-apache rect { fill: #6b7280; }
 .flow-badge-tech-kafka rect { fill: #3f3f46; }
+.flow-badge-tech-mq rect { fill: #0f3a5f; }
 .flow-badge-tech-mainframe rect,
 .flow-badge-tech-ibm rect { fill: #0f3a5f; }
 
@@ -263,6 +269,22 @@
 .flow-node-db.flow-node-selected .flow-node-rect {
   fill: #dbeafe;
   stroke: #2563eb;
+}
+
+/* Messaging nodes (Kafka topics / MQ queues) — neutral pill, dashed */
+.flow-node-messaging .flow-node-rect {
+  fill: #f4f4f5;
+  stroke: #52525b;
+  stroke-dasharray: 3 3;
+}
+
+.flow-node-messaging:hover .flow-node-rect {
+  stroke: #27272a;
+}
+
+.flow-node-messaging.flow-node-selected .flow-node-rect {
+  fill: #e4e4e7;
+  stroke: #27272a;
 }
 
 /* Node text */
@@ -610,6 +632,11 @@
   color: #3f3f46;
 }
 
+.flow-badge-inline-tech-mq {
+  background: #dbeafe;
+  color: #0f3a5f;
+}
+
 .flow-badge-inline-tech-mainframe,
 .flow-badge-inline-tech-ibm {
   background: #dbeafe;
@@ -629,6 +656,16 @@
 .flow-badge-inline-ext {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+/* Mainframe details group — separated from the main metadata block */
+.flow-drawer-mainframe {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+
+.flow-drawer-mainframe .flow-drawer-section-label {
+  width: 100%;
 }
 
 /* Call-count multiplier for aggregated spans (×N) */
