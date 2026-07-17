@@ -328,6 +328,23 @@
   overflow: hidden;
 }
 
+/* Outside fullscreen the drawer extends the section downward instead of
+   compressing the canvas: the container releases its fixed height, the
+   canvas keeps its full 520px, and the drawer takes its own (capped)
+   height below. Page content underneath is pushed down. Fullscreen keeps
+   the original shrink behavior since the viewport can't grow. */
+.flow-diagram-wrapper:not(.flow-fullscreen) .flow-canvas-container.flow-drawer-open {
+  height: auto;
+}
+
+.flow-diagram-wrapper:not(.flow-fullscreen) .flow-drawer-open .flow-canvas {
+  flex: 0 0 520px;
+}
+
+.flow-diagram-wrapper:not(.flow-fullscreen) .flow-drawer {
+  max-height: 380px;
+}
+
 .flow-drawer-header {
   display: flex;
   align-items: center;

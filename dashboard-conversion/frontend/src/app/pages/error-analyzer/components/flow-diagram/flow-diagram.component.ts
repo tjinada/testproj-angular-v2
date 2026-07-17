@@ -52,6 +52,8 @@ export class FlowDiagramComponent implements OnChanges {
   @ViewChild('svgEl', { static: false }) svgEl?: ElementRef<SVGSVGElement>;
   @ViewChild('flowBarEl', { static: false }) flowBarEl?: ElementRef<HTMLDivElement>;
 
+  constructor(private hostEl: ElementRef<HTMLElement>) {}
+
   flowBarOverflows = signal(false);
   flowBarScrolledEnd = signal(false);
 
@@ -447,6 +449,15 @@ export class FlowDiagramComponent implements OnChanges {
     this.selectedNodeId.set(current === node.id ? null : node.id);
     this.expandedSections.set(new Set());
     queueMicrotask(() => this.checkFlowBarOverflow());
+    // Outside fullscreen the drawer opens below the full-height canvas,
+    // possibly under the fold — nudge the page so it's visible. 'nearest'
+    // scrolls the minimum amount and is a no-op if already on screen.
+    if (this.selectedNodeId() !== null && !this.isFullscreen()) {
+      setTimeout(() => {
+        this.hostEl.nativeElement.querySelector('.flow-drawer')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 0);
+    }
   }
 
   closeDetails(): void {
