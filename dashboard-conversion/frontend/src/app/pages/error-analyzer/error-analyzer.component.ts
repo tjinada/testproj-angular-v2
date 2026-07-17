@@ -527,16 +527,21 @@ export class ErrorAnalyzerComponent implements OnInit {
   }
 
   /**
-   * Scrolls the viewport to the trace detail area. Called when a trace
-   * fetch starts, so the user lands on the loading skeleton and the
-   * summary card + flow diagram fill in where they're already looking.
+   * Scrolls the viewport to the Component Flow diagram. Called when a
+   * trace fetch starts: while loading it targets the diagram's skeleton
+   * placeholder, after load the real diagram sits in (roughly) the same
+   * spot. Falls back to the anchor top if neither element exists yet.
    * detectChanges first so the skeleton exists before scrolling; the
    * setTimeout lets the browser finish layout in the same frame.
    */
   private scrollToTraceDetail(): void {
     this.cdr.detectChanges();
     setTimeout(() => {
-      this.traceDetailAnchor?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const anchor = this.traceDetailAnchor?.nativeElement;
+      if (!anchor) return;
+      const target = anchor.querySelector('.skeleton-diagram, app-flow-diagram') as HTMLElement | null;
+      const top = (target || anchor).getBoundingClientRect().top + window.scrollY - 72;
+      window.scrollTo({ top, behavior: 'smooth' });
     }, 0);
   }
 
