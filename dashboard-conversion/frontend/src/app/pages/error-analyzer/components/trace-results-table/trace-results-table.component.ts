@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TraceMatch } from '../../models/trace.model';
@@ -23,6 +23,9 @@ import { TraceMatch } from '../../models/trace.model';
   styleUrls: ['./trace-results-table.component.scss']
 })
 export class TraceResultsTableComponent implements OnChanges {
+  /** Scrollable table body; used to bring newly appended rows into view. */
+  @ViewChild('tableWrap') tableWrap?: ElementRef<HTMLElement>;
+
   @Input() results: TraceMatch[] = [];
   @Input() selectedTraceId: string | null = null;
   /** True when the last page was full — older traces may exist in the window. */
@@ -47,6 +50,41 @@ export class TraceResultsTableComponent implements OnChanges {
     if (changes['results'] && this.selectedHost && !this.uniqueHosts.includes(this.selectedHost)) {
       this.selectedHost = '';
     }
+
+    // Load-more append (length grew from a non-empty set — new searches
+    // always pass through an empty array first, so they never match):
+    // scroll the table body so the first newly loaded row is visible,
+    // with a couple of older rows above it for context.
+    if (changes['results']) {
+      const prev = (changes['results'].previousValue as TraceMatch[] | undefined) || [];
+      const curr = this.results;
+      if (prev.length > 0 && curr.length > prev.length) {
+        this.scrollToAppendedRows(prev);
+      }
+    }
+  }
+
+  /**
+   * Scrolls the internal table body to the boundary between old and new
+   * rows after a load-more append. Works against the *filtered* view:
+   * counts how many previously loaded rows pass the current filters and
+   * targets the first row after them. setTimeout lets Angular render the
+   * appended rows first.
+   */
+  private scrollToAppendedRows(prevResults: TraceMatch[]): void {
+    const prevIds = new Set(prevResults.map(r => r.traceId));
+    const firstNewIndex = this.filtered().findIndex(r => !prevIds.has(r.traceId));
+    if (firstNewIndex < 0) return;
+
+    setTimeout(() => {
+      const wrap = this.tableWrap?.nativeElement;
+      if (!wrap) return;
+      const rows = wrap.querySelectorAll<HTMLElement>('tbody tr.results-row');
+      const target = rows[firstNewIndex];
+      if (!target) return;
+      // ~2 old rows of context above the boundary, minus the sticky header.
+      wrap.scrollTo({ top: Math.max(target.offsetTop - 100, 0), behavior: 'smooth' });
+    }, 0);
   }
 
   onLoadMoreClick(): void {
