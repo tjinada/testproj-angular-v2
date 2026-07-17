@@ -287,6 +287,16 @@
   stroke: #27272a;
 }
 
+/* Messaging labels are long dotted destinations — smaller font so the
+   tail-preserved truncation fits inside the 210px pill */
+.flow-node-messaging .flow-node-label {
+  font-size: 11px;
+}
+
+.flow-node-messaging .flow-node-sub {
+  font-style: italic;
+}
+
 /* Node text */
 .flow-node-label {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
