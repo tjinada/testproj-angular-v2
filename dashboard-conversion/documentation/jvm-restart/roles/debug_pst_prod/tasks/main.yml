@@ -47,6 +47,7 @@
   set_fact:
     was_profile: "OlbSrv{{ node_index }}1"
     was_node: "bolbnode{{ node_index }}1"
+    node: "bolbnode{{ node_index }}1"
     was_bin: "/opt/IBM/WebSphere/AppServer/profiles/OlbSrv{{ node_index }}1/bin"
     node_all_jvms: "{{ ['server' ~ node_index ~ '1', 'server' ~ node_index ~ '2'] }}"
 
@@ -57,12 +58,15 @@
          if ('ALL' in (jvm | default([])))
          else (node_all_jvms | select('in', (jvm | default([]))) | list) }}
 
-- name: Build node scope for the health check
+- name: Record this host's servers for the fleet-wide health check (play 2)
   set_fact:
-    node: "{{ was_node }}"
-    nodes_servers:
-      - node: "{{ was_node }}"
-        server_names: "{{ node_jvms | map('regex_replace', '^', app_name ~ '-') | list }}"
+    host_check_entry:
+      node: "{{ was_node }}"
+      server_names: "{{ node_jvms | map('regex_replace', '^', app_name ~ '-') | list }}"
+  when:
+    - task in ['Start JVM', 'Restart JVM']
+    - node_jvms | length > 0
+    - dry_run != "true"
 
 - name: Confirming Configs for deployments
   debug:
@@ -133,29 +137,7 @@
     - task in ['Start JVM', 'Restart JVM']
     - dry_run != "true"
 
-# --------------------------------------------------------------------------
-# Per-node health check. Script is rendered with THIS node's nodes_servers,
-# so it validates only the JVMs this node just started. Combined with
-# serial:1 + any_errors_fatal, a failed start halts the rollout here.
-# --------------------------------------------------------------------------
-- name: Render node-scoped health check (script unchanged)
-  template:
-    src: check_application.py
-    dest: "{{ tmp_directory }}/check_application.py"
-  become: true
-  become_user: wasadmin
-  when:
-    - task in ['Start JVM', 'Restart JVM']
-    - node_jvms | length > 0
-    - dry_run != "true"
-
-- name: Check if applications started on this node
-  shell: "{{ WAS_PATH }}/wsadmin.sh -lang jython -f {{ tmp_directory }}/check_application.py >> {{ log_file_path }}"
-  args:
-    chdir: "{{ tmp_directory }}"
-  become: true
-  become_user: wasadmin
-  when:
-    - task in ['Start JVM', 'Restart JVM']
-    - node_jvms | length > 0
-    - dry_run != "true"
+# Health check runs once on Core (the dmgr host) in a second play - see
+# restart_jvm.yml and tasks/check.yml. It's kept off the app nodes because
+# wsadmin from a non-dmgr host opens a remote SOAP connection to the dmgr,
+# which fails TLS hostname verification (cert has no SAN for the app FQDNs).

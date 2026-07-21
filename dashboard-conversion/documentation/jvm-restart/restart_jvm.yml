@@ -4,11 +4,18 @@
 # Node topology (which physical host = which node_index) lives in inventory,
 # so adding a 7th app server is an inventory edit, not a playbook edit.
 #
-# serial:
-#   default 1     -> one node at a time (rolling; only one node's capacity down at once)
-#   jvm_batch=100% -> all nodes in parallel (host-count agnostic)
-#   jvm_batch=N    -> N nodes at a time
-# any_errors_fatal: a failed per-node health check halts the rollout before the next node.
+# PLAY 1 (AppNode): stop / clear logs / start, one node at a time.
+#   serial:
+#     default 1      -> one node at a time (rolling; only one node's capacity down at once)
+#     jvm_batch=100% -> all nodes in parallel (host-count agnostic)
+#     jvm_batch=N    -> N nodes at a time
+#   any_errors_fatal: a failed stop/start halts the rollout before the next node.
+#
+# PLAY 2 (Core): one fleet-wide application health check from the dmgr host,
+#   after every batch above has completed. It runs here rather than on each app
+#   node because wsadmin from a non-dmgr host opens a remote SOAP connection to
+#   the dmgr, which fails TLS hostname verification (the dmgr cert has no SAN
+#   for the app-server FQDNs). On Core the connection is local.
 - hosts: "AppNode"
   become: true
   gather_facts: yes
@@ -16,3 +23,14 @@
   any_errors_fatal: true
   roles:
     - debug_pst_prod
+
+- hosts: "Core"
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Fleet-wide application health check (once, from the dmgr host)
+      include_role:
+        name: debug_pst_prod
+        tasks_from: check
+      run_once: true
+      when: task in ['Start JVM', 'Restart JVM']

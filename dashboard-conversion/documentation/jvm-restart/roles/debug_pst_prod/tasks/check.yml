@@ -1,0 +1,43 @@
+---
+# Fleet-wide application health check. Included once from the Core (dmgr) host
+# in play 2 of restart_jvm.yml, AFTER every rolling batch of the AppNode play
+# has finished. Each restarted host recorded its own {node, server_names} as
+# `host_check_entry` during play 1; here we gather them into the single
+# `nodes_servers` list that check_application.py (unchanged) iterates over.
+#
+# Runs on the dmgr host so wsadmin uses a LOCAL admin connection, avoiding the
+# remote-SOAP TLS hostname check that fails from the app nodes (cert has no SAN
+# for the app-server FQDNs).
+#
+# cell / WAS_PATH / tmp_directory come from this role's defaults (loaded by
+# include_role). application_name / log_file_path / node are read from the Core
+# host's own facts, set during play 1 (Core is app001, which is in AppNode).
+
+- name: Assemble fleet-wide nodes_servers from restarted hosts
+  set_fact:
+    nodes_servers: >-
+      {{ groups['AppNode']
+         | map('extract', hostvars)
+         | selectattr('host_check_entry', 'defined')
+         | map(attribute='host_check_entry')
+         | list }}
+
+- name: Report the JVMs about to be health-checked
+  debug:
+    msg: "Fleet health check covering: {{ nodes_servers }}"
+
+- name: Render the health check (script unchanged)
+  template:
+    src: check_application.py
+    dest: "{{ tmp_directory }}/check_application.py"
+  become: true
+  become_user: wasadmin
+  when: nodes_servers | length > 0
+
+- name: Check if applications started across the fleet (from the dmgr host)
+  shell: "{{ WAS_PATH }}/wsadmin.sh -lang jython -f {{ tmp_directory }}/check_application.py >> {{ log_file_path }}"
+  args:
+    chdir: "{{ tmp_directory }}"
+  become: true
+  become_user: wasadmin
+  when: nodes_servers | length > 0
