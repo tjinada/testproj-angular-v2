@@ -1,0 +1,4 @@
+curl -sv -o /dev/null \
+  -w "dns:%{time_namelookup} conn:%{time_connect} ttfb:%{time_starttransfer} total:%{time_total}\n" \
+  -H "Pragma: akamai-x-cache-on, akamai-x-check-cacheable, akamai-x-get-cache-key, akamai-x-get-true-cache-key" \
+  "https://www1.bmo.com/banking/digital/configs/mobile-version-properties.json"
