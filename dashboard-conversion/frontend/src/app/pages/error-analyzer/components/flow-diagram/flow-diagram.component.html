@@ -2,7 +2,15 @@
 
   <!-- Toolbar -->
   <div class="flow-toolbar">
-    <span class="flow-title">Component Flow</span>
+    <div class="flow-toolbar-left">
+      <span class="flow-title">Component Flow</span>
+      <div class="flow-lens-switch" role="tablist" aria-label="Diagram lens">
+        <button class="flow-lens-btn" [class.flow-lens-active]="!isDurationLens()"
+                (click)="setLens('flow')">Flow</button>
+        <button class="flow-lens-btn" [class.flow-lens-active]="isDurationLens()"
+                (click)="setLens('duration')">Duration</button>
+      </div>
+    </div>
     <div class="flow-controls">
       <button class="flow-btn" (click)="zoomIn()" title="Zoom in">+</button>
       <button class="flow-btn" (click)="zoomOut()" title="Zoom out">&minus;</button>
@@ -13,6 +21,31 @@
         {{ isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen' }}
       </button>
       <span class="flow-zoom-label">{{ (k() * 100) | number:'1.0-0' }}%</span>
+    </div>
+  </div>
+
+  <!-- Duration lens: legend + critical path breakdown -->
+  <div class="flow-lens-bar" *ngIf="isDurationLens()">
+    <div class="flow-lens-legend">
+      <span class="flow-legend-item"><span class="flow-legend-swatch flow-legend-wait"></span> waiting (low CPU)</span>
+      <span class="flow-legend-item"><span class="flow-legend-swatch flow-legend-work"></span> working (high CPU)</span>
+      <span class="flow-legend-item"><span class="flow-legend-swatch flow-legend-none"></span> no CPU data</span>
+      <span class="flow-legend-item flow-legend-path" *ngIf="criticalPath() as cp"
+            title="Wall time per node's spans can overlap parent/child; CPU is the reliable work signal">
+        <span class="flow-legend-gold"></span> critical path · {{ formatDuration(cp.totalDurationNanos) }}
+      </span>
+    </div>
+    <div class="flow-critical-strip" *ngIf="criticalPath() as cp">
+      <ng-container *ngFor="let step of cp.steps; let last = last">
+        <button class="flow-critical-step"
+                [class.flow-critical-step-selected]="selectedNodeId() === step.nodeId"
+                (click)="selectNodeById(step.nodeId)"
+                [title]="step.label">
+          <span class="flow-critical-step-name">{{ truncate(step.label, 28) }}</span>
+          <span class="flow-critical-step-time">{{ formatDuration(step.durationNanos) }}</span>
+        </button>
+        <span class="flow-critical-arrow" *ngIf="!last">→</span>
+      </ng-container>
     </div>
   </div>
 
@@ -50,10 +83,26 @@
             class="flow-edge"
             [class.flow-edge-failed]="edge.isFailed"
             [class.flow-edge-async]="edge.isAsync"
+            [class.flow-edge-critical]="isDurationLens() && isEdgeOnCriticalPath(edge)"
+            [class.flow-lens-dim]="isLensDimmedEdge(edge)"
             [class.flow-faded]="isEdgeFaded(edge)"
             [attr.marker-end]="edge.isFailed ? 'url(#fd-arrow-failed)' : 'url(#fd-arrow)'"
             fill="none"
           />
+        </g>
+
+        <!-- Edge timing labels (Duration lens) -->
+        <g class="flow-edge-labels" *ngIf="isDurationLens()">
+          <text
+            *ngFor="let edge of graph().edges; trackBy: trackEdge"
+            class="flow-edge-label"
+            [class.flow-edge-label-critical]="isEdgeOnCriticalPath(edge)"
+            [class.flow-lens-dim]="isLensDimmedEdge(edge)"
+            [class.flow-faded]="isEdgeFaded(edge)"
+            [attr.x]="edgeMid(edge).x"
+            [attr.y]="edgeMid(edge).y"
+            text-anchor="middle"
+          >{{ edgeTimingLabel(edge) }}</text>
         </g>
 
         <!-- Nodes -->
@@ -70,6 +119,10 @@
             [class.flow-node-channels]="node.isChannels"
             [class.flow-node-root-cause]="node.isRootCause"
             [class.flow-node-selected]="selectedNodeId() === node.id"
+            [class.flow-tint-wait]="isDurationLens() && durationTint(node) === 'wait'"
+            [class.flow-tint-work]="isDurationLens() && durationTint(node) === 'work'"
+            [class.flow-on-path]="isDurationLens() && isOnCriticalPath(node.id)"
+            [class.flow-lens-dim]="isLensDimmedNode(node.id)"
             [class.flow-faded]="isNodeFaded(node.id)"
             [attr.transform]="'translate(' + (node.x - node.width/2) + ',' + (node.y - node.height/2) + ')'"
             (click)="onNodeClick(node, $event)"
@@ -114,10 +167,13 @@
               {{ truncate(node.hostname, 32) }}
             </text>
             <text class="flow-node-sub" [attr.x]="node.width/2" y="70" text-anchor="middle">
-              {{ node.sublabel }}
-              <ng-container *ngIf="!node.isExternal && node.endpoints.length > 0">
-                · {{ node.endpoints.length }} endpoint{{ node.endpoints.length === 1 ? '' : 's' }}
-              </ng-container>
+              <ng-container *ngIf="isDurationLens(); else flowSublabel">{{ nodeTimingLabel(node) }}</ng-container>
+              <ng-template #flowSublabel>
+                {{ node.sublabel }}
+                <ng-container *ngIf="!node.isExternal && node.endpoints.length > 0">
+                  · {{ node.endpoints.length }} endpoint{{ node.endpoints.length === 1 ? '' : 's' }}
+                </ng-container>
+              </ng-template>
             </text>
           </g>
         </g>

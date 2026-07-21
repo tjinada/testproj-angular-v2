@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpanRecord, SpanEvent, CapturedException } from '../../models/trace.model';
-import { buildFlowGraph, findConnectedNodeIds, FlowGraph, FlowNode, FlowEdge } from './flow-layout';
+import { buildFlowGraph, findConnectedNodeIds, computeCriticalPath, CriticalPath, FlowGraph, FlowNode, FlowEdge } from './flow-layout';
 import { isSpanFailed, extractCapturedExceptions } from '../../services/trace-analyzer';
 
 /** A row in the per-node span timeline. */
@@ -130,15 +130,22 @@ export class FlowDiagramComponent implements OnChanges {
    * Requests this component received and performed work for: server and
    * consumer spans, plus internal/unknown kinds (work done inside the
    * component, closest in meaning to "handled" rather than "outgoing").
+   * Duration lens sorts slowest-first; Flow lens keeps chronological order.
    */
   handledRequests = computed<TimelineEntry[]>(() =>
-    this.nodeTimeline().filter(e => !this.isOutgoingKind(e.kind))
+    this.sortForLens(this.nodeTimeline().filter(e => !this.isOutgoingKind(e.kind)))
   );
 
   /** Calls this component made to other services: client and producer spans. */
   outgoingRequests = computed<TimelineEntry[]>(() =>
-    this.nodeTimeline().filter(e => this.isOutgoingKind(e.kind))
+    this.sortForLens(this.nodeTimeline().filter(e => this.isOutgoingKind(e.kind)))
   );
+
+  /** Slowest-first in Duration mode; input (chronological) order otherwise. */
+  private sortForLens<T extends { durationNanos: number }>(entries: T[]): T[] {
+    if (this.lensMode() !== 'duration') return entries;
+    return [...entries].sort((a, b) => b.durationNanos - a.durationNanos);
+  }
 
   private isOutgoingKind(kind: string): boolean {
     const k = (kind || '').toLowerCase();
@@ -153,18 +160,20 @@ export class FlowDiagramComponent implements OnChanges {
   dbStatements = computed<DbStatement[]>(() => {
     const node = this.selectedNode();
     if (!node || !node.isDb || !node.spans?.length) return [];
-    return [...node.spans]
-      .sort((a, b) =>
-        new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
-      )
-      .map(s => ({
-        spanId: s['span.id'],
-        operation: (s['db.operation.name'] as string) || (s['span.name'] as string) || 'QUERY',
-        query: (s['db.query.text'] as string) || '',
-        durationNanos: Number(s['aggregation.duration_sum']) || Number(s['duration']) || 0,
-        callCount: Number(s['aggregation.count']) || 1,
-        isFailed: isSpanFailed(s)
-      }));
+    return this.sortForLens(
+      [...node.spans]
+        .sort((a, b) =>
+          new Date(a['start_time']).getTime() - new Date(b['start_time']).getTime()
+        )
+        .map(s => ({
+          spanId: s['span.id'],
+          operation: (s['db.operation.name'] as string) || (s['span.name'] as string) || 'QUERY',
+          query: (s['db.query.text'] as string) || '',
+          durationNanos: Number(s['aggregation.duration_sum']) || Number(s['duration']) || 0,
+          callCount: Number(s['aggregation.count']) || 1,
+          isFailed: isSpanFailed(s)
+        }))
+    );
   });
 
   trackDbStatement(_index: number, entry: DbStatement): string {
@@ -249,6 +258,92 @@ export class FlowDiagramComponent implements OnChanges {
   truncateStart(text: string, max: number): string {
     if (!text || text.length <= max) return text;
     return '\u2026' + text.substring(text.length - (max - 1));
+  }
+
+  // ── Duration lens ──────────────────────────────────────────────
+
+  /** Active lens: 'flow' is today's structural view; 'duration' shows timing. */
+  lensMode = signal<'flow' | 'duration'>('flow');
+
+  /** Critical path of the current trace (recomputed per trace load). */
+  criticalPath = signal<CriticalPath | null>(null);
+
+  setLens(mode: 'flow' | 'duration'): void {
+    this.lensMode.set(mode);
+  }
+
+  isDurationLens(): boolean {
+    return this.lensMode() === 'duration';
+  }
+
+  isOnCriticalPath(nodeId: string): boolean {
+    return this.criticalPath()?.nodeIds.has(nodeId) ?? false;
+  }
+
+  isEdgeOnCriticalPath(edge: FlowEdge): boolean {
+    return this.criticalPath()?.edgeKeys.has(edge.id) ?? false;
+  }
+
+  /**
+   * Lens dimming for off-path elements: only in Duration mode, and only
+   * while no selection highlight is active (selection fade wins).
+   */
+  isLensDimmedNode(nodeId: string): boolean {
+    return this.isDurationLens()
+      && this.selectedNodeId() === null
+      && this.criticalPath() !== null
+      && !this.isOnCriticalPath(nodeId);
+  }
+
+  isLensDimmedEdge(edge: FlowEdge): boolean {
+    return this.isDurationLens()
+      && this.selectedNodeId() === null
+      && this.criticalPath() !== null
+      && !this.isEdgeOnCriticalPath(edge);
+  }
+
+  /**
+   * Wait-vs-work classification from the CPU-to-wall ratio. 'none' when
+   * CPU isn't reported (externals, mainframe, some OTel) — we never fake
+   * a middle value.
+   */
+  durationTint(node: FlowNode): 'wait' | 'work' | 'none' {
+    if (node.totalCpuNanos <= 0 || node.totalDurationNanos <= 0) return 'none';
+    return node.totalCpuNanos / node.totalDurationNanos < 0.2 ? 'wait' : 'work';
+  }
+
+  /** Node sublabel in Duration mode: "1.4s total · 85ms cpu". */
+  nodeTimingLabel(node: FlowNode): string {
+    if (node.totalDurationNanos <= 0) return node.sublabel;
+    const total = `${this.formatDuration(node.totalDurationNanos)} total`;
+    return node.totalCpuNanos > 0
+      ? `${total} \u00b7 ${this.formatDuration(node.totalCpuNanos)} cpu`
+      : total;
+  }
+
+  /** Edge label in Duration mode: "60 calls · 1.4s". */
+  edgeTimingLabel(edge: FlowEdge): string {
+    const calls = `${edge.callCount} call${edge.callCount === 1 ? '' : 's'}`;
+    return edge.durationNanos > 0
+      ? `${calls} \u00b7 ${this.formatDuration(edge.durationNanos)}`
+      : calls;
+  }
+
+  /** Midpoint between two node centers, for edge label placement. */
+  edgeMid(edge: FlowEdge): { x: number; y: number } {
+    const nodes = this.graph().nodes;
+    const source = nodes.find(n => n.id === edge.sourceId);
+    const target = nodes.find(n => n.id === edge.targetId);
+    if (!source || !target) return { x: 0, y: 0 };
+    return { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 - 6 };
+  }
+
+  /** Strip click: select the node for that step (same as clicking it). */
+  selectNodeById(nodeId: string): void {
+    if (this.selectedNodeId() === nodeId) return;
+    this.selectedNodeId.set(nodeId);
+    const node = this.graph().nodes.find(n => n.id === nodeId);
+    this.expandedSections.set(node?.isDb ? new Set(['db-statements']) : new Set());
   }
 
   /** Pixel width for a tech badge tab, proportional to its label. */
@@ -482,6 +577,8 @@ export class FlowDiagramComponent implements OnChanges {
       const g = buildFlowGraph(this.spans || [], this.rootCauseService);
       this.graph.set(g);
       this.selectedNodeId.set(null);
+      this.criticalPath.set(computeCriticalPath(this.spans || []));
+      this.lensMode.set('flow');
       queueMicrotask(() => this.fitToScreen());
     }
   }

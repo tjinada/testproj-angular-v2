@@ -668,6 +668,154 @@
   color: #6b7280;
 }
 
+/* ============================================================
+   DURATION LENS
+   ============================================================ */
+
+/* Toolbar left cluster (title + lens switch) */
+.flow-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.flow-lens-switch {
+  display: inline-flex;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.flow-lens-btn {
+  padding: 3px 12px;
+  font-size: 12px;
+  border: none;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.flow-lens-btn + .flow-lens-btn {
+  border-left: 1px solid #d1d5db;
+}
+
+.flow-lens-btn.flow-lens-active {
+  background: #1B4F72;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Legend + critical path strip */
+.flow-lens-bar {
+  border-bottom: 1px solid #e5e7eb;
+  background: #fcfcfd;
+  padding: 6px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-lens-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
+  color: #6b7280;
+  flex-wrap: wrap;
+}
+
+.flow-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.flow-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.flow-legend-wait { background: #dbeafe; border: 1px solid #93c5fd; }
+.flow-legend-work { background: #fef3c7; border: 1px solid #fbbf24; }
+.flow-legend-none { background: #f4f4f5; border: 1px solid #d4d4d8; }
+
+.flow-legend-gold {
+  width: 16px;
+  height: 3px;
+  background: #b98900;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.flow-legend-path { margin-left: auto; }
+
+.flow-critical-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.flow-critical-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e5d9b8;
+  background: #fdf9ec;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.flow-critical-step:hover { border-color: #b98900; }
+
+.flow-critical-step-selected {
+  border-color: #b98900;
+  background: #faf1d6;
+}
+
+.flow-critical-step-name { font-weight: 500; }
+.flow-critical-step-time { color: #92700c; font-weight: 600; }
+.flow-critical-arrow { color: #b98900; font-size: 12px; }
+
+/* Wait-vs-work node tinting — failure red always wins */
+.flow-node:not(.flow-node-failed).flow-tint-wait .flow-node-rect { fill: #dbeafe; }
+.flow-node:not(.flow-node-failed).flow-tint-work .flow-node-rect { fill: #fef3c7; }
+
+/* Critical path node border (failure red wins) */
+.flow-node.flow-on-path:not(.flow-node-failed) .flow-node-rect {
+  stroke: #b98900;
+  stroke-width: 2;
+}
+
+/* Off-path dimming (lighter than the 0.18 selection fade) */
+.flow-lens-dim { opacity: 0.45; }
+
+/* Critical path edges */
+.flow-edge-critical {
+  stroke: #b98900;
+  stroke-width: 3;
+}
+
+.flow-edge-critical.flow-edge-failed { stroke: #e24b4a; }
+
+/* Edge timing labels */
+.flow-edge-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  fill: #6b7280;
+  pointer-events: none;
+}
+
+.flow-edge-label-critical {
+  fill: #92700c;
+  font-weight: 600;
+}
+
 /* Mainframe details group — separated from the main metadata block */
 .flow-drawer-mainframe {
   border-top: 1px solid #e5e7eb;

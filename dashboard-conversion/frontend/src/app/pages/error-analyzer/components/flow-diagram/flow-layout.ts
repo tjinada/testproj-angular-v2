@@ -21,6 +21,8 @@ export interface FlowNode {
   isChannels: boolean;     // true if k8s.container.name contains 'channels'
   techBadge: string;       // display badge from icon.primaryIconType ('' = none)
   callCount: number;       // real call count (aggregation-aware; >= spanCount)
+  totalDurationNanos: number; // wall time attributable to this node's spans (may overlap parent/child)
+  totalCpuNanos: number;   // CPU time reported by this node's spans (0 = not reported)
   exceptionCount: number;  // count of captured exceptions on non-failing spans
   websphereServer: string; // websphere.server.name value (empty if not WAS)
   spanCount: number;
@@ -37,6 +39,7 @@ export interface FlowEdge {
   isFailed: boolean;
   isAsync: boolean;        // true for fire-and-forget messaging hops (rendered dashed)
   callCount: number;
+  durationNanos: number;   // total wall time of the child spans behind this edge
 }
 
 export interface FlowGraph {
@@ -84,6 +87,19 @@ function isDbSpan(span: SpanRecord): boolean {
 function callsOf(span: SpanRecord): number {
   const n = Number(span['aggregation.count']);
   return Number.isFinite(n) && n > 1 ? n : 1;
+}
+
+/**
+ * Wall-clock nanoseconds attributable to a span. Aggregated spans carry
+ * the true total in aggregation.duration_sum; plain duration otherwise.
+ */
+function durationOf(span: SpanRecord): number {
+  return Number(span['aggregation.duration_sum']) || Number(span['duration']) || 0;
+}
+
+/** CPU nanoseconds reported for a span (0 when the agent doesn't report it). */
+function cpuOf(span: SpanRecord): number {
+  return Number(span['span.timing.cpu']) || 0;
 }
 
 /**
@@ -229,6 +245,8 @@ export function buildFlowGraph(
     // Aggregation-aware call count; shown only when it differs from the
     // span count so unaggregated nodes look unchanged.
     const callCount = grp.reduce((sum, s) => sum + callsOf(s), 0);
+    const totalDurationNanos = grp.reduce((sum, s) => sum + durationOf(s), 0);
+    const totalCpuNanos = grp.reduce((sum, s) => sum + cpuOf(s), 0);
     const spanPart = `${grp.length} span${grp.length === 1 ? '' : 's'}`;
     const callPart = callCount !== grp.length ? ` \u00b7 ${callCount} calls` : '';
     const sublabel = (isLambda ? 'lambda \u00b7 ' : '') + spanPart + callPart;
@@ -252,6 +270,8 @@ export function buildFlowGraph(
       isChannels,
       techBadge,
       callCount,
+      totalDurationNanos,
+      totalCpuNanos,
       exceptionCount: (() => {
         const failedSpanIds = new Set(grp.filter(isSpanFailed).map(s => s['span.id']));
         const captured = extractCapturedExceptions(grp).filter(ex => !failedSpanIds.has(ex.spanId)).length;
@@ -273,12 +293,16 @@ export function buildFlowGraph(
 
   // --- Build edges between real services ---
   const edgeMap = new Map<string, FlowEdge>();
-  const addEdge = (sourceId: string, targetId: string, failed: boolean, count: number = 1, isAsync: boolean = false) => {
+  const addEdge = (
+    sourceId: string, targetId: string, failed: boolean,
+    count: number = 1, isAsync: boolean = false, durationNanos: number = 0
+  ) => {
     if (sourceId === targetId) return;
     const key = `${sourceId}->${targetId}`;
     const existing = edgeMap.get(key);
     if (existing) {
       existing.callCount += count;
+      existing.durationNanos += durationNanos;
       if (failed) existing.isFailed = true;
       if (isAsync) existing.isAsync = true;
     } else {
@@ -288,7 +312,8 @@ export function buildFlowGraph(
         targetId,
         isFailed: failed,
         isAsync,
-        callCount: count
+        callCount: count,
+        durationNanos
       });
     }
   };
@@ -304,7 +329,7 @@ export function buildFlowGraph(
     if (s['span.kind'] === 'consumer' && s['messaging.destination.name']) continue;
     const childService = getServiceName(s);
     const parentService = getServiceName(parent);
-    addEdge(parentService, childService, isSpanFailed(s), callsOf(s));
+    addEdge(parentService, childService, isSpanFailed(s), callsOf(s), false, durationOf(s));
   }
 
   // --- Build DB synthetic nodes from client spans with db.namespace ---
@@ -340,6 +365,8 @@ export function buildFlowGraph(
         isChannels: false,
         techBadge: '',
         callCount: 0,
+        totalDurationNanos: 0,
+        totalCpuNanos: 0,
         exceptionCount: 0,
         websphereServer: '',
         spanCount: 0,
@@ -357,7 +384,7 @@ export function buildFlowGraph(
     node.spans.push(s);
 
     const callerService = getServiceName(s);
-    addEdge(callerService, nodeId, isSpanFailed(s), callsOf(s));
+    addEdge(callerService, nodeId, isSpanFailed(s), callsOf(s), false, durationOf(s));
   }
 
   // Finalize DB node counts and sublabels now that spans are attached:
@@ -366,6 +393,7 @@ export function buildFlowGraph(
     if (!n.isDb || n.spans.length === 0) continue;
     n.spanCount = n.spans.length;
     n.callCount = n.spans.reduce((sum, s) => sum + callsOf(s), 0);
+    n.totalDurationNanos = n.spans.reduce((sum, s) => sum + durationOf(s), 0);
     const dbSystem = (n.spans.find(s => s['db.system'])?.['db.system'] as string) || 'database';
     n.sublabel = `${dbSystem} \u00b7 ${n.callCount} call${n.callCount === 1 ? '' : 's'}`;
   }
@@ -407,6 +435,8 @@ export function buildFlowGraph(
         isChannels: false,
         techBadge: system === 'kafka' ? 'KAFKA' : 'MQ',
         callCount: 0,
+        totalDurationNanos: 0,
+        totalCpuNanos: 0,
         exceptionCount: 0,
         websphereServer: '',
         spanCount: 0,
@@ -422,9 +452,9 @@ export function buildFlowGraph(
 
     const svc = getServiceName(s);
     if (kind === 'producer') {
-      addEdge(svc, nodeId, isSpanFailed(s), callsOf(s), true);
+      addEdge(svc, nodeId, isSpanFailed(s), callsOf(s), true, durationOf(s));
     } else {
-      addEdge(nodeId, svc, isSpanFailed(s), callsOf(s), true);
+      addEdge(nodeId, svc, isSpanFailed(s), callsOf(s), true, durationOf(s));
     }
   }
 
@@ -433,6 +463,7 @@ export function buildFlowGraph(
     if (!n.isMessaging || n.spans.length === 0) continue;
     n.spanCount = n.spans.length;
     n.callCount = n.spans.reduce((sum, s) => sum + callsOf(s), 0);
+    n.totalDurationNanos = n.spans.reduce((sum, s) => sum + durationOf(s), 0);
     const system = ((n.spans[0]['messaging.system'] as string) || '').toLowerCase();
     const parts = [system === 'kafka' ? 'topic' : 'queue'];
     const producers = new Set(
@@ -485,6 +516,8 @@ export function buildFlowGraph(
         isChannels: false,
         techBadge: '',
         callCount: 0,
+        totalDurationNanos: 0,
+        totalCpuNanos: 0,
         exceptionCount: 0,
         websphereServer: '',
         spanCount: 0,
@@ -497,9 +530,11 @@ export function buildFlowGraph(
       downstreamNodeIds.add(nodeId);
     }
 
+    node.totalDurationNanos += durationOf(s);
+
     const callerService = getServiceName(s);
     // Failing external edge: don't flag the external node itself — only the edge.
-    addEdge(callerService, nodeId, isSpanFailed(s), callsOf(s));
+    addEdge(callerService, nodeId, isSpanFailed(s), callsOf(s), false, durationOf(s));
   }
 
   // NOTE: We intentionally do NOT create upstream synthetic nodes from
@@ -767,4 +802,108 @@ function walkStrictlyDown(
     const children = childrenByParent.get(node['span.id']) || [];
     for (const c of children) stack.push(c);
   }
+}
+
+// ============================================================
+// CRITICAL PATH (Duration lens)
+// ============================================================
+
+/** One hop on the critical path, for the breakdown strip. */
+export interface CriticalPathStep {
+  nodeId: string;
+  label: string;
+  durationNanos: number;
+}
+
+export interface CriticalPath {
+  nodeIds: Set<string>;
+  edgeKeys: Set<string>;
+  steps: CriticalPathStep[];
+  totalDurationNanos: number;
+}
+
+/** Display name for a critical-path step. */
+function spanDisplayName(s: SpanRecord): string {
+  return (s['endpoint.name'] as string) || (s['span.name'] as string) || getServiceName(s);
+}
+
+/**
+ * The chain where the request's time actually went: starting at the
+ * slowest root span, repeatedly follow the slowest child down to a leaf.
+ * Returns the node ids and edge keys on that chain (for gold styling)
+ * plus one step per node transition (for the breakdown strip). If the
+ * chain ends on a client/producer span, the synthetic DB/external/topic
+ * target is included so the true leaf is on the path.
+ */
+export function computeCriticalPath(spans: SpanRecord[]): CriticalPath | null {
+  if (!spans || spans.length === 0) return null;
+
+  const spanById = new Map<string, SpanRecord>();
+  const childrenByParent = new Map<string, SpanRecord[]>();
+  for (const s of spans) {
+    spanById.set(s['span.id'], s);
+    const pid = s['span.parent_id'];
+    if (pid) {
+      const list = childrenByParent.get(pid);
+      if (list) list.push(s);
+      else childrenByParent.set(pid, [s]);
+    }
+  }
+
+  // Roots: spans whose parent is absent from the trace. Pick the slowest.
+  let root: SpanRecord | null = null;
+  for (const s of spans) {
+    const pid = s['span.parent_id'];
+    if (pid && spanById.has(pid)) continue;
+    if (!root || durationOf(s) > durationOf(root)) root = s;
+  }
+  if (!root) return null;
+
+  // Follow the slowest child at each level down to a leaf.
+  const chain: SpanRecord[] = [];
+  let current: SpanRecord | null = root;
+  const visited = new Set<string>();
+  while (current && !visited.has(current['span.id'])) {
+    visited.add(current['span.id']);
+    chain.push(current);
+    const children = childrenByParent.get(current['span.id']) || [];
+    let next: SpanRecord | null = null;
+    for (const c of children) {
+      if (!next || durationOf(c) > durationOf(next)) next = c;
+    }
+    current = next;
+  }
+
+  const nodeIds = new Set<string>();
+  const edgeKeys = new Set<string>();
+  const steps: CriticalPathStep[] = [];
+  let prevNodeId: string | null = null;
+
+  const pushStep = (nodeId: string, span: SpanRecord) => {
+    if (prevNodeId === nodeId) return;
+    nodeIds.add(nodeId);
+    if (prevNodeId) edgeKeys.add(`${prevNodeId}->${nodeId}`);
+    steps.push({ nodeId, label: spanDisplayName(span), durationNanos: durationOf(span) });
+    prevNodeId = nodeId;
+  };
+
+  for (const s of chain) {
+    pushStep(getServiceName(s), s);
+  }
+
+  // Extend to the synthetic leaf when the chain ends on an outgoing span.
+  const tail = chain[chain.length - 1];
+  if (tail) {
+    const kind = tail['span.kind'];
+    const dest = tail['messaging.destination.name'] as string | undefined;
+    if (kind === 'client' && tail['db.namespace']) {
+      pushStep(`db:${String(tail['db.namespace'])}`, tail);
+    } else if (kind === 'client' && tail['server.address']) {
+      pushStep(`ext:${String(tail['server.address'])}`, tail);
+    } else if (kind === 'producer' && dest) {
+      pushStep(`msg:${dest}`, tail);
+    }
+  }
+
+  return { nodeIds, edgeKeys, steps, totalDurationNanos: durationOf(root) };
 }

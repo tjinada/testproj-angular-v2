@@ -1,0 +1,18 @@
+---
+# Rolling stop/start/restart of CDB WebSphere JVMs across the Perf AppNode fleet.
+#
+# Node topology (which physical host = which node_index) lives in inventory,
+# so adding a 7th app server is an inventory edit, not a playbook edit.
+#
+# serial:
+#   default 1     -> one node at a time (rolling; only one node's capacity down at once)
+#   jvm_batch=100% -> all nodes in parallel (host-count agnostic)
+#   jvm_batch=N    -> N nodes at a time
+# any_errors_fatal: a failed per-node health check halts the rollout before the next node.
+- hosts: "AppNode"
+  become: true
+  gather_facts: yes
+  serial: "{{ jvm_batch | default(1) }}"
+  any_errors_fatal: true
+  roles:
+    - debug_pst_prod

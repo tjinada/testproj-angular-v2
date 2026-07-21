@@ -1,0 +1,161 @@
+---
+
+- name: Create directory to hold the deployment logs
+  become: true
+  become_user: wasadmin
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ log_root }}"
+
+# --------------------------------------------------------------------------
+# app_name -> application_name / application_logs / log_file_path (unchanged)
+# --------------------------------------------------------------------------
+- name: Setting CDBBOS values based on APP_NAME
+  set_fact:
+    application_name: "CDBBOSEAR"
+    application_logs: "bos/BOSServices.log"
+    log_file_path: "{{ log_root }}/cdb_jvm_status.log"
+  when: app_name == "CDBBOS"
+
+- name: Setting CDBBOS pr1 values based on APP_NAME
+  set_fact:
+    application_name: "CDBBOSEAR-pr1"
+    application_logs: "bos/BOSServices.log"
+    log_file_path: "{{ log_root }}/cdb_blue_jvm_status.log"
+  when: app_name == "CDBBOS-pr1"
+
+- name: Setting CDBBOS pr2 values based on APP_NAME
+  set_fact:
+    application_name: "CDBBOSEAR-pr2"
+    application_logs: "bos/BOSServices.log"
+    log_file_path: "{{ log_root }}/cdb_green_jvm_status.log"
+  when: app_name == "CDBBOS-pr2"
+
+- name: Fail early on an unmapped app_name
+  fail:
+    msg: "app_name '{{ app_name }}' has no mapping - expected CDBBOS, CDBBOS-pr1, or CDBBOS-pr2"
+  when: application_name is not defined
+
+# --------------------------------------------------------------------------
+# Resolve THIS node's JVMs, honouring the survey selection ('ALL' = both).
+# node_index comes from host_vars; the perf WAS naming is derived here so it
+# stays scoped to this role and never touches other envs' AppNode groups.
+# --------------------------------------------------------------------------
+- name: Derive this node's WAS identifiers and JVM suffixes
+  set_fact:
+    was_profile: "OlbSrv{{ node_index }}1"
+    was_node: "bolbnode{{ node_index }}1"
+    was_bin: "/opt/IBM/WebSphere/AppServer/profiles/OlbSrv{{ node_index }}1/bin"
+    node_all_jvms: "{{ ['server' ~ node_index ~ '1', 'server' ~ node_index ~ '2'] }}"
+
+- name: Select the JVMs to act on ('ALL' targets both JVMs on every node)
+  set_fact:
+    node_jvms: >-
+      {{ node_all_jvms
+         if ('ALL' in (jvm | default([])))
+         else (node_all_jvms | select('in', (jvm | default([]))) | list) }}
+
+- name: Build node scope for the health check
+  set_fact:
+    node: "{{ was_node }}"
+    nodes_servers:
+      - node: "{{ was_node }}"
+        server_names: "{{ node_jvms | map('regex_replace', '^', app_name ~ '-') | list }}"
+
+- name: Confirming Configs for deployments
+  debug:
+    msg:
+      - "app_name - {{ app_name }}"
+      - "application_name - {{ application_name }}"
+      - "task - {{ task }}"
+      - "application_logs - {{ application_logs }}"
+      - "log file path - {{ log_file_path }}"
+      - "was node - {{ was_node }}"
+      - "selected JVMs on this host - {{ node_jvms }}"
+
+- name: Initiating the debug log
+  shell: |
+    echo "starting pst task for {{ app_name }}" > {{ log_file_path }}
+    echo "" >> {{ log_file_path }}
+  become: true
+  become_user: wasadmin
+
+# --------------------------------------------------------------------------
+# Stop / clear / start — one loop each over this node's selected JVMs.
+# Within a node the loop is sequential (serverN1 then serverN2);
+# across nodes, ordering is controlled by `serial` on the play.
+# --------------------------------------------------------------------------
+- name: DRY RUN - show planned actions (nothing is touched)
+  debug:
+    msg:
+      - "DRY RUN | task={{ task }} | node={{ was_node }} | clear_logs={{ clear_logs }}"
+      - "JVMs in scope: {{ node_jvms }}"
+      - "would stop:  {{ node_jvms | map('regex_replace', '^', was_bin ~ '/stopServer.sh '  ~ app_name ~ '-') | list }}"
+      - "would start: {{ node_jvms | map('regex_replace', '^', was_bin ~ '/startServer.sh ' ~ app_name ~ '-') | list }}"
+  when: dry_run == "true"
+
+- name: Stop selected JVMs on this node
+  loop: "{{ node_jvms }}"
+  shell: "{{ was_bin }}/stopServer.sh {{ app_name }}-{{ item }} >> {{ log_file_path }}"
+  ignore_errors: yes
+  become: true
+  become_user: wasadmin
+  when:
+    - task in ['Stop JVM', 'Restart JVM']
+    - dry_run != "true"
+
+- name: Clear logs for the JVMs being stopped
+  loop: "{{ node_jvms }}"
+  shell: |
+    echo "" >> {{ log_file_path }}
+    echo "cleaning {{ item }} logs" >> {{ log_file_path }}
+    ls -al /opt/IBM/apps/common/logs/{{ app_name }}-{{ item }}/{{ application_logs }} >> {{ log_file_path }}
+    rm -rf /opt/IBM/apps/common/logs/{{ app_name }}-{{ item }}/{{ application_logs }}
+    echo "logs cleared" >> {{ log_file_path }}
+    ls -al /opt/IBM/apps/common/logs/{{ app_name }}-{{ item }}/{{ application_logs }} >> {{ log_file_path }}
+    echo "--------" >> {{ log_file_path }}
+    echo "" >> {{ log_file_path }}
+  become: true
+  become_user: wasadmin
+  when:
+    - task in ['Stop JVM', 'Restart JVM']
+    - clear_logs == "true"
+    - dry_run != "true"
+
+- name: Start selected JVMs on this node
+  loop: "{{ node_jvms }}"
+  shell: "{{ was_bin }}/startServer.sh {{ app_name }}-{{ item }} >> {{ log_file_path }}"
+  become: true
+  become_user: wasadmin
+  when:
+    - task in ['Start JVM', 'Restart JVM']
+    - dry_run != "true"
+
+# --------------------------------------------------------------------------
+# Per-node health check. Script is rendered with THIS node's nodes_servers,
+# so it validates only the JVMs this node just started. Combined with
+# serial:1 + any_errors_fatal, a failed start halts the rollout here.
+# --------------------------------------------------------------------------
+- name: Render node-scoped health check (script unchanged)
+  template:
+    src: check_application.py
+    dest: "{{ tmp_directory }}/check_application.py"
+  become: true
+  become_user: wasadmin
+  when:
+    - task in ['Start JVM', 'Restart JVM']
+    - node_jvms | length > 0
+    - dry_run != "true"
+
+- name: Check if applications started on this node
+  shell: "{{ WAS_PATH }}/wsadmin.sh -lang jython -f {{ tmp_directory }}/check_application.py >> {{ log_file_path }}"
+  args:
+    chdir: "{{ tmp_directory }}"
+  become: true
+  become_user: wasadmin
+  when:
+    - task in ['Start JVM', 'Restart JVM']
+    - node_jvms | length > 0
+    - dry_run != "true"

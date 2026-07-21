@@ -1,0 +1,28 @@
+---
+#Websphere Script Location
+WAS_PATH: "/opt/IBM/WebSphere/AppServer/bin"
+
+#Websphere application backup Location
+bolbcell_backup: "/opt/IBM/WebSphere/AppServer/profiles/{{ was_profile }}/installedApps"
+
+#temporary directory to download the build artifact
+tmp_directory: "/tmp"
+
+#Websphere application backup Location
+bolbcell: "/opt/IBM/WebSphere/AppServer/profiles/{{ was_profile }}/installedApps"
+
+#pom.properties location
+pom_properties: "{{ bolbcell }}/bolbcell/{{ application_name }}.ear/META-INF/maven/com.bmo.olb/{{ artifact_prefix }}/pom.properties"
+
+#log location  for deployment logs and restart logs
+log_root: "/apps/common/logs/deployment_logs"
+log_file_path: "{{ log_root }}/jvm_status.log"
+
+#Deployment specifications
+cell: "bolbcell"
+webnode: "IHSNode"
+webserver: "webserver"
+host: "default_host"
+websphere_cell: "true"
+start_python_script: "start_jvm.py"
+stop_python_script: "stop_jvm.py"
