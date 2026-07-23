@@ -161,9 +161,16 @@ function buildRequestIdLookupQuery(requestId: string, timeframe?: Timeframe): st
     ? `timeframe: "${timeframe.from}/${timeframe.to}"`
     : 'from: -120m';
 
+  // Resolve via the CDB ReqId request attribute rather than the raw
+  // x-request-id HTTP header, which Dynatrace masks. Request attributes
+  // can come back as arrays, so match scalar and array forms (same shape
+  // as buildClientIpFilter).
+  const field = '`request_attribute.ReqAttr.CDB.ReqId`';
+
   return [
     `fetch spans, ${timeframeClause}, samplingRatio: 1, scanLimitGBytes: 500`,
-    `| filter matchesValue(\`http.request.header.x-request-id\`, "${requestId}")`,
+    `| filter (${field} == "${requestId}"`
+      + ` or iAny(matchesValue(toArray(${field})[], "${requestId}")))`,
     `| fields trace.id`,
     `| limit 1`
   ].join('\n');

@@ -95,14 +95,21 @@ router.post('/traces/lookup-by-request-id', async (req: Request, res: Response) 
     return res.status(400).json({ error: 'Request ID is required' });
   }
 
+  // The value is interpolated into DQL, so reject anything outside the
+  // expected token shape rather than letting Dynatrace fail opaquely.
+  const trimmedRequestId = String(requestId).trim();
+  if (!/^[A-Za-z0-9_.:-]{1,128}$/.test(trimmedRequestId)) {
+    return res.status(400).json({ error: 'Invalid request ID. Expected a value like REQ_a0d0ea2d9a3e4657.' });
+  }
+
   try {
-    const traceId = await findTraceIdByRequestId(requestId, environment, timeframe, userToken);
+    const traceId = await findTraceIdByRequestId(trimmedRequestId, environment, timeframe, userToken);
 
     if (!traceId) {
       return res.status(404).json({ error: 'No trace found for that request ID in the selected time window' });
     }
 
-    res.json({ traceId, requestId });
+    res.json({ traceId, requestId: trimmedRequestId });
   } catch (error: any) {
     console.error(`[Dynatrace] Error looking up request ID ${requestId}:`, error.message);
     if (error.response?.data) {
