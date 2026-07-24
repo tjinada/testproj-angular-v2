@@ -1,0 +1,7 @@
+{
+  "query": "fetch spans\n| filter span.id == toUid(\"00f067aa0ba902b7\")\n| fields start_time, trace.id, span.id, span.parent_id, service.name, endpoint.name, span.kind\n| sort start_time asc",
+  "defaultTimeframeStart": "now-2h",
+  "defaultTimeframeEnd": "now",
+  "requestTimeoutMilliseconds": 30000,
+  "enablePreview": false
+}
