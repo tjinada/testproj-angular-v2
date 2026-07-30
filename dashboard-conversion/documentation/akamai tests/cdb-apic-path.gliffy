@@ -16,11 +16,11 @@
  },
  "stage": {
   "background": "#FFFFFF",
-  "width": 1960,
+  "width": 1900,
   "height": 1000,
   "maxWidth": 5000,
   "maxHeight": 5000,
-  "nodeIndex": 80,
+  "nodeIndex": 73,
   "autoFit": true,
   "exportBorder": false,
   "gridOn": true,
@@ -42,7 +42,7 @@
     "y": 0
    },
    "max": {
-    "x": 1960,
+    "x": 1900,
     "y": 1000
    }
   },
@@ -111,7 +111,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:left;'><span style=\"font-size:12px;font-weight:normal;color:#7A8A94;line-height:1.3;\">Akamai reaches BOS through APIC. <b>Two</b> routing decisions &mdash; stage 4 and stage 6 &mdash; and only one of them can see the cookie.</span></p>",
+      "html": "<p style='text-align:left;'><span style=\"font-size:12px;font-weight:normal;color:#7A8A94;line-height:1.3;\">Akamai property prod.olb.com_pm v386 &middot; Akamai reaches BOS through APIC. <b>Two</b> routing decisions, stages 3 and 5 &mdash; only one can see the cookie.</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -122,12 +122,12 @@
     "linkMap": []
    },
    {
-    "x": 190,
+    "x": 200,
     "y": 110,
     "rotation": 0,
     "id": 3,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 20,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -159,12 +159,12 @@
     "linkMap": []
    },
    {
-    "x": 408,
+    "x": 440,
     "y": 110,
     "rotation": 0,
     "id": 4,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 20,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -185,7 +185,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">2 &middot; AKAMAI EDGE</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">2 &middot; COOKIE CHECK</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -196,12 +196,12 @@
     "linkMap": []
    },
    {
-    "x": 626,
+    "x": 680,
     "y": 110,
     "rotation": 0,
     "id": 5,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 20,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -222,7 +222,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">3 &middot; COOKIE CHECK</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#C9AE3E;line-height:1.3;\">3 &middot; AKAMAI GTM</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -233,12 +233,12 @@
     "linkMap": []
    },
    {
-    "x": 844,
+    "x": 920,
     "y": 110,
     "rotation": 0,
     "id": 6,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 20,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -259,7 +259,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#C9AE3E;line-height:1.3;\">4 &middot; AKAMAI GTM</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">4 &middot; APIC</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -270,12 +270,12 @@
     "linkMap": []
    },
    {
-    "x": 1062,
+    "x": 1160,
     "y": 110,
     "rotation": 0,
     "id": 7,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 20,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -296,7 +296,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">5 &middot; APIC</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#C9AE3E;line-height:1.3;\">5 &middot; EXT GTM (F5)</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -307,12 +307,12 @@
     "linkMap": []
    },
    {
-    "x": 1280,
+    "x": 1400,
     "y": 110,
     "rotation": 0,
     "id": 8,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 20,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -333,7 +333,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#C9AE3E;line-height:1.3;\">6 &middot; EXT GTM (F5)</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">6 &middot; BOS</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -344,12 +344,12 @@
     "linkMap": []
    },
    {
-    "x": 1498,
+    "x": 1640,
     "y": 110,
     "rotation": 0,
     "id": 9,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 20,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -370,44 +370,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">7 &middot; BOS</span></p>",
-      "tid": null,
-      "valign": "middle",
-      "vposition": "none",
-      "hposition": "none"
-     }
-    },
-    "children": [],
-    "linkMap": []
-   },
-   {
-    "x": 1716,
-    "y": 110,
-    "rotation": 0,
-    "id": 10,
-    "uid": null,
-    "width": 185,
-    "height": 20,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 10,
-    "graphic": {
-     "type": "Text",
-     "Text": {
-      "overflow": "none",
-      "paddingTop": 2,
-      "paddingRight": 2,
-      "paddingBottom": 2,
-      "paddingLeft": 2,
-      "outerPaddingTop": 6,
-      "outerPaddingRight": 6,
-      "outerPaddingBottom": 2,
-      "outerPaddingLeft": 6,
-      "type": "fixed",
-      "lineTValue": null,
-      "linePerpValue": null,
-      "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">8 &middot; RESULT</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">7 &middot; RESULT</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -421,13 +384,13 @@
     "x": 30,
     "y": 140,
     "rotation": 0,
-    "id": 11,
+    "id": 10,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 1890,
+    "width": 1830,
     "height": 190,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 11,
+    "order": 10,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -449,13 +412,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 12,
+      "id": 11,
       "uid": null,
-      "width": 1886,
+      "width": 1826,
       "height": 186,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 12,
+      "order": 11,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -488,13 +451,13 @@
     "x": 40,
     "y": 185,
     "rotation": 0,
-    "id": 13,
+    "id": 12,
     "uid": null,
-    "width": 145,
+    "width": 150,
     "height": 100,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 13,
+    "order": 12,
     "graphic": {
      "type": "Text",
      "Text": {
@@ -522,16 +485,16 @@
     "linkMap": []
    },
    {
-    "x": 190,
+    "x": 200,
     "y": 160,
     "rotation": 0,
-    "id": 14,
+    "id": 13,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 14,
+    "order": 13,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -553,13 +516,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 15,
+      "id": 14,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 15,
+      "order": 14,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -589,83 +552,16 @@
     "linkMap": []
    },
    {
-    "x": 408,
+    "x": 440,
     "y": 160,
     "rotation": 0,
-    "id": 16,
+    "id": 15,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 16,
-    "graphic": {
-     "type": "Shape",
-     "Shape": {
-      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
-      "strokeWidth": 2,
-      "strokeColor": "#C98A2E",
-      "fillColor": "#FCEBD6",
-      "dashStyle": null,
-      "gradient": false,
-      "dropShadow": false,
-      "state": 0,
-      "opacity": 1,
-      "shadowX": 0,
-      "shadowY": 0
-     }
-    },
-    "children": [
-     {
-      "x": 2,
-      "y": 2,
-      "rotation": 0,
-      "id": 17,
-      "uid": null,
-      "width": 181,
-      "height": 146,
-      "lockAspectRatio": false,
-      "lockShape": false,
-      "order": 17,
-      "graphic": {
-       "type": "Text",
-       "Text": {
-        "overflow": "none",
-        "paddingTop": 6,
-        "paddingRight": 6,
-        "paddingBottom": 6,
-        "paddingLeft": 6,
-        "outerPaddingTop": 6,
-        "outerPaddingRight": 6,
-        "outerPaddingBottom": 2,
-        "outerPaddingLeft": 6,
-        "type": "fixed",
-        "lineTValue": null,
-        "linePerpValue": null,
-        "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Edge property</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">prod.olb.com_pm v386</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">path match selects</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">the API branch</span></p>",
-        "tid": null,
-        "valign": "middle",
-        "vposition": "none",
-        "hposition": "none"
-       }
-      },
-      "children": []
-     }
-    ],
-    "linkMap": []
-   },
-   {
-    "x": 626,
-    "y": 160,
-    "rotation": 0,
-    "id": 18,
-    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
-    "height": 150,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 18,
+    "order": 15,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -687,13 +583,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 19,
+      "id": 16,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 19,
+      "order": 16,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -710,7 +606,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">No cookie</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">falls through to</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">the GTM path</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>same cdbbossiteId</i></span></p>",
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">No cookie</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">falls through to</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">the GTM path</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>same cdbbossiteId as</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>the BOS branch</i></span></p>",
         "tid": null,
         "valign": "middle",
         "vposition": "none",
@@ -723,16 +619,16 @@
     "linkMap": []
    },
    {
-    "x": 844,
+    "x": 680,
     "y": 160,
     "rotation": 0,
-    "id": 20,
+    "id": 17,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 20,
+    "order": 17,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -754,13 +650,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 21,
+      "id": 18,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 21,
+      "order": 18,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -790,16 +686,16 @@
     "linkMap": []
    },
    {
-    "x": 1062,
+    "x": 920,
     "y": 160,
     "rotation": 0,
-    "id": 22,
+    "id": 19,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 22,
+    "order": 19,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -821,13 +717,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 23,
+      "id": 20,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 23,
+      "order": 20,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -857,16 +753,16 @@
     "linkMap": []
    },
    {
-    "x": 1280,
+    "x": 1160,
     "y": 160,
     "rotation": 0,
-    "id": 24,
+    "id": 21,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 24,
+    "order": 21,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -888,13 +784,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 25,
+      "id": 22,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 25,
+      "order": 22,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -924,16 +820,16 @@
     "linkMap": []
    },
    {
-    "x": 1498,
+    "x": 1400,
     "y": 160,
     "rotation": 0,
-    "id": 26,
+    "id": 23,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 26,
+    "order": 23,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -955,13 +851,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 27,
+      "id": 24,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 27,
+      "order": 24,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -978,7 +874,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">BOS LTM (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">198.96.174.25</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; BOS Web (IHS)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; WAS plugin &rarr; BOS App</span></p>",
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">BOS LTM (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">198.96.174.25</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; BOS Web (IHS)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; WAS plugin</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; BOS App</span></p>",
         "tid": null,
         "valign": "middle",
         "vposition": "none",
@@ -991,16 +887,16 @@
     "linkMap": []
    },
    {
-    "x": 1716,
+    "x": 1640,
     "y": 160,
     "rotation": 0,
-    "id": 28,
+    "id": 25,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 28,
+    "order": 25,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1022,13 +918,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 29,
+      "id": 26,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 29,
+      "order": 26,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1045,7 +941,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Session pinned</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Set-Cookie:</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>cdbbossiteId=blue-BCC</b></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>pins APIC only</i></span></p>",
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Session pinned</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Set-Cookie:</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>cdbbossiteId=blue-BCC</b></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">+ JSESSIONID</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>pins APIC only</i></span></p>",
         "tid": null,
         "valign": "middle",
         "vposition": "none",
@@ -1058,12 +954,135 @@
     "linkMap": []
    },
    {
-    "x": 375,
+    "x": 400,
+    "y": 235,
+    "rotation": 0,
+    "id": 27,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 27,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 640,
+    "y": 235,
+    "rotation": 0,
+    "id": 28,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 28,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 880,
+    "y": 235,
+    "rotation": 0,
+    "id": 29,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 29,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 1120,
     "y": 235,
     "rotation": 0,
     "id": 30,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -1088,7 +1107,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -1099,12 +1118,12 @@
     "linkMap": []
    },
    {
-    "x": 593,
+    "x": 1360,
     "y": 235,
     "rotation": 0,
     "id": 31,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -1129,7 +1148,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -1140,12 +1159,12 @@
     "linkMap": []
    },
    {
-    "x": 811,
+    "x": 1600,
     "y": 235,
     "rotation": 0,
     "id": 32,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
@@ -1170,171 +1189,7 @@
         0
        ],
        [
-        33,
-        0
-       ]
-      ],
-      "lockSegments": {}
-     }
-    },
-    "children": null,
-    "linkMap": []
-   },
-   {
-    "x": 1029,
-    "y": 235,
-    "rotation": 0,
-    "id": 33,
-    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
-    "height": 1,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 33,
-    "graphic": {
-     "type": "Line",
-     "Line": {
-      "strokeWidth": 2,
-      "strokeColor": "#4A5B66",
-      "fillColor": "none",
-      "dashStyle": null,
-      "startArrow": 0,
-      "endArrow": 1,
-      "startArrowRotation": "auto",
-      "endArrowRotation": "auto",
-      "ortho": true,
-      "interpolationType": "linear",
-      "cornerRadius": 8,
-      "controlPath": [
-       [
-        0,
-        0
-       ],
-       [
-        33,
-        0
-       ]
-      ],
-      "lockSegments": {}
-     }
-    },
-    "children": null,
-    "linkMap": []
-   },
-   {
-    "x": 1247,
-    "y": 235,
-    "rotation": 0,
-    "id": 34,
-    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
-    "height": 1,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 34,
-    "graphic": {
-     "type": "Line",
-     "Line": {
-      "strokeWidth": 2,
-      "strokeColor": "#4A5B66",
-      "fillColor": "none",
-      "dashStyle": null,
-      "startArrow": 0,
-      "endArrow": 1,
-      "startArrowRotation": "auto",
-      "endArrowRotation": "auto",
-      "ortho": true,
-      "interpolationType": "linear",
-      "cornerRadius": 8,
-      "controlPath": [
-       [
-        0,
-        0
-       ],
-       [
-        33,
-        0
-       ]
-      ],
-      "lockSegments": {}
-     }
-    },
-    "children": null,
-    "linkMap": []
-   },
-   {
-    "x": 1465,
-    "y": 235,
-    "rotation": 0,
-    "id": 35,
-    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
-    "height": 1,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 35,
-    "graphic": {
-     "type": "Line",
-     "Line": {
-      "strokeWidth": 2,
-      "strokeColor": "#4A5B66",
-      "fillColor": "none",
-      "dashStyle": null,
-      "startArrow": 0,
-      "endArrow": 1,
-      "startArrowRotation": "auto",
-      "endArrowRotation": "auto",
-      "ortho": true,
-      "interpolationType": "linear",
-      "cornerRadius": 8,
-      "controlPath": [
-       [
-        0,
-        0
-       ],
-       [
-        33,
-        0
-       ]
-      ],
-      "lockSegments": {}
-     }
-    },
-    "children": null,
-    "linkMap": []
-   },
-   {
-    "x": 1683,
-    "y": 235,
-    "rotation": 0,
-    "id": 36,
-    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
-    "height": 1,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 36,
-    "graphic": {
-     "type": "Line",
-     "Line": {
-      "strokeWidth": 2,
-      "strokeColor": "#4A5B66",
-      "fillColor": "none",
-      "dashStyle": null,
-      "startArrow": 0,
-      "endArrow": 1,
-      "startArrowRotation": "auto",
-      "endArrowRotation": "auto",
-      "ortho": true,
-      "interpolationType": "linear",
-      "cornerRadius": 8,
-      "controlPath": [
-       [
-        0,
-        0
-       ],
-       [
-        33,
+        40,
         0
        ]
       ],
@@ -1348,13 +1203,13 @@
     "x": 30,
     "y": 390,
     "rotation": 0,
-    "id": 37,
+    "id": 33,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 1890,
+    "width": 1830,
     "height": 190,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 37,
+    "order": 33,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1376,13 +1231,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 38,
+      "id": 34,
       "uid": null,
-      "width": 1886,
+      "width": 1826,
       "height": 186,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 38,
+      "order": 34,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1415,13 +1270,13 @@
     "x": 40,
     "y": 435,
     "rotation": 0,
-    "id": 39,
+    "id": 35,
     "uid": null,
-    "width": 145,
+    "width": 150,
     "height": 100,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 39,
+    "order": 35,
     "graphic": {
      "type": "Text",
      "Text": {
@@ -1449,16 +1304,16 @@
     "linkMap": []
    },
    {
-    "x": 190,
+    "x": 200,
     "y": 410,
     "rotation": 0,
-    "id": 40,
+    "id": 36,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 40,
+    "order": 36,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1480,13 +1335,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 41,
+      "id": 37,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 41,
+      "order": 37,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1516,83 +1371,16 @@
     "linkMap": []
    },
    {
-    "x": 408,
+    "x": 440,
     "y": 410,
     "rotation": 0,
-    "id": 42,
+    "id": 38,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 42,
-    "graphic": {
-     "type": "Shape",
-     "Shape": {
-      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
-      "strokeWidth": 2,
-      "strokeColor": "#C98A2E",
-      "fillColor": "#FCEBD6",
-      "dashStyle": null,
-      "gradient": false,
-      "dropShadow": false,
-      "state": 0,
-      "opacity": 1,
-      "shadowX": 0,
-      "shadowY": 0
-     }
-    },
-    "children": [
-     {
-      "x": 2,
-      "y": 2,
-      "rotation": 0,
-      "id": 43,
-      "uid": null,
-      "width": 181,
-      "height": 146,
-      "lockAspectRatio": false,
-      "lockShape": false,
-      "order": 43,
-      "graphic": {
-       "type": "Text",
-       "Text": {
-        "overflow": "none",
-        "paddingTop": 6,
-        "paddingRight": 6,
-        "paddingBottom": 6,
-        "paddingLeft": 6,
-        "outerPaddingTop": 6,
-        "outerPaddingRight": 6,
-        "outerPaddingBottom": 2,
-        "outerPaddingLeft": 6,
-        "type": "fixed",
-        "lineTValue": null,
-        "linePerpValue": null,
-        "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Edge property</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>identical to A</i></span></p>",
-        "tid": null,
-        "valign": "middle",
-        "vposition": "none",
-        "hposition": "none"
-       }
-      },
-      "children": []
-     }
-    ],
-    "linkMap": []
-   },
-   {
-    "x": 626,
-    "y": 410,
-    "rotation": 0,
-    "id": 44,
-    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
-    "height": 150,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 44,
+    "order": 38,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1614,13 +1402,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 45,
+      "id": 39,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 45,
+      "order": 39,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1650,16 +1438,16 @@
     "linkMap": []
    },
    {
-    "x": 844,
+    "x": 680,
     "y": 410,
     "rotation": 0,
-    "id": 46,
+    "id": 40,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 46,
+    "order": 40,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1681,13 +1469,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 47,
+      "id": 41,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 47,
+      "order": 41,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1717,16 +1505,16 @@
     "linkMap": []
    },
    {
-    "x": 1062,
+    "x": 920,
     "y": 410,
     "rotation": 0,
-    "id": 48,
+    "id": 42,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 48,
+    "order": 42,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1748,13 +1536,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 49,
+      "id": 43,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 49,
+      "order": 43,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1771,7 +1559,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#C25450;line-height:1.3;\">APIC FS (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">hardcoded in the rule</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>same gateway script</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; picks bos-www13</span></p>",
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#C25450;line-height:1.3;\">APIC FS (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">bmonsori-apisbccprod</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>hardcoded in the rule</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>same gateway script</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; picks bos-www13</span></p>",
         "tid": null,
         "valign": "middle",
         "vposition": "none",
@@ -1784,16 +1572,16 @@
     "linkMap": []
    },
    {
-    "x": 1280,
+    "x": 1160,
     "y": 410,
     "rotation": 0,
-    "id": 50,
+    "id": 44,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 50,
+    "order": 44,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1815,13 +1603,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 51,
+      "id": 45,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 51,
+      "order": 45,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1851,16 +1639,16 @@
     "linkMap": []
    },
    {
-    "x": 1498,
+    "x": 1400,
     "y": 410,
     "rotation": 0,
-    "id": 52,
+    "id": 46,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 52,
+    "order": 46,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1882,13 +1670,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 53,
+      "id": 47,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 53,
+      "order": 47,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1905,7 +1693,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">BOS LTM (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">same site</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">plugin honours clone-id</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; same JVM</span></p>",
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">BOS LTM (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">same site</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">plugin honours the</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">clone-id &rarr; same JVM</span></p>",
         "tid": null,
         "valign": "middle",
         "vposition": "none",
@@ -1918,16 +1706,16 @@
     "linkMap": []
    },
    {
-    "x": 1716,
+    "x": 1640,
     "y": 410,
     "rotation": 0,
-    "id": 54,
+    "id": 48,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 185,
+    "width": 200,
     "height": 150,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 54,
+    "order": 48,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -1949,13 +1737,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 55,
+      "id": 49,
       "uid": null,
-      "width": 181,
+      "width": 196,
       "height": 146,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 55,
+      "order": 49,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -1972,7 +1760,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Session continues</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">nothing to re-issue</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>... as long as stage 6</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>keeps answering BCC</i></span></p>",
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Session continues</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">nothing to re-issue</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>... as long as stage 5</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>keeps answering BCC</i></span></p>",
         "tid": null,
         "valign": "middle",
         "vposition": "none",
@@ -1985,16 +1773,16 @@
     "linkMap": []
    },
    {
-    "x": 375,
+    "x": 400,
     "y": 485,
     "rotation": 0,
-    "id": 56,
+    "id": 50,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 56,
+    "order": 50,
     "graphic": {
      "type": "Line",
      "Line": {
@@ -2015,7 +1803,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -2026,57 +1814,16 @@
     "linkMap": []
    },
    {
-    "x": 593,
+    "x": 640,
     "y": 485,
     "rotation": 0,
-    "id": 57,
+    "id": 51,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 57,
-    "graphic": {
-     "type": "Line",
-     "Line": {
-      "strokeWidth": 2,
-      "strokeColor": "#4A5B66",
-      "fillColor": "none",
-      "dashStyle": null,
-      "startArrow": 0,
-      "endArrow": 1,
-      "startArrowRotation": "auto",
-      "endArrowRotation": "auto",
-      "ortho": true,
-      "interpolationType": "linear",
-      "cornerRadius": 8,
-      "controlPath": [
-       [
-        0,
-        0
-       ],
-       [
-        33,
-        0
-       ]
-      ],
-      "lockSegments": {}
-     }
-    },
-    "children": null,
-    "linkMap": []
-   },
-   {
-    "x": 811,
-    "y": 485,
-    "rotation": 0,
-    "id": 58,
-    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
-    "height": 1,
-    "lockAspectRatio": false,
-    "lockShape": false,
-    "order": 58,
+    "order": 51,
     "graphic": {
      "type": "Line",
      "Line": {
@@ -2097,7 +1844,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -2108,16 +1855,16 @@
     "linkMap": []
    },
    {
-    "x": 1029,
+    "x": 880,
     "y": 485,
     "rotation": 0,
-    "id": 59,
+    "id": 52,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 59,
+    "order": 52,
     "graphic": {
      "type": "Line",
      "Line": {
@@ -2138,7 +1885,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -2149,16 +1896,16 @@
     "linkMap": []
    },
    {
-    "x": 1247,
+    "x": 1120,
     "y": 485,
     "rotation": 0,
-    "id": 60,
+    "id": 53,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 60,
+    "order": 53,
     "graphic": {
      "type": "Line",
      "Line": {
@@ -2179,7 +1926,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -2190,16 +1937,16 @@
     "linkMap": []
    },
    {
-    "x": 1465,
+    "x": 1360,
     "y": 485,
     "rotation": 0,
-    "id": 61,
+    "id": 54,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 61,
+    "order": 54,
     "graphic": {
      "type": "Line",
      "Line": {
@@ -2220,7 +1967,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -2231,16 +1978,16 @@
     "linkMap": []
    },
    {
-    "x": 1683,
+    "x": 1600,
     "y": 485,
     "rotation": 0,
-    "id": 62,
+    "id": 55,
     "uid": "com.gliffy.shape.basic.basic_v1.default.line",
-    "width": 33,
+    "width": 40,
     "height": 1,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 62,
+    "order": 55,
     "graphic": {
      "type": "Line",
      "Line": {
@@ -2261,7 +2008,7 @@
         0
        ],
        [
-        33,
+        40,
         0
        ]
       ],
@@ -2272,16 +2019,16 @@
     "linkMap": []
    },
    {
-    "x": 844,
+    "x": 680,
     "y": 340,
     "rotation": 0,
-    "id": 63,
+    "id": 56,
     "uid": null,
-    "width": 185,
+    "width": 240,
     "height": 34,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 63,
+    "order": 56,
     "graphic": {
      "type": "Text",
      "Text": {
@@ -2298,7 +2045,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:11px;font-weight:bold;color:#C25450;line-height:1.3;\">stage 4 DIFFERS</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#C25450;line-height:1.3;\">cookie decides</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:11px;font-weight:bold;color:#C25450;line-height:1.3;\">stage 3 DIFFERS</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#C25450;line-height:1.3;\">cookie decides</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -2309,16 +2056,16 @@
     "linkMap": []
    },
    {
-    "x": 1280,
+    "x": 1160,
     "y": 340,
     "rotation": 0,
-    "id": 64,
+    "id": 57,
     "uid": null,
-    "width": 185,
+    "width": 200,
     "height": 34,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 64,
+    "order": 57,
     "graphic": {
      "type": "Text",
      "Text": {
@@ -2335,7 +2082,7 @@
       "lineTValue": null,
       "linePerpValue": null,
       "cardinalityType": null,
-      "html": "<p style='text-align:center;'><span style=\"font-size:11px;font-weight:bold;color:#5E9E68;line-height:1.3;\">stage 6 IS THE SAME</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#5E9E68;line-height:1.3;\">DNS decides, every time</span></p>",
+      "html": "<p style='text-align:center;'><span style=\"font-size:11px;font-weight:bold;color:#5E9E68;line-height:1.3;\">stage 5 IS THE SAME</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#5E9E68;line-height:1.3;\">DNS decides, every time</span></p>",
       "tid": null,
       "valign": "middle",
       "vposition": "none",
@@ -2346,16 +2093,16 @@
     "linkMap": []
    },
    {
-    "x": 190,
+    "x": 200,
     "y": 620,
     "rotation": 0,
-    "id": 65,
+    "id": 58,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 555,
+    "width": 530,
     "height": 250,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 65,
+    "order": 58,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -2377,13 +2124,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 66,
+      "id": 59,
       "uid": null,
-      "width": 551,
+      "width": 526,
       "height": 246,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 66,
+      "order": 59,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -2400,7 +2147,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">The difference from the BOS path</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Stage 4 sits at the Akamai edge, which can read a cookie. Stage 6 is DNS, which cannot &mdash; a resolver answering a query for bos-www13.bmo.com has no cookie, no JSESSIONID, no request context at all.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">So stage 6 runs on <b>every</b> request, new or existing, and can only answer per-name, never per-session.</span></p>",
+        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">The difference from the BOS path</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Stage 3 sits at the Akamai edge, which can read a cookie. Stage 5 is DNS, which cannot &mdash; a resolver answering a query for bos-www13.bmo.com has no cookie, no JSESSIONID, no request context at all.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">So stage 5 runs on <b>every</b> request, new or existing, and can only answer per-name, never per-session.</span></p>",
         "tid": null,
         "valign": "top",
         "vposition": "none",
@@ -2413,16 +2160,16 @@
     "linkMap": []
    },
    {
-    "x": 785,
+    "x": 770,
     "y": 620,
     "rotation": 0,
-    "id": 67,
+    "id": 60,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 555,
+    "width": 530,
     "height": 250,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 67,
+    "order": 60,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -2444,13 +2191,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 68,
+      "id": 61,
       "uid": null,
-      "width": 551,
+      "width": 526,
       "height": 246,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 68,
+      "order": 61,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -2467,7 +2214,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">What a drain actually does here</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>Drain at Akamai</b> (stage 4) &rarr; new sessions go to APIC-SCC, existing stay pinned to APIC-BCC. A <b>bleed</b> at the APIC tier.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>BOS-BCC health fails</b> (stage 6) &rarr; the wide IP fails over for <b>everyone</b> on APIC-BCC, new and existing alike. A <b>cut</b> at the BOS tier.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Existing sessions moved by stage 6 land on a JVM that does not hold their JSESSIONID, so they break.</span></p>",
+        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">What a drain actually does here</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>Drain at Akamai</b> (stage 3) &rarr; new sessions go to APIC-SCC, existing stay pinned to APIC-BCC. A <b>bleed</b> at the APIC tier.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>BOS-BCC health fails</b> (stage 5) &rarr; the wide IP fails over for <b>everyone</b> on APIC-BCC, new and existing alike. A <b>cut</b> at the BOS tier.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Existing sessions moved by stage 5 land on a JVM that does not hold their JSESSIONID, so they break.</span></p>",
         "tid": null,
         "valign": "top",
         "vposition": "none",
@@ -2480,16 +2227,16 @@
     "linkMap": []
    },
    {
-    "x": 1380,
+    "x": 1340,
     "y": 620,
     "rotation": 0,
-    "id": 69,
+    "id": 62,
     "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
-    "width": 521,
+    "width": 520,
     "height": 250,
     "lockAspectRatio": false,
     "lockShape": false,
-    "order": 69,
+    "order": 62,
     "graphic": {
      "type": "Shape",
      "Shape": {
@@ -2511,13 +2258,13 @@
       "x": 2,
       "y": 2,
       "rotation": 0,
-      "id": 70,
+      "id": 63,
       "uid": null,
-      "width": 517,
+      "width": 516,
       "height": 246,
       "lockAspectRatio": false,
       "lockShape": false,
-      "order": 70,
+      "order": 63,
       "graphic": {
        "type": "Text",
        "Text": {
@@ -2534,7 +2281,7 @@
         "lineTValue": null,
         "linePerpValue": null,
         "cardinalityType": null,
-        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Two dependencies for stage 6</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>1. Host header.</b> APIC-BCC always sends Host: bos-www13.bmo.com, because the gateway script picks the name from its own FQDN and GTM failover is invisible to it. SCC IHS must accept that vhost or the cross-site hop 400s.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>2. DNS caching.</b> If APIC caches the A record past the wide IP TTL, the failover never takes effect no matter how correct the F5 config is.</span></p>",
+        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Two dependencies for stage 5</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>1. Host header.</b> APIC-BCC always sends Host: bos-www13.bmo.com, because the gateway script picks the name from its own FQDN and GTM failover is invisible to it. SCC IHS must accept that vhost or the cross-site hop 400s.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>2. DNS caching.</b> If APIC caches the A record past the wide IP TTL, the failover never takes effect no matter how correct the F5 config is.</span></p>",
         "tid": null,
         "valign": "top",
         "vposition": "none",
