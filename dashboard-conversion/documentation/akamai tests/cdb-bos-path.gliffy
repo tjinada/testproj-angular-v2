@@ -1,0 +1,2194 @@
+{
+ "contentType": "application/gliffy+json",
+ "version": "1.3",
+ "metadata": {
+  "title": "CDB BOS path - new vs existing session",
+  "revision": 0,
+  "exportBorder": false,
+  "loadPosition": "default",
+  "libraries": [
+   "com.gliffy.libraries.basic.basic_v1.default"
+  ]
+ },
+ "embeddedResources": {
+  "index": 0,
+  "resources": []
+ },
+ "stage": {
+  "background": "#FFFFFF",
+  "width": 1960,
+  "height": 900,
+  "maxWidth": 5000,
+  "maxHeight": 5000,
+  "nodeIndex": 70,
+  "autoFit": true,
+  "exportBorder": false,
+  "gridOn": true,
+  "snapToGrid": true,
+  "drawingGuidesOn": true,
+  "pageBreaksOn": false,
+  "printGridOn": false,
+  "printPaper": "LETTER",
+  "printShrinkToFit": false,
+  "printPortrait": false,
+  "shapeStyles": {},
+  "lineStyles": {},
+  "textStyles": {},
+  "themeData": null,
+  "viewportType": "default",
+  "fitBB": {
+   "min": {
+    "x": 0,
+    "y": 0
+   },
+   "max": {
+    "x": 1960,
+    "y": 900
+   }
+  },
+  "objects": [
+   {
+    "x": 40,
+    "y": 20,
+    "rotation": 0,
+    "id": 1,
+    "uid": null,
+    "width": 1300,
+    "height": 46,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 1,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:left;'><span style=\"font-size:19px;font-weight:bold;color:#1A2A33;line-height:1.3;\">BOS path &mdash; /banking/servlet* &middot; new session vs existing session</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 40,
+    "y": 62,
+    "rotation": 0,
+    "id": 2,
+    "uid": null,
+    "width": 1300,
+    "height": 26,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 2,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:left;'><span style=\"font-size:12px;font-weight:normal;color:#7A8A94;line-height:1.3;\">Akamai edge talks to the BOS LTM directly. One routing decision, at stage 4.</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 200,
+    "y": 110,
+    "rotation": 0,
+    "id": 3,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 3,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">1 &middot; BROWSER</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 440,
+    "y": 110,
+    "rotation": 0,
+    "id": 4,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 4,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">2 &middot; AKAMAI EDGE</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 680,
+    "y": 110,
+    "rotation": 0,
+    "id": 5,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 5,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">3 &middot; COOKIE CHECK</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 920,
+    "y": 110,
+    "rotation": 0,
+    "id": 6,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 6,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#C9AE3E;line-height:1.3;\">4 &middot; AKAMAI GTM</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 1160,
+    "y": 110,
+    "rotation": 0,
+    "id": 7,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 7,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">5 &middot; TARGET</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 1400,
+    "y": 110,
+    "rotation": 0,
+    "id": 8,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 8,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">6 &middot; ORIGIN</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 1640,
+    "y": 110,
+    "rotation": 0,
+    "id": 9,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 9,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:10px;font-weight:bold;color:#7A8A94;line-height:1.3;\">7 &middot; RESULT</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 30,
+    "y": 140,
+    "rotation": 0,
+    "id": 10,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 1820,
+    "height": 180,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 10,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 1,
+      "strokeColor": "#DCE6DF",
+      "fillColor": "#F8FBF9",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 11,
+      "uid": null,
+      "width": 1816,
+      "height": 176,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 11,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 40,
+    "y": 180,
+    "rotation": 0,
+    "id": 12,
+    "uid": null,
+    "width": 150,
+    "height": 100,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 12,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:left;'><span style=\"font-size:10px;font-weight:bold;color:#5E9E68;line-height:1.3;\">SCENARIO A</span></p><p style='text-align:left;'><span style=\"font-size:14px;font-weight:bold;color:#1A2A33;line-height:1.3;\">New session</span></p><p style='text-align:left;'><span style=\"font-size:9px;font-weight:normal;color:#7A8A94;line-height:1.3;\">no cookie</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 200,
+    "y": 160,
+    "rotation": 0,
+    "id": 13,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 13,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#4A7FB5",
+      "fillColor": "#DCE9F7",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 14,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 14,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Browser</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">GET www1.bmo.com</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">/banking/servlet/...</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>Cookie: (none)</i></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 440,
+    "y": 160,
+    "rotation": 0,
+    "id": 15,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 15,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#C98A2E",
+      "fillColor": "#FCEBD6",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 16,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 16,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Edge property</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">prod.olb.com_pm v386</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">path match selects</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">the BOS branch</span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 680,
+    "y": 160,
+    "rotation": 0,
+    "id": 17,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 17,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#C9AE3E",
+      "fillColor": "#FCF4D6",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 18,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 18,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">No cookie</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">falls through to</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">the GTM path</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>invalid lands here too</i></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 920,
+    "y": 160,
+    "rotation": 0,
+    "id": 19,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 19,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 3,
+      "strokeColor": "#5E9E68",
+      "fillColor": "#DAEEDC",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 20,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 20,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#5E9E68;line-height:1.3;\">GTM decides</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">wlb.www1.prod.bmo.com</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">      .akadns.net</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>liveness applies HERE</b></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 1160,
+    "y": 160,
+    "rotation": 0,
+    "id": 21,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 21,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#7A8A94",
+      "fillColor": "#F2F4F5",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 22,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 22,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Answer = BCC</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">bmonsori-www13.bmo.com</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">regex &rarr; \"www13\"</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">env = blue</span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 1400,
+    "y": 160,
+    "rotation": 0,
+    "id": 23,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 23,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#8A6BA8",
+      "fillColor": "#E6DCEE",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 24,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 24,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">BOS LTM (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">198.96.174.25</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; BOS Web (IHS)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; WAS plugin &rarr; BOS App</span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 1640,
+    "y": 160,
+    "rotation": 0,
+    "id": 25,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 25,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 3,
+      "strokeColor": "#4A7FB5",
+      "fillColor": "#DCE9F7",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 26,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 26,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Session pinned</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Set-Cookie:</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>cdbbossiteId=blue-BCC</b></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">+ JSESSIONID</span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 400,
+    "y": 230,
+    "rotation": 0,
+    "id": 27,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 27,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 640,
+    "y": 230,
+    "rotation": 0,
+    "id": 28,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 28,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 880,
+    "y": 230,
+    "rotation": 0,
+    "id": 29,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 29,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 1120,
+    "y": 230,
+    "rotation": 0,
+    "id": 30,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 30,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 1360,
+    "y": 230,
+    "rotation": 0,
+    "id": 31,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 31,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 1600,
+    "y": 230,
+    "rotation": 0,
+    "id": 32,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 32,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 30,
+    "y": 370,
+    "rotation": 0,
+    "id": 33,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 1820,
+    "height": 180,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 33,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 1,
+      "strokeColor": "#EBDBDA",
+      "fillColor": "#FDF8F8",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 34,
+      "uid": null,
+      "width": 1816,
+      "height": 176,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 34,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 40,
+    "y": 410,
+    "rotation": 0,
+    "id": 35,
+    "uid": null,
+    "width": 150,
+    "height": 100,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 35,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:left;'><span style=\"font-size:10px;font-weight:bold;color:#C25450;line-height:1.3;\">SCENARIO B</span></p><p style='text-align:left;'><span style=\"font-size:14px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Existing session</span></p><p style='text-align:left;'><span style=\"font-size:9px;font-weight:normal;color:#7A8A94;line-height:1.3;\">cdbbossiteId=blue-BCC</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 200,
+    "y": 390,
+    "rotation": 0,
+    "id": 36,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 36,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#4A7FB5",
+      "fillColor": "#DCE9F7",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 37,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 37,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Browser</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>cdbbossiteId=blue-BCC</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>JSESSIONID=...</i></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 440,
+    "y": 390,
+    "rotation": 0,
+    "id": 38,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 38,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#C98A2E",
+      "fillColor": "#FCEBD6",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 39,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 39,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Edge property</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>identical to A</i></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 680,
+    "y": 390,
+    "rotation": 0,
+    "id": 40,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 40,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#C9AE3E",
+      "fillColor": "#FCF4D6",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 41,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 41,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Cookie valid</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">blue-BCC is in the</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">allow-list</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">wildcard *BCC* matches</span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 920,
+    "y": 390,
+    "rotation": 0,
+    "id": 42,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 42,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#C25450",
+      "fillColor": "#F7F7F7",
+      "dashStyle": "4,4",
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 43,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 43,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#9AA6AD;line-height:1.3;\">SKIPPED</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">no populate-cname-chain</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">no akadns lookup</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><b>liveness has no effect</b></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 1160,
+    "y": 390,
+    "rotation": 0,
+    "id": 44,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 44,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#C25450",
+      "fillColor": "#F9DBDA",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 45,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 45,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#C25450;line-height:1.3;\">Hardcoded</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">bmonsori-www13.bmo.com</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>read straight from</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>the rule</i></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 1400,
+    "y": 390,
+    "rotation": 0,
+    "id": 46,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 46,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#8A6BA8",
+      "fillColor": "#E6DCEE",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 47,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 47,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">BOS LTM (BCC)</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">same site</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">plugin honours clone-id</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">&rarr; same JVM</span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 1640,
+    "y": 390,
+    "rotation": 0,
+    "id": 48,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 200,
+    "height": 140,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 48,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#4A7FB5",
+      "fillColor": "#DCE9F7",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 49,
+      "uid": null,
+      "width": 196,
+      "height": 136,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 49,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:center;'><span style=\"font-size:12px;font-weight:bold;color:#1A2A33;line-height:1.3;\">Session continues</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\">nothing to re-issue</span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>pinned to BCC until</i></span></p><p style='text-align:center;'><span style=\"font-size:9px;font-weight:normal;color:#4A5B66;line-height:1.3;\"><i>the browser closes</i></span></p>",
+        "tid": null,
+        "valign": "middle",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 400,
+    "y": 460,
+    "rotation": 0,
+    "id": 50,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 50,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 640,
+    "y": 460,
+    "rotation": 0,
+    "id": 51,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 51,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 880,
+    "y": 460,
+    "rotation": 0,
+    "id": 52,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 52,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#C25450",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 1120,
+    "y": 460,
+    "rotation": 0,
+    "id": 53,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 53,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 1360,
+    "y": 460,
+    "rotation": 0,
+    "id": 54,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 54,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 1600,
+    "y": 460,
+    "rotation": 0,
+    "id": 55,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.line",
+    "width": 40,
+    "height": 1,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 55,
+    "graphic": {
+     "type": "Line",
+     "Line": {
+      "strokeWidth": 2,
+      "strokeColor": "#4A5B66",
+      "fillColor": "none",
+      "dashStyle": null,
+      "startArrow": 0,
+      "endArrow": 1,
+      "startArrowRotation": "auto",
+      "endArrowRotation": "auto",
+      "ortho": true,
+      "interpolationType": "linear",
+      "cornerRadius": 8,
+      "controlPath": [
+       [
+        0,
+        0
+       ],
+       [
+        40,
+        0
+       ]
+      ],
+      "lockSegments": {}
+     }
+    },
+    "children": null,
+    "linkMap": []
+   },
+   {
+    "x": 920,
+    "y": 348,
+    "rotation": 0,
+    "id": 56,
+    "uid": null,
+    "width": 200,
+    "height": 20,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 56,
+    "graphic": {
+     "type": "Text",
+     "Text": {
+      "overflow": "none",
+      "paddingTop": 2,
+      "paddingRight": 2,
+      "paddingBottom": 2,
+      "paddingLeft": 2,
+      "outerPaddingTop": 6,
+      "outerPaddingRight": 6,
+      "outerPaddingBottom": 2,
+      "outerPaddingLeft": 6,
+      "type": "fixed",
+      "lineTValue": null,
+      "linePerpValue": null,
+      "cardinalityType": null,
+      "html": "<p style='text-align:center;'><span style=\"font-size:11px;font-weight:bold;color:#C25450;line-height:1.3;\">bypasses the GTM</span></p>",
+      "tid": null,
+      "valign": "middle",
+      "vposition": "none",
+      "hposition": "none"
+     }
+    },
+    "children": [],
+    "linkMap": []
+   },
+   {
+    "x": 200,
+    "y": 590,
+    "rotation": 0,
+    "id": 57,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 640,
+    "height": 230,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 57,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#C9AE3E",
+      "fillColor": "#FCF4D6",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 58,
+      "uid": null,
+      "width": 636,
+      "height": 226,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 58,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">One decision point</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Compare stage 4. A new session asks the GTM. An existing session never does &mdash; the cookie already holds the answer.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">So draining this path stops <b>new</b> sessions being assigned to the site, while existing sessions keep going there until their browser closes. A bleed, not a cut.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">The pinned target is the F5 LTM VIP itself. If the F5 pool monitor also fails on live.txt, those pinned requests hit an LTM with no live members and get refused &mdash; that is DACT-104.</span></p>",
+        "tid": null,
+        "valign": "top",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   },
+   {
+    "x": 880,
+    "y": 590,
+    "rotation": 0,
+    "id": 59,
+    "uid": "com.gliffy.shape.basic.basic_v1.default.round_rectangle",
+    "width": 640,
+    "height": 230,
+    "lockAspectRatio": false,
+    "lockShape": false,
+    "order": 59,
+    "graphic": {
+     "type": "Shape",
+     "Shape": {
+      "tid": "com.gliffy.stencil.round_rectangle.basic_v1",
+      "strokeWidth": 2,
+      "strokeColor": "#9AA6AD",
+      "fillColor": "#F2F4F5",
+      "dashStyle": null,
+      "gradient": false,
+      "dropShadow": false,
+      "state": 0,
+      "opacity": 1,
+      "shadowX": 0,
+      "shadowY": 0
+     }
+    },
+    "children": [
+     {
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "id": 60,
+      "uid": null,
+      "width": 636,
+      "height": 226,
+      "lockAspectRatio": false,
+      "lockShape": false,
+      "order": 60,
+      "graphic": {
+       "type": "Text",
+       "Text": {
+        "overflow": "none",
+        "paddingTop": 6,
+        "paddingRight": 6,
+        "paddingBottom": 6,
+        "paddingLeft": 6,
+        "outerPaddingTop": 6,
+        "outerPaddingRight": 6,
+        "outerPaddingBottom": 2,
+        "outerPaddingLeft": 6,
+        "type": "fixed",
+        "lineTValue": null,
+        "linePerpValue": null,
+        "cardinalityType": null,
+        "html": "<p style='text-align:left;'><span style=\"font-size:13px;font-weight:bold;color:#1A2A33;line-height:1.3;\">If the GTM had answered SCC</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Stage 5 resolves to bmonsori-www12.bmo.com, the regex yields \"www12\", and the cookie is written <b>blue-SCC</b>. Traffic lands on the SCC LTM at 142.43.171.25.</span></p><p style='text-align:left;'><span style=\"font-size:11px;font-weight:normal;color:#4A5B66;line-height:1.3;\">Scenario B then pins to SCC through the same wildcard on *SCC*. Nothing else in the flow changes.</span></p>",
+        "tid": null,
+        "valign": "top",
+        "vposition": "none",
+        "hposition": "none"
+       }
+      },
+      "children": []
+     }
+    ],
+    "linkMap": []
+   }
+  ]
+ }
+}
