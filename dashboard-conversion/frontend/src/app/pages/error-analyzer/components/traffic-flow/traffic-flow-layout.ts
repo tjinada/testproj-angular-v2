@@ -1,4 +1,6 @@
-import type { Resolution, Severity, SimState, SiteId } from '../../models/traffic-flow.model';
+import type {
+  GtmId, Resolution, Severity, SimState, SiteId
+} from '../../models/traffic-flow.model';
 import {
   APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_IDS,
   TOGGLEABLE_NODE, WEB_SERVERS
@@ -50,11 +52,25 @@ export interface TfLane {
   title: string;
 }
 
+/** A clickable site-pick chip rendered inside a GTM oval. */
+export interface TfPill {
+  gtm: GtmId;
+  site: SiteId;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  selected: boolean;
+  /** False when a cookie bypasses the GTM, or health has overridden the pick. */
+  active: boolean;
+}
+
 export interface TfGraph {
   nodes: TfNode[];
   edges: TfEdge[];
   labels: TfLabel[];
   lanes: TfLane[];
+  pills: TfPill[];
   width: number;
   height: number;
 }
@@ -72,23 +88,21 @@ type Geom = { x: number; y: number; width: number; height: number };
 function line(text: string, bold = false) { return { text, bold }; }
 
 /** Builds every box on the diagram, before any path state is applied. */
-function baseNodes(): Record<string, Geom & {
-  lines: { text: string; bold: boolean }[];
-  outline?: boolean; ellipse?: boolean; radius?: number; warn?: boolean;
-}> {
+function baseNodes(res: Resolution): Record<string, any> {
   const n: Record<string, any> = {};
 
   n['client'] = { x: 530, y: 20, width: 140, height: 44, outline: true,
     lines: [line('DLB Customer', true)] };
 
-  n['gtm-bos'] = { x: 190, y: ROW.gtm - 72, width: 290, height: 144, outline: true, ellipse: true,
-    lines: [line('GTM-CDB-BOS', true), line('www1.bmo.com/banking/services/*'), line(' '),
-      line('Liveness: /banking/live.txt'), line('Session Stickiness cookie:'), line('cdbbossiteId')] };
+  n['gtm-bos'] = { x: 190, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+    lines: [line('GTM-CDB-BOS', true), line('www1.bmo.com/banking/services/*'),
+      line('Liveness: /banking/live.txt'), line('Stickiness: cdbbossiteId'),
+      line(res.gtmDistribution.bos, true)] };
 
-  n['gtm-api'] = { x: 700, y: ROW.gtm - 72, width: 290, height: 144, outline: true, ellipse: true,
+  n['gtm-api'] = { x: 700, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
     lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'),
-      line('wlb.apis.olbb.akadns.net  50/50'), line(' '),
-      line('Liveness check: TCP on port 443'), line('Site stickiness: cdbbossiteId')] };
+      line('wlb.apis.olbb.akadns.net'), line('Liveness: TCP on port 443'),
+      line('Stickiness: cdbbossiteId'), line(res.gtmDistribution.api, true)] };
 
   n['cloudlet'] = { x: 410, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
     lines: [line('cloudlet Configuration', true), line('Set x-bmo-env=blue or Green'),
@@ -171,17 +185,22 @@ function baseEdgePairs(): [string, string][] {
 }
 
 /** Static annotations carried over from the architecture diagram. */
-function baseLabels(state: SimState): TfLabel[] {
+function baseLabels(state: SimState, res: Resolution): TfLabel[] {
   const labels: TfLabel[] = [
     { x: 150, y: ROW.cloudlet + 34, text: '/banking/services', kind: 'edge' },
     { x: 960, y: ROW.cloudlet + 34, text: '/banking/services', kind: 'edge' },
-    { x: 810, y: ROW.gtm + 92, text: '/api/cdb', kind: 'edge' }
+    { x: 810, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' }
   ];
   SITE_IDS.forEach(s => {
-    labels.push({ x: SITE_X[s] + 8, y: ROW.extGtm + 118, text: '100%', kind: 'edge' });
+    const split = res.extGtmSplit[s];
+    labels.push({
+      x: SITE_X[s] + 8, y: ROW.extGtm + 118, text: split.own,
+      kind: split.own === '100%' ? 'edge' : 'alert'
+    });
     labels.push({
       x: SITE_X[s] + (s === 'BCC' ? 150 : -210), y: ROW.extGtm + 136,
-      text: '0% (failover)', kind: 'alert'
+      text: split.cross,
+      kind: split.cross.startsWith('0%') ? 'edge' : 'alert'
     });
     if (state.live[s] !== 'present') {
       labels.push({
@@ -191,6 +210,31 @@ function baseLabels(state: SimState): TfLabel[] {
     }
   });
   return labels;
+}
+
+/** Site-pick chips, centred low inside each GTM oval. */
+function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>): TfPill[] {
+  const pills: TfPill[] = [];
+  const spec: { gtm: GtmId; node: string }[] = [
+    { gtm: 'bos', node: 'gtm-bos' },
+    { gtm: 'api', node: 'gtm-api' }
+  ];
+  spec.forEach(({ gtm, node }) => {
+    const g = geom[node];
+    if (!g) { return; }
+    const overridden = !res.gtmDistribution[gtm].startsWith('50/50');
+    SITE_IDS.forEach((site, i) => {
+      pills.push({
+        gtm, site,
+        x: g.x + g.width / 2 - 55 + i * 58,
+        y: g.y + g.height - 40,
+        width: 52, height: 19,
+        selected: state.gtmPick[gtm] === site,
+        active: res.gtmActive && !overridden
+      });
+    });
+  });
+  return pills;
 }
 
 const LANES: TfLane[] = [
@@ -205,8 +249,9 @@ const LANES: TfLane[] = [
  * order of traversal is readable without animation.
  */
 export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
-  const geom = baseNodes();
+  const geom = baseNodes(res);
   siteNodes(geom);
+  const entrySite = res.apicSite ?? res.bosSite;
 
   // Map node id -> position in the taken path.
   const onPath: Record<string, { hop: number; state: Severity }> = {};
@@ -222,10 +267,10 @@ export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
     const next = res.steps[i + 1];
     res.steps[i].ids.forEach(a => next.ids.forEach(b => {
       if (!geom[a] || !geom[b]) { return; }
-      const leavesPinned = (a.startsWith('extgtm') || a.startsWith('gtm-') || a === 'cloudlet') &&
-        b.includes('-') && !b.includes(`-${res.pinnedSite}`);
+      const leavesEntry = (a.startsWith('extgtm') || a.startsWith('gtm-') || a === 'cloudlet') &&
+        b.includes('-') && !!entrySite && !b.includes(`-${entrySite}`);
       const kind: TfEdge['kind'] = next.state === 'bad' ? 'broken'
-        : leavesPinned ? 'crossover' : 'taken';
+        : leavesEntry ? 'crossover' : 'taken';
       const d = a === 'cloudlet' && b.startsWith('ltm-') && res.bosSite
         ? railPath(geom, res.bosSite)
         : curve(geom[a], geom[b]);
@@ -256,8 +301,9 @@ export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
   return {
     nodes,
     edges,
-    labels: baseLabels(state),
+    labels: baseLabels(state, res),
     lanes: LANES,
+    pills: buildPills(state, res, geom),
     width: CANVAS.width,
     height: CANVAS.height
   };

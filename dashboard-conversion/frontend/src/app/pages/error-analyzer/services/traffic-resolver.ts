@@ -95,12 +95,34 @@ export function resolveTraffic(state: SimState): Resolution {
   /** cdbbossiteId value the edge stamps; set once the target origin is known. */
   let stampedCookie: string | null = null;
 
+  // Distribution shown inside each GTM oval. A GTM only splits traffic when
+  // both its datacentres pass their check; otherwise it answers 100% one way.
+  const apiHealth = { BCC: apicHealthy(state, 'BCC'), SCC: apicHealthy(state, 'SCC') };
+  const bosHealth = { BCC: bosHealthy(state, 'BCC', false), SCC: bosHealthy(state, 'SCC', false) };
+  const distribution = (h: Record<SiteId, boolean>): string => {
+    if (h.BCC && h.SCC) { return '50/50'; }
+    if (h.BCC) { return '100% → BCC'; }
+    if (h.SCC) { return '100% → SCC'; }
+    return 'no healthy DC';
+  };
+  const gtmDistribution = { api: distribution(apiHealth), bos: distribution(bosHealth) };
+
+  // EXT GTM legs: each answers with its own VIP unless its site fails the check.
+  const extHealth = { BCC: bosHealthy(state, 'BCC', true), SCC: bosHealthy(state, 'SCC', true) };
+  const extGtmSplit = {
+    BCC: extHealth.BCC ? { own: '100%', cross: '0% (failover)' }
+                       : { own: '0%', cross: extHealth.SCC ? '100% (failover)' : '0% (failover)' },
+    SCC: extHealth.SCC ? { own: '100%', cross: '0% (failover)' }
+                       : { own: '0%', cross: extHealth.BCC ? '100% (failover)' : '0% (failover)' }
+  };
+
   const done = (
     key: OutcomeKey, why: string, http: string,
     extra: Partial<Resolution> = {}
   ): Resolution => ({
     path: state.path, existing, pinnedSite: pinned,
     apicSite: null, bosSite: null, appServer: null,
+    gtmDistribution, gtmActive: !existing, extGtmSplit,
     outcome: outcome(key, why), http, setCookie: null,
     cookieStamped: stampedCookie, steps, breakAt: null,
     ...extra
@@ -140,16 +162,17 @@ export function resolveTraffic(state: SimState): Resolution {
           '503', { apicSite, breakAt: `apicfs-${pinned}` });
       }
     } else {
-      if (apicHealthy(state, pinned)) { apicSite = pinned; }
-      else if (apicHealthy(state, other(pinned))) { apicSite = other(pinned); edgeFailover = true; }
+      const pick = state.gtmPick.api;
+      if (apicHealthy(state, pick)) { apicSite = pick; }
+      else if (apicHealthy(state, other(pick))) { apicSite = other(pick); edgeFailover = true; }
       if (apicSite) { stamp(apicSite); }
 
       step(['gtm-api'], 'Akamai GTM-CDB-API',
         apicSite === null
           ? 'No cookie → the CNAME chain resolves, but the TCP:443 check fails against the APIC farm on <b>both</b> sites.'
           : edgeFailover
-            ? `No cookie → the CNAME chain resolves. TCP:443 fails against APIC-${pinned}, so the GTM answers with <b>APIC-${apicSite}</b>.`
-            : `No cookie → the CNAME chain resolves. GTM <b>wlb.apis.olbb.akadns.net</b> answers <b>${SITES[apicSite].apicFs}</b>, and the edge stamps <b>${SITE_COOKIE_NAME}</b> from it.`,
+            ? `No cookie → the CNAME chain resolves. TCP:443 fails against APIC-${pick}, so the GTM answers <b>100% ${apicSite}</b> and the 50/50 split is overridden.`
+            : `No cookie → the CNAME chain resolves. The 50/50 lands on <b>${apicSite}</b>; the edge stamps <b>${SITE_COOKIE_NAME}</b> from the answer.`,
         apicSite === null ? 'bad' : edgeFailover ? 'warn' : 'ok');
 
       if (apicSite === null) {
@@ -173,7 +196,7 @@ export function resolveTraffic(state: SimState): Resolution {
     'Sets <b>x-bmo-env</b> (blue/Green) and <b>x-api-key</b> (pr1/pr2).');
 
   // ---- tier 2: pick the BOS site ------------------------------------------
-  const from: SiteId = api ? (apicSite as SiteId) : pinned;
+  const from: SiteId = api ? (apicSite as SiteId) : (cookieBypass ? pinned : state.gtmPick.bos);
   let bosSite: SiteId | null = null;
   let bosFailover = false;
   let drained = false;
@@ -225,7 +248,8 @@ export function resolveTraffic(state: SimState): Resolution {
       steps[1].state = 'warn';
     } else if (bosFailover) {
       steps[1].what =
-        `BOS-${pinned} fails its healthcheck → the whole request is rerouted down the <b>${bosSite}</b> column.`;
+        `No cookie → the CNAME chain resolves. BOS-${from} fails <b>/banking/live.txt</b>, so the GTM ` +
+        `answers <b>100% ${bosSite}</b> and the 50/50 split is overridden.`;
       steps[1].state = 'warn';
     }
   }

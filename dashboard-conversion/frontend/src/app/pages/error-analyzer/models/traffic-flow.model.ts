@@ -17,12 +17,20 @@ export type LivenessState = 'present' | 'renamed';
  */
 export type LtmMonitor = 'live' | 'tcp';
 
+/** The two Akamai GTMs. Each has its own 50/50 pick for cookie-less requests. */
+export type GtmId = 'bos' | 'api';
+
 /** Everything the operator can vary. Serialised into the shareable link. */
 export interface SimState {
   path: TrafficPath;
   session: SessionKind;
-  /** cdbbossiteid pin. For a new session, previews the GTM's 50/50 pick. */
+  /** cdbbossiteId value carried by an existing session. Ignored when new. */
   site: SiteId;
+  /**
+   * Which way each GTM's 50/50 lands for a cookie-less request. Ignored when
+   * the session is existing, because the cookie bypasses the GTM entirely.
+   */
+  gtmPick: Record<GtmId, SiteId>;
   /** JSESSIONID jvmRoute -> app server 1..APP_SERVERS. */
   jsession: number;
   live: Record<SiteId, LivenessState>;
@@ -70,6 +78,12 @@ export interface Resolution {
   pinnedSite: SiteId;
   /** Site whose APIC farm handled the request (api path only). */
   apicSite: SiteId | null;
+  /** Distribution text shown inside each GTM oval, e.g. "50/50", "100% → SCC". */
+  gtmDistribution: Record<GtmId, string>;
+  /** True when the GTM pick is actually in play (cookie-less request). */
+  gtmActive: boolean;
+  /** Own-site and crossover percentages for each EXT GTM. */
+  extGtmSplit: Record<SiteId, { own: string; cross: string }>;
   /** Site whose BOS tier served the request. Null when nothing served it. */
   bosSite: SiteId | null;
   /** App server that ended up holding the session. */

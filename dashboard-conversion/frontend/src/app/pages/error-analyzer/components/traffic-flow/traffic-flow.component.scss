@@ -336,3 +336,37 @@ $amber: #f2a900;
   &:hover { background: $blue-dk; }
   &:focus-visible { outline: 2px solid $blue-dk; outline-offset: 2px; }
 }
+
+/* GTM site-pick pills, rendered inside the ovals */
+.tf-pill {
+  cursor: pointer;
+
+  rect {
+    fill: #fff;
+    stroke: $muted;
+    stroke-width: 1.2;
+  }
+
+  text {
+    font-size: 10.5px;
+    font-weight: 700;
+    fill: $muted;
+    text-anchor: middle;
+  }
+
+  &:hover rect { stroke: $blue; }
+
+  &.tf-pill-on {
+    rect { fill: $blue; stroke: $blue-dk; }
+    text { fill: #fff; }
+  }
+
+  /* Cookie bypassed the GTM, or health has overridden the split. */
+  &.tf-pill-off {
+    cursor: default;
+    opacity: 0.4;
+
+    &:hover rect { stroke: $muted; }
+    &.tf-pill-on rect { fill: $muted; stroke: $muted; }
+  }
+}

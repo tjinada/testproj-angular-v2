@@ -26,13 +26,17 @@
 
     <div class="tf-group">
       <h3>Stickiness</h3>
-      <div class="tf-field">
+      <div class="tf-field" *ngIf="state().session === 'existing'; else newSessionHint">
         <label><code>cdbbossiteId</code> &mdash; site pin</label>
         <div class="tf-seg">
           <button type="button" *ngFor="let s of siteIds"
             [attr.aria-pressed]="state().site === s" (click)="setSite(s)">{{ s }}</button>
         </div>
       </div>
+      <ng-template #newSessionHint>
+        <p class="tf-hint">No cookie on a new session &mdash; pick the site inside either GTM
+          on the diagram.</p>
+      </ng-template>
       <div class="tf-field">
         <label>JSESSIONID &rarr; app server</label>
         <div class="tf-seg tf-seg-narrow">
@@ -172,6 +176,14 @@
 
           <text *ngIf="n.isBreak" class="tf-xm" [attr.x]="n.x + n.width / 2"
             [attr.y]="n.y + n.height + 18">&#10005;</text>
+        </g>
+
+        <g *ngFor="let p of graph().pills" class="tf-pill"
+          [class.tf-pill-on]="p.selected" [class.tf-pill-off]="!p.active"
+          (click)="clickPill(p)">
+          <rect [attr.x]="p.x" [attr.y]="p.y" [attr.width]="p.width"
+            [attr.height]="p.height" rx="9"></rect>
+          <text [attr.x]="p.x + p.width / 2" [attr.y]="p.y + 13">{{ p.site }}</text>
         </g>
       </svg>
     </div>

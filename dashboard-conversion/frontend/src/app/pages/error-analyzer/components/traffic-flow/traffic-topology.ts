@@ -84,6 +84,7 @@ export function defaultSimState(): SimState {
     path: 'api',
     session: 'existing',
     site: 'BCC',
+    gtmPick: { bos: 'BCC', api: 'BCC' },
     jsession: 1,
     live: { BCC: 'present', SCC: 'present' },
     ltmMonitor: 'live',

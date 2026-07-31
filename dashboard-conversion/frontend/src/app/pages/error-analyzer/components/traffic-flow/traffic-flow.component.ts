@@ -2,10 +2,10 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  LivenessState, LtmMonitor, SessionKind, SimState, SiteId, TrafficPath
+  GtmId, LivenessState, LtmMonitor, SessionKind, SimState, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { resolveTraffic } from '../../services/traffic-resolver';
-import { buildTrafficGraph, TfNode } from './traffic-flow-layout';
+import { buildTrafficGraph, TfNode, TfPill } from './traffic-flow-layout';
 import { APP_SERVERS, SITE_IDS, defaultSimState, nodeLabel } from './traffic-topology';
 
 /**
@@ -44,6 +44,7 @@ export class TrafficFlowComponent implements OnInit {
     const q = new URLSearchParams({
       tab: 'traffic', path: s.path, sess: s.session, site: s.site,
       js: String(s.jsession), ltm: s.ltmMonitor,
+      gtm: `bos:${s.gtmPick.bos},api:${s.gtmPick.api}`,
       live: `BCC:${s.live.BCC},SCC:${s.live.SCC}`
     });
     const off = Object.keys(s.down);
@@ -68,6 +69,13 @@ export class TrafficFlowComponent implements OnInit {
     const js = Number(p['js']);
     if (js >= 1 && js <= APP_SERVERS) { next.jsession = js; }
 
+    (p['gtm'] ?? '').split(',').forEach(pair => {
+      const [gtm, value] = pair.split(':');
+      if ((gtm === 'bos' || gtm === 'api') && (value === 'BCC' || value === 'SCC')) {
+        next.gtmPick[gtm] = value;
+      }
+    });
+
     (p['live'] ?? '').split(',').forEach(pair => {
       const [site, value] = pair.split(':');
       if ((site === 'BCC' || site === 'SCC') && (value === 'present' || value === 'renamed')) {
@@ -87,6 +95,7 @@ export class TrafficFlowComponent implements OnInit {
       queryParams: {
         tab: 'traffic', path: s.path, sess: s.session, site: s.site,
         js: s.jsession, ltm: s.ltmMonitor,
+        gtm: `bos:${s.gtmPick.bos},api:${s.gtmPick.api}`,
         live: `BCC:${s.live.BCC},SCC:${s.live.SCC}`,
         off: off.length ? off.join(',') : null
       },
@@ -108,9 +117,18 @@ export class TrafficFlowComponent implements OnInit {
   setPath(v: TrafficPath): void { this.update(s => { s.path = v; }); }
   setSession(v: SessionKind): void { this.update(s => { s.session = v; }); }
   setSite(v: SiteId): void { this.update(s => { s.site = v; }); }
+  setGtmPick(gtm: GtmId, v: SiteId): void {
+    this.update(s => { s.gtmPick = { ...s.gtmPick, [gtm]: v }; });
+  }
   setJsession(v: number): void { this.update(s => { s.jsession = v; }); }
   setLtmMonitor(v: LtmMonitor): void { this.update(s => { s.ltmMonitor = v; }); }
   setLive(site: SiteId, v: LivenessState): void { this.update(s => { s.live[site] = v; }); }
+
+  /** Clicking a pill only does something when the GTM pick is in play. */
+  clickPill(pill: TfPill): void {
+    if (!pill.active) { return; }
+    this.setGtmPick(pill.gtm, pill.site);
+  }
 
   /** Clicking a box takes it out of service, or brings it back. */
   toggleNode(node: TfNode): void {
