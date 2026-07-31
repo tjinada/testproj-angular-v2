@@ -51,12 +51,29 @@ export const VHOST_DEPLOYED = true;
 export const SESSION_REPLICATED = false;
 
 /**
- * Akamai is an HTTP edge and can read cdbbossiteid, so an existing session can
- * stay pinned to its site even when that site's liveness object is gone — the
- * drain leaks. The EXT GTM answers DNS queries and can never do this: a
- * resolver carries no cookie, so health is the only input it has.
+ * The site-affinity cookie. Note the capital I: the architecture diagram's
+ * "cdbbossiteid" is a typo — the property sets cdbbossiteId, and cookie names
+ * are case-sensitive under RFC 6265.
+ *
+ * Values are <env>-<SITE>, e.g. blue-BCC, green-SCC, -BCC. The property matches
+ * them as a *SITE* substring, not by equality.
  */
-export const EDGE_COOKIE_BEATS_LIVENESS = true;
+export const SITE_COOKIE_NAME = 'cdbbossiteId';
+
+/** GTM fronting /api/cdb/*. Site affinity still comes from cdbbossiteId. */
+export const API_GTM_HOSTNAME = 'wlb.apis.olbb.akadns.net';
+
+/**
+ * A request carrying a valid cdbbossiteId never reaches populate-cname-chain:
+ * PMUSER_TARGET is assigned a hardcoded per-site hostname and the GTM is never
+ * queried. Liveness is therefore not overridden — it is never consulted at all.
+ * That is why renaming live.txt bleeds a site instead of cutting it, and why
+ * there is no failover for a cookie-bearing request whose pinned origin is down.
+ *
+ * Verified against property prod.olb.com_pm v386, in which the strings
+ * "live.txt" and "liveness" do not appear.
+ */
+export const COOKIE_BYPASSES_GTM = true;
 
 /** Node ids the operator may take out of service by clicking the diagram. */
 export const TOGGLEABLE_NODE = /^(apicfs|apic|extgtm|ltm|web|app)-/;

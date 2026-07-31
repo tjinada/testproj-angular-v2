@@ -83,11 +83,12 @@ function baseNodes(): Record<string, Geom & {
 
   n['gtm-bos'] = { x: 190, y: ROW.gtm - 72, width: 290, height: 144, outline: true, ellipse: true,
     lines: [line('GTM-CDB-BOS', true), line('www1.bmo.com/banking/services/*'), line(' '),
-      line('Liveness: /banking/live.txt'), line('Session Stickiness cookie:'), line('cdbbossiteid')] };
+      line('Liveness: /banking/live.txt'), line('Session Stickiness cookie:'), line('cdbbossiteId')] };
 
   n['gtm-api'] = { x: 700, y: ROW.gtm - 72, width: 290, height: 144, outline: true, ellipse: true,
-    lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'), line('50/50'), line(' '),
-      line('Liveness check: TCP on port 443'), line('Site stickiness: apicsiteid=BCC/SCC')] };
+    lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'),
+      line('wlb.apis.olbb.akadns.net  50/50'), line(' '),
+      line('Liveness check: TCP on port 443'), line('Site stickiness: cdbbossiteId')] };
 
   n['cloudlet'] = { x: 410, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
     lines: [line('cloudlet Configuration', true), line('Set x-bmo-env=blue or Green'),

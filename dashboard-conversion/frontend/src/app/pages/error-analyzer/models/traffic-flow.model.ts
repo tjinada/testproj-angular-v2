@@ -78,6 +78,12 @@ export interface Resolution {
   /** Response code or transport result shown in the banner. */
   http: string;
   setCookie: string | null;
+  /**
+   * The cdbbossiteId value the edge stamps on this request. Derived from the
+   * origin the edge targeted, so it records a decision already made rather
+   * than influencing one.
+   */
+  cookieStamped: string | null;
   steps: DecisionStep[];
   /** Node id where the request died, if it died. */
   breakAt: string | null;

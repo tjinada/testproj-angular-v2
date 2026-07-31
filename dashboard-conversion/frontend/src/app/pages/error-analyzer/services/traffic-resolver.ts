@@ -10,9 +10,10 @@ import type {
 import {
   APIC_INSTANCES,
   APP_SERVERS,
-  EDGE_COOKIE_BEATS_LIVENESS,
+  COOKIE_BYPASSES_GTM,
   SESSION_REPLICATED,
   SITES,
+  SITE_COOKIE_NAME,
   VHOST_DEPLOYED,
   WEB_SERVERS
 } from '../components/traffic-flow/traffic-topology';
@@ -91,44 +92,81 @@ export function resolveTraffic(state: SimState): Resolution {
   const step = (ids: string[], where: string, what: string, st: Severity = 'ok') =>
     steps.push({ ids, where, what, state: st });
 
+  /** cdbbossiteId value the edge stamps; set once the target origin is known. */
+  let stampedCookie: string | null = null;
+
   const done = (
     key: OutcomeKey, why: string, http: string,
     extra: Partial<Resolution> = {}
   ): Resolution => ({
     path: state.path, existing, pinnedSite: pinned,
     apicSite: null, bosSite: null, appServer: null,
-    outcome: outcome(key, why), http, setCookie: null, steps, breakAt: null,
+    outcome: outcome(key, why), http, setCookie: null,
+    cookieStamped: stampedCookie, steps, breakAt: null,
     ...extra
   });
 
+  /** The edge stamps <env>-<SITE> based on the origin it targeted. */
+  const stamp = (site: SiteId) => {
+    stampedCookie = `${SITE_COOKIE_NAME}=<env>-${site}`;
+  };
+
   step(['client'], 'Client',
     `Request <b>www1.bmo.com${api ? '/api/cdb' : '/banking/services/*'}</b>. ` +
-    (existing ? `Carries <b>cdbbossiteid=${pinned}</b>.` : 'No stickiness cookie yet.'));
+    (existing
+      ? `Carries a valid <b>${SITE_COOKIE_NAME}</b> pinning <b>${pinned}</b>.`
+      : `No <b>${SITE_COOKIE_NAME}</b> yet.`));
 
-  // ---- tier 1: Akamai picks the entry site --------------------------------
+  // ---- tier 1: the Akamai edge picks the origin ---------------------------
+  // A valid site cookie assigns PMUSER_TARGET a hardcoded hostname, so
+  // populate-cname-chain never runs and the GTM is never queried. Health only
+  // reaches traffic through the CNAME chain, i.e. only cookie-less requests.
+  const cookieBypass = existing && COOKIE_BYPASSES_GTM;
   let apicSite: SiteId | null = null;
   let edgeFailover = false;
 
   if (api) {
-    if (apicHealthy(state, pinned)) { apicSite = pinned; }
-    else if (apicHealthy(state, other(pinned))) { apicSite = other(pinned); edgeFailover = true; }
+    if (cookieBypass) {
+      apicSite = pinned;
+      stamp(pinned);
+      step(['gtm-api'], 'Akamai edge',
+        `Valid <b>${SITE_COOKIE_NAME}</b> → PMUSER_TARGET is hardcoded to ` +
+        `<b>${SITES[pinned].apicFs}</b>. populate-cname-chain never runs, so the GTM ` +
+        'and its TCP:443 check are never consulted.');
+      if (!apicHealthy(state, pinned)) {
+        return done('DOWN503',
+          `The ${pinned} APIC farm is out of service, but the cookie pinned the origin directly and ` +
+          'the GTM was never queried — there is no failover path. The edge forwards to a dead origin.',
+          '503', { apicSite, breakAt: `apicfs-${pinned}` });
+      }
+    } else {
+      if (apicHealthy(state, pinned)) { apicSite = pinned; }
+      else if (apicHealthy(state, other(pinned))) { apicSite = other(pinned); edgeFailover = true; }
+      if (apicSite) { stamp(apicSite); }
 
-    step(['gtm-api'], 'Akamai GTM-CDB-API',
-      apicSite === null
-        ? 'TCP:443 check fails against the APIC farm on <b>both</b> sites.'
-        : edgeFailover
-          ? `TCP:443 check fails against APIC-${pinned} → the edge sends the request to <b>APIC-${apicSite}</b> instead.`
-          : `Liveness is a <b>TCP check on 443</b>, site stickiness <b>apicsiteid</b>. Pinned to <b>${pinned}</b>.`,
-      apicSite === null ? 'bad' : edgeFailover ? 'warn' : 'ok');
+      step(['gtm-api'], 'Akamai GTM-CDB-API',
+        apicSite === null
+          ? 'No cookie → the CNAME chain resolves, but the TCP:443 check fails against the APIC farm on <b>both</b> sites.'
+          : edgeFailover
+            ? `No cookie → the CNAME chain resolves. TCP:443 fails against APIC-${pinned}, so the GTM answers with <b>APIC-${apicSite}</b>.`
+            : `No cookie → the CNAME chain resolves. GTM <b>wlb.apis.olbb.akadns.net</b> answers <b>${SITES[apicSite].apicFs}</b>, and the edge stamps <b>${SITE_COOKIE_NAME}</b> from it.`,
+        apicSite === null ? 'bad' : edgeFailover ? 'warn' : 'ok');
 
-    if (apicSite === null) {
-      return done('DOWN503',
-        'The APIC farm is out of service on both sites, so the Akamai API GTM has no healthy datacentre.',
-        '503', { breakAt: 'gtm-api' });
+      if (apicSite === null) {
+        return done('DOWN503',
+          'The APIC farm is out of service on both sites, so the API GTM has no healthy datacentre.',
+          '503', { breakAt: 'gtm-api' });
+      }
     }
+  } else if (cookieBypass) {
+    stamp(pinned);
+    step(['gtm-bos'], 'Akamai edge',
+      `Valid <b>${SITE_COOKIE_NAME}</b> → PMUSER_TARGET is hardcoded to ` +
+      `<b>${SITES[pinned].ltmHost}</b>. populate-cname-chain never runs, so ` +
+      '<b>/banking/live.txt</b> is never consulted on this request.');
   } else {
     step(['gtm-bos'], 'Akamai GTM-CDB-BOS',
-      'Liveness <b>/banking/live.txt</b>, session stickiness cookie <b>cdbbossiteid</b>.');
+      'No cookie → the CNAME chain resolves and liveness <b>/banking/live.txt</b> decides the site.');
   }
 
   step(['cloudlet'], 'Cloudlet Configuration',
@@ -140,8 +178,14 @@ export function resolveTraffic(state: SimState): Resolution {
   let bosFailover = false;
   let drained = false;
 
-  if (!api && existing && EDGE_COOKIE_BEATS_LIVENESS && reachable(state, pinned)) {
-    // The HTTP edge can read the cookie, so it wins over the liveness check.
+  if (!api && cookieBypass) {
+    // PMUSER_TARGET is the pinned LTM VIP. No GTM answer, so no failover leg.
+    if (!reachable(state, pinned)) {
+      return done('DOWN503',
+        `The ${pinned} BOS tier is unreachable, but the cookie pinned the LTM VIP directly and the ` +
+        'GTM was never queried — there is no failover path.',
+        '503', { breakAt: `ltm-${pinned}` });
+    }
     bosSite = pinned;
     drained = state.live[pinned] !== 'present';
   } else if (bosHealthy(state, from, api)) {
@@ -166,16 +210,18 @@ export function resolveTraffic(state: SimState): Resolution {
       bosSite === null ? 'bad' : bosFailover ? 'warn' : 'ok');
   }
 
+  // A cookie-less banking request is stamped from whatever the GTM answered.
+  if (!api && !cookieBypass && bosSite) { stamp(bosSite); }
+
   // On the banking path the GTM step itself carries the failover narrative.
   if (!api) {
     if (bosSite === null) {
       steps[1].what = 'No BOS site passes the <b>/banking/live.txt</b> check.';
       steps[1].state = 'bad';
     } else if (drained) {
-      steps[1].what =
-        `live.txt is renamed on ${pinned}, but this is an HTTP edge and it can read ` +
-        `<b>cdbbossiteid=${pinned}</b>. The cookie wins over the liveness check, so the ` +
-        `session stays on <b>${pinned}</b> — IHS is still serving.`;
+      steps[1].what +=
+        ` live.txt is renamed on ${pinned}, but nothing on this request path reads it — ` +
+        'the request goes straight to the pinned VIP and IHS is still serving.';
       steps[1].state = 'warn';
     } else if (bosFailover) {
       steps[1].what =
@@ -262,8 +308,9 @@ export function resolveTraffic(state: SimState): Resolution {
       '. Served, but half failed over.';
   } else if (drained) {
     key = 'DRAINED';
-    why = `live.txt is renamed on ${pinned}, but the cookie pins this session there and IHS is ` +
-      'still serving. The request succeeds on the site you are trying to empty — this is why a ' +
+    why = `The cookie pinned the origin directly, so the GTM was never queried and live.txt was ` +
+      `never read. IHS on ${pinned} is still serving, so the request succeeds on the site you are ` +
+      'trying to empty. Health is not overridden here — it is simply not consulted, which is why a ' +
       'drain bleeds instead of cutting.';
   } else if (!existing) {
     key = 'NEW';
@@ -282,8 +329,10 @@ export function resolveTraffic(state: SimState): Resolution {
     key === 'TIMEOUT' ? 'bad' : 'ok');
 
   const suffix = `${bosSite.toLowerCase()}app${appServer}`;
+  // The site cookie is reported separately as cookieStamped; this is the
+  // application's own session cookie.
   const setCookie = !existing
-    ? `cdbbossiteid=${bosSite}; JSESSIONID=…${suffix}`
+    ? `JSESSIONID=…${suffix}`
     : key === 'TIMEOUT'
       ? `JSESSIONID=…${suffix} (new)`
       : null;

@@ -27,7 +27,7 @@
     <div class="tf-group">
       <h3>Stickiness</h3>
       <div class="tf-field">
-        <label>Site pin (cookie)</label>
+        <label><code>cdbbossiteId</code> &mdash; site pin</label>
         <div class="tf-seg">
           <button type="button" *ngFor="let s of siteIds"
             [attr.aria-pressed]="state().site === s" (click)="setSite(s)">{{ s }}</button>
@@ -99,6 +99,7 @@
             </ng-container>
           </ng-container>
         </div>
+        <div *ngIf="resolution().cookieStamped"><code>{{ resolution().cookieStamped }}</code></div>
         <div *ngIf="resolution().setCookie"><code>{{ resolution().setCookie }}</code></div>
       </div>
     </div>
