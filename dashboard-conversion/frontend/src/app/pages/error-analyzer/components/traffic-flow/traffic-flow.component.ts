@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  GtmId, LivenessState, LtmMonitor, SessionKind, SimState, SiteId, TrafficPath
+  GtmId, LivenessState, PoolMonitor, SessionKind, SimState, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { resolveTraffic } from '../../services/traffic-resolver';
 import { buildTrafficGraph, TfNode, TfPill } from './traffic-flow-layout';
@@ -43,7 +43,7 @@ export class TrafficFlowComponent implements OnInit {
     const s = this.state();
     const q = new URLSearchParams({
       tab: 'traffic', path: s.path, sess: s.session, site: s.site,
-      js: String(s.jsession), ltm: s.ltmMonitor,
+      js: String(s.jsession), ltm: s.ltmMonitor, xgtm: s.extGtmMonitor,
       gtm: `bos:${s.gtmPick.bos},api:${s.gtmPick.api}`,
       live: `BCC:${s.live.BCC},SCC:${s.live.SCC}`
     });
@@ -65,6 +65,7 @@ export class TrafficFlowComponent implements OnInit {
     if (p['sess'] === 'new' || p['sess'] === 'existing') { next.session = p['sess']; }
     if (p['site'] === 'BCC' || p['site'] === 'SCC') { next.site = p['site']; }
     if (p['ltm'] === 'live' || p['ltm'] === 'tcp') { next.ltmMonitor = p['ltm']; }
+    if (p['xgtm'] === 'live' || p['xgtm'] === 'tcp') { next.extGtmMonitor = p['xgtm']; }
 
     const js = Number(p['js']);
     if (js >= 1 && js <= APP_SERVERS) { next.jsession = js; }
@@ -94,7 +95,7 @@ export class TrafficFlowComponent implements OnInit {
     this.router.navigate([], {
       queryParams: {
         tab: 'traffic', path: s.path, sess: s.session, site: s.site,
-        js: s.jsession, ltm: s.ltmMonitor,
+        js: s.jsession, ltm: s.ltmMonitor, xgtm: s.extGtmMonitor,
         gtm: `bos:${s.gtmPick.bos},api:${s.gtmPick.api}`,
         live: `BCC:${s.live.BCC},SCC:${s.live.SCC}`,
         off: off.length ? off.join(',') : null
@@ -121,7 +122,8 @@ export class TrafficFlowComponent implements OnInit {
     this.update(s => { s.gtmPick = { ...s.gtmPick, [gtm]: v }; });
   }
   setJsession(v: number): void { this.update(s => { s.jsession = v; }); }
-  setLtmMonitor(v: LtmMonitor): void { this.update(s => { s.ltmMonitor = v; }); }
+  setLtmMonitor(v: PoolMonitor): void { this.update(s => { s.ltmMonitor = v; }); }
+  setExtGtmMonitor(v: PoolMonitor): void { this.update(s => { s.extGtmMonitor = v; }); }
   setLive(site: SiteId, v: LivenessState): void { this.update(s => { s.live[site] = v; }); }
 
   /** Clicking a pill only does something when the GTM pick is in play. */

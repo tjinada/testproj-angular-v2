@@ -51,11 +51,19 @@ function apicHealthy(s: SimState, site: SiteId): boolean {
   return !s.down[`apicfs-${site}`] && apicUp(s, site).length > 0;
 }
 
-/** GTM health: /banking/live.txt served by IHS behind the LTM VIP. */
+/**
+ * Site health as a GTM sees it. Both GTMs probe the BOS LTM VIP, so the site is
+ * unreachable if the LTM or the whole web tier is out. What the probe *is*
+ * differs by tier: the EXT GTM's monitor is configurable, while the Akamai BOS
+ * GTM watches /banking/live.txt per the Requirements box on the architecture
+ * diagram. A TCP monitor keeps passing when the object is renamed, so the
+ * liveness drain has no effect on that tier.
+ */
 function bosHealthy(s: SimState, site: SiteId, api: boolean): boolean {
-  if (s.live[site] !== 'present') { return false; }
   if (s.down[`ltm-${site}`] || webUp(s, site).length === 0) { return false; }
   if (api && s.down[`extgtm-${site}`]) { return false; }
+  const monitor = api ? s.extGtmMonitor : 'live';
+  if (monitor === 'live' && s.live[site] !== 'present') { return false; }
   return true;
 }
 
@@ -237,12 +245,15 @@ export function resolveTraffic(state: SimState): Resolution {
     step(apicUp(state, apicSite as SiteId).map(i => `apic-${apicSite}-${i}`),
       `APIC inst (${apicSite})`,
       `Gateway script uses its own FQDN to pick the BOS GTM hostname: <b>${SITES[apicSite as SiteId].extGtm}</b>.`);
+    const mon = state.extGtmMonitor === 'live' ? '/banking/live.txt' : 'httpd TCP';
     step([`extgtm-${apicSite}`], `EXT GTM DNS (${apicSite})`,
       bosSite === null
-        ? 'No BOS site passes the <b>/banking/live.txt</b> check — no VIP to return.'
+        ? `No BOS site passes the <b>${mon}</b> monitor — no VIP to return.`
         : bosFailover
-          ? `BOS-${apicSite} fails its healthcheck → returns the <b>${bosSite}</b> LTM VIP (the <b>0% failover</b> leg).`
-          : 'Returns its own LTM VIP <b>100%</b> of the time.',
+          ? `BOS-${apicSite} fails its <b>${mon}</b> monitor → returns the <b>${bosSite}</b> LTM VIP (the <b>0% failover</b> leg).`
+          : state.extGtmMonitor === 'tcp' && state.live[apicSite as SiteId] !== 'present'
+            ? `Monitor is <b>httpd TCP</b>, not the liveness object, so the renamed live.txt is invisible here — returns its own VIP <b>100%</b>.`
+            : `Monitor <b>${mon}</b> passes — returns its own LTM VIP <b>100%</b> of the time.`,
       bosSite === null ? 'bad' : bosFailover ? 'warn' : 'ok');
   }
 

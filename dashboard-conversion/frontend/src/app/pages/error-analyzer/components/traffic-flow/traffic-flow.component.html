@@ -60,15 +60,27 @@
     </div>
 
     <div class="tf-group">
-      <h3>BOS LTM pool monitor</h3>
-      <div class="tf-seg">
-        <button type="button" [attr.aria-pressed]="state().ltmMonitor === 'live'"
-          (click)="setLtmMonitor('live')">live.txt</button>
-        <button type="button" [attr.aria-pressed]="state().ltmMonitor === 'tcp'"
-          (click)="setLtmMonitor('tcp')">httpd TCP</button>
+      <h3>Pool monitors</h3>
+      <div class="tf-field">
+        <label>EXT GTM (DNS)</label>
+        <div class="tf-seg">
+          <button type="button" [attr.aria-pressed]="state().extGtmMonitor === 'live'"
+            (click)="setExtGtmMonitor('live')">live.txt</button>
+          <button type="button" [attr.aria-pressed]="state().extGtmMonitor === 'tcp'"
+            (click)="setExtGtmMonitor('tcp')">httpd TCP</button>
+        </div>
       </div>
-      <p class="tf-hint">DACT-104. Monitoring the liveness object takes the whole pool offline
-        instead of just failing the GTM.</p>
+      <div class="tf-field">
+        <label>BOS LTM</label>
+        <div class="tf-seg">
+          <button type="button" [attr.aria-pressed]="state().ltmMonitor === 'live'"
+            (click)="setLtmMonitor('live')">live.txt</button>
+          <button type="button" [attr.aria-pressed]="state().ltmMonitor === 'tcp'"
+            (click)="setLtmMonitor('tcp')">httpd TCP</button>
+        </div>
+      </div>
+      <p class="tf-hint">DACT-104 is the LTM row. A TCP monitor keeps passing when the object is
+        renamed, so a liveness drain has no effect on that tier.</p>
     </div>
 
     <div class="tf-group">

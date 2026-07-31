@@ -112,7 +112,7 @@ function baseNodes(res: Resolution): Record<string, any> {
 }
 
 /** Adds the per-site column: APIC FS, APIC instances, EXT GTM, LTM, web, app. */
-function siteNodes(all: Record<string, any>): void {
+function siteNodes(all: Record<string, any>, state: SimState): void {
   SITE_IDS.forEach(site => {
     const cx = SITE_X[site];
     const facts = SITES[site];
@@ -126,8 +126,10 @@ function siteNodes(all: Record<string, any>): void {
         width: 100, height: 46, warn: true, lines: [line(`APIC inst #${i}`)] };
     }
 
-    all[`extgtm-${site}`] = { x: cx - 125, y: ROW.extGtm, width: 250, height: 104, warn: true,
-      lines: [line('EXT GTM (DNS)', true), line(facts.extGtm), ...NAME_SERVERS.map(s => line(s))] };
+    all[`extgtm-${site}`] = { x: cx - 125, y: ROW.extGtm, width: 250, height: 116, warn: true,
+      lines: [line('EXT GTM (DNS)', true), line(facts.extGtm),
+        line(`monitor: ${state.extGtmMonitor === 'live' ? '/banking/live.txt' : 'httpd TCP'}`, true),
+        ...NAME_SERVERS.map(s => line(s))] };
 
     all[`ltm-${site}`] = { x: cx - 125, y: ROW.ltm, width: 250, height: 92,
       lines: [line('BOS LTM (Local traffic', true), line(`manager) (${site})`, true),
@@ -254,7 +256,7 @@ const LANES: TfLane[] = [
  */
 export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
   const geom = baseNodes(res);
-  siteNodes(geom);
+  siteNodes(geom, state);
   const entrySite = res.apicSite ?? res.bosSite;
 
   // Map node id -> position in the taken path.

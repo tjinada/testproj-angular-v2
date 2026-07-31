@@ -88,6 +88,7 @@ export function defaultSimState(): SimState {
     jsession: 1,
     live: { BCC: 'present', SCC: 'present' },
     ltmMonitor: 'live',
+    extGtmMonitor: 'live',
     down: {}
   };
 }

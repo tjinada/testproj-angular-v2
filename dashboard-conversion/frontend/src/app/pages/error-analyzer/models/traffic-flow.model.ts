@@ -11,11 +11,11 @@ export type SiteId = 'BCC' | 'SCC';
 export type LivenessState = 'present' | 'renamed';
 
 /**
- * What the BOS LTM pool monitor watches. Monitoring the liveness object
- * rather than the httpd TCP port takes the whole pool offline when the
- * object is renamed (DACT-104).
+ * What a pool monitor watches. Monitoring the liveness object rather than the
+ * httpd TCP port means a renamed object marks the pool down even though httpd
+ * is still serving (DACT-104 at the LTM; the same choice exists at the EXT GTM).
  */
-export type LtmMonitor = 'live' | 'tcp';
+export type PoolMonitor = 'live' | 'tcp';
 
 /** The two Akamai GTMs. Each has its own 50/50 pick for cookie-less requests. */
 export type GtmId = 'bos' | 'api';
@@ -34,7 +34,10 @@ export interface SimState {
   /** JSESSIONID jvmRoute -> app server 1..APP_SERVERS. */
   jsession: number;
   live: Record<SiteId, LivenessState>;
-  ltmMonitor: LtmMonitor;
+  /** BOS LTM pool monitor (DACT-104). */
+  ltmMonitor: PoolMonitor;
+  /** EXT GTM pool monitor. Decides whether a renamed object drains the API path. */
+  extGtmMonitor: PoolMonitor;
   /** Node ids taken out of service, keyed for cheap lookup. */
   down: Record<string, true>;
 }
