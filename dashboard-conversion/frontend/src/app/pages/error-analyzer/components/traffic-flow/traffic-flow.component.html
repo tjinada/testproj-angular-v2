@@ -1,0 +1,196 @@
+<div class="tf-layout">
+
+  <!-- Control rail -->
+  <aside class="tf-rail">
+    <div class="tf-group">
+      <h3>Request</h3>
+      <div class="tf-field">
+        <label>Path</label>
+        <div class="tf-seg">
+          <button type="button" [attr.aria-pressed]="state().path === 'banking'"
+            (click)="setPath('banking')">/banking/services</button>
+          <button type="button" [attr.aria-pressed]="state().path === 'api'"
+            (click)="setPath('api')">/api/cdb</button>
+        </div>
+      </div>
+      <div class="tf-field">
+        <label>Session</label>
+        <div class="tf-seg">
+          <button type="button" [attr.aria-pressed]="state().session === 'new'"
+            (click)="setSession('new')">New</button>
+          <button type="button" [attr.aria-pressed]="state().session === 'existing'"
+            (click)="setSession('existing')">Existing</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tf-group">
+      <h3>Stickiness</h3>
+      <div class="tf-field">
+        <label>Site pin (cookie)</label>
+        <div class="tf-seg">
+          <button type="button" *ngFor="let s of siteIds"
+            [attr.aria-pressed]="state().site === s" (click)="setSite(s)">{{ s }}</button>
+        </div>
+      </div>
+      <div class="tf-field">
+        <label>JSESSIONID &rarr; app server</label>
+        <div class="tf-seg tf-seg-narrow">
+          <button type="button" *ngFor="let n of appServers"
+            [attr.aria-pressed]="state().jsession === n" (click)="setJsession(n)">{{ n }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tf-group">
+      <h3>Liveness object</h3>
+      <div class="tf-site-row" *ngFor="let s of siteIds">
+        <span class="tf-site-tag">{{ s }}</span>
+        <div class="tf-seg tf-seg-danger">
+          <button type="button" [attr.aria-pressed]="state().live[s] === 'present'"
+            (click)="setLive(s, 'present')">live.txt</button>
+          <button type="button" [attr.aria-pressed]="state().live[s] === 'renamed'"
+            (click)="setLive(s, 'renamed')">dead.txt</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tf-group">
+      <h3>BOS LTM pool monitor</h3>
+      <div class="tf-seg">
+        <button type="button" [attr.aria-pressed]="state().ltmMonitor === 'live'"
+          (click)="setLtmMonitor('live')">live.txt</button>
+        <button type="button" [attr.aria-pressed]="state().ltmMonitor === 'tcp'"
+          (click)="setLtmMonitor('tcp')">httpd TCP</button>
+      </div>
+      <p class="tf-hint">DACT-104. Monitoring the liveness object takes the whole pool offline
+        instead of just failing the GTM.</p>
+    </div>
+
+    <div class="tf-group">
+      <h3>Out of service</h3>
+      <p class="tf-hint">Click any APIC, GTM, LTM, web or app box on the diagram to take it out
+        of service.</p>
+      <p class="tf-offlist" *ngIf="outOfService().length; else allUp">
+        {{ outOfService().join(', ') }}
+      </p>
+      <ng-template #allUp><p class="tf-hint">Everything in service.</p></ng-template>
+      <button type="button" class="tf-btn-secondary" (click)="resetOutages()">
+        Bring everything back
+      </button>
+    </div>
+  </aside>
+
+  <!-- Outcome, diagram, decision trace -->
+  <main class="tf-main">
+    <div class="tf-outcome" [ngClass]="'tf-sev-' + resolution().outcome.severity">
+      <span class="tf-outcome-dot"></span>
+      <div>
+        <p class="tf-outcome-title">{{ resolution().outcome.title }}</p>
+        <p class="tf-outcome-why">{{ resolution().outcome.why }}</p>
+      </div>
+      <div class="tf-outcome-meta">
+        <div>
+          <b>{{ resolution().http }}</b>
+          <ng-container *ngIf="resolution().bosSite">
+            &middot; {{ resolution().bosSite }}
+            <ng-container *ngIf="resolution().appServer">
+              &middot; app{{ resolution().appServer }}
+            </ng-container>
+          </ng-container>
+        </div>
+        <div *ngIf="resolution().setCookie"><code>{{ resolution().setCookie }}</code></div>
+      </div>
+    </div>
+
+    <div class="tf-graph-bar">
+      <h3 class="tf-sec-h">Traffic flow</h3>
+      <div class="tf-mini">
+        <button type="button" [attr.aria-pressed]="zoom() === 'fit'"
+          (click)="setZoom('fit')">Fit</button>
+        <button type="button" [attr.aria-pressed]="zoom() === 'full'"
+          (click)="setZoom('full')">100%</button>
+      </div>
+    </div>
+
+    <div class="tf-graph-card">
+      <svg [attr.viewBox]="'0 0 ' + graph().width + ' ' + graph().height"
+        [style.width]="zoom() === 'fit' ? '100%' : graph().width + 'px'"
+        role="img" aria-label="CDB traffic flow">
+
+        <g *ngFor="let lane of graph().lanes">
+          <rect class="tf-lane" [attr.x]="lane.x" [attr.y]="lane.y"
+            [attr.width]="lane.width" [attr.height]="lane.height" rx="4"></rect>
+          <text class="tf-lane-t" [attr.x]="lane.x + 14" [attr.y]="lane.y + 22">{{ lane.title }}</text>
+        </g>
+
+        <path *ngFor="let e of graph().edges" [attr.d]="e.d" [ngClass]="'tf-e-' + e.kind"></path>
+
+        <text *ngFor="let l of graph().labels" [attr.x]="l.x" [attr.y]="l.y"
+          [ngClass]="'tf-l-' + l.kind">{{ l.text }}</text>
+
+        <g *ngFor="let n of graph().nodes" class="tf-node"
+          [class.tf-toggle]="n.toggleable"
+          [class.tf-dim]="!n.hop && !n.outOfService"
+          [class.tf-on]="n.state === 'ok'"
+          [class.tf-warn]="n.state === 'warn'"
+          [class.tf-fail]="n.state === 'bad'"
+          [class.tf-off]="n.outOfService"
+          [class.tf-linked]="isHovered(n.id)"
+          (click)="toggleNode(n)"
+          (mouseenter)="hover([n.id])" (mouseleave)="clearHover()">
+
+          <ellipse *ngIf="n.ellipse" class="tf-outline"
+            [attr.cx]="n.x + n.width / 2" [attr.cy]="n.y + n.height / 2"
+            [attr.rx]="n.width / 2" [attr.ry]="n.height / 2"></ellipse>
+          <rect *ngIf="!n.ellipse" [ngClass]="n.outline ? 'tf-outline' : 'tf-box'"
+            [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.width" [attr.height]="n.height"
+            [attr.rx]="n.radius"></rect>
+
+          <text *ngFor="let ln of n.lines; let i = index"
+            [ngClass]="{ 'tf-nt': true, 'tf-nt-b': ln.bold, 'tf-nt-dark': n.outline }"
+            [attr.x]="n.x + n.width / 2"
+            [attr.y]="n.y + n.height / 2 - (n.lines.length * 12) / 2 + 9 + i * 12">{{ ln.text }}</text>
+
+          <text *ngIf="n.warn" class="tf-warnq"
+            [attr.x]="n.x + n.width - 11" [attr.y]="n.y + 13">&#9888;</text>
+
+          <ng-container *ngIf="n.outOfService">
+            <line class="tf-offx" [attr.x1]="n.x + 4" [attr.y1]="n.y + 4"
+              [attr.x2]="n.x + n.width - 4" [attr.y2]="n.y + n.height - 4"></line>
+            <line class="tf-offx" [attr.x1]="n.x + n.width - 4" [attr.y1]="n.y + 4"
+              [attr.x2]="n.x + 4" [attr.y2]="n.y + n.height - 4"></line>
+            <text class="tf-offt" [attr.x]="n.x + n.width / 2"
+              [attr.y]="n.y + n.height + 12">OUT OF SERVICE</text>
+          </ng-container>
+
+          <ng-container *ngIf="n.hop">
+            <circle class="tf-hopc" [attr.cx]="n.x + 13" [attr.cy]="n.y + 13" r="10"></circle>
+            <text class="tf-hopt" [attr.x]="n.x + 13" [attr.y]="n.y + 17">{{ n.hop }}</text>
+          </ng-container>
+
+          <text *ngIf="n.isBreak" class="tf-xm" [attr.x]="n.x + n.width / 2"
+            [attr.y]="n.y + n.height + 18">&#10005;</text>
+        </g>
+      </svg>
+    </div>
+
+    <h3 class="tf-sec-h">Decision trace</h3>
+    <div class="tf-trace">
+      <div class="tf-tr" *ngFor="let s of resolution().steps; let i = index"
+        [ngClass]="'tf-tr-' + s.state" [class.tf-linked]="isStepHovered(s.ids)"
+        (mouseenter)="hover(s.ids)" (mouseleave)="clearHover()">
+        <div class="tf-tr-n">{{ i + 1 }}</div>
+        <div class="tf-tr-w">{{ s.where }}</div>
+        <div class="tf-tr-y" [innerHTML]="s.what"></div>
+      </div>
+    </div>
+
+    <div class="tf-linkbar">
+      <input type="text" readonly [value]="shareLink()" aria-label="Shareable scenario link" />
+      <button type="button" class="tf-btn" (click)="copyLink()">
+        {{ linkCopied() ? 'Copied' : 'Copy link' }}
+      </button>
+    </div>
+  </main>
+</div>

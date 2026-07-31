@@ -34,6 +34,15 @@
       (click)="setTab('opensearch')">
       Application Logs
     </button>
+    <button
+      type="button"
+      class="tab-btn"
+      role="tab"
+      [attr.aria-selected]="activeTab === 'traffic'"
+      [class.tab-btn-active]="activeTab === 'traffic'"
+      (click)="setTab('traffic')">
+      Traffic Flow
+    </button>
   </div>
 
   <!-- Tab: Trace Analysis ──────────────────────────────────────────── -->
@@ -139,5 +148,10 @@
 
   <div [hidden]="activeTab !== 'opensearch'" class="tab-panel" role="tabpanel">
     <app-opensearch-log-search></app-opensearch-log-search>
+  </div>
+
+  <!-- Tab: Traffic Flow ────────────────────────────────────────────── -->
+  <div [hidden]="activeTab !== 'traffic'" class="tab-panel" role="tabpanel">
+    <app-traffic-flow [sharedParams]="trafficParams"></app-traffic-flow>
   </div>
 </div>

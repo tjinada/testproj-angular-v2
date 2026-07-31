@@ -11,17 +11,18 @@ import { OpenSearchLogSearchComponent } from './components/opensearch-log-search
 import { EndpointResultsTableComponent } from './components/endpoint-results-table/endpoint-results-table.component';
 import { ComponentResultsTableComponent } from './components/component-results-table/component-results-table.component';
 import { CallerResultsTableComponent } from './components/caller-results-table/caller-results-table.component';
+import { TrafficFlowComponent } from './components/traffic-flow/traffic-flow.component';
 import { buildFlowGraph, FlowNode } from './components/flow-diagram/flow-layout';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, EnvironmentOption } from './services/config.service';
 import { CallerRow, ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
-type TabId = 'trace' | 'opensearch';
+type TabId = 'trace' | 'opensearch' | 'traffic';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent, TrafficFlowComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -42,6 +43,9 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   // Tab state
   activeTab: TabId = 'trace';
+
+  /** Query params handed to the Traffic Flow tab so shared scenario links restore. */
+  trafficParams: Record<string, string> | null = null;
 
   // Token management
   showTokenSetup = false;
@@ -87,6 +91,16 @@ export class ErrorAnalyzerComponent implements OnInit {
   ) {}
 
   async ngOnInit(): Promise<void> {
+    // Read before the first await: the Traffic Flow child is created during the
+    // parent's first change detection, so its input must already be set.
+    const qp = this.router.parseUrl(this.router.url).queryParams as Record<string, string>;
+    if (qp && Object.keys(qp).length > 0) {
+      this.trafficParams = qp;
+      if (qp['tab'] === 'traffic') {
+        this.activeTab = 'traffic';
+      }
+    }
+
     await this.configService.load();
     this.envHostnamePatterns = this.configService.getEnvHostnamePatterns();
     this.environments = this.configService.getEnvironments();
