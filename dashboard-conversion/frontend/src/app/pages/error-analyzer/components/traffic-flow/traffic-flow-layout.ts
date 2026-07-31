@@ -92,7 +92,7 @@ function baseNodes(res: Resolution): Record<string, any> {
   const n: Record<string, any> = {};
 
   n['client'] = { x: 530, y: 20, width: 140, height: 44, outline: true,
-    lines: [line('DLB Customer', true)] };
+    lines: [line('CDB UI', true)] };
 
   n['gtm-bos'] = { x: 190, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
     lines: [line('GTM-CDB-BOS', true), line('www1.bmo.com/banking/services/*'),

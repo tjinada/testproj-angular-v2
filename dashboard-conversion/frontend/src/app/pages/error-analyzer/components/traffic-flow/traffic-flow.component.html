@@ -85,8 +85,9 @@
 
     <div class="tf-group">
       <h3>Out of service</h3>
-      <p class="tf-hint">Click any APIC, GTM, LTM, web or app box on the diagram to take it out
-        of service.</p>
+      <p class="tf-hint">Click any APIC, LTM, web or app box on the diagram to take it out
+        of service. The GTMs are control plane &mdash; they answer a DNS query and step aside,
+        so they aren't in the traffic path.</p>
       <p class="tf-offlist" *ngIf="outOfService().length; else allUp">
         {{ outOfService().join(', ') }}
       </p>

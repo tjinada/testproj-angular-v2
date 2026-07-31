@@ -61,7 +61,6 @@ function apicHealthy(s: SimState, site: SiteId): boolean {
  */
 function bosHealthy(s: SimState, site: SiteId, api: boolean): boolean {
   if (s.down[`ltm-${site}`] || webUp(s, site).length === 0) { return false; }
-  if (api && s.down[`extgtm-${site}`]) { return false; }
   const monitor = api ? s.extGtmMonitor : 'live';
   if (monitor === 'live' && s.live[site] !== 'present') { return false; }
   return true;
@@ -252,8 +251,8 @@ export function resolveTraffic(state: SimState): Resolution {
         : bosFailover
           ? `BOS-${apicSite} fails its <b>${mon}</b> monitor → returns the <b>${bosSite}</b> LTM VIP (the <b>0% failover</b> leg).`
           : state.extGtmMonitor === 'tcp' && state.live[apicSite as SiteId] !== 'present'
-            ? `Monitor is <b>httpd TCP</b>, not the liveness object, so the renamed live.txt is invisible here — returns its own VIP <b>100%</b>.`
-            : `Monitor <b>${mon}</b> passes — returns its own LTM VIP <b>100%</b> of the time.`,
+            ? `Monitor is <b>httpd TCP</b>, not the liveness object, so the renamed live.txt is invisible here — returns the <b>${bosSite}</b> VIP <b>100%</b>.`
+            : `Monitor <b>${mon}</b> passes — returns the <b>${bosSite}</b> LTM VIP <b>100%</b> of the time.`,
       bosSite === null ? 'bad' : bosFailover ? 'warn' : 'ok');
   }
 

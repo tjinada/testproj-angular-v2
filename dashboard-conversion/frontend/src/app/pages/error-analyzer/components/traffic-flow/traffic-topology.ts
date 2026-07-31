@@ -75,8 +75,16 @@ export const API_GTM_HOSTNAME = 'wlb.apis.olbb.akadns.net';
  */
 export const COOKIE_BYPASSES_GTM = true;
 
-/** Node ids the operator may take out of service by clicking the diagram. */
-export const TOGGLEABLE_NODE = /^(apicfs|apic|extgtm|ltm|web|app)-/;
+/**
+ * Node ids the operator may take out of service by clicking the diagram.
+ *
+ * Only inline devices qualify — ones every packet passes through. The GTMs are
+ * control plane: they answer a DNS question once and step aside, so taking one
+ * out does not stop traffic. Verified 2026-07-31 that the two EXT GTM
+ * appliances are a sync group answering identically for the same wide IPs,
+ * which makes a single-appliance outage unobservable from the request path.
+ */
+export const TOGGLEABLE_NODE = /^(apicfs|apic|ltm|web|app)-/;
 
 /** Starting scenario: healthy estate, existing session pinned to BCC. */
 export function defaultSimState(): SimState {
