@@ -107,6 +107,19 @@ export function resolveTraffic(state: SimState): Resolution {
   };
   const gtmDistribution = { api: distribution(apiHealth), bos: distribution(bosHealth) };
 
+  // Which site each GTM actually answers with. The operator's pick only stands
+  // while both datacentres pass; otherwise health decides for it.
+  const answer = (h: Record<SiteId, boolean>, pick: SiteId): SiteId | null => {
+    if (h.BCC && h.SCC) { return pick; }
+    if (h.BCC) { return 'BCC'; }
+    if (h.SCC) { return 'SCC'; }
+    return null;
+  };
+  const gtmAnswer = {
+    api: answer(apiHealth, state.gtmPick.api),
+    bos: answer(bosHealth, state.gtmPick.bos)
+  };
+
   // EXT GTM legs: each answers with its own VIP unless its site fails the check.
   const extHealth = { BCC: bosHealthy(state, 'BCC', true), SCC: bosHealthy(state, 'SCC', true) };
   const extGtmSplit = {
@@ -122,7 +135,7 @@ export function resolveTraffic(state: SimState): Resolution {
   ): Resolution => ({
     path: state.path, existing, pinnedSite: pinned,
     apicSite: null, bosSite: null, appServer: null,
-    gtmDistribution, gtmActive: !existing, extGtmSplit,
+    gtmDistribution, gtmAnswer, gtmActive: !existing, extGtmSplit,
     outcome: outcome(key, why), http, setCookie: null,
     cookieStamped: stampedCookie, steps, breakAt: null,
     ...extra

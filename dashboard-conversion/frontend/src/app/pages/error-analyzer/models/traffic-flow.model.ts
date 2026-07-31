@@ -80,6 +80,12 @@ export interface Resolution {
   apicSite: SiteId | null;
   /** Distribution text shown inside each GTM oval, e.g. "50/50", "100% → SCC". */
   gtmDistribution: Record<GtmId, string>;
+  /**
+   * The site each GTM would actually answer with: the operator's pick when both
+   * datacentres are healthy, otherwise whichever one still passes its check.
+   * Null when neither does.
+   */
+  gtmAnswer: Record<GtmId, SiteId | null>;
   /** True when the GTM pick is actually in play (cookie-less request). */
   gtmActive: boolean;
   /** Own-site and crossover percentages for each EXT GTM. */

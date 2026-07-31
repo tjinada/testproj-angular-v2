@@ -222,15 +222,19 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
   spec.forEach(({ gtm, node }) => {
     const g = geom[node];
     if (!g) { return; }
+    // Only the GTM fronting the current path takes part in this request.
+    const inPath = (gtm === 'api') === (res.path === 'api');
     const overridden = !res.gtmDistribution[gtm].startsWith('50/50');
+    const answered = res.gtmAnswer[gtm];
     SITE_IDS.forEach((site, i) => {
       pills.push({
         gtm, site,
         x: g.x + g.width / 2 - 55 + i * 58,
         y: g.y + g.height - 40,
         width: 52, height: 19,
-        selected: state.gtmPick[gtm] === site,
-        active: res.gtmActive && !overridden
+        // Show what the GTM actually answers, not a pick health has overridden.
+        selected: answered ? answered === site : state.gtmPick[gtm] === site,
+        active: inPath && res.gtmActive && !overridden
       });
     });
   });
