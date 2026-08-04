@@ -6,21 +6,27 @@
       <h3>Request</h3>
       <div class="tf-field">
         <label>Path</label>
-        <div class="tf-seg">
+        <div class="tf-seg tf-seg-stack">
           <button type="button" [attr.aria-pressed]="state().path === 'banking'"
             (click)="setPath('banking')">/banking/services</button>
           <button type="button" [attr.aria-pressed]="state().path === 'api'"
             (click)="setPath('api')">/api/cdb</button>
+          <button type="button" [attr.aria-pressed]="state().path === 'csgcb'"
+            (click)="setPath('csgcb')">/banking/services/csgcb</button>
         </div>
       </div>
       <div class="tf-field">
         <label>Session</label>
         <div class="tf-seg">
           <button type="button" [attr.aria-pressed]="state().session === 'new'"
+            [disabled]="state().path === 'csgcb'"
             (click)="setSession('new')">New</button>
           <button type="button" [attr.aria-pressed]="state().session === 'existing'"
+            [disabled]="state().path === 'csgcb'"
             (click)="setSession('existing')">Existing</button>
         </div>
+        <p class="tf-hint" *ngIf="state().path === 'csgcb'">csgcb runs post-auth, so it always
+          carries a <code>cdbbossiteId</code>. There is no cookie-less case to simulate.</p>
       </div>
     </div>
 

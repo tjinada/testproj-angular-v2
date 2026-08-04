@@ -55,8 +55,12 @@ export class TrafficFlowComponent implements OnInit {
   /** Rebuilds state from a shared link. Unknown values fall back to defaults. */
   private restore(p: Record<string, string>): void {
     const next = defaultSimState();
-    if (p['path'] === 'banking' || p['path'] === 'api') { next.path = p['path']; }
+    if (p['path'] === 'banking' || p['path'] === 'api' || p['path'] === 'csgcb') {
+      next.path = p['path'];
+    }
     if (p['sess'] === 'new' || p['sess'] === 'existing') { next.session = p['sess']; }
+    // csgcb is post-auth, so a link claiming a new session is not a real state.
+    if (next.path === 'csgcb') { next.session = 'existing'; }
     if (p['site'] === 'BCC' || p['site'] === 'SCC') { next.site = p['site']; }
     if (p['ltm'] === 'live' || p['ltm'] === 'tcp') { next.ltmMonitor = p['ltm']; }
     if (p['xgtm'] === 'live' || p['xgtm'] === 'tcp') { next.extGtmMonitor = p['xgtm']; }
@@ -109,7 +113,13 @@ export class TrafficFlowComponent implements OnInit {
     this.syncUrl(next);
   }
 
-  setPath(v: TrafficPath): void { this.update(s => { s.path = v; }); }
+  /** csgcb is post-auth, so selecting it locks the session to Existing. */
+  setPath(v: TrafficPath): void {
+    this.update(s => {
+      s.path = v;
+      if (v === 'csgcb') { s.session = 'existing'; }
+    });
+  }
   setSession(v: SessionKind): void { this.update(s => { s.session = v; }); }
   setSite(v: SiteId): void { this.update(s => { s.site = v; }); }
   setGtmPick(gtm: GtmId, v: SiteId): void {

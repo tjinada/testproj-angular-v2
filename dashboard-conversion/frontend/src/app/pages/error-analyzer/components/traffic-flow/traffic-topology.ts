@@ -6,6 +6,8 @@ export interface SiteFacts {
   extGtm: string;
   ltmHost: string;
   ltmVip: string;
+  /** Legacy ISAM front door. Note the .bmofg.com domain, not .bmo.com. */
+  isamLtm: string;
 }
 
 export const SITE_IDS: SiteId[] = ['BCC', 'SCC'];
@@ -15,13 +17,15 @@ export const SITES: Record<SiteId, SiteFacts> = {
     apicFs: 'bmonsori-apisbccprod.bmo.com',
     extGtm: 'bos-www13.bmo.com',
     ltmHost: 'bmonsori-www13.bmo.com',
-    ltmVip: '(198.96.174.25)'
+    ltmVip: '(198.96.174.25)',
+    isamLtm: 'retailcanapi-prodbcc.bmofg.com'
   },
   SCC: {
     apicFs: 'bmonsori-apissccprod.bmo.com',
     extGtm: 'bos-www12.bmo.com',
     ltmHost: 'bmonsori-www12.bmo.com',
-    ltmVip: '(142.43.171.25)'
+    ltmVip: '(142.43.171.25)',
+    isamLtm: 'retailcanapi-prodscc.bmofg.com'
   }
 };
 
@@ -37,6 +41,7 @@ export const NAME_SERVERS = [
 export const APIC_INSTANCES = 3;
 export const WEB_SERVERS = 2;
 export const APP_SERVERS = 6;
+export const WGA_INSTANCES = 6;
 
 /*
  * Environment facts, not operator controls. These describe how the estate is
@@ -76,6 +81,24 @@ export const API_GTM_HOSTNAME = 'wlb.apis.olbb.akadns.net';
 export const COOKIE_BYPASSES_GTM = true;
 
 /**
+ * Legacy ISAM keys off the same cdbbossiteId as APIC, but hard-wires to
+ * same-site BOS with no failover leg of its own. The cookie therefore records
+ * which *APIC* served the last call, and initISAMSession inherits that answer
+ * as if it were a statement about BOS.
+ *
+ * When APIC fails over but BOS does not — SCC APIC forwarding to BCC BOS — the
+ * edge stamps SCC from the APIC answer. The next /banking/services/csgcb call
+ * pins SCC ISAM, which reaches only SCC BOS. If SCC BOS is the site that is
+ * down, initISAMSession returns 500 even though the api path is being served
+ * perfectly well by BCC.
+ *
+ * The two calls are separate requests, so the trap is armed by one and sprung
+ * by the next. The api path forward-declares it on the SPLIT outcome rather
+ * than pretending a single request can traverse both.
+ */
+export const ISAM_SHARES_SITE_COOKIE = true;
+
+/**
  * Node ids the operator may take out of service by clicking the diagram.
  *
  * Only inline devices qualify — ones every packet passes through. The GTMs are
@@ -84,7 +107,7 @@ export const COOKIE_BYPASSES_GTM = true;
  * appliances are a sync group answering identically for the same wide IPs,
  * which makes a single-appliance outage unobservable from the request path.
  */
-export const TOGGLEABLE_NODE = /^(apicfs|apic|ltm|web|app)-/;
+export const TOGGLEABLE_NODE = /^(apicfs|apic|ltm|web|app|isamltm|wga)-/;
 
 /** Starting scenario: healthy estate, existing session pinned to BCC. */
 export function defaultSimState(): SimState {
@@ -110,7 +133,9 @@ export function nodeLabel(id: string): string {
     extgtm: 'EXT GTM',
     ltm: 'BOS LTM',
     web: 'BOS Web',
-    app: 'BOS App'
+    app: 'BOS App',
+    isamltm: 'ISAM LTM',
+    wga: 'ISAM WGA'
   };
   const name = tier[parts[0]] ?? parts[0];
   return `${name} ${parts[1] ?? ''}${parts[2] ? ' #' + parts[2] : ''}`.trim();

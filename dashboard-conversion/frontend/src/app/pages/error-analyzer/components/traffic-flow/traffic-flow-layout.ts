@@ -2,8 +2,8 @@ import type {
   GtmId, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
-  APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_IDS,
-  TOGGLEABLE_NODE, WEB_SERVERS
+  APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_COOKIE_NAME, SITE_IDS,
+  TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
 } from './traffic-topology';
 
 /** A laid-out box on the diagram. */
@@ -80,8 +80,22 @@ const ROW = {
   gtm: 195, cloudlet: 330, apicFs: 445, apic: 545,
   extGtm: 625, ltm: 765, web: 885, app: 995
 };
-const SITE_X: Record<SiteId, number> = { BCC: 290, SCC: 910 };
-const CANVAS = { width: 1200, height: 1105 };
+const SITE_X: Record<SiteId, number> = { BCC: 560, SCC: 1000 };
+
+/**
+ * ISAM columns sit outboard of the BOS columns, as on the architecture diagram.
+ * The ISAM LTM shares the APIC FS row and the WGA tier shares the APIC instance
+ * row, so the two authentication front doors read side by side.
+ */
+const ISAM_X: Record<SiteId, number> = { BCC: 200, SCC: 1360 };
+
+/** Vertical run of the /banking/services rails, threaded between the columns. */
+const RAIL_X: Record<SiteId, number> = { BCC: 371, SCC: 1188 };
+
+/** Horizontal run of the csgcb leg to the far site, below the cloudlet. */
+const CSGCB_RAIL_Y = 420;
+
+const CANVAS = { width: 1560, height: 1105 };
 
 type Geom = { x: number; y: number; width: number; height: number };
 
@@ -91,24 +105,49 @@ function line(text: string, bold = false) { return { text, bold }; }
 function baseNodes(res: Resolution): Record<string, any> {
   const n: Record<string, any> = {};
 
-  n['client'] = { x: 530, y: 20, width: 140, height: 44, outline: true,
+  n['client'] = { x: 710, y: 20, width: 140, height: 44, outline: true,
     lines: [line('CDB UI', true)] };
 
-  n['gtm-bos'] = { x: 190, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+  n['gtm-bos'] = { x: 415, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
     lines: [line('GTM-CDB-BOS', true), line('www1.bmo.com/banking/services/*'),
       line('Liveness: /banking/live.txt'), line('Stickiness: cdbbossiteId'),
       line(res.gtmDistribution.bos, true)] };
 
-  n['gtm-api'] = { x: 700, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+  n['gtm-api'] = { x: 855, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
     lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'),
       line('wlb.apis.olbb.akadns.net'), line('Liveness: TCP on port 443'),
       line('Stickiness: cdbbossiteId'), line(res.gtmDistribution.api, true)] };
 
-  n['cloudlet'] = { x: 410, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
+  n['cloudlet'] = { x: 590, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
     lines: [line('cloudlet Configuration', true), line('Set x-bmo-env=blue or Green'),
       line('Set x-api-key=pr1_key or pr2_key')] };
 
+  // The csgcb entry point. Drawn on every path so the estate reads whole, but
+  // only on the taken path when the request is actually csgcb.
+  n['akamai-prop'] = { x: 60, y: ROW.cloudlet, width: 280, height: 66,
+    outline: true, radius: 33,
+    lines: [line('Property Configuration', true),
+      line(`if ${SITE_COOKIE_NAME} = BCC/SCC`),
+      line('→ ISAM origin, no GTM')] };
+
   return n;
+}
+
+/** Adds the per-site legacy ISAM column: ISAM LTM and its WGA instances. */
+function isamNodes(all: Record<string, any>): void {
+  SITE_IDS.forEach(site => {
+    const cx = ISAM_X[site];
+
+    all[`isamltm-${site}`] = { x: cx - 125, y: ROW.apicFs, width: 250, height: 66,
+      lines: [line(`ISAM LTM (${site})`, true), line(SITES[site].isamLtm),
+        line('monitor: TCP (no liveness)')] };
+
+    for (let i = 1; i <= WGA_INSTANCES; i++) {
+      all[`wga-${site}-${i}`] = { x: cx - 153 + (i - 1) * 52, y: ROW.apic,
+        width: 46, height: 54,
+        lines: [line('ISAM'), line('WGA'), line(`#${i}`)] };
+    }
+  });
 }
 
 /** Adds the per-site column: APIC FS, APIC instances, EXT GTM, LTM, web, app. */
@@ -160,10 +199,46 @@ function curve(a: Geom, b: Geom): string {
  */
 function railPath(all: Record<string, Geom>, site: SiteId): string {
   const c = all['cloudlet'], ltm = all[`ltm-${site}`];
-  const railX = site === 'BCC' ? 70 : 1130;
+  const railX = RAIL_X[site];
   const sx = site === 'BCC' ? c.x : c.x + c.width;
   const ex = site === 'BCC' ? ltm.x : ltm.x + ltm.width;
   return `M${sx} ${c.y + 40} H${railX} V${ltm.y + 46} H${ex}`;
+}
+
+/**
+ * Client to the property rule. Routed over the top of the GTM ovals rather than
+ * through them: a bezier between these two boxes arcs straight across
+ * GTM-CDB-BOS, which would draw the csgcb path through the very GTM it bypasses.
+ */
+function clientPropPath(all: Record<string, Geom>): string {
+  const c = all['client'], p = all['akamai-prop'];
+  const sx = c.x + c.width / 2, tx = p.x + p.width / 2;
+  return `M${sx} ${c.y + c.height} V88 H${tx} V${p.y}`;
+}
+
+/**
+ * The csgcb leg from the property rule to an ISAM LTM. BCC drops straight down;
+ * SCC runs below the cloudlet before turning, so it clears that box.
+ */
+function csgcbPath(all: Record<string, Geom>, site: SiteId): string {
+  const p = all['akamai-prop'], t = all[`isamltm-${site}`];
+  if (site === 'BCC') { return curve(p, t); }
+  const sx = p.x + p.width / 2, tx = t.x + t.width / 2;
+  return `M${sx} ${p.y + p.height} V${CSGCB_RAIL_Y} H${tx} V${t.y}`;
+}
+
+/**
+ * The WGA junction to same-site BOS. Drawn as an orthogonal rail rather than a
+ * bezier: a curve from the WGA row to the LTM would pass straight through the
+ * EXT GTM box sitting between them.
+ */
+function wgaRail(all: Record<string, Geom>, site: SiteId): string {
+  const first = all[`wga-${site}-1`];
+  const last = all[`wga-${site}-${WGA_INSTANCES}`];
+  const sx = (first.x + last.x + last.width) / 2;
+  const ltm = all[`ltm-${site}`];
+  const ex = site === 'BCC' ? ltm.x : ltm.x + ltm.width;
+  return `M${sx} ${first.y + first.height} V${ltm.y + 20} H${ex}`;
 }
 
 /** Every structural edge, drawn dim underneath the taken path. */
@@ -174,6 +249,9 @@ function baseEdgePairs(): [string, string][] {
   ];
   SITE_IDS.forEach(s => {
     pairs.push(['cloudlet', `apicfs-${s}`]);
+    for (let i = 1; i <= WGA_INSTANCES; i++) {
+      pairs.push([`isamltm-${s}`, `wga-${s}-${i}`]);
+    }
     for (let i = 1; i <= APIC_INSTANCES; i++) {
       pairs.push([`apicfs-${s}`, `apic-${s}-${i}`], [`apic-${s}-${i}`, `extgtm-${s}`]);
     }
@@ -189,10 +267,25 @@ function baseEdgePairs(): [string, string][] {
 /** Static annotations carried over from the architecture diagram. */
 function baseLabels(state: SimState, res: Resolution): TfLabel[] {
   const labels: TfLabel[] = [
-    { x: 150, y: ROW.cloudlet + 34, text: '/banking/services', kind: 'edge' },
-    { x: 960, y: ROW.cloudlet + 34, text: '/banking/services', kind: 'edge' },
-    { x: 810, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' }
+    { x: RAIL_X.BCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
+    { x: RAIL_X.SCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
+    { x: 965, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' },
+    { x: 66, y: CSGCB_RAIL_Y + 14, text: '/banking/services/csgcb', kind: 'edge' }
   ];
+
+  /*
+   * The shared-cookie trap. On a split /api/cdb request the cookie is stamped
+   * from the APIC answer, so the ISAM column that the *next* csgcb call will
+   * pin is marked here — during the request that arms it, not the one that
+   * springs it.
+   */
+  if (res.path === 'api' && res.apicSite && res.bosSite && res.apicSite !== res.bosSite) {
+    labels.push({
+      x: ISAM_X[res.apicSite] - 120, y: ROW.apicFs - 10,
+      text: `next csgcb pins here → ${res.apicSite} BOS`, kind: 'alert'
+    });
+  }
+
   SITE_IDS.forEach(s => {
     const split = res.extGtmSplit[s];
     labels.push({
@@ -244,9 +337,9 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
 }
 
 const LANES: TfLane[] = [
-  { x: 40, y: 100, width: 1120, height: 196, title: 'Akamai' },
-  { x: 40, y: 400, width: 1120, height: 555, title: 'CWH Web' },
-  { x: 40, y: 965, width: 1120, height: 120, title: 'CWH app' }
+  { x: 40, y: 100, width: 1480, height: 196, title: 'Akamai' },
+  { x: 40, y: 400, width: 1480, height: 555, title: 'CWH Web' },
+  { x: 40, y: 965, width: 1480, height: 120, title: 'CWH app' }
 ];
 
 /**
@@ -256,6 +349,7 @@ const LANES: TfLane[] = [
  */
 export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
   const geom = baseNodes(res);
+  isamNodes(geom);
   siteNodes(geom, state);
   const entrySite = res.apicSite ?? res.bosSite;
 
@@ -266,7 +360,12 @@ export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
   const edges: TfEdge[] = baseEdgePairs()
     .filter(([a, b]) => geom[a] && geom[b])
     .map(([a, b]) => ({ d: curve(geom[a], geom[b]), kind: 'base' as const }));
-  SITE_IDS.forEach(s => edges.push({ d: railPath(geom, s), kind: 'base' }));
+  edges.push({ d: clientPropPath(geom), kind: 'base' });
+  SITE_IDS.forEach(s => edges.push(
+    { d: railPath(geom, s), kind: 'base' },
+    { d: csgcbPath(geom, s), kind: 'base' },
+    { d: wgaRail(geom, s), kind: 'base' }
+  ));
 
   // The taken path, drawn over the top.
   for (let i = 0; i < res.steps.length - 1; i++) {
@@ -277,9 +376,18 @@ export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
         b.includes('-') && !!entrySite && !b.includes(`-${entrySite}`);
       const kind: TfEdge['kind'] = next.state === 'bad' ? 'broken'
         : leavesEntry ? 'crossover' : 'taken';
+      // Four hops are drawn as rails rather than beziers, so the taken path
+      // has to reuse the same geometry or it would peel away from the dim edge
+      // underneath it.
       const d = a === 'cloudlet' && b.startsWith('ltm-') && res.bosSite
         ? railPath(geom, res.bosSite)
-        : curve(geom[a], geom[b]);
+        : a === 'client' && b === 'akamai-prop'
+          ? clientPropPath(geom)
+          : a === 'akamai-prop' && b.startsWith('isamltm-')
+            ? csgcbPath(geom, b.slice('isamltm-'.length) as SiteId)
+            : a.startsWith('wga-') && b.startsWith('ltm-')
+              ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
+              : curve(geom[a], geom[b]);
       edges.push({ d, kind });
     }));
   }

@@ -1,5 +1,11 @@
-/** Which CDB entry path the simulated request takes. */
-export type TrafficPath = 'banking' | 'api';
+/**
+ * Which CDB entry path the simulated request takes.
+ *
+ * 'csgcb' is /banking/services/csgcb. It is post-auth, so it always carries a
+ * cdbbossiteId, never queries a GTM, and never passes through the cloudlet —
+ * legacy ISAM has no blue/green instances, so there is no env header to set.
+ */
+export type TrafficPath = 'banking' | 'api' | 'csgcb';
 
 /** Whether the request already carries stickiness cookies. */
 export type SessionKind = 'new' | 'existing';
@@ -45,6 +51,7 @@ export interface SimState {
 /** Outcome keys, listed in resolver precedence order. */
 export type OutcomeKey =
   | 'DOWN503'
+  | 'ISAM500'
   | 'POOL_OFF'
   | 'VHOST'
   | 'LOCAL503'

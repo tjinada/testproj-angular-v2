@@ -11,16 +11,19 @@ import {
   APIC_INSTANCES,
   APP_SERVERS,
   COOKIE_BYPASSES_GTM,
+  ISAM_SHARES_SITE_COOKIE,
   SESSION_REPLICATED,
   SITES,
   SITE_COOKIE_NAME,
   VHOST_DEPLOYED,
-  WEB_SERVERS
+  WEB_SERVERS,
+  WGA_INSTANCES
 } from '../components/traffic-flow/traffic-topology';
 
 /** Title and severity per outcome key. */
 const OUTCOMES: Record<OutcomeKey, { title: string; severity: Severity }> = {
   DOWN503: { title: 'Service Unavailable — 503', severity: 'bad' },
+  ISAM500: { title: 'initISAMSession failed — 500', severity: 'bad' },
   POOL_OFF: { title: 'Pool Offline — call rejected (DACT-104)', severity: 'bad' },
   VHOST: { title: 'Vhost Mismatch — 400/404', severity: 'bad' },
   LOCAL503: { title: 'Local 503 — no failover', severity: 'bad' },
@@ -45,6 +48,7 @@ function membersUp(state: SimState, tier: string, site: SiteId, count: number): 
 const webUp = (s: SimState, site: SiteId) => membersUp(s, 'web', site, WEB_SERVERS);
 const appUp = (s: SimState, site: SiteId) => membersUp(s, 'app', site, APP_SERVERS);
 const apicUp = (s: SimState, site: SiteId) => membersUp(s, 'apic', site, APIC_INSTANCES);
+const wgaUp = (s: SimState, site: SiteId) => membersUp(s, 'wga', site, WGA_INSTANCES);
 
 /** Akamai's API GTM watches a TCP:443 check against the APIC farm. */
 function apicHealthy(s: SimState, site: SiteId): boolean {
@@ -81,8 +85,8 @@ function ltmPoolUp(s: SimState, site: SiteId): boolean {
   return s.ltmMonitor === 'tcp' || s.live[site] === 'present';
 }
 
-function outcome(key: OutcomeKey, why: string): Outcome {
-  return { key, why, title: OUTCOMES[key].title, severity: OUTCOMES[key].severity };
+function outcome(key: OutcomeKey, why: string, sev?: Severity | null): Outcome {
+  return { key, why, title: OUTCOMES[key].title, severity: sev ?? OUTCOMES[key].severity };
 }
 
 /**
@@ -92,7 +96,11 @@ function outcome(key: OutcomeKey, why: string): Outcome {
  */
 export function resolveTraffic(state: SimState): Resolution {
   const api = state.path === 'api';
-  const existing = state.session === 'existing';
+  const csgcb = state.path === 'csgcb';
+  // csgcb is post-auth, so the cookie is always present. Deriving `existing`
+  // rather than trusting state guards against a hand-edited share link
+  // arriving as path=csgcb&sess=new.
+  const existing = csgcb || state.session === 'existing';
   const pinned = state.site;
   const steps: DecisionStep[] = [];
 
@@ -101,6 +109,9 @@ export function resolveTraffic(state: SimState): Resolution {
 
   /** cdbbossiteId value the edge stamps; set once the target origin is known. */
   let stampedCookie: string | null = null;
+
+  /** Set when an outcome is worse than its table default. See the SPLIT branch. */
+  let sevOverride: Severity | null = null;
 
   // Distribution shown inside each GTM oval. A GTM only splits traffic when
   // both its datacentres pass their check; otherwise it answers 100% one way.
@@ -143,7 +154,7 @@ export function resolveTraffic(state: SimState): Resolution {
     path: state.path, existing, pinnedSite: pinned,
     apicSite: null, bosSite: null, appServer: null,
     gtmDistribution, gtmAnswer, gtmActive: !existing, extGtmSplit,
-    outcome: outcome(key, why), http, setCookie: null,
+    outcome: outcome(key, why, sevOverride), http, setCookie: null,
     cookieStamped: stampedCookie, steps, breakAt: null,
     ...extra
   });
@@ -153,11 +164,15 @@ export function resolveTraffic(state: SimState): Resolution {
     stampedCookie = `${SITE_COOKIE_NAME}=<env>-${site}`;
   };
 
+  const urlPath = api ? '/api/cdb' : csgcb ? '/banking/services/csgcb' : '/banking/services/*';
+
   step(['client'], 'Client',
-    `Request <b>www1.bmo.com${api ? '/api/cdb' : '/banking/services/*'}</b>. ` +
-    (existing
-      ? `Carries a valid <b>${SITE_COOKIE_NAME}</b> pinning <b>${pinned}</b>.`
-      : `No <b>${SITE_COOKIE_NAME}</b> yet.`));
+    `Request <b>www1.bmo.com${urlPath}</b>. ` +
+    (csgcb
+      ? `Post-auth, so it always carries a <b>${SITE_COOKIE_NAME}</b> — here pinning <b>${pinned}</b>.`
+      : existing
+        ? `Carries a valid <b>${SITE_COOKIE_NAME}</b> pinning <b>${pinned}</b>.`
+        : `No <b>${SITE_COOKIE_NAME}</b> yet.`));
 
   // ---- tier 1: the Akamai edge picks the origin ---------------------------
   // A valid site cookie assigns PMUSER_TARGET a hardcoded hostname, so
@@ -201,6 +216,54 @@ export function resolveTraffic(state: SimState): Resolution {
           '503', { breakAt: 'gtm-api' });
       }
     }
+  } else if (csgcb) {
+    // The property rule matches the path and the cookie, assigns PMUSER_TARGET
+    // the ISAM front door, and stops. No GTM, no liveness, no cloudlet.
+    stamp(pinned);
+    step(['akamai-prop'], 'Akamai property rule',
+      `Path matches <b>/banking/services/csgcb</b> and the request carries ` +
+      `<b>${SITE_COOKIE_NAME}</b> pinning <b>${pinned}</b> → PMUSER_TARGET is hardcoded to ` +
+      `<b>${SITES[pinned].isamLtm}</b>. No GTM query, no liveness check, and no cloudlet — ` +
+      'legacy ISAM has no blue/green instances, so there is no env header to set.');
+
+    if (state.down[`isamltm-${pinned}`]) {
+      return done('DOWN503',
+        `The ${pinned} ISAM LTM is out of service. The cookie pinned it directly and legacy ISAM ` +
+        'has no failover leg, so there is nowhere else for the edge to go.',
+        '503', { breakAt: `isamltm-${pinned}` });
+    }
+
+    const wgas = wgaUp(state, pinned);
+    if (wgas.length === 0) {
+      return done('DOWN503',
+        `Every WGA instance on ${pinned} is out of service, so the ISAM LTM pool is empty and the ` +
+        'VIP rejects. There is no cross-site leg to fall back to.',
+        '503', { breakAt: `isamltm-${pinned}` });
+    }
+
+    step([`isamltm-${pinned}`], `ISAM LTM (${pinned})`,
+      `VIP <b>${SITES[pinned].isamLtm}</b> → WGA tier. The pool monitor is a plain TCP check, so ` +
+      'the liveness object is never consulted at this tier.');
+
+    const wgaIds = wgas.map(i => `wga-${pinned}-${i}`);
+
+    // The WGA junction is hard-wired same-site. This is where the shared-cookie
+    // defect actually lands: ISAM inherited an answer about APIC and applied it
+    // to BOS.
+    if (!reachable(state, pinned)) {
+      step(wgaIds, `ISAM WGA (${pinned})`,
+        `The junction is hard-wired to same-site BOS — <b>${SITES[pinned].ltmHost}</b>. ` +
+        `${pinned} BOS is down and legacy ISAM has no failover leg of its own, so ` +
+        '<b>initISAMSession</b> fails.', 'bad');
+      return done('ISAM500',
+        `${SITE_COOKIE_NAME} pinned ${pinned} ISAM, whose junction reaches only ${pinned} BOS — ` +
+        'and that site is down. Legacy ISAM shares the cookie with APIC but not APIC\'s failover, ' +
+        `so it cannot reach ${other(pinned)} BOS the way the /api/cdb path can.`,
+        '500', { breakAt: `wga-${pinned}-${wgas[0]}` });
+    }
+
+    step(wgaIds, `ISAM WGA (${pinned})`,
+      `Junction forwards to same-site BOS — <b>${SITES[pinned].ltmHost}</b>. No cross-site leg.`);
   } else if (cookieBypass) {
     stamp(pinned);
     step(['gtm-bos'], 'Akamai edge',
@@ -212,8 +275,11 @@ export function resolveTraffic(state: SimState): Resolution {
       'No cookie → the CNAME chain resolves and liveness <b>/banking/live.txt</b> decides the site.');
   }
 
-  step(['cloudlet'], 'Cloudlet Configuration',
-    'Sets <b>x-bmo-env</b> (blue/Green) and <b>x-api-key</b> (pr1/pr2).');
+  // csgcb never passes through the cloudlet — ISAM has no blue/green instances.
+  if (!csgcb) {
+    step(['cloudlet'], 'Cloudlet Configuration',
+      'Sets <b>x-bmo-env</b> (blue/Green) and <b>x-api-key</b> (pr1/pr2).');
+  }
 
   // ---- tier 2: pick the BOS site ------------------------------------------
   const from: SiteId = api ? (apicSite as SiteId) : (cookieBypass ? pinned : state.gtmPick.bos);
@@ -260,7 +326,9 @@ export function resolveTraffic(state: SimState): Resolution {
   if (!api && !cookieBypass && bosSite) { stamp(bosSite); }
 
   // On the banking path the GTM step itself carries the failover narrative.
-  if (!api) {
+  // csgcb is excluded: it has no GTM step, and its step indices differ because
+  // there is no cloudlet hop.
+  if (!api && !csgcb) {
     if (bosSite === null) {
       steps[1].what = 'No BOS site passes the <b>/banking/live.txt</b> check.';
       steps[1].state = 'bad';
@@ -353,6 +421,24 @@ export function resolveTraffic(state: SimState): Resolution {
     why = `APIC runs on ${apicSite} but BOS runs on ${bosSite}` +
       (existing ? `, while the cookie still reads ${pinned}` : '') +
       '. Served, but half failed over.';
+
+    // The cookie records which APIC answered, and legacy ISAM reads it as if it
+    // were a statement about BOS. This request succeeds; the next csgcb call is
+    // the one that pays. Whether it 500s turns on physical reachability, not on
+    // the monitor: a liveness drain splits the path but leaves IHS serving, so
+    // ISAM still works. A real outage does not.
+    if (ISAM_SHARES_SITE_COOKIE) {
+      const isamTarget = apicSite as SiteId;
+      const isamDead = !reachable(state, isamTarget);
+      why += ` The edge stamps ${SITE_COOKIE_NAME}=<env>-${isamTarget} from the APIC answer, and ` +
+        `legacy ISAM shares that cookie — so the next /banking/services/csgcb call pins ` +
+        `${isamTarget} ISAM, which is hard-wired to ${isamTarget} BOS` +
+        (isamDead
+          ? `. That site is down, so initISAMSession will return 500.`
+          : `. That site is still reachable, so initISAMSession holds — but it breaks the moment ` +
+            `${isamTarget} BOS goes down.`);
+      if (isamDead) { sevOverride = 'bad'; }
+    }
   } else if (drained) {
     key = 'DRAINED';
     why = `The cookie pinned the origin directly, so the GTM was never queried and live.txt was ` +

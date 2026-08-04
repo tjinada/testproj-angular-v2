@@ -80,10 +80,30 @@ $amber: #f2a900;
     &:last-child { border-right: none; }
     &[aria-pressed='true'] { background: $blue; color: #fff; font-weight: 600; }
     &:focus-visible { outline: 2px solid $blue-dk; outline-offset: -2px; z-index: 1; }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.45;
+      &[aria-pressed='true'] { background: $muted; }
+    }
   }
 
   &.tf-seg-narrow button { font-size: 11px; padding: 5px 0; }
   &.tf-seg-danger button[aria-pressed='true'] { background: $bad; }
+
+  /* Path labels are too long to sit side by side in a 236px rail. */
+  &.tf-seg-stack {
+    flex-direction: column;
+
+    button {
+      border-right: none;
+      border-bottom: 1px solid $line;
+      text-align: left;
+      padding: 5px 8px;
+
+      &:last-child { border-bottom: none; }
+    }
+  }
 }
 
 .tf-site-row {
