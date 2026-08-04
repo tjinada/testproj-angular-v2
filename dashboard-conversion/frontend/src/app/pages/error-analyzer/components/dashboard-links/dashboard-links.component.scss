@@ -43,26 +43,6 @@
   overflow: hidden;
 }
 
-.dl-header {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 14px;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.dl-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.dl-subtitle {
-  font-size: 12px;
-  color: #6b7280;
-}
-
 .dl-empty {
   padding: 24px 14px;
   font-size: 12px;
@@ -96,6 +76,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #6b7280;
+  background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
   white-space: nowrap;
 }
@@ -119,16 +100,14 @@
 .dl-col-desc { width: 54%; }
 .dl-col-actions { width: 20%; }
 
-.dl-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-weight: 600;
-  color: #1f2937;
+/* Header follows the buttons, which are right-aligned in the body cells. */
+.dl-table th.dl-col-actions {
+  text-align: right;
 }
 
-.dl-icon {
-  flex: 0 0 auto;
+.dl-name {
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .dl-actions {

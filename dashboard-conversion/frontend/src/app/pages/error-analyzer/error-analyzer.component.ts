@@ -20,6 +20,9 @@ import { CallerRow, ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timefra
 
 type TabId = 'trace' | 'opensearch' | 'traffic' | 'monitoring';
 
+/** Accepted values of the ?tab= query param. */
+const TAB_IDS: TabId[] = ['trace', 'opensearch', 'traffic', 'monitoring'];
+
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
@@ -107,8 +110,9 @@ export class ErrorAnalyzerComponent implements OnInit {
     const qp = this.router.parseUrl(this.router.url).queryParams as Record<string, string>;
     if (qp && Object.keys(qp).length > 0) {
       this.trafficParams = qp;
-      if (qp['tab'] === 'traffic') {
-        this.activeTab = 'traffic';
+      const tab = qp['tab'] as TabId;
+      if (TAB_IDS.includes(tab)) {
+        this.activeTab = tab;
       }
     }
 
