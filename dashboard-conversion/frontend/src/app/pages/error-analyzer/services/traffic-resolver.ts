@@ -155,12 +155,14 @@ export function resolveTraffic(state: SimState): Resolution {
     apicSite: null, bosSite: null, appServer: null,
     gtmDistribution, gtmAnswer, gtmActive: !existing, extGtmSplit,
     outcome: outcome(key, why, sevOverride), http, setCookie: null,
-    cookieStamped: stampedCookie, steps, breakAt: null,
+    cookieStamped: stampedCookie, stampedSite, steps, breakAt: null,
     ...extra
   });
 
   /** The edge stamps <env>-<SITE> based on the origin it targeted. */
+  let stampedSite: SiteId | null = null;
   const stamp = (site: SiteId) => {
+    stampedSite = site;
     stampedCookie = `${SITE_COOKIE_NAME}=<env>-${site}`;
   };
 
@@ -401,7 +403,12 @@ export function resolveTraffic(state: SimState): Resolution {
   }
 
   // ---- session outcome ----------------------------------------------------
-  const crossSite = existing && bosSite !== pinned;
+  // The clone ID is matched against plugin-cfg.xml, so what matters is which
+  // site *issued* the JSESSIONID, not which site the cdbbossiteId points at.
+  // Those are the same in manual mode but diverge after a failover: cookie SCC
+  // with a BCC-issued session resolves fine as long as the request lands on BCC.
+  const jsSite = state.jsessionSite ?? pinned;
+  const crossSite = existing && bosSite !== jsSite;
   const jvmGone = existing && !crossSite && apps.indexOf(state.jsession) < 0;
   const appServer = crossSite || jvmGone || !existing ? apps[0] : state.jsession;
 
@@ -410,7 +417,7 @@ export function resolveTraffic(state: SimState): Resolution {
 
   if (crossSite && !SESSION_REPLICATED) {
     key = 'TIMEOUT';
-    why = `JSESSIONID was issued by ${pinned} App Server ${state.jsession}. That clone ID is not ` +
+    why = `JSESSIONID was issued by ${jsSite} App Server ${state.jsession}. That clone ID is not ` +
       `in ${bosSite}'s plugin-cfg.xml and session replication is off.`;
   } else if (jvmGone) {
     key = 'TIMEOUT';

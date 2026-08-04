@@ -39,6 +39,15 @@ export interface SimState {
   gtmPick: Record<GtmId, SiteId>;
   /** JSESSIONID jvmRoute -> app server 1..APP_SERVERS. */
   jsession: number;
+  /**
+   * Which site issued the JSESSIONID. Distinct from `site`: cdbbossiteId is
+   * Akamai affinity, while the clone ID is matched by the WAS plugin against
+   * plugin-cfg.xml. A failover pulls them apart — cookie SCC with a BCC-issued
+   * JSESSIONID resolves fine so long as the request lands on BCC.
+   *
+   * Defaults to `site` when absent, so single-request manual mode is unchanged.
+   */
+  jsessionSite?: SiteId;
   live: Record<SiteId, LivenessState>;
   /** BOS LTM pool monitor (DACT-104). */
   ltmMonitor: PoolMonitor;
@@ -109,7 +118,49 @@ export interface Resolution {
    * than influencing one.
    */
   cookieStamped: string | null;
+  /**
+   * Same decision as cookieStamped, as a typed site. The journey runner carries
+   * this forward rather than parsing the display string.
+   */
+  stampedSite: SiteId | null;
   steps: DecisionStep[];
   /** Node id where the request died, if it died. */
   breakAt: string | null;
+}
+
+/** The estate half of SimState — everything a request does not carry. */
+export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite'>;
+
+/**
+ * What one user carries between requests. cdbbossiteId and the JSESSIONID
+ * origin are tracked separately because a failover pulls them apart.
+ */
+export interface UserSession {
+  cookie: SiteId | null;
+  jsSite: SiteId | null;
+  jsServer: number | null;
+}
+
+/** A scenario step: either the estate changes, or the user makes a request. */
+export type JourneyStep =
+  | { kind: 'env'; label: string; apply: (env: EnvState) => void }
+  | { kind: 'request'; label: string; path: TrafficPath };
+
+export interface Scenario {
+  id: string;
+  title: string;
+  blurb: string;
+  /** Applied to the healthy default before the first step runs. */
+  base?: (env: EnvState) => void;
+  steps: JourneyStep[];
+}
+
+/** One resolved frame of a journey, ready to hand straight to the layout. */
+export interface JourneyFrame {
+  label: string;
+  kind: JourneyStep['kind'];
+  state: SimState;
+  resolution: Resolution;
+  /** The carried session as it stands *after* this frame. */
+  user: UserSession;
 }

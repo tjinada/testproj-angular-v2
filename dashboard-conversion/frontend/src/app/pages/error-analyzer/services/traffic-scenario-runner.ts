@@ -1,28 +1,29 @@
 import type {
-  Cohort, CohortFrame, EnvState, Scenario, ScenarioFrame, SimState,
-  StageFrame, StageScenario, TrafficPath, UserSession
+  EnvState, JourneyFrame, Scenario, SimState, TrafficPath, UserSession
 } from '../models/traffic-flow.model';
 import { resolveTraffic } from './traffic-resolver';
 import { defaultSimState } from '../components/traffic-flow/traffic-topology';
 
 /** A user who has never been here before. */
-export function emptyUser(): UserSession {
+function emptyUser(): UserSession {
   return { cookie: null, jsSite: null, jsServer: null };
 }
 
-/** Environment half of the default state — a healthy estate. */
-export function baseEnv(): EnvState {
+/** The estate half of the default state — a healthy setup, nothing carried. */
+function baseEnv(): EnvState {
   const { path, session, site, jsession, jsessionSite, ...env } = defaultSimState();
   return env;
 }
 
-/** Recombines the estate and the carried user into a SimState to resolve. */
-export function toSimState(env: EnvState, user: UserSession, path: TrafficPath): SimState {
+/** Recombines the estate and the carried session into a resolvable SimState. */
+function toSimState(env: EnvState, user: UserSession, path: TrafficPath): SimState {
+  // csgcb is post-auth, so it always presents a cookie even if this journey has
+  // not stamped one yet; fall back to the GTM pick rather than inventing a site.
   const existing = user.cookie !== null;
   return {
     ...env,
     path,
-    session: existing ? 'existing' : 'new',
+    session: existing || path === 'csgcb' ? 'existing' : 'new',
     site: user.cookie ?? env.gtmPick[path === 'api' ? 'api' : 'bos'],
     jsession: user.jsServer ?? 1,
     jsessionSite: user.jsSite ?? undefined
@@ -31,88 +32,59 @@ export function toSimState(env: EnvState, user: UserSession, path: TrafficPath):
 
 /**
  * Folds a scenario into one frame per step. Pure: rebuilt from a clean base on
- * every call, so jumping to step N is the same code path as playing to it.
+ * every call, so jumping to step N is the same code path as playing up to it.
  *
- * Env steps carry a projection — resolving the *unchanged* user against the
- * *changed* estate — so the diagram reacts the moment something is toggled
- * rather than waiting for the next request.
+ * Env steps get their own frame — the diagram should react the moment the
+ * estate changes, before any request is fired at it. Those frames resolve the
+ * *unchanged* user against the *changed* estate, projected onto whatever path
+ * the next request will use.
+ *
+ * Folding stops after a frame that fails. Once initISAMSession returns 500 the
+ * flow is over; there is no meaningful next hop to show.
  */
-export function runScenario(scenario: Scenario): ScenarioFrame[] {
-  const frames: ScenarioFrame[] = [];
-  let env = baseEnv();
+export function runJourney(scenario: Scenario): JourneyFrame[] {
+  const frames: JourneyFrame[] = [];
+  const env = baseEnv();
   let user = emptyUser();
 
-  /** Project an env change against the next request's path, else the last. */
-  const pathAt = (i: number): TrafficPath => {
-    for (let j = i; j < scenario.steps.length; j++) {
-      const s = scenario.steps[j];
-      if (s.kind === 'request') { return s.path; }
-    }
-    for (let j = i; j >= 0; j--) {
-      const s = scenario.steps[j];
-      if (s.kind === 'request') { return s.path; }
-    }
-    return 'api';
-  };
+  scenario.base?.(env);
 
-  scenario.steps.forEach((step, i) => {
+  for (let i = 0; i < scenario.steps.length; i++) {
+    const step = scenario.steps[i];
+
     if (step.kind === 'env') {
-      // Clone so earlier frames keep the estate as it was at their point.
-      env = JSON.parse(JSON.stringify(env)) as EnvState;
       step.apply(env);
-      const projection = resolveTraffic(toSimState(env, user, pathAt(i)));
+
+      // Project against the next request's path so the preview is honest about
+      // what is going to be attempted; fall back to the last one at the end.
+      const nextReq = scenario.steps.slice(i + 1).find(s => s.kind === 'request');
+      const prevReq = frames.length ? frames[frames.length - 1].state.path : 'api';
+      const projected = nextReq && nextReq.kind === 'request' ? nextReq.path : prevReq;
+
+      const state = toSimState(env, user, projected);
       frames.push({
-        kind: 'env', label: step.label, env,
-        userBefore: user, userAfter: user,
-        result: null, projection, shown: projection
+        label: step.label, kind: 'env', state,
+        resolution: resolveTraffic(state), user: { ...user }
       });
-    } else {
-      const result = resolveTraffic(toSimState(env, user, step.path));
-      frames.push({
-        kind: 'request', label: step.label, env,
-        userBefore: user, userAfter: result.nextUser,
-        result, projection: null, shown: result
-      });
-      user = result.nextUser;
+      continue;
     }
-  });
 
-  return frames;
-}
+    const state = toSimState(env, user, step.path);
+    const resolution = resolveTraffic(state);
 
-/** Seeds an existing cohort's starting cookie and JSESSIONID. */
-function seedUser(cohort: Cohort): UserSession {
-  if (cohort.kind === 'new' || !cohort.seedSite) { return emptyUser(); }
-  return { cookie: cohort.seedSite, jsSite: cohort.seedSite, jsServer: 1 };
-}
+    // Carry forward whatever this request actually established. A failed
+    // request stamps nothing and issues no session.
+    if (resolution.stampedSite) { user = { ...user, cookie: resolution.stampedSite }; }
+    if (resolution.bosSite && resolution.appServer) {
+      user = { ...user, jsSite: resolution.bosSite, jsServer: resolution.appServer };
+    }
 
-/**
- * Folds a stage scenario into one frame per stage. At each stage the estate
- * change is applied once, then every cohort makes a request against it.
- *
- * 'new' cohorts reset to a cookie-less user before each stage — they model
- * whoever is arriving right now. 'existing' cohorts carry their cookie and
- * JSESSIONID forward, so a failure at one stage is still visible at the next.
- */
-export function runStages(scenario: StageScenario): StageFrame[] {
-  const frames: StageFrame[] = [];
-  let env = baseEnv();
-  const users = new Map<string, UserSession>();
-  scenario.cohorts.forEach(c => users.set(c.id, seedUser(c)));
-
-  scenario.stages.forEach(stage => {
-    env = JSON.parse(JSON.stringify(env)) as EnvState;
-    stage.apply(env);
-
-    const cohorts: CohortFrame[] = scenario.cohorts.map(c => {
-      const before = c.kind === 'new' ? emptyUser() : (users.get(c.id) ?? emptyUser());
-      const result = resolveTraffic(toSimState(env, before, c.path));
-      users.set(c.id, result.nextUser);
-      return { cohortId: c.id, userBefore: before, userAfter: result.nextUser, result };
+    frames.push({
+      label: step.label, kind: 'request', state, resolution, user: { ...user }
     });
 
-    frames.push({ label: stage.label, note: stage.note, env, cohorts });
-  });
+    if (resolution.outcome.severity === 'bad') { break; }
+  }
 
   return frames;
 }

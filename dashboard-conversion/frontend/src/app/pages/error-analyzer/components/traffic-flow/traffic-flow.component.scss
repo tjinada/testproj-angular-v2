@@ -234,6 +234,81 @@ $amber: #f2a900;
   svg { display: block; }
 }
 
+/* Scenario playback */
+.tf-manual {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+
+  &:disabled { opacity: 0.5; }
+}
+
+.tf-scenario { margin-bottom: 8px; }
+
+.tf-scenario-play {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 1px solid $line;
+  background: #fff;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: $ink;
+  padding: 7px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover { border-color: $blue; }
+  &.tf-scenario-on { background: $blue; border-color: $blue-dk; color: #fff; }
+}
+
+.tf-steps {
+  list-style: none;
+  margin: 10px 0 8px;
+  padding: 0;
+  border: 1px solid $line;
+  border-radius: 4px;
+  overflow: hidden;
+
+  li {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 8px;
+    align-items: start;
+    padding: 7px 9px;
+    font-size: 11.5px;
+    color: $muted;
+    border-bottom: 1px solid $line;
+    cursor: pointer;
+
+    &:last-child { border-bottom: none; }
+    &:hover { background: #fff8e8; }
+    &.tf-step-on { background: #eef4fc; color: $ink; font-weight: 600; }
+  }
+}
+
+.tf-step-n {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: $muted;
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+
+  .tf-step-on & { background: $blue; }
+  .tf-step-env & { background: $warn; }
+  .tf-step-bad & { background: $bad; }
+}
+
+.tf-step-l { line-height: 1.35; }
+
 /* Diagram primitives */
 .tf-lane { fill: none; stroke: #9ca3af; stroke-width: 1.2; stroke-dasharray: 7 5; }
 .tf-lane-t { font-size: 14px; font-weight: 700; fill: #374151; }

@@ -5,6 +5,8 @@ import type {
   GtmId, LivenessState, PoolMonitor, SessionKind, SimState, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { resolveTraffic } from '../../services/traffic-resolver';
+import { runJourney } from '../../services/traffic-scenario-runner';
+import { SCENARIOS } from './traffic-scenarios';
 import { buildTrafficGraph, TfNode, TfPill } from './traffic-flow-layout';
 import { APP_SERVERS, SITE_IDS, defaultSimState, nodeLabel } from './traffic-topology';
 
@@ -22,18 +24,41 @@ export class TrafficFlowComponent implements OnInit {
 
   readonly siteIds = SITE_IDS;
   readonly appServers = Array.from({ length: APP_SERVERS }, (_, i) => i + 1);
+  readonly scenarios = SCENARIOS;
 
   state = signal<SimState>(defaultSimState());
   zoom = signal<'fit' | 'full'>('fit');
   linkCopied = signal(false);
   hoveredIds = signal<string[]>([]);
 
-  resolution = computed(() => resolveTraffic(this.state()));
-  graph = computed(() => buildTrafficGraph(this.state(), this.resolution()));
+  /** Null in manual mode. Set while a scenario is being replayed. */
+  scenarioId = signal<string | null>(null);
+  stepIndex = signal(0);
 
-  outOfService = computed(() => Object.keys(this.state().down).map(nodeLabel));
+  /** True while a scenario owns the estate and the manual rail is locked. */
+  playing = computed(() => this.scenarioId() !== null);
+
+  frames = computed(() => {
+    const sc = this.scenarios.find(s => s.id === this.scenarioId());
+    return sc ? runJourney(sc) : [];
+  });
+
+  /** The frame currently on screen, or null when driving manually. */
+  activeFrame = computed(() => this.frames()[this.stepIndex()] ?? null);
+
+  /** Scenario frames drive the diagram when playing; the rail drives it otherwise. */
+  effectiveState = computed(() => this.activeFrame()?.state ?? this.state());
+
+  resolution = computed(() => this.activeFrame()?.resolution ?? resolveTraffic(this.state()));
+  graph = computed(() => buildTrafficGraph(this.effectiveState(), this.resolution()));
+
+  outOfService = computed(() => Object.keys(this.effectiveState().down).map(nodeLabel));
 
   shareLink = computed(() => {
+    const sc = this.scenarioId();
+    if (sc) {
+      return `/error-analyzer?tab=traffic&sc=${sc}&step=${this.stepIndex()}`;
+    }
     const s = this.state();
     const q = new URLSearchParams({
       tab: 'traffic', path: s.path, sess: s.session, site: s.site,
@@ -54,6 +79,15 @@ export class TrafficFlowComponent implements OnInit {
 
   /** Rebuilds state from a shared link. Unknown values fall back to defaults. */
   private restore(p: Record<string, string>): void {
+    // A scenario link replays the journey instead of restoring a manual state.
+    if (p['sc'] && this.scenarios.some(s => s.id === p['sc'])) {
+      this.scenarioId.set(p['sc']);
+      const step = Number(p['step']);
+      const max = this.frames().length - 1;
+      this.stepIndex.set(step >= 0 && step <= max ? step : 0);
+      return;
+    }
+
     const next = defaultSimState();
     if (p['path'] === 'banking' || p['path'] === 'api' || p['path'] === 'csgcb') {
       next.path = p['path'];
@@ -120,6 +154,37 @@ export class TrafficFlowComponent implements OnInit {
       if (v === 'csgcb') { s.session = 'existing'; }
     });
   }
+
+  // ---- scenario playback ---------------------------------------------------
+
+  playScenario(id: string): void {
+    this.scenarioId.set(id);
+    this.stepIndex.set(0);
+    this.syncScenarioUrl();
+  }
+
+  /** Leaves playback and hands the estate back to the rail as it stood. */
+  exitScenario(): void {
+    const frame = this.activeFrame();
+    if (frame) { this.state.set(frame.state); }
+    this.scenarioId.set(null);
+    this.stepIndex.set(0);
+    if (frame) { this.syncUrl(frame.state); }
+  }
+
+  goToStep(i: number): void {
+    if (i < 0 || i >= this.frames().length) { return; }
+    this.stepIndex.set(i);
+    this.syncScenarioUrl();
+  }
+
+  private syncScenarioUrl(): void {
+    this.router.navigate([], {
+      queryParams: { tab: 'traffic', sc: this.scenarioId(), step: this.stepIndex() },
+      replaceUrl: true
+    });
+  }
+
   setSession(v: SessionKind): void { this.update(s => { s.session = v; }); }
   setSite(v: SiteId): void { this.update(s => { s.site = v; }); }
   setGtmPick(gtm: GtmId, v: SiteId): void {
@@ -132,13 +197,15 @@ export class TrafficFlowComponent implements OnInit {
 
   /** Clicking a pill only does something when the GTM pick is in play. */
   clickPill(pill: TfPill): void {
-    if (!pill.active) { return; }
+    if (!pill.active || this.scenarioId()) { return; }
     this.setGtmPick(pill.gtm, pill.site);
   }
 
   /** Clicking a box takes it out of service, or brings it back. */
   toggleNode(node: TfNode): void {
-    if (!node.toggleable) { return; }
+    // Scenario frames are a rebuilt fold, so a toggle here would be silently
+    // discarded on the next step. Playback owns the estate.
+    if (!node.toggleable || this.scenarioId()) { return; }
     this.update(s => {
       if (s.down[node.id]) { delete s.down[node.id]; } else { s.down[node.id] = true; }
     });

@@ -270,7 +270,7 @@ function baseLabels(state: SimState, res: Resolution): TfLabel[] {
     { x: RAIL_X.BCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
     { x: RAIL_X.SCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
     { x: 965, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' },
-    { x: 66, y: CSGCB_RAIL_Y + 14, text: '/banking/services/csgcb', kind: 'edge' }
+    { x: 66, y: CSGCB_RAIL_Y - 8, text: '/banking/services/csgcb', kind: 'edge' }
   ];
 
   /*
@@ -292,8 +292,12 @@ function baseLabels(state: SimState, res: Resolution): TfLabel[] {
       x: SITE_X[s] + 8, y: ROW.extGtm + 118, text: split.own,
       kind: split.own === '100%' ? 'edge' : 'alert'
     });
+    // Both crossover labels point inward, and the columns sit closer together
+    // than they used to, so they are staggered vertically rather than relying
+    // on the gap being wider than the text.
     labels.push({
-      x: SITE_X[s] + (s === 'BCC' ? 150 : -210), y: ROW.extGtm + 136,
+      x: SITE_X[s] + (s === 'BCC' ? 150 : -210),
+      y: ROW.extGtm + (s === 'BCC' ? 136 : 152),
       text: split.cross,
       kind: split.cross.startsWith('0%') ? 'edge' : 'alert'
     });
