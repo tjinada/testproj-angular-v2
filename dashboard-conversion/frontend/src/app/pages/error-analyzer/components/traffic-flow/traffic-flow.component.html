@@ -1,43 +1,7 @@
-<div class="tf-layout" [class.tf-replaying]="replaying()">
-
-  <!-- Read-only environment strip, shown while a scenario drives the state -->
-  <aside class="tf-envstrip" *ngIf="replaying()">
-    <h3>Environment</h3>
-    <div class="tf-ro">
-      <span class="tf-ro-k">Path</span>
-      <span class="tf-ro-v">{{ resolution().path === 'api' ? '/api/cdb' : '/banking/services' }}</span>
-    </div>
-    <div class="tf-ro">
-      <span class="tf-ro-k">Session</span>
-      <span class="tf-ro-v">{{ frame()?.userBefore?.cookie ? 'Existing' : 'New' }}</span>
-    </div>
-    <div class="tf-ro">
-      <span class="tf-ro-k">Liveness object</span>
-      <span class="tf-ro-v" [class.bad]="activeState().live[s] !== 'present'" *ngFor="let s of siteIds">
-        {{ s }}: {{ activeState().live[s] === 'present' ? 'live.txt' : 'dead.txt' }}<br />
-      </span>
-    </div>
-    <div class="tf-ro">
-      <span class="tf-ro-k">EXT GTM monitor</span>
-      <span class="tf-ro-v">{{ activeState().extGtmMonitor === 'live' ? 'live.txt' : 'httpd TCP' }}</span>
-    </div>
-    <div class="tf-ro">
-      <span class="tf-ro-k">BOS LTM monitor</span>
-      <span class="tf-ro-v">{{ activeState().ltmMonitor === 'live' ? 'live.txt' : 'httpd TCP' }}</span>
-    </div>
-    <div class="tf-ro">
-      <span class="tf-ro-k">Out of service</span>
-      <span class="tf-ro-v bad" *ngIf="outOfService().length; else allInService">
-        <ng-container *ngFor="let n of outOfService()">{{ n }}<br /></ng-container>
-      </span>
-      <ng-template #allInService><span class="tf-ro-v muted">nothing</span></ng-template>
-    </div>
-    <p class="tf-locknote">Driven by the scenario. Controls are read-only while replaying.</p>
-    <button type="button" class="tf-btn-secondary" (click)="exitScenario()">Exit to free-form</button>
-  </aside>
+<div class="tf-layout">
 
   <!-- Control rail -->
-  <aside class="tf-rail" *ngIf="!replaying()">
+  <aside class="tf-rail">
     <div class="tf-group">
       <h3>Request</h3>
       <div class="tf-field">
@@ -136,65 +100,10 @@
 
   <!-- Outcome, diagram, decision trace -->
   <main class="tf-main">
-    <!-- Cohorts observed in parallel at this stage (DR mode) -->
-    <div class="tf-cohorts" *ngIf="stageFrame() as sf">
-      <p class="tf-stage-note">{{ sf.note }}</p>
-      <table>
-        <thead>
-          <tr><th>Cohort</th><th>Outcome</th><th>cdbbossiteId</th><th>JSESSIONID</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let c of sf.cohorts; let i = index"
-            [class.sel]="i === cohortIndex()" (click)="selectCohort(i)">
-            <td class="tf-c-label">{{ cohortLabel(i) }}</td>
-            <td>
-              <span class="tf-badge" [ngClass]="'tf-badge-' + c.result.outcome.severity">
-                {{ c.result.outcome.title }}
-              </span>
-            </td>
-            <td>
-              <span class="tf-chip" [class.chg]="cookieChip(c.userAfter) !== cookieChip(c.userBefore)"
-                *ngIf="cookieChip(c.userAfter) as v">{{ v }}</span>
-              <span class="tf-chip none" *ngIf="!c.userAfter.cookie">none</span>
-            </td>
-            <td>
-              <span class="tf-chip" [class.chg]="jsessionChip(c.userAfter) !== jsessionChip(c.userBefore)"
-                *ngIf="jsessionChip(c.userAfter) as v">{{ v }}</span>
-              <span class="tf-chip none" *ngIf="!c.userAfter.jsSite">none</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- What the user carries into and out of this step -->
-    <div class="tf-user" *ngIf="frame() as f">
-      <div class="tf-ubox">
-        <h4>User carries, before</h4>
-        <span class="tf-chip" *ngIf="cookieChip(f.userBefore) as c">{{ c }}</span>
-        <span class="tf-chip" *ngIf="jsessionChip(f.userBefore) as j">{{ j }}</span>
-        <span class="tf-chip none" *ngIf="!f.userBefore.cookie && !f.userBefore.jsSite">none</span>
-      </div>
-      <div class="tf-uarrow">&rarr;</div>
-      <div class="tf-ubox">
-        <h4>User carries, after</h4>
-        <span class="tf-chip"
-          [class.chg]="cookieChip(f.userAfter) !== cookieChip(f.userBefore)"
-          *ngIf="cookieChip(f.userAfter) as c">{{ c }}</span>
-        <span class="tf-chip"
-          [class.chg]="jsessionChip(f.userAfter) !== jsessionChip(f.userBefore)"
-          *ngIf="jsessionChip(f.userAfter) as j">{{ j }}</span>
-        <span class="tf-chip none" *ngIf="!f.userAfter.cookie && !f.userAfter.jsSite">none</span>
-      </div>
-    </div>
-
     <div class="tf-outcome" [ngClass]="'tf-sev-' + resolution().outcome.severity">
       <span class="tf-outcome-dot"></span>
       <div>
-        <p class="tf-outcome-title">
-          <span class="tf-proj-tag" *ngIf="frame()?.kind === 'env'">Projected</span>
-          {{ resolution().outcome.title }}
-        </p>
+        <p class="tf-outcome-title">{{ resolution().outcome.title }}</p>
         <p class="tf-outcome-why">{{ resolution().outcome.why }}</p>
       </div>
       <div class="tf-outcome-meta">
@@ -225,7 +134,6 @@
     <div class="tf-graph-card">
       <svg [attr.viewBox]="'0 0 ' + graph().width + ' ' + graph().height"
         [style.width]="zoom() === 'fit' ? '100%' : graph().width + 'px'"
-        [class.tf-proj]="frame()?.kind === 'env'"
         role="img" aria-label="CDB traffic flow">
 
         <g *ngFor="let lane of graph().lanes">
@@ -304,70 +212,11 @@
       </div>
     </div>
 
-    <div class="tf-linkbar" *ngIf="!replaying()">
+    <div class="tf-linkbar">
       <input type="text" readonly [value]="shareLink()" aria-label="Shareable scenario link" />
       <button type="button" class="tf-btn" (click)="copyLink()">
         {{ linkCopied() ? 'Copied' : 'Copy link' }}
       </button>
     </div>
   </main>
-
-  <!-- Scenario replay panel -->
-  <aside class="tf-scenario">
-    <h3>Scenario</h3>
-    <select class="tf-select" [value]="scenario()?.id ?? drScenario()?.id ?? ''"
-      (change)="startScenario($any($event.target).value)">
-      <option value="">Free-form &mdash; no scenario</option>
-      <optgroup label="Journey — one user over time">
-        <option *ngFor="let s of scenarios" [value]="s.id">{{ s.title }}</option>
-      </optgroup>
-      <optgroup label="Stage — cohorts in parallel">
-        <option *ngFor="let s of drScenarios" [value]="s.id">{{ s.title }}</option>
-      </optgroup>
-    </select>
-    <p class="tf-hint" *ngIf="scenario() as s">{{ s.blurb }}</p>
-    <p class="tf-hint" *ngIf="drScenario() as s">{{ s.blurb }}</p>
-
-    <ng-container *ngIf="replaying()">
-      <div class="tf-transport">
-        <button type="button" class="tf-tbtn" (click)="resetScenario()" title="Reset">&#8634;</button>
-        <button type="button" class="tf-tbtn" (click)="prevStep()"
-          [disabled]="stepIndex() === 0" title="Back">&#9664;</button>
-        <button type="button" class="tf-tbtn play" (click)="togglePlay()">
-          {{ playing() ? 'Pause' : 'Play' }}
-        </button>
-        <button type="button" class="tf-tbtn" (click)="nextStep()"
-          [disabled]="stepIndex() === stepCount() - 1" title="Forward">&#9654;</button>
-      </div>
-
-      <h3 class="tf-steps-h">{{ stageMode() ? 'Stages' : 'Steps' }}</h3>
-      <ul class="tf-steps" *ngIf="stageMode(); else journeySteps">
-        <li *ngFor="let sf of stageFrames(); let i = index"
-          class="tf-step tf-step-env"
-          [class.cur]="i === stepIndex()" [class.done]="i < stepIndex()"
-          (click)="goToStep(i)">
-          <span class="tf-step-n">{{ i }}</span>
-          <span>
-            <span class="tf-step-kind">stage</span>
-            <span class="tf-step-label">{{ sf.label }}</span>
-          </span>
-        </li>
-      </ul>
-
-      <ng-template #journeySteps>
-      <ul class="tf-steps">
-        <li *ngFor="let f of frames(); let i = index"
-          class="tf-step" [ngClass]="'tf-step-' + f.kind"
-          [class.cur]="i === stepIndex()" [class.done]="i < stepIndex()"
-          (click)="goToStep(i)">
-          <span class="tf-step-n">{{ f.kind === 'env' ? '&#9881;' : i + 1 }}</span>
-          <span>
-            <span class="tf-step-kind">{{ f.kind === 'env' ? 'environment' : 'request' }}</span>
-            <span class="tf-step-label">{{ f.label }}</span>
-          </span>
-        </li>
-      </ul>
-      </ng-template>
-    </ng-container>
-  </aside>
 </div>
