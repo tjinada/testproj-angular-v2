@@ -33,6 +33,12 @@ export interface SimState {
   gtmPick: Record<GtmId, SiteId>;
   /** JSESSIONID jvmRoute -> app server 1..APP_SERVERS. */
   jsession: number;
+  /**
+   * Which site's JVM issued the JSESSIONID. Normally the same as `site`, but
+   * after a failover the user holds a session from one site while the cookie
+   * still pins the other. Defaults to `site` when absent.
+   */
+  jsessionSite?: SiteId;
   live: Record<SiteId, LivenessState>;
   /** BOS LTM pool monitor (DACT-104). */
   ltmMonitor: PoolMonitor;
@@ -110,4 +116,121 @@ export interface Resolution {
   steps: DecisionStep[];
   /** Node id where the request died, if it died. */
   breakAt: string | null;
+  /** Cookie and JSESSIONID the user carries away from this request. */
+  nextUser: UserSession;
+}
+
+/** What a user carries between requests in a replayed scenario. */
+export interface UserSession {
+  /** cdbbossiteId value, or null before the edge has stamped one. */
+  cookie: SiteId | null;
+  /** Site whose JVM issued the JSESSIONID. */
+  jsSite: SiteId | null;
+  /** jvmRoute app server number. */
+  jsServer: number | null;
+}
+
+// ── Scenario replay ────────────────────────────────────────────────
+
+/** Environment slice of SimState — everything not tied to one user. */
+export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite'>;
+
+/** A user makes a request. Advances the carried session. */
+export interface RequestStep {
+  kind: 'request';
+  label: string;
+  path: TrafficPath;
+}
+
+/** Something changes in the estate. The user is untouched. */
+export interface EnvStep {
+  kind: 'env';
+  label: string;
+  apply: (env: EnvState) => void;
+}
+
+export type ScenarioStep = RequestStep | EnvStep;
+
+/** Follows one user through time, carrying their cookie and JSESSIONID. */
+export interface Scenario {
+  id: string;
+  title: string;
+  blurb: string;
+  steps: ScenarioStep[];
+}
+
+/** One rendered step of a journey replay. */
+export interface ScenarioFrame {
+  kind: 'request' | 'env';
+  label: string;
+  env: EnvState;
+  userBefore: UserSession;
+  userAfter: UserSession;
+  /** Populated on request steps: what actually happened. */
+  result: Resolution | null;
+  /**
+   * Populated on env steps: where the next request would land given the
+   * change, so the diagram reacts immediately instead of waiting a step.
+   */
+  projection: Resolution | null;
+  /** Whichever of the two is set — what the diagram and trace render from. */
+  shown: Resolution;
+}
+
+// ── Stage scenarios (cohorts observed in parallel) ─────────────────
+
+/**
+ * One tracked class of user. Cohorts run in parallel across the same stage
+ * timeline, so a single environment change can be seen through several users
+ * at once — which is how "existing traffic fails while new traffic reroutes"
+ * becomes one moment rather than two steps.
+ */
+export interface Cohort {
+  id: string;
+  label: string;
+  path: TrafficPath;
+  /**
+   * 'new' resets to a cookie-less user before every stage — it models someone
+   * arriving right now. 'existing' carries its cookie and JSESSIONID forward.
+   */
+  kind: 'new' | 'existing';
+  /** Site the existing user starts pinned to. Ignored when kind is 'new'. */
+  seedSite?: SiteId;
+}
+
+/** One cohort's result at one stage. */
+export interface CohortFrame {
+  cohortId: string;
+  userBefore: UserSession;
+  userAfter: UserSession;
+  result: Resolution;
+}
+
+/** One point on the environment timeline. */
+export interface Stage {
+  label: string;
+  /** What changed here, shown above the cohort table. */
+  note: string;
+  apply: (env: EnvState) => void;
+}
+
+/**
+ * Walks the estate through stages and observes every cohort at each one.
+ * Contrast with Scenario, which follows one user through time.
+ */
+export interface StageScenario {
+  id: string;
+  title: string;
+  blurb: string;
+  cohorts: Cohort[];
+  stages: Stage[];
+}
+
+/** Everything rendered for one stage. */
+export interface StageFrame {
+  label: string;
+  note: string;
+  env: EnvState;
+  /** One entry per cohort, in scenario order. */
+  cohorts: CohortFrame[];
 }

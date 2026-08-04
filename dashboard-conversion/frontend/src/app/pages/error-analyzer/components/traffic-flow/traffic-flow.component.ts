@@ -1,11 +1,14 @@
-import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  GtmId, LivenessState, PoolMonitor, SessionKind, SimState, SiteId, TrafficPath
+  GtmId, LivenessState, PoolMonitor, Scenario, SessionKind, SimState, SiteId,
+  StageScenario, TrafficPath
 } from '../../models/traffic-flow.model';
 import { resolveTraffic } from '../../services/traffic-resolver';
 import { buildTrafficGraph, TfNode, TfPill } from './traffic-flow-layout';
+import { SCENARIOS, DR_SCENARIOS } from './traffic-scenarios';
+import { runScenario, runStages, toSimState } from '../../services/traffic-scenario-runner';
 import { APP_SERVERS, SITE_IDS, defaultSimState, nodeLabel } from './traffic-topology';
 
 /**
@@ -22,7 +25,7 @@ import { APP_SERVERS, SITE_IDS, defaultSimState, nodeLabel } from './traffic-top
   styleUrls: ['./traffic-flow.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TrafficFlowComponent implements OnInit {
+export class TrafficFlowComponent implements OnInit, OnDestroy {
   /** Query params from the Error Analyzer route, used to restore a shared link. */
   @Input() sharedParams: Record<string, string> | null = null;
 
@@ -34,10 +37,59 @@ export class TrafficFlowComponent implements OnInit {
   linkCopied = signal(false);
   hoveredIds = signal<string[]>([]);
 
-  resolution = computed(() => resolveTraffic(this.state()));
-  graph = computed(() => buildTrafficGraph(this.state(), this.resolution()));
+  // ── Scenario replay ──────────────────────────────────────────────
+  readonly scenarios = SCENARIOS;
+  scenario = signal<Scenario | null>(null);
+  stepIndex = signal(0);
+  playing = signal(false);
+  private timer: ReturnType<typeof setInterval> | null = null;
 
-  outOfService = computed(() => Object.keys(this.state().down).map(nodeLabel));
+  frames = computed(() => {
+    const sc = this.scenario();
+    return sc ? runScenario(sc) : [];
+  });
+
+  // ── DR stage scenarios (cohorts observed in parallel) ────────────
+  readonly drScenarios = DR_SCENARIOS;
+  drScenario = signal<StageScenario | null>(null);
+  /** Which cohort row drives the diagram and trace. */
+  cohortIndex = signal(0);
+
+  stageFrames = computed(() => {
+    const sc = this.drScenario();
+    return sc ? runStages(sc) : [];
+  });
+  stageFrame = computed(() => this.stageFrames()[this.stepIndex()] ?? null);
+  cohortFrame = computed(() => {
+    const sf = this.stageFrame();
+    return sf ? (sf.cohorts[this.cohortIndex()] ?? sf.cohorts[0]) : null;
+  });
+  cohortLabel = (i: number): string => this.drScenario()?.cohorts[i]?.label ?? '';
+  frame = computed(() => this.frames()[this.stepIndex()] ?? null);
+  /** True while either kind of scenario drives the estate. */
+  replaying = computed(() => this.scenario() !== null || this.drScenario() !== null);
+  /** True in DR mode, which renders the cohort table instead of a user strip. */
+  stageMode = computed(() => this.drScenario() !== null);
+
+  /** The state actually being rendered: the scenario's, or the free-form one. */
+  activeState = computed<SimState>(() => {
+    const sf = this.stageFrame();
+    const cf = this.cohortFrame();
+    if (sf && cf) { return toSimState(sf.env, cf.userBefore, cf.result.path); }
+    const f = this.frame();
+    if (!f) { return this.state(); }
+    return toSimState(f.env, f.userBefore, f.shown.path);
+  });
+
+  resolution = computed(() => {
+    const cf = this.cohortFrame();
+    if (cf) { return cf.result; }
+    const f = this.frame();
+    return f ? f.shown : resolveTraffic(this.state());
+  });
+  graph = computed(() => buildTrafficGraph(this.activeState(), this.resolution()));
+
+  outOfService = computed(() => Object.keys(this.activeState().down).map(nodeLabel));
 
   shareLink = computed(() => {
     const s = this.state();
@@ -161,5 +213,81 @@ export class TrafficFlowComponent implements OnInit {
     } catch {
       this.linkCopied.set(false);
     }
+  }
+
+  // ── Scenario transport ───────────────────────────────────────────
+
+  /** Total steps in whichever scenario kind is running. */
+  stepCount = computed(() =>
+    this.stageMode() ? this.stageFrames().length : this.frames().length);
+
+  startScenario(id: string): void {
+    this.stopPlaying();
+    this.stepIndex.set(0);
+    this.cohortIndex.set(0);
+    const dr = this.drScenarios.find(s => s.id === id) ?? null;
+    if (dr) { this.drScenario.set(dr); this.scenario.set(null); return; }
+    this.drScenario.set(null);
+    this.scenario.set(this.scenarios.find(s => s.id === id) ?? null);
+  }
+
+  selectCohort(i: number): void { this.cohortIndex.set(i); }
+
+  /** Leaves replay, handing the current estate over to the free-form rail. */
+  exitScenario(): void {
+    this.stopPlaying();
+    this.state.set(this.activeState());
+    this.scenario.set(null);
+    this.drScenario.set(null);
+    this.stepIndex.set(0);
+    this.syncUrl(this.state());
+  }
+
+  goToStep(i: number): void {
+    this.stopPlaying();
+    this.stepIndex.set(i);
+  }
+
+  nextStep(): void {
+    this.stopPlaying();
+    if (this.stepIndex() < this.stepCount() - 1) {
+      this.stepIndex.update(i => i + 1);
+    }
+  }
+
+  prevStep(): void {
+    this.stopPlaying();
+    if (this.stepIndex() > 0) { this.stepIndex.update(i => i - 1); }
+  }
+
+  resetScenario(): void {
+    this.stopPlaying();
+    this.stepIndex.set(0);
+  }
+
+  togglePlay(): void {
+    if (this.playing()) { this.stopPlaying(); return; }
+    if (this.stepIndex() >= this.stepCount() - 1) { this.stepIndex.set(0); }
+    this.playing.set(true);
+    this.timer = setInterval(() => {
+      if (this.stepIndex() >= this.stepCount() - 1) { this.stopPlaying(); return; }
+      this.stepIndex.update(i => i + 1);
+    }, 1600);
+  }
+
+  private stopPlaying(): void {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    this.playing.set(false);
+  }
+
+  ngOnDestroy(): void { this.stopPlaying(); }
+
+  /** Cookie chip text for the user strip. */
+  cookieChip(u: { cookie: SiteId | null }): string | null {
+    return u.cookie ? `cdbbossiteId=${u.cookie}` : null;
+  }
+
+  jsessionChip(u: { jsSite: SiteId | null; jsServer: number | null }): string | null {
+    return u.jsSite ? `JSESSIONID=…${u.jsSite.toLowerCase()}app${u.jsServer}` : null;
   }
 }

@@ -5,7 +5,8 @@ import type {
   Resolution,
   Severity,
   SimState,
-  SiteId
+  SiteId,
+  UserSession
 } from '../models/traffic-flow.model';
 import {
   APIC_INSTANCES,
@@ -102,6 +103,16 @@ export function resolveTraffic(state: SimState): Resolution {
   /** cdbbossiteId value the edge stamps; set once the target origin is known. */
   let stampedCookie: string | null = null;
 
+  /** Where the JSESSIONID was issued. Same as the cookie unless carried over. */
+  const jsSite: SiteId = state.jsessionSite ?? pinned;
+
+  /** Unchanged user state, used by every early exit. */
+  const carried: UserSession = {
+    cookie: existing ? pinned : null,
+    jsSite: existing ? jsSite : null,
+    jsServer: existing ? state.jsession : null
+  };
+
   // Distribution shown inside each GTM oval. A GTM only splits traffic when
   // both its datacentres pass their check; otherwise it answers 100% one way.
   const apiHealth = { BCC: apicHealthy(state, 'BCC'), SCC: apicHealthy(state, 'SCC') };
@@ -144,7 +155,7 @@ export function resolveTraffic(state: SimState): Resolution {
     apicSite: null, bosSite: null, appServer: null,
     gtmDistribution, gtmAnswer, gtmActive: !existing, extGtmSplit,
     outcome: outcome(key, why), http, setCookie: null,
-    cookieStamped: stampedCookie, steps, breakAt: null,
+    cookieStamped: stampedCookie, steps, breakAt: null, nextUser: carried,
     ...extra
   });
 
@@ -333,7 +344,9 @@ export function resolveTraffic(state: SimState): Resolution {
   }
 
   // ---- session outcome ----------------------------------------------------
-  const crossSite = existing && bosSite !== pinned;
+  // Continuity turns on where the JSESSIONID was issued, not where the cookie
+  // points: after a failover those two disagree.
+  const crossSite = existing && jsSite !== bosSite;
   const jvmGone = existing && !crossSite && apps.indexOf(state.jsession) < 0;
   const appServer = crossSite || jvmGone || !existing ? apps[0] : state.jsession;
 
@@ -342,7 +355,7 @@ export function resolveTraffic(state: SimState): Resolution {
 
   if (crossSite && !SESSION_REPLICATED) {
     key = 'TIMEOUT';
-    why = `JSESSIONID was issued by ${pinned} App Server ${state.jsession}. That clone ID is not ` +
+    why = `JSESSIONID was issued by ${jsSite} App Server ${state.jsession}. That clone ID is not ` +
       `in ${bosSite}'s plugin-cfg.xml and session replication is off.`;
   } else if (jvmGone) {
     key = 'TIMEOUT';
@@ -384,11 +397,20 @@ export function resolveTraffic(state: SimState): Resolution {
       ? `JSESSIONID=…${suffix} (new)`
       : null;
 
+  // A session is reissued on a new JVM whenever the old one could not be found.
+  const reissued = key === 'NEW' || key === 'TIMEOUT';
+  const nextUser: UserSession = {
+    cookie: stampedCookie ? (api ? (apicSite as SiteId) : bosSite) : carried.cookie,
+    jsSite: reissued ? bosSite : carried.jsSite,
+    jsServer: reissued ? appServer : carried.jsServer
+  };
+
   return done(key, why, key === 'TIMEOUT' ? '302 → login' : '200 OK', {
     apicSite,
     bosSite,
     appServer,
     setCookie,
+    nextUser,
     breakAt: key === 'TIMEOUT' ? `app-${bosSite}-${appServer}` : null
   });
 }
