@@ -12,17 +12,18 @@ import { EndpointResultsTableComponent } from './components/endpoint-results-tab
 import { ComponentResultsTableComponent } from './components/component-results-table/component-results-table.component';
 import { CallerResultsTableComponent } from './components/caller-results-table/caller-results-table.component';
 import { TrafficFlowComponent } from './components/traffic-flow/traffic-flow.component';
+import { DashboardLinksComponent } from './components/dashboard-links/dashboard-links.component';
 import { buildFlowGraph, FlowNode } from './components/flow-diagram/flow-layout';
 import { DynatraceService } from './services/dynatrace.service';
-import { ConfigService, EnvironmentOption } from './services/config.service';
+import { ConfigService, DashboardLink, EnvironmentOption } from './services/config.service';
 import { CallerRow, ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
-type TabId = 'trace' | 'opensearch' | 'traffic';
+type TabId = 'trace' | 'opensearch' | 'traffic' | 'monitoring';
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent, TrafficFlowComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent, TrafficFlowComponent, DashboardLinksComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -52,6 +53,10 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   /** Pre-fill for the search bar built from a shared trace link (?trace_id=...). */
   searchSeed: SearchSeed | null = null;
+
+  // CDB Monitoring tab (YAML-driven dashboard links)
+  dashboards: DashboardLink[] = [];
+  dashboardAccessRequestUrl: string | null = null;
 
   // Token management
   showTokenSetup = false;
@@ -118,6 +123,8 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.envHostnamePatterns = this.configService.getEnvHostnamePatterns();
     this.environments = this.configService.getEnvironments();
     this.tokenUrls = this.configService.getTokenUrls();
+    this.dashboards = this.configService.getDashboards();
+    this.dashboardAccessRequestUrl = this.configService.getDashboardAccessRequestUrl();
 
     const nonProd = this.environments.find(e => !e.isProd);
     this.environment = nonProd ? nonProd.id : (this.environments[0]?.id || 'NON-PROD');

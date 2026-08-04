@@ -11,6 +11,7 @@ import {
   normalizeClientIp,
   fetchSessionEvents
 } from '../services/dynatrace.service';
+import { CDB_DASHBOARDS } from '../services/cdb-dashboards.loader';
 
 const router = Router();
 
@@ -56,7 +57,16 @@ router.get('/config', (_req: Request, res: Response) => {
     process.env.OPENSEARCH_INDEX || 'channels-olb-*'
   );
 
-  res.json({ envHostnamePatterns, environments, individualUserToken, tokenUrls, openSearchIndices });
+  res.json({
+    envHostnamePatterns,
+    environments,
+    individualUserToken,
+    tokenUrls,
+    openSearchIndices,
+    // CDB Monitoring tab. Sourced from YAML, not .env.
+    dashboards: CDB_DASHBOARDS.dashboards,
+    dashboardAccessRequestUrl: CDB_DASHBOARDS.accessRequestUrl
+  });
 });
 
 function parseIndexOptions(raw: string | undefined, fallback: string): Array<{ label: string; value: string }> {

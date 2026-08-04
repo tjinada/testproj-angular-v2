@@ -13,12 +13,21 @@ export interface OpenSearchIndexOption {
   value: string;
 }
 
+/** A Dynatrace dashboard link shown in the CDB Monitoring tab. */
+export interface DashboardLink {
+  name: string;
+  description: string;
+  url: string;
+}
+
 interface AppConfig {
   envHostnamePatterns: string[];
   environments: EnvironmentOption[];
   individualUserToken: boolean;
   tokenUrls: Record<string, string>;
   openSearchIndices: OpenSearchIndexOption[];
+  dashboards: DashboardLink[];
+  dashboardAccessRequestUrl: string | null;
 }
 
 const DEFAULT_ENVIRONMENTS: EnvironmentOption[] = [
@@ -36,7 +45,9 @@ export class ConfigService {
     environments: DEFAULT_ENVIRONMENTS,
     individualUserToken: false,
     tokenUrls: {},
-    openSearchIndices: DEFAULT_INDICES
+    openSearchIndices: DEFAULT_INDICES,
+    dashboards: [],
+    dashboardAccessRequestUrl: null
   });
   readonly config = this._config.asReadonly();
 
@@ -54,7 +65,9 @@ export class ConfigService {
         tokenUrls: cfg?.tokenUrls || {},
         openSearchIndices: (cfg?.openSearchIndices && cfg.openSearchIndices.length > 0)
           ? cfg.openSearchIndices
-          : DEFAULT_INDICES
+          : DEFAULT_INDICES,
+        dashboards: cfg?.dashboards || [],
+        dashboardAccessRequestUrl: cfg?.dashboardAccessRequestUrl || null
       });
     } catch (err) {
       console.warn('[ConfigService] Failed to load /api/error-analyzer/config, using defaults', err);
@@ -79,5 +92,13 @@ export class ConfigService {
 
   getOpenSearchIndices(): OpenSearchIndexOption[] {
     return this._config().openSearchIndices;
+  }
+
+  getDashboards(): DashboardLink[] {
+    return this._config().dashboards;
+  }
+
+  getDashboardAccessRequestUrl(): string | null {
+    return this._config().dashboardAccessRequestUrl;
   }
 }

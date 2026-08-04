@@ -43,6 +43,15 @@
       (click)="setTab('traffic')">
       Traffic Flow
     </button>
+    <button
+      type="button"
+      class="tab-btn"
+      role="tab"
+      [attr.aria-selected]="activeTab === 'monitoring'"
+      [class.tab-btn-active]="activeTab === 'monitoring'"
+      (click)="setTab('monitoring')">
+      CDB Monitoring
+    </button>
   </div>
 
   <!-- Tab: Trace Analysis ──────────────────────────────────────────── -->
@@ -153,5 +162,13 @@
   <!-- Tab: Traffic Flow ────────────────────────────────────────────── -->
   <div [hidden]="activeTab !== 'traffic'" class="tab-panel" role="tabpanel">
     <app-traffic-flow [sharedParams]="trafficParams"></app-traffic-flow>
+  </div>
+
+  <!-- Tab: CDB Monitoring ──────────────────────────────────────────── -->
+  <div [hidden]="activeTab !== 'monitoring'" class="tab-panel" role="tabpanel">
+    <app-dashboard-links
+      [dashboards]="dashboards"
+      [accessRequestUrl]="dashboardAccessRequestUrl">
+    </app-dashboard-links>
   </div>
 </div>

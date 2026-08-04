@@ -1,0 +1,78 @@
+<!-- Access banner: only when accessRequestUrl is set in the YAML -->
+<div *ngIf="accessRequestUrl" class="dl-banner">
+  <svg class="dl-banner-icon" width="16" height="16" viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="8" fill="#1e40af"/>
+    <path d="M10 6.2v.1M10 9v4.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+  </svg>
+  <div class="dl-banner-body">
+    <div class="dl-banner-text">
+      Dynatrace access required &mdash; these dashboards are hosted on PROD tenants.
+      Access is restricted to authorized users.
+    </div>
+    <a class="dl-banner-link" [href]="accessRequestUrl" target="_blank" rel="noopener noreferrer">
+      Click here to request access
+      <svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M12 3h5v5M17 3l-7.5 7.5M15 12v4a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1h4"
+          stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+  </div>
+</div>
+
+<div class="dl-card">
+  <div class="dl-header">
+    <span class="dl-title">Dynatrace Dashboards</span>
+    <span class="dl-subtitle">Manage and access your Dynatrace monitoring dashboards</span>
+  </div>
+
+  <div *ngIf="dashboards.length === 0" class="dl-empty">
+    No dashboards configured. Add entries to
+    <code>backend/config/cdb-dynatrace-dashboards.yaml</code> and restart the backend.
+  </div>
+
+  <div *ngIf="dashboards.length > 0" class="dl-table-wrap">
+    <table class="dl-table">
+      <thead>
+        <tr>
+          <th class="dl-col-name">Dashboard Name</th>
+          <th class="dl-col-desc">Description</th>
+          <th class="dl-col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let d of dashboards">
+          <td class="dl-col-name">
+            <span class="dl-name">
+              <svg class="dl-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="5.5" height="14" rx="1" stroke="#1e40af" stroke-width="1.3"/>
+                <rect x="9.5" y="1" width="5.5" height="6" rx="1" stroke="#1e40af" stroke-width="1.3"/>
+                <rect x="9.5" y="9" width="5.5" height="6" rx="1" stroke="#1e40af" stroke-width="1.3"/>
+              </svg>
+              {{ d.name }}
+            </span>
+          </td>
+          <td class="dl-col-desc">{{ d.description }}</td>
+          <td class="dl-col-actions">
+            <div class="dl-actions">
+              <a class="dl-btn dl-btn-primary" [href]="d.url" target="_blank" rel="noopener noreferrer">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M12 3h5v5M17 3l-7.5 7.5M15 12v4a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1h4"
+                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Open
+              </a>
+              <button type="button" class="dl-btn dl-btn-secondary" (click)="copyUrl(d)">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <rect x="7" y="7" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+                  <path d="M13 4.5A1.5 1.5 0 0011.5 3h-7A1.5 1.5 0 003 4.5v7A1.5 1.5 0 004.5 13"
+                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                </svg>
+                {{ copiedName() === d.name ? 'Copied' : 'Copy URL' }}
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

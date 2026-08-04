@@ -1,0 +1,39 @@
+dashboards:
+  - name: CDB KPI
+    url: https://REPLACE-ME
+    description: >-
+      This dashboard presents CDB KPI for CDB login duration, verify
+      credential call / init biometric auth duration.
+
+  - name: CDB Health Dashboard V2
+    url: https://REPLACE-ME
+    description: >-
+      This dashboard presents CDB Login successful login / Account summary /
+      CDB Bill pay / CDB receive EMT / Send EMT / MCD / open account new and
+      existing customers.
+
+  - name: CDB Post Release Health Check
+    url: https://REPLACE-ME
+    description: This dashboard provides view of CDB functions Response time SLO.
+
+  - name: CDB Business Transactions SLO/I Trending Dashboard
+    url: https://REPLACE-ME
+    description: >-
+      This dashboard presents Last 90 days / 30 days and 7 days SLO for CDB
+      logins / send EMT / Receive EMT / bill payments / Account Summary.
+
+  - name: CDB Synthetic Monitoring
+    url: https://REPLACE-ME
+
+  - name: CDB Login Performance Dashboard
+    url: https://REPLACE-ME
+    description: >-
+      This dashboard provides the CDB mobile login view for iOS, Android and
+      other mobile logins.
+
+  - name: CDB Health Check
+    url: https://REPLACE-ME
+    description: >-
+      This dashboard provides view of CDB top functionalities such as CDB
+      Login / Mobile and Desktop, MCD (Mobile cheque deposit), EMT send,
+      EMT receive, Account Summary, Bill pay.
