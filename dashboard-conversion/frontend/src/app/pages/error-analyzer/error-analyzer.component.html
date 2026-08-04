@@ -81,7 +81,7 @@
 
     <!-- Main app content (hidden when setup modal is blocking) -->
     <ng-container *ngIf="!showTokenSetup">
-      <app-search (search)="onSearch($event)"></app-search>
+      <app-search [seed]="searchSeed" (search)="onSearch($event)"></app-search>
       <div *ngIf="isLoading && !isTraceLoading && lastSearchMode !== 'session'" class="search-progress" role="status">
         <span class="search-progress-spinner"></span>
         Searching&hellip;

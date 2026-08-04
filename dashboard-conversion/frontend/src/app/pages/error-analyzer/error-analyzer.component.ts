@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef, ElementRef, ViewChild } from '@an
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { SearchComponent, SearchEvent } from './components/search/search.component';
+import { SearchComponent, SearchEvent, SearchSeed } from './components/search/search.component';
 import { TraceResultsComponent } from './components/trace-results/trace-results.component';
 import { TraceResultsTableComponent } from './components/trace-results-table/trace-results-table.component';
 import { SessionResultsComponent } from './components/session-results/session-results.component';
@@ -30,6 +30,9 @@ export class ErrorAnalyzerComponent implements OnInit {
   /** Anchor wrapping the trace detail (summary card + flow diagram) for auto-scroll. */
   @ViewChild('traceDetailAnchor') traceDetailAnchor?: ElementRef<HTMLElement>;
 
+  /** Used to run a seeded search once config and environment are resolved. */
+  @ViewChild(SearchComponent) searchRef?: SearchComponent;
+
   spans: SpanRecord[] = [];
   isLoading = false;
   /** True only while a trace detail fetch is in flight; drives the detail skeleton. */
@@ -46,6 +49,9 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   /** Query params handed to the Traffic Flow tab so shared scenario links restore. */
   trafficParams: Record<string, string> | null = null;
+
+  /** Pre-fill for the search bar built from a shared trace link (?trace_id=...). */
+  searchSeed: SearchSeed | null = null;
 
   // Token management
   showTokenSetup = false;
@@ -101,6 +107,13 @@ export class ErrorAnalyzerComponent implements OnInit {
       }
     }
 
+    // Shared trace link. The search bar validates the window id and falls back
+    // to its own default when the param is missing or unknown.
+    const traceId = (qp?.['trace_id'] ?? '').trim();
+    if (traceId) {
+      this.searchSeed = { mode: 'trace', value: traceId, windowId: qp['win'] ?? '' };
+    }
+
     await this.configService.load();
     this.envHostnamePatterns = this.configService.getEnvHostnamePatterns();
     this.environments = this.configService.getEnvironments();
@@ -108,6 +121,13 @@ export class ErrorAnalyzerComponent implements OnInit {
 
     const nonProd = this.environments.find(e => !e.isProd);
     this.environment = nonProd ? nonProd.id : (this.environments[0]?.id || 'NON-PROD');
+
+    // An ?env= from a shared link wins, but only if the config knows it.
+    const linkedEnv = this.environments.find(e => e.id === qp?.['env']);
+    if (linkedEnv) {
+      this.environment = linkedEnv.id;
+    }
+
     this.configLoaded = true;
 
     if (this.configService.isIndividualUserToken()) {
@@ -119,6 +139,13 @@ export class ErrorAnalyzerComponent implements OnInit {
     }
 
     this.cdr.detectChanges();
+
+    // detectChanges above creates the search bar, so searchRef is now resolved.
+    // Blocked by the token modal: the fields stay seeded and the user is one
+    // click away once a token is saved.
+    if (this.searchSeed && !this.showTokenSetup) {
+      this.searchRef?.submitSeed();
+    }
   }
 
   get nonProdEnvironments(): EnvironmentOption[] {
@@ -164,6 +191,24 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   // ── Search handlers ────────────────────────────────────────────────
 
+  /**
+   * Keeps the address bar shareable for trace-ID searches. Any other mode
+   * clears the params rather than leaving a stale trace_id behind. Custom
+   * time ranges are not shareable, so win is omitted for them. This is a
+   * full param replace, so it also clears any Traffic Flow scenario params.
+   */
+  private syncUrl(event: SearchEvent): void {
+    const queryParams = event.mode === 'trace'
+      ? {
+          trace_id: event.value,
+          env: this.environment,
+          win: event.windowId === 'custom' ? null : event.windowId
+        }
+      : {};
+
+    this.router.navigate([], { queryParams, replaceUrl: true });
+  }
+
   onSearch(event: SearchEvent): void {
     this.isLoading = true;
     this.isTraceLoading = false;
@@ -185,6 +230,7 @@ export class ErrorAnalyzerComponent implements OnInit {
     this.sessionEvents = [];
     this.tracesFromSessionUrl = null;
     this.lastSearchMode = event.mode;
+    this.syncUrl(event);
 
     if (event.mode === 'trace') {
       this.isTraceLoading = true;

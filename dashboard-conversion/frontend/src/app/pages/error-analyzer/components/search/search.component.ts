@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SearchMode, TimeWindow, Timeframe } from '../../models/trace.model';
@@ -14,6 +14,15 @@ export interface SearchEvent {
   mode: SearchMode;
   value: string;
   timeframe: Timeframe;
+  /** The time window preset that produced the timeframe, or 'custom'. */
+  windowId: string;
+}
+
+/** Pre-fill for the search bar, supplied by the parent from a shared link. */
+export interface SearchSeed {
+  mode: SearchMode;
+  value: string;
+  windowId: string;
 }
 
 /** Field type options. Add new entries here to support additional search modes. */
@@ -51,7 +60,7 @@ const DEFAULT_WINDOW_ID = '2h';
   templateUrl: './search.component.html',
   styleUrls: ['./search.component.scss']
 })
-export class SearchComponent {
+export class SearchComponent implements OnInit {
   readonly fields = SEARCH_FIELDS;
   readonly timeWindows = TIME_WINDOWS;
 
@@ -69,7 +78,30 @@ export class SearchComponent {
 
   readonly customWindowId = CUSTOM_WINDOW_ID;
 
+  /** Set once by the parent before this component is created. */
+  @Input() seed: SearchSeed | null = null;
+
   @Output() search = new EventEmitter<SearchEvent>();
+
+  ngOnInit(): void {
+    const seed = this.seed;
+    if (!seed) return;
+
+    this.selectedMode = seed.mode;
+    this.inputValue = seed.value;
+
+    // Custom ranges are not shareable, so only presets are accepted.
+    const window = this.timeWindows.find(w => w.id === seed.windowId && w.id !== CUSTOM_WINDOW_ID);
+    if (window) {
+      this.selectedWindowId = window.id;
+      this.lastPresetWindowId = window.id;
+    }
+  }
+
+  /** Runs the seeded search. Called by the parent once config and env are ready. */
+  submitSeed(): void {
+    this.onSearch();
+  }
 
   openPreview(src: string): void {
     this.previewImageSrc = src;
@@ -174,6 +206,6 @@ export class SearchComponent {
     if (!timeframe) return;
 
     this.hasSearched = true;
-    this.search.emit({ mode: this.selectedMode, value: trimmed, timeframe });
+    this.search.emit({ mode: this.selectedMode, value: trimmed, timeframe, windowId: this.selectedWindowId });
   }
 }
