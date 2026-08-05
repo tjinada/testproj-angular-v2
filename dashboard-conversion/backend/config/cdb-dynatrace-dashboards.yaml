@@ -1,3 +1,5 @@
+accessRequestUrl: https://REPLACE-ME/request-dynatrace-access
+
 dashboards:
   - name: CDB KPI
     url: https://REPLACE-ME
