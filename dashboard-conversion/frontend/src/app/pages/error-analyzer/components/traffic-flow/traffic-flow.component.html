@@ -107,19 +107,36 @@
 
   <main class="tf-main">
 
-    <!-- One card per flow. Clicking a card focuses it on the diagram. -->
+    <!-- Two cards, always. Selecting one puts that user on the diagram. -->
     <div class="tf-cards">
-      <button type="button" class="tf-card" *ngFor="let r of results()"
-        [ngClass]="['tf-f-' + r.flow, 'tf-w-' + r.cohort, 'tf-sev-' + r.resolution.outcome.severity]"
-        [class.tf-focused]="focus() === r.key"
-        [class.tf-dimmed]="focus() && focus() !== r.key"
-        (click)="setFocus(r.key)">
-        <span class="tf-who"><i class="tf-sw"></i>{{ whoLabel(r) }} &middot; {{ flowLabel(r) }}</span>
-        <span class="tf-out">{{ r.resolution.outcome.title }}</span>
-        <span class="tf-why">{{ r.resolution.outcome.why }}</span>
-        <span class="tf-meta">{{ r.resolution.http }} &middot; {{ cookieLabel(r) }}
-          <ng-container *ngIf="r.resolution.bosSite"> &middot; served {{ r.resolution.bosSite }}</ng-container>
+      <button type="button" class="tf-card" *ngFor="let c of cards()"
+        [ngClass]="'tf-sev-' + c.severity"
+        [class.tf-selected]="cohort() === c.cohort"
+        (click)="setCohort(c.cohort)">
+        <span class="tf-who">{{ c.title }}</span>
+
+        <span class="tf-row">
+          <span class="tf-k">cdbbossiteId</span>
+          <span class="tf-v">{{ c.cookieIn }}<ng-container
+            *ngIf="c.cookieOut !== c.cookieIn"> &rarr; {{ c.cookieOut }}</ng-container></span>
         </span>
+
+        <span class="tf-row" *ngIf="c.primary as p">
+          <span class="tf-k tf-f-primary">{{ primaryLabel() }}</span>
+          <span class="tf-v" [ngClass]="'tf-t-' + p.resolution.outcome.severity">
+            {{ p.resolution.http }}<ng-container *ngIf="p.resolution.bosSite">
+            &middot; served {{ p.resolution.bosSite }}</ng-container>
+          </span>
+        </span>
+
+        <span class="tf-row" *ngIf="c.isam as i">
+          <span class="tf-k tf-f-isam">initISAMSession</span>
+          <span class="tf-v" [ngClass]="'tf-t-' + i.resolution.outcome.severity">
+            {{ i.resolution.http }} &middot; {{ i.state.site }}
+          </span>
+        </span>
+
+        <span class="tf-note" *ngIf="c.isam as i">{{ i.resolution.outcome.title }}</span>
       </button>
     </div>
 
@@ -147,12 +164,10 @@
 
     <div class="tf-graph-bar">
       <h3 class="tf-sec-h">Traffic flow</h3>
-      <div class="tf-legend" *ngIf="diverged()">
+      <div class="tf-legend">
         <span class="tf-lg tf-lg-mixed"><i></i>Both calls</span>
-        <span class="tf-lg tf-lg-primary"><i></i>{{ config().primaryPath === 'api'
-          ? '/api/cdb' : '/banking' }}</span>
+        <span class="tf-lg tf-lg-primary"><i></i>{{ primaryLabel() }}</span>
         <span class="tf-lg tf-lg-isam"><i></i>initISAMSession</span>
-        <span class="tf-lg tf-lg-dash"><i></i>Pinned user</span>
       </div>
       <div class="tf-mini">
         <button type="button" [attr.aria-pressed]="zoom() === 'fit'"
@@ -174,21 +189,19 @@
         </g>
 
         <path *ngFor="let e of g.edges" [attr.d]="e.d"
-          [ngClass]="['tf-e-' + e.kind, e.flow ? 'tf-f-' + e.flow : '', e.who ? 'tf-w-' + e.who : '']"
-          [class.tf-muted]="e.muted"></path>
+          [ngClass]="['tf-e-' + e.kind, e.flow ? 'tf-f-' + e.flow : '']"></path>
 
         <text *ngFor="let l of g.labels" [attr.x]="l.x" [attr.y]="l.y"
           [ngClass]="'tf-l-' + l.kind">{{ l.text }}</text>
 
         <g *ngFor="let n of g.nodes" class="tf-node"
-          [ngClass]="[n.flow ? 'tf-f-' + n.flow : '', n.who ? 'tf-w-' + n.who : '']"
+          [ngClass]="n.flow ? 'tf-f-' + n.flow : ''"
           [class.tf-toggle]="n.toggleable"
           [class.tf-dim]="!n.hop && !n.outOfService"
           [class.tf-on]="n.state === 'ok'"
           [class.tf-warn]="n.state === 'warn'"
           [class.tf-fail]="n.state === 'bad'"
           [class.tf-off]="n.outOfService"
-          [class.tf-muted]="n.muted"
           [class.tf-linked]="isHovered(n.id)"
           (click)="toggleNode(n)"
           (mouseenter)="hover([n.id])" (mouseleave)="clearHover()">
@@ -236,21 +249,28 @@
       </svg>
     </div>
 
-    <div class="tf-graph-bar" *ngIf="primary() as pr">
+    <div class="tf-graph-bar">
       <h3 class="tf-sec-h">Decision trace</h3>
-      <span class="tf-trace-who" [ngClass]="'tf-f-' + pr.flow">
-        {{ whoLabel(pr) }} &middot; {{ flowLabel(pr) }}
-      </span>
+      <span class="tf-trace-who">{{ cohort() === 'new' ? 'New user' : 'Existing user' }}</span>
     </div>
-    <div class="tf-trace" *ngIf="primary() as pr">
-      <div class="tf-tr" *ngFor="let s of pr.resolution.steps; let i = index"
-        [ngClass]="'tf-tr-' + s.state" [class.tf-linked]="isStepHovered(s.ids)"
-        (mouseenter)="hover(s.ids)" (mouseleave)="clearHover()">
-        <div class="tf-tr-n">{{ i + 1 }}</div>
-        <div class="tf-tr-w">{{ s.where }}</div>
-        <div class="tf-tr-y" [innerHTML]="s.what"></div>
+
+    <ng-container *ngFor="let fl of selectedFlows()">
+      <p class="tf-flow-h" [ngClass]="'tf-f-' + fl.flow">
+        {{ fl.flow === 'isam' ? 'initISAMSession' : primaryLabel() }}
+        <span class="tf-flow-r">{{ fl.resolution.http }} &mdash;
+          {{ fl.resolution.outcome.title }}</span>
+      </p>
+      <p class="tf-flow-why">{{ fl.resolution.outcome.why }}</p>
+      <div class="tf-trace">
+        <div class="tf-tr" *ngFor="let s of fl.resolution.steps; let i = index"
+          [ngClass]="'tf-tr-' + s.state" [class.tf-linked]="isStepHovered(s.ids)"
+          (mouseenter)="hover(s.ids)" (mouseleave)="clearHover()">
+          <div class="tf-tr-n">{{ i + 1 }}</div>
+          <div class="tf-tr-w">{{ s.where }}</div>
+          <div class="tf-tr-y" [innerHTML]="s.what"></div>
+        </div>
       </div>
-    </div>
+    </ng-container>
 
     <div class="tf-linkbar">
       <input type="text" readonly [value]="shareLink()" aria-label="Shareable scenario link" />

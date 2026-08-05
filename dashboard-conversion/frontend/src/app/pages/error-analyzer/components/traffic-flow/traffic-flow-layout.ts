@@ -1,5 +1,5 @@
 import type {
-  FlowKey, FlowResult, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
+  Cohort, FlowKey, FlowResult, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
   APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_COOKIE_NAME, SITE_IDS,
@@ -28,29 +28,21 @@ export interface TfNode {
   outOfService: boolean;
   isBreak: boolean;
   /**
-   * Colour dimension: which call travels here. 'mixed' means both the primary
-   * path and initISAMSession do, so it renders in the existing blue — only
-   * genuine divergence takes a colour.
+   * Which call travels here, for the cohort currently on the diagram. 'mixed'
+   * means both the primary path and initISAMSession do, so it renders in the
+   * existing blue — only genuine divergence takes a colour.
    */
   flow: FlowTag | null;
-  /** Dash dimension: which user. Dashed only when exclusively the pinned one. */
-  who: WhoTag | null;
-  /** True when a flow is focused and this element belongs only to others. */
-  muted: boolean;
 }
 
-/** Colour dimension. */
+/** Colour dimension. Only one cohort is drawn at a time, so there is no second. */
 export type FlowTag = 'primary' | 'isam' | 'mixed';
-/** Dash dimension. */
-export type WhoTag = 'new' | 'existing' | 'both';
 
 /** A laid-out edge. */
 export interface TfEdge {
   d: string;
   kind: 'base' | 'taken' | 'crossover' | 'broken';
   flow: FlowTag | null;
-  who: WhoTag | null;
-  muted: boolean;
 }
 
 /** A free-floating text label (swimlane titles, edge annotations). */
@@ -366,18 +358,10 @@ const LANES: TfLane[] = [
   { x: 40, y: 965, width: 1480, height: 120, title: 'CWH app' }
 ];
 
-/**
- * The frame's headline cohort — drives labels, pills, hop numbers and the
- * outcome the diagram is annotated for. The focused cohort wins; failing beats
- * succeeding, because the failure is what the tool was opened for.
- */
-function pickPrimary(results: FlowResult[], focus: FlowKey | null): FlowResult {
-  if (focus) {
-    const f = results.find(r => r.key === focus);
-    if (f) { return f; }
-  }
+/** Failing beats succeeding — the failure is what the tool was opened for. */
+function pickPrimary(results: FlowResult[]): FlowResult {
   return results.find(r => r.resolution.outcome.severity === 'bad')
-    ?? results.find(r => r.key === 'primary-existing')
+    ?? results.find(r => r.flow === 'primary')
     ?? results[0];
 }
 
@@ -389,7 +373,7 @@ function traversal(res: Resolution): PathMap {
   return m;
 }
 
-/** Colour: which call. Both calls on one element means no cohort colour. */
+/** Colour: which call. Both calls on one element means no colour. */
 function flowTag(keys: Set<FlowKey>): FlowTag | null {
   if (keys.size === 0) { return null; }
   const primary = keys.has('primary-new') || keys.has('primary-existing');
@@ -398,30 +382,20 @@ function flowTag(keys: Set<FlowKey>): FlowTag | null {
   return isam ? 'isam' : 'primary';
 }
 
-/** Dash: which user. Dashed only when exclusively the pinned one. */
-function whoTag(keys: Set<FlowKey>): WhoTag | null {
-  if (keys.size === 0) { return null; }
-  const hasNew = keys.has('primary-new') || keys.has('isam-new');
-  const hasOld = keys.has('primary-existing') || keys.has('isam-existing');
-  if (hasNew && hasOld) { return 'both'; }
-  return hasNew ? 'new' : 'existing';
-}
-
 /**
- * Lays out the traffic-flow diagram for one journey frame.
+ * Lays out the traffic-flow diagram for one journey frame, for one cohort.
  *
- * Both cohorts are drawn at once, but only where they actually differ: a node
- * or edge travelled by both renders in the existing blue, and cohort colour
- * appears solely on the divergent tail. On a healthy estate the two cohorts
- * take the same route, so nothing is two-tone and the frame is identical to
- * what a single-path render produced.
+ * Only the selected cohort is drawn — overlaying both made the divergence
+ * harder to read, not easier. Within that cohort the primary call and
+ * initISAMSession appear together: a hop travelled by both keeps the existing
+ * blue, and colour appears only where the two calls part company.
  *
  * Pure: geometry only.
  */
-export function buildTrafficGraph(frame: JourneyFrame, focus: FlowKey | null = null): TfGraph {
+export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): TfGraph {
   const state = frame.state;
-  const results = frame.results;
-  const primary = pickPrimary(results, focus);
+  const results = frame.results.filter(r => r.cohort === cohort);
+  const primary = pickPrimary(results);
   const res = primary.resolution;
 
   const geom = baseNodes(res);
@@ -451,10 +425,9 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: FlowKey | null = n
   const edges: TfEdge[] = baseEdgePairs()
     .filter(([a, b]) => geom[a] && geom[b])
     .map(([a, b]) => ({
-      d: curve(geom[a], geom[b]), kind: 'base' as const, flow: null, who: null, muted: false
+      d: curve(geom[a], geom[b]), kind: 'base' as const, flow: null
     }));
-  const baseRail = (d: string): TfEdge =>
-    ({ d, kind: 'base', flow: null, who: null, muted: false });
+  const baseRail = (d: string): TfEdge => ({ d, kind: 'base', flow: null });
   edges.push(baseRail(clientPropPath(geom)));
   SITE_IDS.forEach(s => edges.push(
     baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s))
@@ -494,11 +467,7 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: FlowKey | null = n
   });
 
   taken.forEach(e => {
-    edges.push({
-      d: e.d, kind: e.kind,
-      flow: flowTag(e.who), who: whoTag(e.who),
-      muted: focus !== null && !e.who.has(focus)
-    });
+    edges.push({ d: e.d, kind: e.kind, flow: flowTag(e.who) });
   });
 
   const nodes: TfNode[] = Object.keys(geom).map(id => {
@@ -519,9 +488,7 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: FlowKey | null = n
       state: hit && !off ? hit.state : null,
       outOfService: off,
       isBreak: results.some(r => r.resolution.breakAt === id),
-      flow: flowTag(keys),
-      who: whoTag(keys),
-      muted: focus !== null && keys.size > 0 && !keys.has(focus)
+      flow: flowTag(keys)
     };
   });
 

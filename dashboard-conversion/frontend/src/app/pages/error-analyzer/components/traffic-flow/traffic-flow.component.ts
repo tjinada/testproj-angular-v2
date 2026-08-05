@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  EstateOverrides, FlowKey, FlowResult, OutageType, PoolMonitor, RecoveryOrder,
+  Cohort, EstateOverrides, FlowResult, OutageType, PoolMonitor, RecoveryOrder,
   ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { runJourney } from '../../services/traffic-scenario-runner';
@@ -30,8 +30,8 @@ export class TrafficFlowComponent implements OnInit {
   overrides = signal<EstateOverrides>({ down: {}, ltmMonitor: 'live', extGtmMonitor: 'live' });
 
   stepIndex = signal(0);
-  /** Null shows every flow; set dims the others to base weight. */
-  focus = signal<FlowKey | null>(null);
+  /** Which user the diagram shows. One at a time — never overlaid. */
+  cohort = signal<Cohort>('new');
 
   zoom = signal<'fit' | 'full'>('fit');
   linkCopied = signal(false);
@@ -47,50 +47,35 @@ export class TrafficFlowComponent implements OnInit {
 
   results = computed<FlowResult[]>(() => this.activeFrame()?.results ?? []);
 
-  /**
-   * The flow the diagram and trace are annotated for. Mirrors pickPrimary in
-   * the layout: focus wins, then failing, then the pinned user's primary call.
-   */
-  primary = computed<FlowResult | null>(() => {
-    const rs = this.results();
-    const f = this.focus();
-    if (f) {
-      const hit = rs.find(r => r.key === f);
-      if (hit) { return hit; }
-    }
-    return rs.find(r => r.resolution.outcome.severity === 'bad')
-      ?? rs.find(r => r.key === 'primary-existing')
-      ?? rs[0] ?? null;
-  });
+  /** Both cards are always shown, one per user. Each summarises two calls. */
+  cards = computed(() => (['new', 'existing'] as Cohort[]).map(c => {
+    const rs = this.results().filter(r => r.cohort === c);
+    const prim = rs.find(r => r.flow === 'primary') ?? null;
+    const isam = rs.find(r => r.flow === 'isam') ?? null;
+    return {
+      cohort: c,
+      title: c === 'new' ? 'New user' : 'Existing user',
+      // The cookie the primary call arrived with, and what it left as.
+      cookieIn: prim && prim.state.session === 'new' ? 'none' : prim?.state.site ?? '—',
+      cookieOut: prim?.resolution.stampedSite ?? prim?.state.site ?? '—',
+      primary: prim,
+      isam,
+      /** Worst of the two, for the card's severity treatment. */
+      severity: [prim, isam].some(r => r?.resolution.outcome.severity === 'bad') ? 'bad'
+        : [prim, isam].some(r => r?.resolution.outcome.severity === 'warn') ? 'warn' : 'ok'
+    };
+  }));
 
-  /** True when the flows disagree — drives the legend. */
-  diverged = computed(() => {
-    const keys = new Set(this.results().map(r => r.resolution.outcome.key));
-    return keys.size > 1;
-  });
+  /** Flows for the selected cohort, in call order, for the decision trace. */
+  selectedFlows = computed(() =>
+    this.results().filter(r => r.cohort === this.cohort()));
 
-  /** Which call this flow is. */
-  flowLabel(r: FlowResult): string {
-    return r.flow === 'isam' ? 'initISAMSession'
-      : this.config().primaryPath === 'api' ? '/api/cdb' : '/banking/services';
-  }
-
-  whoLabel(r: FlowResult): string {
-    return r.cohort === 'new' ? 'New user' : 'Existing user';
-  }
-
-  /**
-   * Read from the flow's own request state, not the carried session — the
-   * latter is the state *after* the frame, which would claim a cookie the
-   * request did not actually send.
-   */
-  cookieLabel(r: FlowResult): string {
-    return r.state.session === 'new' ? 'no cookie yet' : `pinned ${r.state.site}`;
-  }
+  primaryLabel = computed(() =>
+    this.config().primaryPath === 'api' ? '/api/cdb' : '/banking/services');
 
   graph = computed(() => {
     const frame = this.activeFrame();
-    return frame ? buildTrafficGraph(frame, this.focus()) : null;
+    return frame ? buildTrafficGraph(frame, this.cohort()) : null;
   });
 
   effectiveState = computed(() => this.activeFrame()?.state ?? null);
@@ -109,11 +94,10 @@ export class TrafficFlowComponent implements OnInit {
     const q = new URLSearchParams({
       tab: 'traffic', p: c.primaryPath, site: c.site, os: c.outageSite,
       ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
-      ltm: o.ltmMonitor, xgtm: o.extGtmMonitor
+      ltm: o.ltmMonitor, xgtm: o.extGtmMonitor, who: this.cohort()
     });
     const off = Object.keys(o.down);
     if (off.length) { q.set('off', off.join(',')); }
-    if (this.focus()) { q.set('foc', this.focus() as string); }
     return `/error-analyzer?${q.toString()}`;
   });
 
@@ -143,8 +127,7 @@ export class TrafficFlowComponent implements OnInit {
     (p['off'] ?? '').split(',').filter(Boolean).forEach(id => { o.down[id] = true; });
     this.overrides.set(o);
 
-    if (p['foc'] === 'primary-new' || p['foc'] === 'primary-existing'
-      || p['foc'] === 'isam-existing') { this.focus.set(p['foc']); }
+    if (p['who'] === 'new' || p['who'] === 'existing') { this.cohort.set(p['who']); }
 
     const step = Number(p['step']);
     this.stepIndex.set(step >= 0 && step < this.frames().length ? step : 0);
@@ -159,7 +142,7 @@ export class TrafficFlowComponent implements OnInit {
         ot: c.outageType, rec: c.recovery, step: this.activeIndex(),
         ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
         off: off.length ? off.join(',') : null,
-        foc: this.focus() ?? null
+        who: this.cohort()
       },
       replaceUrl: true
     });
@@ -210,8 +193,9 @@ export class TrafficFlowComponent implements OnInit {
     this.syncUrl();
   }
 
-  setFocus(k: FlowKey): void {
-    this.focus.set(this.focus() === k ? null : k);
+  /** Selection, not a toggle — one cohort is always on the diagram. */
+  setCohort(c: Cohort): void {
+    this.cohort.set(c);
     this.syncUrl();
   }
 
