@@ -158,7 +158,7 @@ function isamNodes(all: Record<string, any>): void {
 
     all[`isamltm-${site}`] = { x: cx - 125, y: ROW.apicFs, width: 250, height: 66,
       lines: [line(`ISAM LTM (${site})`, true), line(SITES[site].isamLtm),
-        line('monitor: TCP (no liveness)')] };
+        line('no health check — cookie bound')] };
 
     for (let i = 1; i <= WGA_INSTANCES; i++) {
       all[`wga-${site}-${i}`] = { x: cx - 153 + (i - 1) * 52, y: ROW.apic,

@@ -244,22 +244,20 @@ export function resolveTraffic(state: SimState): Resolution {
     }
 
     step([`isamltm-${pinned}`], `ISAM LTM (${pinned})`,
-      `VIP <b>${SITES[pinned].isamLtm}</b> → WGA tier. The pool monitor is a plain TCP check, so ` +
-      'the liveness object is never consulted at this tier.');
+      `VIP <b>${SITES[pinned].isamLtm}</b> → WGA tier. No liveness object and no port check — ` +
+      'the ISAM flow is bound strictly by the cookie.');
 
     const wgaIds = wgas.map(i => `wga-${pinned}-${i}`);
 
-    // The WGA junction is hard-wired same-site. Any connection-level refusal
-    // from BOS surfaces as a 500 out of initISAMSession — whether the site is
-    // physically gone, or the LTM pool is empty because DACT-104 has the
-    // monitor watching a renamed liveness object. IHS answering its own 503
-    // (up, but no JVMs) is not this case and falls through to the shared tail.
-    const bosRefused = !reachable(state, pinned) || !ltmPoolUp(state, pinned);
+    // The WGA junction is hard-wired same-site, with no failover leg.
+    // ISAM has no health checking of its own — no liveness object, no port
+    // check. The flow is bound strictly by cdbbossiteId, so it fails only when
+    // the pinned site is physically gone, never because a monitor drained a
+    // pool. This deliberately narrows an earlier broadening that also fired on
+    // an empty LTM pool.
+    const bosRefused = !reachable(state, pinned);
     if (bosRefused) {
-      const why = !reachable(state, pinned)
-        ? `${pinned} BOS is down and legacy ISAM has no failover leg of its own`
-        : `the ${pinned} BOS LTM pool is empty — DACT-104 has the monitor watching the ` +
-          'liveness object, so a rename marks every member offline and the VIP rejects';
+      const why = `${pinned} BOS is down and legacy ISAM has no failover leg of its own`;
       step(wgaIds, `ISAM WGA (${pinned})`,
         `The junction is hard-wired to same-site BOS — <b>${SITES[pinned].ltmHost}</b>. ` +
         `Here ${why}, so <b>initISAMSession</b> fails.`, 'bad');
@@ -374,7 +372,9 @@ export function resolveTraffic(state: SimState): Resolution {
   }
 
   // ---- LTM pool availability (DACT-104) -----------------------------------
-  if (!ltmPoolUp(state, bosSite)) {
+  // csgcb is exempt: the ISAM flow is cookie-bound and has no knowledge of the
+  // liveness object or the httpd port, so a drained pool does not gate it.
+  if (!csgcb && !ltmPoolUp(state, bosSite)) {
     step([`ltm-${bosSite}`], `BOS LTM (${bosSite})`,
       'The pool monitor is <b>/banking/live.txt</b>, not the httpd TCP port. The object is ' +
       `renamed on <b>${bosSite}</b>, so every pool member is marked <b>offline</b>. The VIP ` +

@@ -22,6 +22,12 @@ function toSimState(
   const existing = user.cookie !== null;
   return {
     ...env,
+    // The estate is mutated in place as the journey advances, so these have to
+    // be snapshotted. Sharing the references lets a later stage retroactively
+    // rewrite an earlier frame's diagram.
+    down: { ...env.down },
+    live: { ...env.live },
+    gtmPick: { ...env.gtmPick },
     path,
     // csgcb is post-auth, so it always presents a cookie even before this
     // journey has stamped one.

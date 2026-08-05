@@ -125,7 +125,7 @@
 
     <!-- Journey. One frame per user action; estate changes ride on their frame. -->
     <div class="tf-tl-head">
-      <h2>Journey</h2>
+      <h2>{{ config().outageType === 'none' ? 'Steps' : 'Outage &amp; recovery steps' }}</h2>
       <span class="tf-of">{{ activeIndex() + 1 }} of {{ frames().length }}</span>
     </div>
 
