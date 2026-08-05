@@ -23,6 +23,9 @@ export interface SearchSeed {
   mode: SearchMode;
   value: string;
   windowId: string;
+  /** ISO-8601 UTC. When both are set they define a custom range and win over windowId. */
+  from?: string;
+  to?: string;
 }
 
 /** Field type options. Add new entries here to support additional search modes. */
@@ -90,12 +93,48 @@ export class SearchComponent implements OnInit {
     this.selectedMode = seed.mode;
     this.inputValue = seed.value;
 
+    // A from/to pair means a custom range and takes precedence over windowId.
+    // The inputs hold minute resolution, so from is floored and to is ceiled:
+    // the searched window is always a superset of what the link asked for, and
+    // what is in the boxes is exactly what runs.
+    if (seed.from && seed.to) {
+      const from = this.parseIsoUtc(seed.from);
+      const to = this.parseIsoUtc(seed.to);
+      if (from && to) {
+        // Ceiling must not land in the future — buildTimeframe rejects that, and
+        // a link reopened within the same minute would otherwise fail to run.
+        const ceiled = Math.min(this.ceilToMinute(to), Date.now());
+        this.selectedWindowId = CUSTOM_WINDOW_ID;
+        this.customFrom = this.toLocalInputValue(new Date(this.floorToMinute(from)));
+        this.customTo = this.toLocalInputValue(new Date(ceiled));
+        return;
+      }
+    }
+
     // Custom ranges are not shareable, so only presets are accepted.
     const window = this.timeWindows.find(w => w.id === seed.windowId && w.id !== CUSTOM_WINDOW_ID);
     if (window) {
       this.selectedWindowId = window.id;
       this.lastPresetWindowId = window.id;
     }
+  }
+
+  /**
+   * Parses an ISO-8601 UTC timestamp, tolerating sub-millisecond precision such
+   * as the nanosecond timestamps Dynatrace returns (2026-08-05T19:11:58.882000000Z).
+   */
+  private parseIsoUtc(value: string): Date | null {
+    const normalized = value.trim().replace(/(\.\d{3})\d+(?=Z|[+-]\d{2}:?\d{2}$)/, '$1');
+    const parsed = new Date(normalized);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private floorToMinute(d: Date): number {
+    return Math.floor(d.getTime() / 60000) * 60000;
+  }
+
+  private ceilToMinute(d: Date): number {
+    return Math.ceil(d.getTime() / 60000) * 60000;
   }
 
   /** Runs the seeded search. Called by the parent once config and env are ready. */

@@ -120,7 +120,13 @@ export class ErrorAnalyzerComponent implements OnInit {
     // to its own default when the param is missing or unknown.
     const traceId = (qp?.['trace_id'] ?? '').trim();
     if (traceId) {
-      this.searchSeed = { mode: 'trace', value: traceId, windowId: qp['win'] ?? '' };
+      this.searchSeed = {
+        mode: 'trace',
+        value: traceId,
+        windowId: qp['win'] ?? '',
+        from: qp['from'],
+        to: qp['to']
+      };
     }
 
     await this.configService.load();
@@ -204,18 +210,23 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   /**
    * Keeps the address bar shareable for trace-ID searches. Any other mode
-   * clears the params rather than leaving a stale trace_id behind. Custom
-   * time ranges are not shareable, so win is omitted for them. This is a
-   * full param replace, so it also clears any Traffic Flow scenario params.
+   * clears the params rather than leaving a stale trace_id behind. A custom
+   * range is written as ISO from/to instead of win, so the link reproduces the
+   * exact window. This is a full param replace, so it also clears any Traffic
+   * Flow scenario params.
    */
   private syncUrl(event: SearchEvent): void {
-    const queryParams = event.mode === 'trace'
-      ? {
-          trace_id: event.value,
-          env: this.environment,
-          win: event.windowId === 'custom' ? null : event.windowId
-        }
-      : {};
+    let queryParams: Record<string, string> = {};
+
+    if (event.mode === 'trace') {
+      queryParams = { trace_id: event.value, env: this.environment };
+      if (event.windowId === 'custom') {
+        queryParams['from'] = event.timeframe.from;
+        queryParams['to'] = event.timeframe.to;
+      } else {
+        queryParams['win'] = event.windowId;
+      }
+    }
 
     this.router.navigate([], { queryParams, replaceUrl: true });
   }
