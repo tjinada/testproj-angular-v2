@@ -474,16 +474,19 @@ $f-isam: #7c3aed;
 
 .tf-f-primary .tf-box { fill: $node; stroke: $f-primary; stroke-width: 2.4px; }
 .tf-f-primary .tf-outline { stroke: $f-primary; stroke-width: 2.4px; }
-.tf-f-isam .tf-box { fill: #fff; stroke: $f-isam; stroke-width: 2.4px; }
+
+/* ISAM reads as a filled colour rather than a dashed outline — the boxes carry
+   the flow, so the dash dimension is left to the edges only. */
+.tf-f-isam .tf-box { fill: $f-isam; stroke: $f-isam; stroke-width: 2.4px; }
 .tf-f-isam .tf-outline { stroke: $f-isam; stroke-width: 2.4px; }
-.tf-f-isam .tf-nt { fill: $f-isam; }
+.tf-f-isam .tf-nt { fill: #fff; }
+.tf-f-isam .tf-nt-dark { fill: $f-isam; }
 
 path.tf-f-primary { stroke: $f-primary; }
 path.tf-f-isam { stroke: $f-isam; }
 
-/* Dashed only when exclusively the pinned user; 'both' and 'new' stay solid. */
+/* Dashed only on edges, and only when exclusively the pinned user. */
 path.tf-w-existing { stroke-dasharray: 7 5; }
-.tf-w-existing .tf-box, .tf-w-existing .tf-outline { stroke-dasharray: 7 5; }
 
 /* Focus dims the other flows to base weight rather than hiding them. */
 .tf-muted { opacity: 0.22; }

@@ -393,7 +393,7 @@ function traversal(res: Resolution): PathMap {
 function flowTag(keys: Set<FlowKey>): FlowTag | null {
   if (keys.size === 0) { return null; }
   const primary = keys.has('primary-new') || keys.has('primary-existing');
-  const isam = keys.has('isam-existing');
+  const isam = keys.has('isam-new') || keys.has('isam-existing');
   if (primary && isam) { return 'mixed'; }
   return isam ? 'isam' : 'primary';
 }
@@ -401,7 +401,7 @@ function flowTag(keys: Set<FlowKey>): FlowTag | null {
 /** Dash: which user. Dashed only when exclusively the pinned one. */
 function whoTag(keys: Set<FlowKey>): WhoTag | null {
   if (keys.size === 0) { return null; }
-  const hasNew = keys.has('primary-new');
+  const hasNew = keys.has('primary-new') || keys.has('isam-new');
   const hasOld = keys.has('primary-existing') || keys.has('isam-existing');
   if (hasNew && hasOld) { return 'both'; }
   return hasNew ? 'new' : 'existing';

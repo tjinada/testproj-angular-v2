@@ -72,16 +72,35 @@ export function runJourney(scenario: Scenario, c: ScenarioConfig): JourneyFrame[
   scenario.base?.(env);
   const gtmSite = env.gtmPick.bos;
 
+  // Establish the pinned user against the healthy estate before anything
+  // breaks, without emitting a frame for it. Otherwise the first stage has
+  // nobody holding a cookie and the "existing" user behaves like a new
+  // arrival, following the GTM off the site they should be stuck to.
+  {
+    const seed = toSimState(env, emptyUser(), c.primaryPath, gtmSite);
+    user = carry(emptyUser(), resolveTraffic(seed));
+  }
+
   for (const step of scenario.steps) {
     step.apply?.(env);
 
     const results: FlowResult[] = [];
 
-    // Control: someone arriving right now with no history.
+    // Control: someone arriving right now with no history. Their ISAM call
+    // follows the cookie their own primary request just stamped, which is why
+    // a new arrival's session lands on whichever site the GTM sent them to.
     const newState = toSimState(env, emptyUser(), c.primaryPath, gtmSite);
+    const newRes = resolveTraffic(newState);
     results.push({
       key: 'primary-new', flow: 'primary', cohort: 'new', path: c.primaryPath,
-      state: newState, resolution: resolveTraffic(newState)
+      state: newState, resolution: newRes
+    });
+
+    const newAfter = carry(emptyUser(), newRes);
+    const newIsamState = toSimState(env, newAfter, 'csgcb', gtmSite);
+    results.push({
+      key: 'isam-new', flow: 'isam', cohort: 'new', path: 'csgcb',
+      state: newIsamState, resolution: resolveTraffic(newIsamState)
     });
 
     const oldState = toSimState(env, user, c.primaryPath, gtmSite);

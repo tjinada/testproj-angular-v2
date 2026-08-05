@@ -249,15 +249,18 @@ export function resolveTraffic(state: SimState): Resolution {
 
     const wgaIds = wgas.map(i => `wga-${pinned}-${i}`);
 
-    // The WGA junction is hard-wired same-site, with no failover leg.
-    // ISAM has no health checking of its own — no liveness object, no port
-    // check. The flow is bound strictly by cdbbossiteId, so it fails only when
-    // the pinned site is physically gone, never because a monitor drained a
-    // pool. This deliberately narrows an earlier broadening that also fired on
-    // an empty LTM pool.
-    const bosRefused = !reachable(state, pinned);
+    // The WGA junction call-back URL is the BOS LTM VIP hostname, so whatever
+    // that VIP does to a connection, it does to ISAM. ISAM has no health
+    // checking of its own — no liveness object, no port check — but that only
+    // means it cannot *know* why it was refused, not that it is exempt. Both a
+    // dead site and a pool emptied by DACT-104 surface as a 500.
+    const poolOff = !ltmPoolUp(state, pinned);
+    const bosRefused = !reachable(state, pinned) || poolOff;
     if (bosRefused) {
-      const why = `${pinned} BOS is down and legacy ISAM has no failover leg of its own`;
+      const why = poolOff && reachable(state, pinned)
+        ? `the ${pinned} BOS LTM pool is empty — DACT-104 has the monitor watching the liveness ` +
+          'object, so the rename marked every member offline and the VIP refuses the junction'
+        : `${pinned} BOS is down and legacy ISAM has no failover leg of its own`;
       step(wgaIds, `ISAM WGA (${pinned})`,
         `The junction is hard-wired to same-site BOS — <b>${SITES[pinned].ltmHost}</b>. ` +
         `Here ${why}, so <b>initISAMSession</b> fails.`, 'bad');
@@ -372,9 +375,7 @@ export function resolveTraffic(state: SimState): Resolution {
   }
 
   // ---- LTM pool availability (DACT-104) -----------------------------------
-  // csgcb is exempt: the ISAM flow is cookie-bound and has no knowledge of the
-  // liveness object or the httpd port, so a drained pool does not gate it.
-  if (!csgcb && !ltmPoolUp(state, bosSite)) {
+  if (!ltmPoolUp(state, bosSite)) {
     step([`ltm-${bosSite}`], `BOS LTM (${bosSite})`,
       'The pool monitor is <b>/banking/live.txt</b>, not the httpd TCP port. The object is ' +
       `renamed on <b>${bosSite}</b>, so every pool member is marked <b>offline</b>. The VIP ` +

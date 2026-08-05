@@ -131,11 +131,11 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
   // Every step is one user action: the primary call plus the initISAMSession
   // that follows it. An estate change rides on the step it precedes rather
   // than taking a frame of its own.
-  // A healthy frame first, always. Without it the journey starts with nobody
-  // holding a cookie, so at stage 1 the "existing" user is indistinguishable
-  // from a new arrival and follows the GTM off the draining site — the exact
-  // opposite of what a pinned user does.
-  steps.push({ label: stages.length === 0 ? 'Healthy estate' : 'Before the outage' });
+  // No "before the outage" frame — the pinned user is established silently by
+  // the runner, so the first step is the first thing that actually changes.
+  if (stages.length === 0) {
+    steps.push({ label: 'Healthy estate' });
+  }
 
   stages.forEach((stage, i) => {
     steps.push({ label: `Stage ${i + 1}`, change: stage.label, apply: stage.apply });

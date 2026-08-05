@@ -208,12 +208,14 @@ export interface EstateOverrides {
 export type FlowKind = 'primary' | 'isam';
 
 /**
- * The three flows on a frame. Colour encodes the call, dash encodes the user,
- * so a shared hop can stay in the existing blue.
+ * The four flows on a frame. Colour encodes the call, so a hop shared by both
+ * calls can stay in the existing blue.
  *
- * There is no isam-new: initISAMSession is post-auth by definition.
+ * A new arrival does get an ISAM call: their primary request stamps a cookie,
+ * and initISAMSession then follows it to whichever site that was. "New" means
+ * no cookie at the start of the frame, not never having one.
  */
-export type FlowKey = 'primary-new' | 'primary-existing' | 'isam-existing';
+export type FlowKey = 'primary-new' | 'isam-new' | 'primary-existing' | 'isam-existing';
 
 /** One flow's answer within a frame. */
 export interface FlowResult {
