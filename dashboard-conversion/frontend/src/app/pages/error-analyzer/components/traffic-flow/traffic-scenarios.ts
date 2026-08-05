@@ -3,8 +3,9 @@ import type {
 } from '../../models/traffic-flow.model';
 import { APIC_INSTANCES, APP_SERVERS, WEB_SERVERS } from './traffic-topology';
 
-/** Opens healthy on BCC so the tool starts from a working estate. */
+/** Opens healthy on BCC, with sign-in where it lives today. */
 export const DEFAULT_CONFIG: ScenarioConfig = {
+  signinPath: 'api',
   site: 'BCC',
   outageSite: 'BCC',
   outageType: 'none',

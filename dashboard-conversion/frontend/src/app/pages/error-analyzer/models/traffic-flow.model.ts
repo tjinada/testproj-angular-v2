@@ -180,9 +180,20 @@ export type Cohort = 'new' | 'existing';
 /** What the builder rail produces. Everything else is derived from it. */
 export interface ScenarioConfig {
   /**
-   * Which site GTM-CDB-API's 50/50 answers on sign-in. Applies only when the
-   * request arrives unpinned — once cdbbossiteId is set, the Akamai property
-   * rule wins and no GTM is consulted.
+   * Which path carries SigninRequestManager, and therefore which GTM decides
+   * where the user is pinned.
+   *
+   * 'api'     — today. GTM-CDB-API answers on a TCP:443 check of the APIC
+   *             farm, so cdbbossiteId records an APIC that knows nothing about
+   *             BOS health. That is the defect.
+   * 'banking' — proposed. GTM-CDB-BOS answers on /banking/live.txt, so the
+   *             cookie records a site BOS liveness has already vouched for.
+   */
+  signinPath: TrafficPath;
+  /**
+   * Which site the deciding GTM's 50/50 answers on sign-in. Applies only when
+   * the request arrives unpinned — once cdbbossiteId is set, the Akamai
+   * property rule wins and no GTM is consulted.
    */
   site: SiteId;
   /** What breaks. Independent of `site`, so the healthy-site control works. */
@@ -206,13 +217,15 @@ export interface EstateOverrides {
 /**
  * The three calls a user action makes, in the order the app fires them.
  *
- * Sign-in is the only one that decides anything: it sets both cdbbossiteId and
- * the JSESSIONID. The other two follow whatever it pinned, which is why a
- * successful sign-in can be followed by two failures.
+ * Sign-in is the only one that decides anything: it arrives unpinned, so its
+ * GTM answer is what gets stamped into cdbbossiteId. The other two inherit it.
+ *
+ * 'trailing' is whichever of /api/cdb or /banking/services is not carrying
+ * sign-in. It is cookie-bound and decides nothing.
  */
-export type CallKind = 'signin' | 'isam' | 'banking';
+export type CallKind = 'signin' | 'isam' | 'trailing';
 
-export const CALL_SEQUENCE: CallKind[] = ['signin', 'isam', 'banking'];
+export const CALL_SEQUENCE: CallKind[] = ['signin', 'isam', 'trailing'];
 
 /** One cohort's answer for the call a frame is showing. */
 export interface CallResult {

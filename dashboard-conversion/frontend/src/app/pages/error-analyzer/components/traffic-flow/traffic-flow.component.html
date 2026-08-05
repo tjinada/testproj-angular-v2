@@ -3,21 +3,33 @@
   <!-- Control rail -->
   <aside class="tf-rail">
     <div class="tf-group">
-      <h3>Call sequence</h3>
+      <h3>Sign-in path</h3>
+      <div class="tf-seg tf-seg-stack">
+        <button type="button" [attr.aria-pressed]="config().signinPath === 'api'"
+          (click)="setSigninPath('api')">/api/cdb
+          <small>today &mdash; GTM-CDB-API, TCP:443</small></button>
+        <button type="button" [attr.aria-pressed]="config().signinPath === 'banking'"
+          (click)="setSigninPath('banking')">/banking/services
+          <small>proposed &mdash; GTM-CDB-BOS, live.txt</small></button>
+      </div>
+      <p class="tf-hint">SigninRequestManager arrives unpinned, so whichever GTM answers it
+        decides what goes into <code>cdbbossiteId</code>. Today that is an APIC check, which
+        knows nothing about BOS health.</p>
+
       <ol class="tf-seq">
-        <li><b class="tf-f-signin">/api/cdb</b> sign-in
+        <li><b class="tf-f-signin">{{ callLabel('signin') }}</b>
           <small>sets cdbbossiteId and JSESSIONID</small></li>
-        <li><b>initISAMSession</b></li>
-        <li><b>/banking/services</b></li>
+        <li><b>{{ callLabel('isam') }}</b></li>
+        <li><b>{{ callLabel('trailing') }}</b></li>
       </ol>
-      <p class="tf-hint">Fixed order. Calls 2 and 3 follow whatever sign-in pinned.</p>
+      <p class="tf-hint">Calls 2 and 3 are cookie-bound and decide nothing.</p>
     </div>
 
     <div class="tf-group">
       <h3>Flow</h3>
 
       <div class="tf-field">
-        <label>GTM-CDB-API lands on</label>
+        <label>{{ decidingGtm() }} lands on</label>
         <div class="tf-seg">
           <button type="button" *ngFor="let s of siteIds"
             [attr.aria-pressed]="config().site === s" (click)="setSite(s)">{{ s }}</button>
@@ -128,10 +140,10 @@
             *ngIf="c.jsOut !== c.jsIn"> &rarr; {{ c.jsOut }}</ng-container></span>
         </span>
 
-        <span class="tf-row" *ngFor="let r of [c.signin, c.isam, c.banking]">
+        <span class="tf-row" *ngFor="let r of [c.signin, c.isam, c.trailing]">
           <ng-container *ngIf="r">
             <span class="tf-k" [class.tf-f-signin]="r.call === 'signin'">
-              {{ callLabel(r.call) }}</span>
+              {{ callShort(r.call) }}</span>
             <span class="tf-v tf-t-skip" *ngIf="r.skipped">not attempted</span>
             <span class="tf-v" *ngIf="!r.skipped && r.resolution"
               [ngClass]="'tf-t-' + r.resolution.outcome.severity">
@@ -160,7 +172,7 @@
             [class.tf-on]="e.i === activeIndex()" (click)="goToStep(e.i)">
             <span class="tf-n">{{ e.f.callIndex }}</span>
             <span class="tf-cn" [class.tf-f-signin]="e.f.call === 'signin'">
-              {{ callLabel(e.f.call) }}</span>
+              {{ callShort(e.f.call) }}</span>
             <span class="tf-chips">
               <span *ngFor="let r of e.f.results" class="tf-chip"
                 [ngClass]="r.skipped ? 'tf-sev-skip'

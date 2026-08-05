@@ -6,12 +6,17 @@ import { CALL_SEQUENCE } from '../models/traffic-flow.model';
 import { resolveTraffic } from './traffic-resolver';
 import { defaultSimState } from '../components/traffic-flow/traffic-topology';
 
-/** The request path each call maps onto. */
-const CALL_PATH: Record<CallKind, TrafficPath> = {
-  signin: 'api',
-  isam: 'csgcb',
-  banking: 'banking'
-};
+/**
+ * Which path each call takes. Sign-in moves between /api/cdb and
+ * /banking/services; the trailing call is whichever one it left behind.
+ */
+export function callPaths(c: ScenarioConfig): Record<CallKind, TrafficPath> {
+  return {
+    signin: c.signinPath,
+    isam: 'csgcb',
+    trailing: c.signinPath === 'api' ? 'banking' : 'api'
+  };
+}
 
 function emptyUser(): UserSession {
   return { cookie: null, jsSite: null, jsServer: null };
@@ -86,7 +91,8 @@ interface CohortPass {
  * is still resolved and shown, so the knock-on is visible.
  */
 function runPass(
-  env: EnvState, start: UserSession, cohort: Cohort, gtmSite: SimState['site']
+  env: EnvState, start: UserSession, cohort: Cohort, gtmSite: SimState['site'],
+  paths: Record<CallKind, TrafficPath>
 ): CohortPass {
   let user = start;
   const results = {} as Record<CallKind, CallResult>;
@@ -99,7 +105,7 @@ function runPass(
       continue;
     }
 
-    const state = toSimState(env, user, CALL_PATH[call], gtmSite);
+    const state = toSimState(env, user, paths[call], gtmSite);
     const resolution = resolveTraffic(state);
     results[call] = { cohort, call, state, resolution, skipped: false };
 
@@ -134,22 +140,23 @@ export function runJourney(scenario: Scenario, c: ScenarioConfig): JourneyFrame[
 
   scenario.base?.(env);
   const gtmSite = c.site;
+  const paths = callPaths(c);
 
   // Establish the pinned user against the healthy estate without emitting a
   // frame. Otherwise the first stage has nobody holding a cookie and the
   // "existing" user behaves like a new arrival.
-  user = runPass(env, emptyUser(), 'existing', gtmSite).user;
+  user = runPass(env, emptyUser(), 'existing', gtmSite, paths).user;
 
   for (const step of scenario.steps) {
     step.apply?.(env);
 
-    const fresh = runPass(env, emptyUser(), 'new', gtmSite);
-    const pinned = runPass(env, user, 'existing', gtmSite);
+    const fresh = runPass(env, emptyUser(), 'new', gtmSite, paths);
+    const pinned = runPass(env, user, 'existing', gtmSite, paths);
 
     CALL_SEQUENCE.forEach((call, i) => {
       const state = pinned.results[call].state
         ?? fresh.results[call].state
-        ?? toSimState(env, user, CALL_PATH[call], gtmSite);
+        ?? toSimState(env, user, paths[call], gtmSite);
 
       frames.push({
         label: step.label,
