@@ -52,12 +52,30 @@ export class TrafficFlowComponent implements OnInit {
     const rs = this.results().filter(r => r.cohort === c);
     const prim = rs.find(r => r.flow === 'primary') ?? null;
     const isam = rs.find(r => r.flow === 'isam') ?? null;
+
+    // What the primary call arrived holding. A new arrival holds nothing —
+    // the state's jsession fields carry defaults that must not be shown.
+    const fresh = !prim || prim.state.session === 'new';
+    const jsInSite = fresh ? null : prim.state.jsessionSite ?? prim.state.site;
+    const jsIn = fresh ? 'none' : `${jsInSite} #${prim!.state.jsession}`;
+
+    // The last call that was actually served issues or refreshes the session.
+    const served = [isam, prim].find(r => r?.resolution.bosSite && r?.resolution.appServer);
+    const jsOut = served
+      ? `${served.resolution.bosSite} #${served.resolution.appServer}`
+      : jsIn;
+
+    // Cookie and session pointing at different sites is what produces the
+    // re-auth wave when the drained site comes back.
+    const jsSplit = !!jsInSite && !!prim && jsInSite !== prim.state.site;
+
     return {
       cohort: c,
       title: c === 'new' ? 'New user' : 'Existing user',
       // The cookie the primary call arrived with, and what it left as.
-      cookieIn: prim && prim.state.session === 'new' ? 'none' : prim?.state.site ?? '—',
+      cookieIn: fresh ? 'none' : prim!.state.site,
       cookieOut: prim?.resolution.stampedSite ?? prim?.state.site ?? '—',
+      jsIn, jsOut, jsSplit,
       primary: prim,
       isam,
       /** Worst of the two, for the card's severity treatment. */

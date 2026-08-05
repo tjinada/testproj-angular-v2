@@ -121,6 +121,12 @@
             *ngIf="c.cookieOut !== c.cookieIn"> &rarr; {{ c.cookieOut }}</ng-container></span>
         </span>
 
+        <span class="tf-row">
+          <span class="tf-k">JSESSIONID</span>
+          <span class="tf-v" [class.tf-t-warn]="c.jsSplit">{{ c.jsIn }}<ng-container
+            *ngIf="c.jsOut !== c.jsIn"> &rarr; {{ c.jsOut }}</ng-container></span>
+        </span>
+
         <span class="tf-row" *ngIf="c.primary as p">
           <span class="tf-k tf-f-primary">{{ primaryLabel() }}</span>
           <span class="tf-v" [ngClass]="'tf-t-' + p.resolution.outcome.severity">
