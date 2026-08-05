@@ -1,36 +1,43 @@
 import type {
-  EnvState, FlowResult, JourneyFrame, Scenario, ScenarioConfig, SimState, TrafficPath, UserSession
+  CallKind, CallResult, Cohort, EnvState, JourneyFrame, Resolution, Scenario,
+  ScenarioConfig, SimState, TrafficPath, UserSession
 } from '../models/traffic-flow.model';
+import { CALL_SEQUENCE } from '../models/traffic-flow.model';
 import { resolveTraffic } from './traffic-resolver';
 import { defaultSimState } from '../components/traffic-flow/traffic-topology';
 
-/** A user who has never been here before. */
+/** The request path each call maps onto. */
+const CALL_PATH: Record<CallKind, TrafficPath> = {
+  signin: 'api',
+  isam: 'csgcb',
+  banking: 'banking'
+};
+
 function emptyUser(): UserSession {
   return { cookie: null, jsSite: null, jsServer: null };
 }
 
-/** The estate half of the default state — a healthy setup, nothing carried. */
 function baseEnv(): EnvState {
   const { path, session, site, jsession, jsessionSite, ...env } = defaultSimState();
   return env;
 }
 
-/** Recombines the estate and a carried session into a resolvable SimState. */
+/**
+ * Recombines the estate and a carried session into a resolvable SimState.
+ *
+ * `fallbackSite` is GTM-CDB-API's 50/50 answer, used only when the user has no
+ * cdbbossiteId. Once pinned, the Akamai property rule wins outright.
+ */
 function toSimState(
   env: EnvState, user: UserSession, path: TrafficPath, fallbackSite: SimState['site']
 ): SimState {
   const existing = user.cookie !== null;
   return {
     ...env,
-    // The estate is mutated in place as the journey advances, so these have to
-    // be snapshotted. Sharing the references lets a later stage retroactively
-    // rewrite an earlier frame's diagram.
     down: { ...env.down },
     live: { ...env.live },
     gtmPick: { ...env.gtmPick },
     path,
-    // csgcb is post-auth, so it always presents a cookie even before this
-    // journey has stamped one.
     session: existing || path === 'csgcb' ? 'existing' : 'new',
     site: user.cookie ?? fallbackSite,
     jsession: user.jsServer ?? 1,
@@ -39,43 +46,86 @@ function toSimState(
 }
 
 /**
- * Folds whatever a request established back into the carried session.
+ * Folds what a call established back into the carried session.
  *
- * The cookie is stamped by the edge on the way out, so it lands regardless of
- * how the origin answered. A JSESSIONID is not: it is issued by an app server,
- * so a request that never reached one — 503, RST, 500, or a 302 back to login
- * — leaves the carried session exactly as it was.
+ * The cookie is stamped by the edge on the way out, so it lands whenever the
+ * origin answered at all.
  *
- * This matters more than it looks. Without the guard, a session-mismatch 302
- * would "adopt" the site that bounced it, the mismatch would disappear on the
- * next frame, and the tool would quietly heal the very failure it exists to
- * show.
+ * The JSESSIONID is set by sign-in and only by sign-in. initISAMSession and
+ * /banking/services respect it rather than reissuing, so they never move the
+ * session — which is what lets the cookie and the session point at different
+ * sites and stay that way.
+ *
+ * Even on sign-in it needs the request to have been served: a 302 back to
+ * login, a 503 or an RST never reached an app server, so nothing was issued.
+ * Without that guard a session-mismatch 302 would adopt the site that bounced
+ * it and the mismatch would vanish on the next frame.
  */
-function carry(user: UserSession, r: ReturnType<typeof resolveTraffic>): UserSession {
+function carry(user: UserSession, call: CallKind, r: Resolution): UserSession {
   let next = user;
   if (r.stampedSite) { next = { ...next, cookie: r.stampedSite }; }
   const served = r.outcome.severity !== 'bad';
-  if (served && r.bosSite && r.appServer) {
+  if (call === 'signin' && served && r.bosSite && r.appServer) {
     next = { ...next, jsSite: r.bosSite, jsServer: r.appServer };
   }
   return next;
 }
 
+/** One cohort's walk through the three calls at a single point in the outage. */
+interface CohortPass {
+  results: Record<CallKind, CallResult>;
+  signin: Resolution;
+  user: UserSession;
+}
+
 /**
- * Folds a scenario into one frame per user action. Pure: rebuilt from a clean
- * base on every call, so jumping to step N is the same code path as playing to
- * it.
+ * Runs the full sequence for one cohort against the current estate.
  *
- * Each frame carries three flows. The 'new' cohort is deliberately stateless —
- * a fresh arrival at this instant, the control against which the pinned user is
- * read. Only the existing user folds state forward.
+ * A failed sign-in stops everything: no session means the UI never gets as far
+ * as the other two calls. A failed initISAMSession does not — /banking/services
+ * is still resolved and shown, so the knock-on is visible.
+ */
+function runPass(
+  env: EnvState, start: UserSession, cohort: Cohort, gtmSite: SimState['site']
+): CohortPass {
+  let user = start;
+  const results = {} as Record<CallKind, CallResult>;
+  let signin!: Resolution;
+  let stopped = false;
+
+  for (const call of CALL_SEQUENCE) {
+    if (stopped) {
+      results[call] = { cohort, call, state: null, resolution: null, skipped: true };
+      continue;
+    }
+
+    const state = toSimState(env, user, CALL_PATH[call], gtmSite);
+    const resolution = resolveTraffic(state);
+    results[call] = { cohort, call, state, resolution, skipped: false };
+
+    if (call === 'signin') {
+      signin = resolution;
+      if (resolution.outcome.severity === 'bad') { stopped = true; }
+    }
+
+    user = carry(user, call, resolution);
+  }
+
+  return { results, signin, user };
+}
+
+/**
+ * Folds a scenario into three frames per stage — one per call. Pure: rebuilt
+ * from a clean base every time, so jumping to a frame is the same code path as
+ * playing up to it.
  *
- * Ordering matters inside a frame: initISAMSession runs *after* the primary
- * call, so it inherits the cookie that call just stamped. That is the whole
- * mechanism of the shared-cookie defect, and reversing the two would hide it.
+ * Both cohorts are walked at every stage, but only the existing user's session
+ * carries forward between stages. The new cohort is deliberately stateless: a
+ * fresh arrival at that instant, and the control the pinned user is read
+ * against.
  *
- * The journey never terminates early. A failed request is not the end of the
- * story — recovery frames are where the second wave shows up.
+ * The journey never terminates early. A failure is not the end of the story —
+ * recovery frames are where the second wave shows up.
  */
 export function runJourney(scenario: Scenario, c: ScenarioConfig): JourneyFrame[] {
   const frames: JourneyFrame[] = [];
@@ -83,62 +133,38 @@ export function runJourney(scenario: Scenario, c: ScenarioConfig): JourneyFrame[
   let user = emptyUser();
 
   scenario.base?.(env);
-  const gtmSite = env.gtmPick.bos;
+  const gtmSite = c.site;
 
-  // Establish the pinned user against the healthy estate before anything
-  // breaks, without emitting a frame for it. Otherwise the first stage has
-  // nobody holding a cookie and the "existing" user behaves like a new
-  // arrival, following the GTM off the site they should be stuck to.
-  {
-    const seed = toSimState(env, emptyUser(), c.primaryPath, gtmSite);
-    user = carry(emptyUser(), resolveTraffic(seed));
-  }
+  // Establish the pinned user against the healthy estate without emitting a
+  // frame. Otherwise the first stage has nobody holding a cookie and the
+  // "existing" user behaves like a new arrival.
+  user = runPass(env, emptyUser(), 'existing', gtmSite).user;
 
   for (const step of scenario.steps) {
     step.apply?.(env);
 
-    const results: FlowResult[] = [];
+    const fresh = runPass(env, emptyUser(), 'new', gtmSite);
+    const pinned = runPass(env, user, 'existing', gtmSite);
 
-    // Control: someone arriving right now with no history. Their ISAM call
-    // follows the cookie their own primary request just stamped, which is why
-    // a new arrival's session lands on whichever site the GTM sent them to.
-    const newState = toSimState(env, emptyUser(), c.primaryPath, gtmSite);
-    const newRes = resolveTraffic(newState);
-    results.push({
-      key: 'primary-new', flow: 'primary', cohort: 'new', path: c.primaryPath,
-      state: newState, resolution: newRes
+    CALL_SEQUENCE.forEach((call, i) => {
+      const state = pinned.results[call].state
+        ?? fresh.results[call].state
+        ?? toSimState(env, user, CALL_PATH[call], gtmSite);
+
+      frames.push({
+        label: step.label,
+        // Named once, on the call the change lands before.
+        change: i === 0 ? step.change ?? null : null,
+        call,
+        callIndex: i + 1,
+        state,
+        results: [fresh.results[call], pinned.results[call]],
+        context: { new: fresh.signin, existing: pinned.signin },
+        user: { ...pinned.user }
+      });
     });
 
-    const newAfter = carry(emptyUser(), newRes);
-    const newIsamState = toSimState(env, newAfter, 'csgcb', gtmSite);
-    results.push({
-      key: 'isam-new', flow: 'isam', cohort: 'new', path: 'csgcb',
-      state: newIsamState, resolution: resolveTraffic(newIsamState)
-    });
-
-    const oldState = toSimState(env, user, c.primaryPath, gtmSite);
-    const oldRes = resolveTraffic(oldState);
-    results.push({
-      key: 'primary-existing', flow: 'primary', cohort: 'existing', path: c.primaryPath,
-      state: oldState, resolution: oldRes
-    });
-    user = carry(user, oldRes);
-
-    const isamState = toSimState(env, user, 'csgcb', gtmSite);
-    const isamRes = resolveTraffic(isamState);
-    results.push({
-      key: 'isam-existing', flow: 'isam', cohort: 'existing', path: 'csgcb',
-      state: isamState, resolution: isamRes
-    });
-    user = carry(user, isamRes);
-
-    frames.push({
-      label: step.label,
-      change: step.change ?? null,
-      state: isamState,
-      results,
-      user: { ...user }
-    });
+    user = pinned.user;
   }
 
   return frames;

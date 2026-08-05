@@ -1,5 +1,5 @@
 import type {
-  Cohort, FlowKey, FlowResult, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
+  Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
   APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_COOKIE_NAME, SITE_IDS,
@@ -27,16 +27,16 @@ export interface TfNode {
   state: Severity | null;
   outOfService: boolean;
   isBreak: boolean;
-  /**
-   * Which call travels here, for the cohort currently on the diagram. 'mixed'
-   * means both the primary path and initISAMSession do, so it renders in the
-   * existing blue — only genuine divergence takes a colour.
-   */
+  /** Which call travels here, for the cohort on the diagram. */
   flow: FlowTag | null;
 }
 
-/** Colour dimension. Only one cohort is drawn at a time, so there is no second. */
-export type FlowTag = 'primary' | 'isam' | 'mixed';
+/**
+ * What a drawn element represents. 'current' is the call the frame is showing;
+ * 'context' is the sign-in that pinned the cookie, drawn faintly underneath so
+ * you can see where the current call's routing came from.
+ */
+export type FlowTag = 'current' | 'context';
 
 /** A laid-out edge. */
 export interface TfEdge {
@@ -358,13 +358,6 @@ const LANES: TfLane[] = [
   { x: 40, y: 965, width: 1480, height: 120, title: 'CWH app' }
 ];
 
-/** Failing beats succeeding — the failure is what the tool was opened for. */
-function pickPrimary(results: FlowResult[]): FlowResult {
-  return results.find(r => r.resolution.outcome.severity === 'bad')
-    ?? results.find(r => r.flow === 'primary')
-    ?? results[0];
-}
-
 type PathMap = Record<string, { hop: number; state: Severity }>;
 
 function traversal(res: Resolution): PathMap {
@@ -373,54 +366,41 @@ function traversal(res: Resolution): PathMap {
   return m;
 }
 
-/** Colour: which call. Both calls on one element means no colour. */
-function flowTag(keys: Set<FlowKey>): FlowTag | null {
-  if (keys.size === 0) { return null; }
-  const primary = keys.has('primary-new') || keys.has('primary-existing');
-  const isam = keys.has('isam-new') || keys.has('isam-existing');
-  if (primary && isam) { return 'mixed'; }
-  return isam ? 'isam' : 'primary';
-}
-
 /**
- * Lays out the traffic-flow diagram for one journey frame, for one cohort.
+ * Lays out the diagram for one frame, for one cohort.
  *
- * Only the selected cohort is drawn — overlaying both made the divergence
- * harder to read, not easier. Within that cohort the primary call and
- * initISAMSession appear together: a hop travelled by both keeps the existing
- * blue, and colour appears only where the two calls part company.
+ * Two paths are drawn: the call this frame is showing, and — faintly — the
+ * sign-in that pinned the cookie it followed. Only one cohort at a time;
+ * overlaying both made the divergence harder to read, not easier.
+ *
+ * When a call was skipped because sign-in failed, there is no current path and
+ * only the sign-in context renders.
  *
  * Pure: geometry only.
  */
 export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): TfGraph {
   const state = frame.state;
-  const results = frame.results.filter(r => r.cohort === cohort);
-  const primary = pickPrimary(results);
-  const res = primary.resolution;
+  const mine = frame.results.find(r => r.cohort === cohort) ?? null;
+  const currentRes = mine && !mine.skipped ? mine.resolution : null;
+  const contextRes = frame.context[cohort] ?? null;
+
+  // Labels, pills and node geometry key off whichever resolution is real.
+  const res = currentRes ?? contextRes;
+  if (!res) { throw new Error('buildTrafficGraph: frame has no resolution to render'); }
 
   const geom = baseNodes(res);
   isamNodes(geom);
   siteNodes(geom, state);
 
-  const paths = new Map<FlowKey, PathMap>();
-  results.forEach(r => paths.set(r.key, traversal(r.resolution)));
+  const currentPath = currentRes ? traversal(currentRes) : {};
+  // The sign-in trace is context only when it is not itself the current call.
+  const contextPath = contextRes && contextRes !== currentRes ? traversal(contextRes) : {};
 
-  const keysAt = (id: string): Set<FlowKey> => {
-    const out = new Set<FlowKey>();
-    results.forEach(r => { if (paths.get(r.key)?.[id]) { out.add(r.key); } });
-    return out;
-  };
+  const tagAt = (id: string): FlowTag | null =>
+    currentPath[id] ? 'current' : contextPath[id] ? 'context' : null;
 
-  /** Hop badge: the primary flow's number, falling back to any other. */
-  const hitFor = (id: string) => {
-    const p = paths.get(primary.key)?.[id];
-    if (p) { return p; }
-    for (const r of results) {
-      const h = paths.get(r.key)?.[id];
-      if (h) { return h; }
-    }
-    return null;
-  };
+  /** Hop badges belong to the current call only — context is not a sequence. */
+  const hitFor = (id: string) => currentPath[id] ?? null;
 
   const edges: TfEdge[] = baseEdgePairs()
     .filter(([a, b]) => geom[a] && geom[b])
@@ -433,10 +413,11 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
     baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s))
   ));
 
-  // Taken edges, per flow, deduped by geometry so a shared hop is drawn once.
-  const taken = new Map<string, { d: string; kind: TfEdge['kind']; who: Set<FlowKey> }>();
-  results.forEach(r => {
-    const rs = r.resolution;
+  // Taken edges, deduped by geometry. The context pass runs first so that any
+  // hop shared with the current call is overwritten by it — the live path wins.
+  const taken = new Map<string, { d: string; kind: TfEdge['kind']; flow: FlowTag }>();
+  const walk = (rs: Resolution | null, flow: FlowTag) => {
+    if (!rs) { return; }
     const entrySite = rs.apicSite ?? rs.bosSite;
     for (let i = 0; i < rs.steps.length - 1; i++) {
       const next = rs.steps[i + 1];
@@ -444,8 +425,9 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
         if (!geom[a] || !geom[b]) { return; }
         const leavesEntry = (a.startsWith('extgtm') || a.startsWith('gtm-') || a === 'cloudlet') &&
           b.includes('-') && !!entrySite && !b.includes(`-${entrySite}`);
-        const kind: TfEdge['kind'] = next.state === 'bad' ? 'broken'
-          : leavesEntry ? 'crossover' : 'taken';
+        const kind: TfEdge['kind'] = flow === 'context' ? 'base'
+          : next.state === 'bad' ? 'broken'
+            : leavesEntry ? 'crossover' : 'taken';
         // Four hops are drawn as rails rather than beziers, so the taken path
         // has to reuse the same geometry or it would peel away from the dim
         // edge underneath it.
@@ -458,23 +440,22 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
               : a.startsWith('wga-') && b.startsWith('ltm-')
                 ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
                 : curve(geom[a], geom[b]);
-        const key = `${kind}|${d}`;
-        const e = taken.get(key) ?? { d, kind, who: new Set<FlowKey>() };
-        e.who.add(r.key);
-        taken.set(key, e);
+        taken.set(d, { d, kind, flow });
       }));
     }
-  });
+  };
+  walk(contextRes && contextRes !== currentRes ? contextRes : null, 'context');
+  walk(currentRes, 'current');
 
   taken.forEach(e => {
-    edges.push({ d: e.d, kind: e.kind, flow: flowTag(e.who) });
+    edges.push({ d: e.d, kind: e.kind, flow: e.flow });
   });
 
   const nodes: TfNode[] = Object.keys(geom).map(id => {
     const g = geom[id];
     const hit = hitFor(id);
     const off = !!state.down[id];
-    const keys = off ? new Set<FlowKey>() : keysAt(id);
+    const tag = off ? null : tagAt(id);
     return {
       id,
       x: g.x, y: g.y, width: g.width, height: g.height,
@@ -487,8 +468,8 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
       hop: hit && !off ? hit.hop : null,
       state: hit && !off ? hit.state : null,
       outOfService: off,
-      isBreak: results.some(r => r.resolution.breakAt === id),
-      flow: flowTag(keys)
+      isBreak: currentRes?.breakAt === id,
+      flow: tag
     };
   });
 

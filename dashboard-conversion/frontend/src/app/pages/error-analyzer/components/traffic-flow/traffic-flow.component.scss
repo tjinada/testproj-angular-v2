@@ -465,43 +465,49 @@ $amber: #f2a900;
     &.tf-pill-on rect { fill: $muted; stroke: $muted; }
   }
 }
-/* ---- flow encoding ------------------------------------------------------
-   Colour = which call. Dash = which user. An element travelled by both calls
-   is 'mixed' and stays in the existing blue, so only real divergence is
-   coloured and a healthy estate renders as it always has. */
-$f-primary: $blue;
-$f-isam: #7c3aed;
+/* ---- call encoding ------------------------------------------------------
+   The current call is a saturated hue at full weight. The sign-in that pinned
+   it is neutral and dashed — it is background, not a peer, so it takes no hue
+   of its own and cannot be confused with the live path. */
+$f-current: #7c3aed;
+$f-context: #64748b;
 
-.tf-f-primary .tf-box { fill: $node; stroke: $f-primary; stroke-width: 2.4px; }
-.tf-f-primary .tf-outline { stroke: $f-primary; stroke-width: 2.4px; }
+.tf-f-current .tf-box { fill: $f-current; stroke: $f-current; stroke-width: 2.4px; }
+.tf-f-current .tf-outline { stroke: $f-current; stroke-width: 2.4px; }
+.tf-f-current .tf-nt { fill: #fff; }
+.tf-f-current .tf-nt-dark { fill: $f-current; }
 
-/* ISAM reads as a filled colour rather than a dashed outline — the boxes carry
-   the flow, so the dash dimension is left to the edges only. */
-.tf-f-isam .tf-box { fill: $f-isam; stroke: $f-isam; stroke-width: 2.4px; }
-.tf-f-isam .tf-outline { stroke: $f-isam; stroke-width: 2.4px; }
-.tf-f-isam .tf-nt { fill: #fff; }
-.tf-f-isam .tf-nt-dark { fill: $f-isam; }
+.tf-f-context .tf-box { fill: #fff; stroke: $f-context; stroke-width: 1.6px; stroke-dasharray: 5 4; }
+.tf-f-context .tf-outline { stroke: $f-context; stroke-width: 1.6px; stroke-dasharray: 5 4; }
+.tf-f-context .tf-nt { fill: $f-context; }
+.tf-f-context { opacity: .55; }
 
-path.tf-f-primary { stroke: $f-primary; }
-path.tf-f-isam { stroke: $f-isam; }
+path.tf-f-current { stroke: $f-current; }
+path.tf-f-context { stroke: $f-context; stroke-dasharray: 6 5; opacity: .5; }
+
+/* Sign-in gets its accent in the rail and card labels only. */
+.tf-f-signin { color: $f-current; }
 
 .tf-legend { display: flex; gap: 14px; font-size: 11px; color: $muted; }
 .tf-lg i {
   display: inline-block; width: 18px; height: 3px; border-radius: 2px;
   margin-right: 5px; vertical-align: 2px;
 }
-.tf-lg-mixed i { background: $node; }
-.tf-lg-primary i { background: $f-primary; }
-.tf-lg-isam i { background: $f-isam; }
-.tf-lg-dash i {
-  background-image: repeating-linear-gradient(90deg, $muted 0 5px, transparent 5px 9px);
+.tf-lg-current i { background: $f-current; }
+.tf-lg-context i {
+  background-image: repeating-linear-gradient(90deg, $f-context 0 5px, transparent 5px 9px);
 }
 
 .tf-trace-who {
   font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  padding: 2px 7px; border-radius: 3px; border: 1px solid $line;
-  &.tf-f-primary { color: $f-primary; border-color: $f-primary; }
-  &.tf-f-isam { color: $f-isam; border-color: $f-isam; }
+  padding: 2px 7px; border-radius: 3px; border: 1px solid $f-current; color: $f-current;
+}
+
+/* Fixed call sequence, shown in the rail. */
+.tf-seq {
+  margin: 0; padding-left: 16px; font-size: 11px; line-height: 1.6;
+  b { font-weight: 700; }
+  small { display: block; color: $muted; font-size: 10px; }
 }
 
 /* ---- user cards. Two, always; selecting one puts it on the diagram. ------- */
@@ -538,7 +544,56 @@ path.tf-f-isam { stroke: $f-isam; }
 }
 .tf-oos { font-size: 11px; color: $bad; line-height: 1.6; margin: 0 0 8px; }
 
-/* ---- journey timeline ---------------------------------------------------- */
+/* ---- steps: stages, each holding the three calls ------------------------- */
+.tf-tl {
+  display: flex; gap: 10px; border: 1px solid $line; border-radius: 6px; background: #fff;
+  overflow-x: auto; padding: 10px; margin-bottom: 18px;
+}
+
+.tf-stage {
+  flex: 0 0 auto; min-width: 300px; border: 1px solid $line; border-radius: 5px; overflow: hidden;
+}
+.tf-stage-h {
+  padding: 6px 9px; background: $panel; border-bottom: 1px solid $line;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.tf-stage-l { font-size: 10px; font-weight: 700; color: $muted; text-transform: uppercase; }
+.tf-change {
+  font-size: 10.5px; font-weight: 700; color: $warn; line-height: 1.3;
+  display: flex; gap: 5px;
+  &::before {
+    content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 2px;
+    background: $amber; margin-top: 3px;
+  }
+}
+
+.tf-calls { display: flex; }
+.tf-step {
+  flex: 1; border-right: 1px solid $line; padding: 7px 8px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px; background: #fff;
+  &:last-child { border-right: 0; }
+  &:hover { background: #faf7ff; }
+  &.tf-on { background: #f6f0ff; box-shadow: inset 0 -3px 0 $f-current; }
+}
+.tf-n {
+  width: 16px; height: 16px; border-radius: 50%; background: $muted; color: #fff;
+  font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  .tf-step.tf-on & { background: $f-current; }
+}
+.tf-cn { font-size: 10px; font-family: ui-monospace, Menlo, monospace; line-height: 1.25; }
+
+.tf-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.tf-chip {
+  font-size: 9.5px; font-weight: 700; border-radius: 3px; padding: 1px 5px;
+  font-family: ui-monospace, Menlo, monospace;
+  &.tf-sev-ok { background: #eefaf2; color: $ok; }
+  &.tf-sev-warn { background: #fff8ec; color: $warn; }
+  &.tf-sev-bad { background: #fdecec; color: $bad; }
+  &.tf-sev-skip { background: #f3f4f6; color: $muted; }
+}
+
+.tf-t-skip { color: $muted; font-style: italic; }
+
 .tf-tl-head {
   display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
   h2 {
@@ -548,52 +603,9 @@ path.tf-f-isam { stroke: $f-isam; }
 }
 .tf-of { font-size: 11px; color: $muted; }
 
-.tf-tl {
-  display: flex; border: 1px solid $line; border-radius: 6px; background: #fff;
-  overflow-x: auto; margin-bottom: 18px;
-}
-
-.tf-step {
-  flex: 0 0 auto; min-width: 150px; border-right: 1px solid $line; padding: 9px 11px;
-  cursor: pointer; display: flex; flex-direction: column; gap: 5px; background: #fff;
-  &:last-child { border-right: 0; }
-  &:hover { background: #f4f8fd; }
-  &.tf-on { background: #eef4fc; box-shadow: inset 0 -3px 0 $blue; }
-}
-
-/* The estate change that lands with this frame, rather than a frame of its own. */
-.tf-change {
-  font-size: 10px; font-weight: 700; line-height: 1.3; color: $warn;
-  display: flex; gap: 5px;
-  &::before {
-    content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 2px;
-    background: $amber; margin-top: 3px;
-  }
-}
-
-.tf-path { font-size: 10px; color: $muted; font-family: ui-monospace, Menlo, monospace; }
-.tf-lbl { font-size: 11px; color: $ink; line-height: 1.3; font-weight: 600; }
-
-.tf-chips { display: flex; gap: 4px; flex-wrap: wrap; }
-.tf-chip {
-  font-size: 9.5px; font-weight: 700; border-radius: 3px; padding: 1px 5px;
-  font-family: ui-monospace, Menlo, monospace; border-left: 2px solid transparent;
-  &.tf-f-primary { border-left-color: $f-primary; }
-  &.tf-f-isam { border-left-color: $f-isam; }
-  &.tf-sev-ok { background: #eefaf2; color: $ok; }
-  &.tf-sev-warn { background: #fff8ec; color: $warn; }
-  &.tf-sev-bad { background: #fdecec; color: $bad; }
-}
-
-/* ---- per-flow trace headers --------------------------------------------- */
+/* ---- trace headers ------------------------------------------------------- */
 .tf-flow-h {
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-  font-size: 12px; font-weight: 700; margin: 14px 0 4px;
-  &.tf-f-primary { color: $f-primary; }
-  &.tf-f-isam { color: $f-isam; }
-}
-.tf-flow-r {
-  font-size: 11px; font-weight: 600; color: $muted;
-  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px; font-weight: 700; margin: 14px 0 4px; color: $f-current;
 }
 .tf-flow-why { font-size: 11.5px; color: #374151; line-height: 1.45; margin: 0 0 8px; }

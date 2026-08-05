@@ -5,7 +5,6 @@ import { APIC_INSTANCES, APP_SERVERS, WEB_SERVERS } from './traffic-topology';
 
 /** Opens healthy on BCC so the tool starts from a working estate. */
 export const DEFAULT_CONFIG: ScenarioConfig = {
-  primaryPath: 'banking',
   site: 'BCC',
   outageSite: 'BCC',
   outageType: 'none',
@@ -35,8 +34,8 @@ const apic = (env: EnvState, site: SiteId, down: boolean) => {
 };
 
 /** The primary path this journey exercises. csgcb rides alongside it. */
-export function primaryLabel(c: ScenarioConfig): string {
-  return c.primaryPath === 'api' ? '/api/cdb' : '/banking/services';
+export function primaryLabel(): string {
+  return '/api/cdb';
 }
 
 /**
@@ -147,7 +146,7 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
 
   const same = c.site === c.outageSite;
   return {
-    id: `${c.primaryPath}-${c.site}-${c.outageType}-${c.outageSite}-${c.recovery}`,
+    id: `${c.site}-${c.outageType}-${c.outageSite}-${c.recovery}`,
     title: `${OUTAGE_TITLE[c.outageType]}${c.outageType === 'none' ? '' : ` on ${c.outageSite}`}`,
     blurb: c.outageType === 'none'
       ? `A healthy estate with the user on ${c.site}. Click any box to take it out of service.`

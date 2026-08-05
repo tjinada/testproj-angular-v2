@@ -179,11 +179,13 @@ export type Cohort = 'new' | 'existing';
 
 /** What the builder rail produces. Everything else is derived from it. */
 export interface ScenarioConfig {
-  /** 'banking' or 'api'. csgcb is appended automatically, never chosen. */
-  primaryPath: TrafficPath;
-  /** Where this user belongs: GTM preference, cookie pin, and ISAM front door. */
+  /**
+   * Which site GTM-CDB-API's 50/50 answers on sign-in. Applies only when the
+   * request arrives unpinned — once cdbbossiteId is set, the Akamai property
+   * rule wins and no GTM is consulted.
+   */
   site: SiteId;
-  /** What breaks. Independent of `site`, so the healthy-site control case works. */
+  /** What breaks. Independent of `site`, so the healthy-site control works. */
   outageSite: SiteId;
   outageType: OutageType;
   recovery: RecoveryOrder;
@@ -202,51 +204,50 @@ export interface EstateOverrides {
 }
 
 /**
- * Which call is being drawn. The primary path and the initISAMSession that
- * follows it share the BOS tail but nothing else, so both fit on one diagram.
- */
-export type FlowKind = 'primary' | 'isam';
-
-/**
- * The four flows on a frame. Colour encodes the call, so a hop shared by both
- * calls can stay in the existing blue.
+ * The three calls a user action makes, in the order the app fires them.
  *
- * A new arrival does get an ISAM call: their primary request stamps a cookie,
- * and initISAMSession then follows it to whichever site that was. "New" means
- * no cookie at the start of the frame, not never having one.
+ * Sign-in is the only one that decides anything: it sets both cdbbossiteId and
+ * the JSESSIONID. The other two follow whatever it pinned, which is why a
+ * successful sign-in can be followed by two failures.
  */
-export type FlowKey = 'primary-new' | 'isam-new' | 'primary-existing' | 'isam-existing';
+export type CallKind = 'signin' | 'isam' | 'banking';
 
-/** One flow's answer within a frame. */
-export interface FlowResult {
-  key: FlowKey;
-  flow: FlowKind;
+export const CALL_SEQUENCE: CallKind[] = ['signin', 'isam', 'banking'];
+
+/** One cohort's answer for the call a frame is showing. */
+export interface CallResult {
   cohort: Cohort;
-  path: TrafficPath;
-  state: SimState;
-  resolution: Resolution;
+  call: CallKind;
+  /**
+   * Null when an earlier call stopped the sequence. Only a failed sign-in does
+   * this — a failed initISAMSession still lets /banking/services be shown, so
+   * the consequence is visible.
+   */
+  state: SimState | null;
+  resolution: Resolution | null;
+  skipped: boolean;
 }
 
 /**
- * One frame of a journey: a single user action — load the page, then
- * initialise the session — resolved for both kinds of user.
+ * One frame: one call, for both cohorts, at one point in the outage.
  *
- * Estate changes do not get their own frame. They are applied immediately
- * before the frame's requests and named in its label, because a frame showing
- * the estate without any traffic is indistinguishable from the request frame
- * that follows it.
+ * `context` carries each cohort's sign-in resolution so the diagram can draw
+ * the path that pinned the cookie underneath the call being shown.
  */
 export interface JourneyFrame {
+  /** Stage label, e.g. "Stage 1". */
   label: string;
-  /** Estate change applied at this frame, if any. Null for plain requests. */
+  /** Estate change landing at this stage, named once on its first call. */
   change: string | null;
-  /**
-   * Representative state for estate-level rendering (out-of-service, liveness,
-   * monitors). Flows differ only in the request fields, never the estate.
-   */
+  call: CallKind;
+  /** 1-based position within the stage, for the step badge. */
+  callIndex: number;
+  /** Representative estate state for out-of-service and monitor rendering. */
   state: SimState;
-  /** One entry per flow present. Never empty. */
-  results: FlowResult[];
+  /** One entry per cohort. Never empty. */
+  results: CallResult[];
+  /** Sign-in resolution per cohort, for the faint context path. */
+  context: Partial<Record<Cohort, Resolution>>;
   /** The carried session as it stands after this frame. */
   user: UserSession;
 }

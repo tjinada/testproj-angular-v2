@@ -3,26 +3,27 @@
   <!-- Control rail -->
   <aside class="tf-rail">
     <div class="tf-group">
+      <h3>Call sequence</h3>
+      <ol class="tf-seq">
+        <li><b class="tf-f-signin">/api/cdb</b> sign-in
+          <small>sets cdbbossiteId and JSESSIONID</small></li>
+        <li><b>initISAMSession</b></li>
+        <li><b>/banking/services</b></li>
+      </ol>
+      <p class="tf-hint">Fixed order. Calls 2 and 3 follow whatever sign-in pinned.</p>
+    </div>
+
+    <div class="tf-group">
       <h3>Flow</h3>
 
       <div class="tf-field">
-        <label>Primary path</label>
-        <div class="tf-seg">
-          <button type="button" [attr.aria-pressed]="config().primaryPath === 'banking'"
-            (click)="setPrimaryPath('banking')">/banking</button>
-          <button type="button" [attr.aria-pressed]="config().primaryPath === 'api'"
-            (click)="setPrimaryPath('api')">/api/cdb</button>
-        </div>
-        <p class="tf-hint">Each request is followed by initISAMSession.</p>
-      </div>
-
-      <div class="tf-field">
-        <label>Site</label>
+        <label>GTM-CDB-API lands on</label>
         <div class="tf-seg">
           <button type="button" *ngFor="let s of siteIds"
             [attr.aria-pressed]="config().site === s" (click)="setSite(s)">{{ s }}</button>
         </div>
-        <p class="tf-hint">Sets the GTM answer, the cookie pin and the ISAM front door.</p>
+        <p class="tf-hint">The 50/50 on sign-in. Applies only when unpinned &mdash; once
+          cdbbossiteId is set, the Akamai property rule wins.</p>
       </div>
 
       <div class="tf-field">
@@ -127,53 +128,57 @@
             *ngIf="c.jsOut !== c.jsIn"> &rarr; {{ c.jsOut }}</ng-container></span>
         </span>
 
-        <span class="tf-row" *ngIf="c.primary as p">
-          <span class="tf-k tf-f-primary">{{ primaryLabel() }}</span>
-          <span class="tf-v" [ngClass]="'tf-t-' + p.resolution.outcome.severity">
-            {{ p.resolution.http }}<ng-container *ngIf="p.resolution.bosSite">
-            &middot; served {{ p.resolution.bosSite }}</ng-container>
-          </span>
+        <span class="tf-row" *ngFor="let r of [c.signin, c.isam, c.banking]">
+          <ng-container *ngIf="r">
+            <span class="tf-k" [class.tf-f-signin]="r.call === 'signin'">
+              {{ callLabel(r.call) }}</span>
+            <span class="tf-v tf-t-skip" *ngIf="r.skipped">not attempted</span>
+            <span class="tf-v" *ngIf="!r.skipped && r.resolution"
+              [ngClass]="'tf-t-' + r.resolution.outcome.severity">
+              {{ r.resolution.http }}<ng-container *ngIf="r.resolution.bosSite">
+              &middot; {{ r.resolution.bosSite }}</ng-container>
+            </span>
+          </ng-container>
         </span>
-
-        <span class="tf-row" *ngIf="c.isam as i">
-          <span class="tf-k tf-f-isam">initISAMSession</span>
-          <span class="tf-v" [ngClass]="'tf-t-' + i.resolution.outcome.severity">
-            {{ i.resolution.http }} &middot; {{ i.state.site }}
-          </span>
-        </span>
-
-        <span class="tf-note" *ngIf="c.isam as i">{{ i.resolution.outcome.title }}</span>
       </button>
     </div>
 
-    <!-- Journey. One frame per user action; estate changes ride on their frame. -->
+    <!-- Steps: stages, each holding the three calls. -->
     <div class="tf-tl-head">
       <h2>{{ config().outageType === 'none' ? 'Steps' : 'Outage &amp; recovery steps' }}</h2>
-      <span class="tf-of">{{ activeIndex() + 1 }} of {{ frames().length }}</span>
+      <span class="tf-of">Call {{ activeIndex() + 1 }} of {{ frames().length }}</span>
     </div>
 
     <div class="tf-tl">
-      <div class="tf-step" *ngFor="let f of frames(); let i = index"
-        [class.tf-on]="i === activeIndex()" [class.tf-has-change]="f.change"
-        (click)="goToStep(i)">
-        <span class="tf-change" *ngIf="f.change">{{ f.change }}</span>
-        <span class="tf-lbl">{{ f.label }}</span>
-        <span class="tf-chips">
-          <span *ngFor="let r of f.results" class="tf-chip"
-            [ngClass]="['tf-f-' + r.flow, 'tf-sev-' + r.resolution.outcome.severity]"
-            [class.tf-w-existing]="r.cohort === 'existing'">
-            {{ r.resolution.http }}
-          </span>
-        </span>
+      <div class="tf-stage" *ngFor="let st of stages()">
+        <div class="tf-stage-h">
+          <span class="tf-change" *ngIf="st.change">{{ st.change }}</span>
+          <span class="tf-stage-l">{{ st.label }}</span>
+        </div>
+        <div class="tf-calls">
+          <div class="tf-step" *ngFor="let e of st.frames"
+            [class.tf-on]="e.i === activeIndex()" (click)="goToStep(e.i)">
+            <span class="tf-n">{{ e.f.callIndex }}</span>
+            <span class="tf-cn" [class.tf-f-signin]="e.f.call === 'signin'">
+              {{ callLabel(e.f.call) }}</span>
+            <span class="tf-chips">
+              <span *ngFor="let r of e.f.results" class="tf-chip"
+                [ngClass]="r.skipped ? 'tf-sev-skip'
+                  : 'tf-sev-' + (r.resolution ? r.resolution.outcome.severity : 'ok')">
+                {{ r.skipped ? '—' : r.resolution ? r.resolution.http : '' }}
+              </span>
+            </span>
+          </div>
+        </div>
       </div>
     </div>
 
     <div class="tf-graph-bar">
       <h3 class="tf-sec-h">Traffic flow</h3>
       <div class="tf-legend">
-        <span class="tf-lg tf-lg-mixed"><i></i>Both calls</span>
-        <span class="tf-lg tf-lg-primary"><i></i>{{ primaryLabel() }}</span>
-        <span class="tf-lg tf-lg-isam"><i></i>initISAMSession</span>
+        <span class="tf-lg tf-lg-current"><i></i>{{ callLabel(activeFrame().call) }}
+          &mdash; this call</span>
+        <span class="tf-lg tf-lg-context"><i></i>/api/cdb &mdash; what pinned it</span>
       </div>
       <div class="tf-mini">
         <button type="button" [attr.aria-pressed]="zoom() === 'fit'"
@@ -257,25 +262,27 @@
 
     <div class="tf-graph-bar">
       <h3 class="tf-sec-h">Decision trace</h3>
-      <span class="tf-trace-who">{{ cohort() === 'new' ? 'New user' : 'Existing user' }}</span>
+      <span class="tf-trace-who">{{ cohort() === 'new' ? 'New user' : 'Existing user' }}
+        &middot; {{ callLabel(activeFrame().call) }}</span>
     </div>
 
-    <ng-container *ngFor="let fl of selectedFlows()">
-      <p class="tf-flow-h" [ngClass]="'tf-f-' + fl.flow">
-        {{ fl.flow === 'isam' ? 'initISAMSession' : primaryLabel() }}
-        <span class="tf-flow-r">{{ fl.resolution.http }} &mdash;
-          {{ fl.resolution.outcome.title }}</span>
+    <ng-container *ngIf="selected() as sel">
+      <p class="tf-flow-why" *ngIf="sel.skipped">
+        Sign-in failed, so this call was never made.
       </p>
-      <p class="tf-flow-why">{{ fl.resolution.outcome.why }}</p>
-      <div class="tf-trace">
-        <div class="tf-tr" *ngFor="let s of fl.resolution.steps; let i = index"
-          [ngClass]="'tf-tr-' + s.state" [class.tf-linked]="isStepHovered(s.ids)"
-          (mouseenter)="hover(s.ids)" (mouseleave)="clearHover()">
-          <div class="tf-tr-n">{{ i + 1 }}</div>
-          <div class="tf-tr-w">{{ s.where }}</div>
-          <div class="tf-tr-y" [innerHTML]="s.what"></div>
+      <ng-container *ngIf="!sel.skipped && sel.resolution as r">
+        <p class="tf-flow-h">{{ r.http }} &mdash; {{ r.outcome.title }}</p>
+        <p class="tf-flow-why">{{ r.outcome.why }}</p>
+        <div class="tf-trace">
+          <div class="tf-tr" *ngFor="let s of r.steps; let i = index"
+            [ngClass]="'tf-tr-' + s.state" [class.tf-linked]="isStepHovered(s.ids)"
+            (mouseenter)="hover(s.ids)" (mouseleave)="clearHover()">
+            <div class="tf-tr-n">{{ i + 1 }}</div>
+            <div class="tf-tr-w">{{ s.where }}</div>
+            <div class="tf-tr-y" [innerHTML]="s.what"></div>
+          </div>
         </div>
-      </div>
+      </ng-container>
     </ng-container>
 
     <div class="tf-linkbar">

@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  Cohort, EstateOverrides, FlowResult, OutageType, PoolMonitor, RecoveryOrder,
-  ScenarioConfig, SiteId, TrafficPath
+  CallKind, CallResult, Cohort, EstateOverrides, JourneyFrame, OutageType, PoolMonitor,
+  RecoveryOrder, ScenarioConfig, SiteId
 } from '../../models/traffic-flow.model';
 import { runJourney } from '../../services/traffic-scenario-runner';
 import { DEFAULT_CONFIG, buildScenario } from './traffic-scenarios';
@@ -45,51 +45,69 @@ export class TrafficFlowComponent implements OnInit {
     Math.min(this.stepIndex(), Math.max(0, this.frames().length - 1)));
   activeFrame = computed(() => this.frames()[this.activeIndex()]);
 
-  results = computed<FlowResult[]>(() => this.activeFrame()?.results ?? []);
+  results = computed<CallResult[]>(() => this.activeFrame()?.results ?? []);
 
-  /** Both cards are always shown, one per user. Each summarises two calls. */
+  /** Every call for both cohorts at the current stage, for the cards. */
+  private stageResults = computed(() => {
+    const f = this.activeFrame();
+    if (!f) { return []; }
+    return this.frames().filter(x => x.label === f.label);
+  });
+
+  /** Two cards, always. Each lists the whole three-call sequence. */
   cards = computed(() => (['new', 'existing'] as Cohort[]).map(c => {
-    const rs = this.results().filter(r => r.cohort === c);
-    const prim = rs.find(r => r.flow === 'primary') ?? null;
-    const isam = rs.find(r => r.flow === 'isam') ?? null;
+    const at = (call: CallKind) => this.stageResults()
+      .find(f => f.call === call)?.results.find(r => r.cohort === c) ?? null;
 
-    // What the primary call arrived holding. A new arrival holds nothing —
-    // the state's jsession fields carry defaults that must not be shown.
-    const fresh = !prim || prim.state.session === 'new';
-    const jsInSite = fresh ? null : prim.state.jsessionSite ?? prim.state.site;
-    const jsIn = fresh ? 'none' : `${jsInSite} #${prim!.state.jsession}`;
+    const signin = at('signin');
+    const isam = at('isam');
+    const banking = at('banking');
+    const sr = signin?.resolution ?? null;
+    const st = signin?.state ?? null;
 
-    // The last call that was actually served issues or refreshes the session.
-    const served = [isam, prim].find(r => r?.resolution.bosSite && r?.resolution.appServer);
-    const jsOut = served
-      ? `${served.resolution.bosSite} #${served.resolution.appServer}`
-      : jsIn;
-
-    // Cookie and session pointing at different sites is what produces the
-    // re-auth wave when the drained site comes back.
-    const jsSplit = !!jsInSite && !!prim && jsInSite !== prim.state.site;
+    const fresh = !st || st.session === 'new';
+    const jsInSite = fresh ? null : st!.jsessionSite ?? st!.site;
 
     return {
       cohort: c,
       title: c === 'new' ? 'New user' : 'Existing user',
-      // The cookie the primary call arrived with, and what it left as.
-      cookieIn: fresh ? 'none' : prim!.state.site,
-      cookieOut: prim?.resolution.stampedSite ?? prim?.state.site ?? '—',
-      jsIn, jsOut, jsSplit,
-      primary: prim,
-      isam,
-      /** Worst of the two, for the card's severity treatment. */
-      severity: [prim, isam].some(r => r?.resolution.outcome.severity === 'bad') ? 'bad'
-        : [prim, isam].some(r => r?.resolution.outcome.severity === 'warn') ? 'warn' : 'ok'
+      cookieIn: fresh ? 'none' : st!.site,
+      cookieOut: sr?.stampedSite ?? (fresh ? '—' : st!.site),
+      jsIn: fresh ? 'none' : `${jsInSite} #${st!.jsession}`,
+      // Only sign-in issues a session, so this is the only call that can move it.
+      jsOut: sr && sr.outcome.severity !== 'bad' && sr.bosSite && sr.appServer
+        ? `${sr.bosSite} #${sr.appServer}`
+        : (fresh ? 'none' : `${jsInSite} #${st!.jsession}`),
+      // Cookie and session on different sites is what breaks the next call.
+      jsSplit: !!sr?.bosSite && !!sr?.stampedSite && sr.bosSite !== sr.stampedSite,
+      signin, isam, banking,
+      severity: [signin, isam, banking]
+        .some(r => r?.resolution?.outcome.severity === 'bad') ? 'bad' : 'ok'
     };
   }));
 
-  /** Flows for the selected cohort, in call order, for the decision trace. */
-  selectedFlows = computed(() =>
-    this.results().filter(r => r.cohort === this.cohort()));
+  /** The call this frame shows, for the selected cohort. */
+  selected = computed<CallResult | null>(() =>
+    this.results().find(r => r.cohort === this.cohort()) ?? null);
 
-  primaryLabel = computed(() =>
-    this.config().primaryPath === 'api' ? '/api/cdb' : '/banking/services');
+  /** Stage groups for the steps panel. */
+  stages = computed(() => {
+    const out: { label: string; change: string | null; frames: { f: JourneyFrame; i: number }[] }[] = [];
+    this.frames().forEach((f, i) => {
+      let g = out.find(x => x.label === f.label);
+      if (!g) { g = { label: f.label, change: null, frames: [] }; out.push(g); }
+      if (f.change) { g.change = f.change; }
+      g.frames.push({ f, i });
+    });
+    return out;
+  });
+
+  callLabel(call: CallKind): string {
+    return call === 'signin' ? '/api/cdb'
+      : call === 'isam' ? 'initISAMSession' : '/banking/services';
+  }
+
+  primaryLabel = computed(() => '/api/cdb');
 
   graph = computed(() => {
     const frame = this.activeFrame();
@@ -110,7 +128,7 @@ export class TrafficFlowComponent implements OnInit {
   shareLink = computed(() => {
     const c = this.config(), o = this.overrides();
     const q = new URLSearchParams({
-      tab: 'traffic', p: c.primaryPath, site: c.site, os: c.outageSite,
+      tab: 'traffic', site: c.site, os: c.outageSite,
       ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
       ltm: o.ltmMonitor, xgtm: o.extGtmMonitor, who: this.cohort()
     });
@@ -128,7 +146,6 @@ export class TrafficFlowComponent implements OnInit {
   /** Rebuilds config and overrides from a shared link. Unknown values default. */
   private restore(p: Record<string, string>): void {
     const c: ScenarioConfig = { ...DEFAULT_CONFIG };
-    if (p['p'] === 'banking' || p['p'] === 'api') { c.primaryPath = p['p']; }
     if (p['site'] === 'BCC' || p['site'] === 'SCC') { c.site = p['site']; }
     if (p['os'] === 'BCC' || p['os'] === 'SCC') { c.outageSite = p['os']; }
     if (['none', 'planned', 'unplanned', 'apic'].includes(p['ot'])) {
@@ -156,7 +173,7 @@ export class TrafficFlowComponent implements OnInit {
     const off = Object.keys(o.down);
     this.router.navigate([], {
       queryParams: {
-        tab: 'traffic', p: c.primaryPath, site: c.site, os: c.outageSite,
+        tab: 'traffic', site: c.site, os: c.outageSite,
         ot: c.outageType, rec: c.recovery, step: this.activeIndex(),
         ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
         off: off.length ? off.join(',') : null,
@@ -184,7 +201,6 @@ export class TrafficFlowComponent implements OnInit {
 
   // ---- rail controls -------------------------------------------------------
 
-  setPrimaryPath(v: TrafficPath): void { this.setConfig(c => { c.primaryPath = v; }); }
   setSite(v: SiteId): void { this.setConfig(c => { c.site = v; }); }
   setOutageSite(v: SiteId): void { this.setConfig(c => { c.outageSite = v; }); }
   setRecovery(v: RecoveryOrder): void { this.setConfig(c => { c.recovery = v; }); }
