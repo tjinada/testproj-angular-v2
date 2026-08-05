@@ -59,7 +59,6 @@ export interface SimState {
 
 /** Outcome keys, listed in resolver precedence order. */
 export type OutcomeKey =
-  | 'ENV_CHANGE'
   | 'DOWN503'
   | 'ISAM500'
   | 'POOL_OFF'
@@ -142,10 +141,15 @@ export interface UserSession {
   jsServer: number | null;
 }
 
-/** A scenario step: either the estate changes, or the user makes a request. */
-export type JourneyStep =
-  | { kind: 'env'; label: string; apply: (env: EnvState) => void }
-  | { kind: 'request'; label: string; path: TrafficPath };
+/**
+ * One step of a journey. Each step is one user action; `apply` is the estate
+ * change that lands immediately before it, named in `change` for the label.
+ */
+export interface JourneyStep {
+  label: string;
+  change?: string;
+  apply?: (env: EnvState) => void;
+}
 
 export interface Scenario {
   id: string;
@@ -197,26 +201,50 @@ export interface EstateOverrides {
   extGtmMonitor: PoolMonitor;
 }
 
-/** One cohort's answer within a frame. */
-export interface CohortResult {
+/**
+ * Which call is being drawn. The primary path and the initISAMSession that
+ * follows it share the BOS tail but nothing else, so both fit on one diagram.
+ */
+export type FlowKind = 'primary' | 'isam';
+
+/**
+ * The three flows on a frame. Colour encodes the call, dash encodes the user,
+ * so a shared hop can stay in the existing blue.
+ *
+ * There is no isam-new: initISAMSession is post-auth by definition.
+ */
+export type FlowKey = 'primary-new' | 'primary-existing' | 'isam-existing';
+
+/** One flow's answer within a frame. */
+export interface FlowResult {
+  key: FlowKey;
+  flow: FlowKind;
   cohort: Cohort;
+  path: TrafficPath;
   state: SimState;
   resolution: Resolution;
 }
 
-/** One resolved frame of a journey. */
+/**
+ * One frame of a journey: a single user action — load the page, then
+ * initialise the session — resolved for both kinds of user.
+ *
+ * Estate changes do not get their own frame. They are applied immediately
+ * before the frame's requests and named in its label, because a frame showing
+ * the estate without any traffic is indistinguishable from the request frame
+ * that follows it.
+ */
 export interface JourneyFrame {
   label: string;
-  kind: JourneyStep['kind'];
-  /** Null on env frames. */
-  path: TrafficPath | null;
+  /** Estate change applied at this frame, if any. Null for plain requests. */
+  change: string | null;
   /**
    * Representative state for estate-level rendering (out-of-service, liveness,
-   * monitors). Cohorts differ only in the request fields, never the estate.
+   * monitors). Flows differ only in the request fields, never the estate.
    */
   state: SimState;
-  /** One entry per cohort present on this frame. Never empty. */
-  results: CohortResult[];
+  /** One entry per flow present. Never empty. */
+  results: FlowResult[];
   /** The carried session as it stands after this frame. */
   user: UserSession;
 }

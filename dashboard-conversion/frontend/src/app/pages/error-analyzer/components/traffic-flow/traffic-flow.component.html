@@ -107,73 +107,52 @@
 
   <main class="tf-main">
 
-    <!-- Cohort outcomes. Clicking a card focuses that cohort on the diagram. -->
+    <!-- One card per flow. Clicking a card focuses it on the diagram. -->
     <div class="tf-cards">
-      <button type="button" class="tf-card tf-card-new" *ngIf="newResult() as r"
-        [class.tf-focused]="focus() === 'new'"
-        [class.tf-dimmed]="focus() === 'existing'"
-        [ngClass]="'tf-sev-' + r.resolution.outcome.severity"
-        (click)="setFocus('new')">
-        <span class="tf-who"><i class="tf-sw"></i>New user &middot; no cookie</span>
+      <button type="button" class="tf-card" *ngFor="let r of results()"
+        [ngClass]="['tf-f-' + r.flow, 'tf-w-' + r.cohort, 'tf-sev-' + r.resolution.outcome.severity]"
+        [class.tf-focused]="focus() === r.key"
+        [class.tf-dimmed]="focus() && focus() !== r.key"
+        (click)="setFocus(r.key)">
+        <span class="tf-who"><i class="tf-sw"></i>{{ whoLabel(r) }} &middot; {{ flowLabel(r) }}</span>
         <span class="tf-out">{{ r.resolution.outcome.title }}</span>
         <span class="tf-why">{{ r.resolution.outcome.why }}</span>
-        <span class="tf-meta">{{ r.resolution.http }}
-          <ng-container *ngIf="r.resolution.bosSite"> &middot; {{ r.resolution.bosSite }}</ng-container>
-          <ng-container *ngIf="r.resolution.cookieStamped"> &middot; {{ r.resolution.cookieStamped }}</ng-container>
-        </span>
-      </button>
-
-      <button type="button" class="tf-card tf-card-old" *ngIf="oldResult() as r"
-        [class.tf-focused]="focus() === 'existing'"
-        [class.tf-dimmed]="focus() === 'new'"
-        [ngClass]="'tf-sev-' + r.resolution.outcome.severity"
-        (click)="setFocus('existing')">
-        <span class="tf-who"><i class="tf-sw"></i>Existing user
-          <ng-container *ngIf="carried()?.cookie"> &middot; pinned {{ carried()?.cookie }}</ng-container>
-        </span>
-        <span class="tf-out">{{ r.resolution.outcome.title }}</span>
-        <span class="tf-why">{{ r.resolution.outcome.why }}</span>
-        <span class="tf-meta">{{ r.resolution.http }}
-          <ng-container *ngIf="carried()?.jsSite"> &middot; session from {{ carried()?.jsSite }}</ng-container>
+        <span class="tf-meta">{{ r.resolution.http }} &middot; {{ cookieLabel(r) }}
+          <ng-container *ngIf="r.resolution.bosSite"> &middot; served {{ r.resolution.bosSite }}</ng-container>
         </span>
       </button>
     </div>
 
-    <!-- Journey timeline. Env frames read as dividers, requests are numbered. -->
+    <!-- Journey. One frame per user action; estate changes ride on their frame. -->
     <div class="tf-tl-head">
       <h2>Journey</h2>
       <span class="tf-of">{{ activeIndex() + 1 }} of {{ frames().length }}</span>
     </div>
 
     <div class="tf-tl">
-      <ng-container *ngFor="let f of frames(); let i = index">
-        <div class="tf-env" *ngIf="f.kind === 'env'" [class.tf-on]="i === activeIndex()"
-          (click)="goToStep(i)">
-          <span class="tf-tag">Estate</span>
-          <span class="tf-lbl">{{ f.label }}</span>
-        </div>
-
-        <div class="tf-step" *ngIf="f.kind === 'request'" [class.tf-on]="i === activeIndex()"
-          (click)="goToStep(i)">
-          <span class="tf-path">{{ f.path === 'csgcb' ? 'csgcb'
-            : f.path === 'api' ? '/api/cdb' : '/banking' }}</span>
-          <span class="tf-lbl">{{ f.label }}</span>
-          <span class="tf-chips">
-            <span *ngFor="let r of f.results" class="tf-chip"
-              [ngClass]="'tf-c-' + r.cohort + ' tf-sev-' + r.resolution.outcome.severity">
-              {{ r.resolution.http }}
-            </span>
+      <div class="tf-step" *ngFor="let f of frames(); let i = index"
+        [class.tf-on]="i === activeIndex()" [class.tf-has-change]="f.change"
+        (click)="goToStep(i)">
+        <span class="tf-change" *ngIf="f.change">{{ f.change }}</span>
+        <span class="tf-lbl">{{ f.label }}</span>
+        <span class="tf-chips">
+          <span *ngFor="let r of f.results" class="tf-chip"
+            [ngClass]="['tf-f-' + r.flow, 'tf-sev-' + r.resolution.outcome.severity]"
+            [class.tf-w-existing]="r.cohort === 'existing'">
+            {{ r.resolution.http }}
           </span>
-        </div>
-      </ng-container>
+        </span>
+      </div>
     </div>
 
     <div class="tf-graph-bar">
       <h3 class="tf-sec-h">Traffic flow</h3>
       <div class="tf-legend" *ngIf="diverged()">
-        <span class="tf-lg tf-lg-both"><i></i>Shared</span>
-        <span class="tf-lg tf-lg-new"><i></i>New user</span>
-        <span class="tf-lg tf-lg-old"><i></i>Existing user</span>
+        <span class="tf-lg tf-lg-mixed"><i></i>Both calls</span>
+        <span class="tf-lg tf-lg-primary"><i></i>{{ config().primaryPath === 'api'
+          ? '/api/cdb' : '/banking' }}</span>
+        <span class="tf-lg tf-lg-isam"><i></i>initISAMSession</span>
+        <span class="tf-lg tf-lg-dash"><i></i>Pinned user</span>
       </div>
       <div class="tf-mini">
         <button type="button" [attr.aria-pressed]="zoom() === 'fit'"
@@ -195,14 +174,14 @@
         </g>
 
         <path *ngFor="let e of g.edges" [attr.d]="e.d"
-          [ngClass]="['tf-e-' + e.kind, e.cohort ? 'tf-c-' + e.cohort : '']"
+          [ngClass]="['tf-e-' + e.kind, e.flow ? 'tf-f-' + e.flow : '', e.who ? 'tf-w-' + e.who : '']"
           [class.tf-muted]="e.muted"></path>
 
         <text *ngFor="let l of g.labels" [attr.x]="l.x" [attr.y]="l.y"
           [ngClass]="'tf-l-' + l.kind">{{ l.text }}</text>
 
         <g *ngFor="let n of g.nodes" class="tf-node"
-          [ngClass]="n.cohort ? 'tf-c-' + n.cohort : ''"
+          [ngClass]="[n.flow ? 'tf-f-' + n.flow : '', n.who ? 'tf-w-' + n.who : '']"
           [class.tf-toggle]="n.toggleable"
           [class.tf-dim]="!n.hop && !n.outOfService"
           [class.tf-on]="n.state === 'ok'"
@@ -259,8 +238,8 @@
 
     <div class="tf-graph-bar" *ngIf="primary() as pr">
       <h3 class="tf-sec-h">Decision trace</h3>
-      <span class="tf-trace-who" [ngClass]="'tf-c-' + pr.cohort">
-        {{ pr.cohort === 'new' ? 'New user' : 'Existing user' }}
+      <span class="tf-trace-who" [ngClass]="'tf-f-' + pr.flow">
+        {{ whoLabel(pr) }} &middot; {{ flowLabel(pr) }}
       </span>
     </div>
     <div class="tf-trace" *ngIf="primary() as pr">

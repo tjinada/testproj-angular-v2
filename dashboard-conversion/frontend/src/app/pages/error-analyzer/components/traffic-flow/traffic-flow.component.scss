@@ -465,22 +465,27 @@ $amber: #f2a900;
     &.tf-pill-on rect { fill: $muted; stroke: $muted; }
   }
 }
-/* ---- cohort colouring ---------------------------------------------------
-   Only divergence takes colour. An element travelled by both cohorts keeps
-   the existing blue, so a healthy estate renders exactly as it always has. */
-$new-u: $blue;
-$old-u: #7c3aed;
+/* ---- flow encoding ------------------------------------------------------
+   Colour = which call. Dash = which user. An element travelled by both calls
+   is 'mixed' and stays in the existing blue, so only real divergence is
+   coloured and a healthy estate renders as it always has. */
+$f-primary: $blue;
+$f-isam: #7c3aed;
 
-.tf-c-new .tf-box { fill: $node; stroke: $new-u; stroke-width: 2.4px; }
-.tf-c-new .tf-outline { stroke: $new-u; stroke-width: 2.4px; }
-.tf-c-existing .tf-box { fill: #fff; stroke: $old-u; stroke-width: 2.4px; stroke-dasharray: 7 5; }
-.tf-c-existing .tf-outline { stroke: $old-u; stroke-width: 2.4px; stroke-dasharray: 7 5; }
-.tf-c-existing .tf-nt { fill: $old-u; }
+.tf-f-primary .tf-box { fill: $node; stroke: $f-primary; stroke-width: 2.4px; }
+.tf-f-primary .tf-outline { stroke: $f-primary; stroke-width: 2.4px; }
+.tf-f-isam .tf-box { fill: #fff; stroke: $f-isam; stroke-width: 2.4px; }
+.tf-f-isam .tf-outline { stroke: $f-isam; stroke-width: 2.4px; }
+.tf-f-isam .tf-nt { fill: $f-isam; }
 
-path.tf-c-new { stroke: $new-u; }
-path.tf-c-existing { stroke: $old-u; stroke-dasharray: 7 5; }
+path.tf-f-primary { stroke: $f-primary; }
+path.tf-f-isam { stroke: $f-isam; }
 
-/* Focus dims the other cohort to base weight rather than hiding it. */
+/* Dashed only when exclusively the pinned user; 'both' and 'new' stay solid. */
+path.tf-w-existing { stroke-dasharray: 7 5; }
+.tf-w-existing .tf-box, .tf-w-existing .tf-outline { stroke-dasharray: 7 5; }
+
+/* Focus dims the other flows to base weight rather than hiding them. */
 .tf-muted { opacity: 0.22; }
 
 .tf-legend { display: flex; gap: 14px; font-size: 11px; color: $muted; }
@@ -488,30 +493,31 @@ path.tf-c-existing { stroke: $old-u; stroke-dasharray: 7 5; }
   display: inline-block; width: 18px; height: 3px; border-radius: 2px;
   margin-right: 5px; vertical-align: 2px;
 }
-.tf-lg-both i { background: $node; }
-.tf-lg-new i { background: $new-u; }
-.tf-lg-old i {
-  background-image: repeating-linear-gradient(90deg, $old-u 0 5px, transparent 5px 9px);
+.tf-lg-mixed i { background: $node; }
+.tf-lg-primary i { background: $f-primary; }
+.tf-lg-isam i { background: $f-isam; }
+.tf-lg-dash i {
+  background-image: repeating-linear-gradient(90deg, $muted 0 5px, transparent 5px 9px);
 }
 
 .tf-trace-who {
   font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
   padding: 2px 7px; border-radius: 3px; border: 1px solid $line;
-  &.tf-c-new { color: $new-u; border-color: $new-u; }
-  &.tf-c-existing { color: $old-u; border-color: $old-u; }
+  &.tf-f-primary { color: $f-primary; border-color: $f-primary; }
+  &.tf-f-isam { color: $f-isam; border-color: $f-isam; }
 }
 
-/* ---- cohort outcome cards (also the focus selector) ---------------------- */
-.tf-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-@media (max-width: 900px) { .tf-cards { grid-template-columns: 1fr; } }
+/* ---- flow outcome cards (also the focus selector) ------------------------ */
+.tf-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+@media (max-width: 1200px) { .tf-cards { grid-template-columns: 1fr; } }
 
 .tf-card {
   appearance: none; text-align: left; cursor: pointer; background: #fff;
   border: 1px solid $line; border-left-width: 3px; border-radius: 6px;
   padding: 11px 13px; display: flex; flex-direction: column; gap: 4px; font: inherit;
 
-  &.tf-card-new { border-left-color: $new-u; }
-  &.tf-card-old { border-left-color: $old-u; }
+  &.tf-f-primary { border-left-color: $f-primary; }
+  &.tf-f-isam { border-left-color: $f-isam; }
   &:hover { background: $panel; }
   &.tf-focused { box-shadow: 0 0 0 2px rgba(0, 117, 190, .18); }
   &.tf-dimmed { opacity: .5; }
@@ -522,9 +528,16 @@ path.tf-c-existing { stroke: $old-u; stroke-dasharray: 7 5; }
   color: $muted; display: flex; align-items: center; gap: 7px;
 }
 .tf-sw { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
-.tf-card-new .tf-sw { background: $new-u; }
-.tf-card-old .tf-sw {
-  background-image: repeating-linear-gradient(90deg, $old-u 0 4px, transparent 4px 7px);
+.tf-f-primary .tf-sw { background: $f-primary; }
+.tf-f-isam .tf-sw { background: $f-isam; }
+.tf-w-existing .tf-sw {
+  background-image: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px);
+}
+.tf-f-primary.tf-w-existing .tf-sw {
+  background-image: repeating-linear-gradient(90deg, $f-primary 0 4px, transparent 4px 7px);
+}
+.tf-f-isam.tf-w-existing .tf-sw {
+  background-image: repeating-linear-gradient(90deg, $f-isam 0 4px, transparent 4px 7px);
 }
 
 .tf-out { font-size: 15px; font-weight: 700; }
@@ -556,40 +569,33 @@ path.tf-c-existing { stroke: $old-u; stroke-dasharray: 7 5; }
   overflow-x: auto; margin-bottom: 18px;
 }
 
-.tf-step, .tf-env {
-  flex: 0 0 auto; border-right: 1px solid $line; padding: 9px 11px; cursor: pointer;
-  display: flex; flex-direction: column; gap: 5px;
-  &:last-child { border-right: 0; }
-}
-
 .tf-step {
-  min-width: 130px; background: #fff;
+  flex: 0 0 auto; min-width: 150px; border-right: 1px solid $line; padding: 9px 11px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 5px; background: #fff;
+  &:last-child { border-right: 0; }
   &:hover { background: #f4f8fd; }
   &.tf-on { background: #eef4fc; box-shadow: inset 0 -3px 0 $blue; }
 }
 
-/* Estate changes are not requests, so they read as dividers, not steps. */
-.tf-env {
-  min-width: 118px;
-  background: repeating-linear-gradient(45deg, #fafafa, #fafafa 6px, #f4f4f5 6px, #f4f4f5 12px);
-  &:hover { background: #f2f2f3; }
-  &.tf-on { background: #fff8ec; box-shadow: inset 0 -3px 0 $amber; }
+/* The estate change that lands with this frame, rather than a frame of its own. */
+.tf-change {
+  font-size: 10px; font-weight: 700; line-height: 1.3; color: $warn;
+  display: flex; gap: 5px;
+  &::before {
+    content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 2px;
+    background: $amber; margin-top: 3px;
+  }
 }
 
-.tf-tag {
-  font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: $warn; display: flex; align-items: center; gap: 5px;
-  &::before { content: ''; width: 9px; height: 9px; border-radius: 2px; background: $amber; }
-}
 .tf-path { font-size: 10px; color: $muted; font-family: ui-monospace, Menlo, monospace; }
-.tf-lbl { font-size: 11px; color: $ink; line-height: 1.3; }
+.tf-lbl { font-size: 11px; color: $ink; line-height: 1.3; font-weight: 600; }
 
-.tf-chips { display: flex; gap: 4px; }
+.tf-chips { display: flex; gap: 4px; flex-wrap: wrap; }
 .tf-chip {
   font-size: 9.5px; font-weight: 700; border-radius: 3px; padding: 1px 5px;
   font-family: ui-monospace, Menlo, monospace; border-left: 2px solid transparent;
-  &.tf-c-new { border-left-color: $new-u; }
-  &.tf-c-existing { border-left-color: $old-u; }
+  &.tf-f-primary { border-left-color: $f-primary; }
+  &.tf-f-isam { border-left-color: $f-isam; }
   &.tf-sev-ok { background: #eefaf2; color: $ok; }
   &.tf-sev-warn { background: #fff8ec; color: $warn; }
   &.tf-sev-bad { background: #fdecec; color: $bad; }

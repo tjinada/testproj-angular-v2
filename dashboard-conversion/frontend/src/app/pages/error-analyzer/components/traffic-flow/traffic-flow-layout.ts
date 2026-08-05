@@ -1,5 +1,5 @@
 import type {
-  Cohort, CohortResult, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
+  FlowKey, FlowResult, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
   APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_COOKIE_NAME, SITE_IDS,
@@ -28,23 +28,28 @@ export interface TfNode {
   outOfService: boolean;
   isBreak: boolean;
   /**
-   * Which cohorts traverse this node. 'both' renders in the existing blue —
-   * only genuine divergence takes a cohort colour, so a healthy estate draws
-   * exactly as it always has.
+   * Colour dimension: which call travels here. 'mixed' means both the primary
+   * path and initISAMSession do, so it renders in the existing blue — only
+   * genuine divergence takes a colour.
    */
-  cohort: CohortTag | null;
-  /** True when a cohort is focused and this node belongs only to the other. */
+  flow: FlowTag | null;
+  /** Dash dimension: which user. Dashed only when exclusively the pinned one. */
+  who: WhoTag | null;
+  /** True when a flow is focused and this element belongs only to others. */
   muted: boolean;
 }
 
-/** Cohort membership of a drawn element. */
-export type CohortTag = 'both' | Cohort;
+/** Colour dimension. */
+export type FlowTag = 'primary' | 'isam' | 'mixed';
+/** Dash dimension. */
+export type WhoTag = 'new' | 'existing' | 'both';
 
 /** A laid-out edge. */
 export interface TfEdge {
   d: string;
   kind: 'base' | 'taken' | 'crossover' | 'broken';
-  cohort: CohortTag | null;
+  flow: FlowTag | null;
+  who: WhoTag | null;
   muted: boolean;
 }
 
@@ -366,13 +371,13 @@ const LANES: TfLane[] = [
  * outcome the diagram is annotated for. The focused cohort wins; failing beats
  * succeeding, because the failure is what the tool was opened for.
  */
-function pickPrimary(results: CohortResult[], focus: Cohort | null): CohortResult {
+function pickPrimary(results: FlowResult[], focus: FlowKey | null): FlowResult {
   if (focus) {
-    const f = results.find(r => r.cohort === focus);
+    const f = results.find(r => r.key === focus);
     if (f) { return f; }
   }
   return results.find(r => r.resolution.outcome.severity === 'bad')
-    ?? results.find(r => r.cohort === 'existing')
+    ?? results.find(r => r.key === 'primary-existing')
     ?? results[0];
 }
 
@@ -382,6 +387,24 @@ function traversal(res: Resolution): PathMap {
   const m: PathMap = {};
   res.steps.forEach((s, i) => s.ids.forEach(id => { m[id] = { hop: i + 1, state: s.state }; }));
   return m;
+}
+
+/** Colour: which call. Both calls on one element means no cohort colour. */
+function flowTag(keys: Set<FlowKey>): FlowTag | null {
+  if (keys.size === 0) { return null; }
+  const primary = keys.has('primary-new') || keys.has('primary-existing');
+  const isam = keys.has('isam-existing');
+  if (primary && isam) { return 'mixed'; }
+  return isam ? 'isam' : 'primary';
+}
+
+/** Dash: which user. Dashed only when exclusively the pinned one. */
+function whoTag(keys: Set<FlowKey>): WhoTag | null {
+  if (keys.size === 0) { return null; }
+  const hasNew = keys.has('primary-new');
+  const hasOld = keys.has('primary-existing') || keys.has('isam-existing');
+  if (hasNew && hasOld) { return 'both'; }
+  return hasNew ? 'new' : 'existing';
 }
 
 /**
@@ -395,7 +418,7 @@ function traversal(res: Resolution): PathMap {
  *
  * Pure: geometry only.
  */
-export function buildTrafficGraph(frame: JourneyFrame, focus: Cohort | null = null): TfGraph {
+export function buildTrafficGraph(frame: JourneyFrame, focus: FlowKey | null = null): TfGraph {
   const state = frame.state;
   const results = frame.results;
   const primary = pickPrimary(results, focus);
@@ -405,23 +428,21 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: Cohort | null = nu
   isamNodes(geom);
   siteNodes(geom, state);
 
-  const paths = new Map<Cohort, PathMap>();
-  results.forEach(r => paths.set(r.cohort, traversal(r.resolution)));
+  const paths = new Map<FlowKey, PathMap>();
+  results.forEach(r => paths.set(r.key, traversal(r.resolution)));
 
-  const memberOf = (id: string): CohortTag | null => {
-    const inNew = !!paths.get('new')?.[id];
-    const inOld = !!paths.get('existing')?.[id];
-    if (inNew && inOld) { return 'both'; }
-    if (inNew) { return 'new'; }
-    return inOld ? 'existing' : null;
+  const keysAt = (id: string): Set<FlowKey> => {
+    const out = new Set<FlowKey>();
+    results.forEach(r => { if (paths.get(r.key)?.[id]) { out.add(r.key); } });
+    return out;
   };
 
-  /** Hop badge: the primary cohort's number, falling back to the other's. */
+  /** Hop badge: the primary flow's number, falling back to any other. */
   const hitFor = (id: string) => {
-    const p = paths.get(primary.cohort)?.[id];
+    const p = paths.get(primary.key)?.[id];
     if (p) { return p; }
     for (const r of results) {
-      const h = paths.get(r.cohort)?.[id];
+      const h = paths.get(r.key)?.[id];
       if (h) { return h; }
     }
     return null;
@@ -430,16 +451,17 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: Cohort | null = nu
   const edges: TfEdge[] = baseEdgePairs()
     .filter(([a, b]) => geom[a] && geom[b])
     .map(([a, b]) => ({
-      d: curve(geom[a], geom[b]), kind: 'base' as const, cohort: null, muted: false
+      d: curve(geom[a], geom[b]), kind: 'base' as const, flow: null, who: null, muted: false
     }));
-  const baseRail = (d: string): TfEdge => ({ d, kind: 'base', cohort: null, muted: false });
+  const baseRail = (d: string): TfEdge =>
+    ({ d, kind: 'base', flow: null, who: null, muted: false });
   edges.push(baseRail(clientPropPath(geom)));
   SITE_IDS.forEach(s => edges.push(
     baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s))
   ));
 
-  // Taken edges, per cohort, deduped by geometry so a shared hop is drawn once.
-  const taken = new Map<string, { d: string; kind: TfEdge['kind']; who: Set<Cohort> }>();
+  // Taken edges, per flow, deduped by geometry so a shared hop is drawn once.
+  const taken = new Map<string, { d: string; kind: TfEdge['kind']; who: Set<FlowKey> }>();
   results.forEach(r => {
     const rs = r.resolution;
     const entrySite = rs.apicSite ?? rs.bosSite;
@@ -464,19 +486,18 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: Cohort | null = nu
                 ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
                 : curve(geom[a], geom[b]);
         const key = `${kind}|${d}`;
-        const e = taken.get(key) ?? { d, kind, who: new Set<Cohort>() };
-        e.who.add(r.cohort);
+        const e = taken.get(key) ?? { d, kind, who: new Set<FlowKey>() };
+        e.who.add(r.key);
         taken.set(key, e);
       }));
     }
   });
 
   taken.forEach(e => {
-    const solo = e.who.size === 1 ? [...e.who][0] : null;
     edges.push({
       d: e.d, kind: e.kind,
-      cohort: solo ?? 'both',
-      muted: focus !== null && solo !== null && solo !== focus
+      flow: flowTag(e.who), who: whoTag(e.who),
+      muted: focus !== null && !e.who.has(focus)
     });
   });
 
@@ -484,7 +505,7 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: Cohort | null = nu
     const g = geom[id];
     const hit = hitFor(id);
     const off = !!state.down[id];
-    const cohort = off ? null : memberOf(id);
+    const keys = off ? new Set<FlowKey>() : keysAt(id);
     return {
       id,
       x: g.x, y: g.y, width: g.width, height: g.height,
@@ -498,8 +519,9 @@ export function buildTrafficGraph(frame: JourneyFrame, focus: Cohort | null = nu
       state: hit && !off ? hit.state : null,
       outOfService: off,
       isBreak: results.some(r => r.resolution.breakAt === id),
-      cohort,
-      muted: focus !== null && cohort !== null && cohort !== 'both' && cohort !== focus
+      flow: flowTag(keys),
+      who: whoTag(keys),
+      muted: focus !== null && keys.size > 0 && !keys.has(focus)
     };
   });
 

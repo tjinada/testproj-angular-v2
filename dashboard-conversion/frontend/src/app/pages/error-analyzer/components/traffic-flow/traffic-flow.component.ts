@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  Cohort, CohortResult, EstateOverrides, OutageType, PoolMonitor, RecoveryOrder,
+  EstateOverrides, FlowKey, FlowResult, OutageType, PoolMonitor, RecoveryOrder,
   ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { runJourney } from '../../services/traffic-scenario-runner';
@@ -30,46 +30,63 @@ export class TrafficFlowComponent implements OnInit {
   overrides = signal<EstateOverrides>({ down: {}, ltmMonitor: 'live', extGtmMonitor: 'live' });
 
   stepIndex = signal(0);
-  /** Null shows both cohorts; set dims the other to base weight. */
-  focus = signal<Cohort | null>(null);
+  /** Null shows every flow; set dims the others to base weight. */
+  focus = signal<FlowKey | null>(null);
 
   zoom = signal<'fit' | 'full'>('fit');
   linkCopied = signal(false);
   hoveredIds = signal<string[]>([]);
 
   scenario = computed(() => buildScenario(this.config(), this.overrides()));
-  frames = computed(() => runJourney(this.scenario()));
+  frames = computed(() => runJourney(this.scenario(), this.config()));
 
   /** Clamped, because changing the config can shorten the journey underfoot. */
   activeIndex = computed(() =>
     Math.min(this.stepIndex(), Math.max(0, this.frames().length - 1)));
   activeFrame = computed(() => this.frames()[this.activeIndex()]);
 
-  results = computed<CohortResult[]>(() => this.activeFrame()?.results ?? []);
-  newResult = computed(() => this.results().find(r => r.cohort === 'new') ?? null);
-  oldResult = computed(() => this.results().find(r => r.cohort === 'existing') ?? null);
+  results = computed<FlowResult[]>(() => this.activeFrame()?.results ?? []);
 
   /**
-   * The cohort the diagram and trace are annotated for. Mirrors pickPrimary in
-   * the layout: focus wins, then failing, then the existing user.
+   * The flow the diagram and trace are annotated for. Mirrors pickPrimary in
+   * the layout: focus wins, then failing, then the pinned user's primary call.
    */
-  primary = computed<CohortResult | null>(() => {
+  primary = computed<FlowResult | null>(() => {
     const rs = this.results();
     const f = this.focus();
     if (f) {
-      const hit = rs.find(r => r.cohort === f);
+      const hit = rs.find(r => r.key === f);
       if (hit) { return hit; }
     }
     return rs.find(r => r.resolution.outcome.severity === 'bad')
-      ?? rs.find(r => r.cohort === 'existing')
+      ?? rs.find(r => r.key === 'primary-existing')
       ?? rs[0] ?? null;
   });
 
-  /** True when the cohorts actually disagree — drives the legend. */
+  /** True when the flows disagree — drives the legend. */
   diverged = computed(() => {
-    const a = this.newResult(), b = this.oldResult();
-    return !!a && !!b && a.resolution.outcome.key !== b.resolution.outcome.key;
+    const keys = new Set(this.results().map(r => r.resolution.outcome.key));
+    return keys.size > 1;
   });
+
+  /** Which call this flow is. */
+  flowLabel(r: FlowResult): string {
+    return r.flow === 'isam' ? 'initISAMSession'
+      : this.config().primaryPath === 'api' ? '/api/cdb' : '/banking/services';
+  }
+
+  whoLabel(r: FlowResult): string {
+    return r.cohort === 'new' ? 'New user' : 'Existing user';
+  }
+
+  /**
+   * Read from the flow's own request state, not the carried session — the
+   * latter is the state *after* the frame, which would claim a cookie the
+   * request did not actually send.
+   */
+  cookieLabel(r: FlowResult): string {
+    return r.state.session === 'new' ? 'no cookie yet' : `pinned ${r.state.site}`;
+  }
 
   graph = computed(() => {
     const frame = this.activeFrame();
@@ -126,7 +143,8 @@ export class TrafficFlowComponent implements OnInit {
     (p['off'] ?? '').split(',').filter(Boolean).forEach(id => { o.down[id] = true; });
     this.overrides.set(o);
 
-    if (p['foc'] === 'new' || p['foc'] === 'existing') { this.focus.set(p['foc']); }
+    if (p['foc'] === 'primary-new' || p['foc'] === 'primary-existing'
+      || p['foc'] === 'isam-existing') { this.focus.set(p['foc']); }
 
     const step = Number(p['step']);
     this.stepIndex.set(step >= 0 && step < this.frames().length ? step : 0);
@@ -192,8 +210,8 @@ export class TrafficFlowComponent implements OnInit {
     this.syncUrl();
   }
 
-  setFocus(c: Cohort | null): void {
-    this.focus.set(this.focus() === c ? null : c);
+  setFocus(k: FlowKey): void {
+    this.focus.set(this.focus() === k ? null : k);
     this.syncUrl();
   }
 

@@ -3,12 +3,13 @@ import type {
 } from '../../models/traffic-flow.model';
 import { APIC_INSTANCES, APP_SERVERS, WEB_SERVERS } from './traffic-topology';
 
+/** Opens healthy on BCC so the tool starts from a working estate. */
 export const DEFAULT_CONFIG: ScenarioConfig = {
-  primaryPath: 'api',
-  site: 'SCC',
-  outageSite: 'SCC',
-  outageType: 'unplanned',
-  recovery: 'jvm-then-ihs'
+  primaryPath: 'banking',
+  site: 'BCC',
+  outageSite: 'BCC',
+  outageType: 'none',
+  recovery: 'none'
 };
 
 const jvms = (env: EnvState, site: SiteId, down: boolean) => {
@@ -33,13 +34,9 @@ const apic = (env: EnvState, site: SiteId, down: boolean) => {
   }
 };
 
-/** Each primary request is followed by initISAMSession, which pins by cookie. */
-function requests(label: string, c: ScenarioConfig): JourneyStep[] {
-  const primary = c.primaryPath === 'api' ? '/api/cdb' : '/banking/services';
-  return [
-    { kind: 'request', label: `${label} — ${primary}`, path: c.primaryPath },
-    { kind: 'request', label: `${label} — initISAMSession`, path: 'csgcb' }
-  ];
+/** The primary path this journey exercises. csgcb rides alongside it. */
+export function primaryLabel(c: ScenarioConfig): string {
+  return c.primaryPath === 'api' ? '/api/cdb' : '/banking/services';
 }
 
 /**
@@ -127,22 +124,23 @@ const OUTAGE_TITLE: Record<string, string> = {
  * broken right now" rather than only showing the end state.
  */
 export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
-  const steps: JourneyStep[] = [];
   const stages = outageStages(c);
   const recovery = recoveryStages(c);
+  const steps: JourneyStep[] = [];
 
+  // Every step is one user action: the primary call plus the initISAMSession
+  // that follows it. An estate change rides on the step it precedes rather
+  // than taking a frame of its own.
   if (stages.length === 0) {
-    steps.push(...requests('Healthy', c));
+    steps.push({ label: 'Healthy estate' });
   }
 
   stages.forEach((stage, i) => {
-    steps.push({ kind: 'env', label: stage.label, apply: stage.apply });
-    steps.push(...requests(`Stage ${i + 1}`, c));
+    steps.push({ label: `Stage ${i + 1}`, change: stage.label, apply: stage.apply });
   });
 
   recovery.forEach((stage, i) => {
-    steps.push({ kind: 'env', label: stage.label, apply: stage.apply });
-    steps.push(...requests(`Recovery ${i + 1}`, c));
+    steps.push({ label: `Recovery ${i + 1}`, change: stage.label, apply: stage.apply });
   });
 
   const same = c.site === c.outageSite;

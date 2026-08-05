@@ -22,9 +22,6 @@ import {
 
 /** Title and severity per outcome key. */
 const OUTCOMES: Record<OutcomeKey, { title: string; severity: Severity }> = {
-  // Not produced by the resolver — the journey runner uses it for env frames,
-  // where the estate has changed but no request has been made.
-  ENV_CHANGE: { title: 'Estate changed — no request sent', severity: 'warn' },
   DOWN503: { title: 'Service Unavailable — 503', severity: 'bad' },
   ISAM500: { title: 'initISAMSession failed — 500', severity: 'bad' },
   POOL_OFF: { title: 'Pool Offline — call rejected (DACT-104)', severity: 'bad' },
