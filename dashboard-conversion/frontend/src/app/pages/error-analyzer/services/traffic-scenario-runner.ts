@@ -38,11 +38,24 @@ function toSimState(
   };
 }
 
-/** Folds whatever a request established back into the carried session. */
+/**
+ * Folds whatever a request established back into the carried session.
+ *
+ * The cookie is stamped by the edge on the way out, so it lands regardless of
+ * how the origin answered. A JSESSIONID is not: it is issued by an app server,
+ * so a request that never reached one — 503, RST, 500, or a 302 back to login
+ * — leaves the carried session exactly as it was.
+ *
+ * This matters more than it looks. Without the guard, a session-mismatch 302
+ * would "adopt" the site that bounced it, the mismatch would disappear on the
+ * next frame, and the tool would quietly heal the very failure it exists to
+ * show.
+ */
 function carry(user: UserSession, r: ReturnType<typeof resolveTraffic>): UserSession {
   let next = user;
   if (r.stampedSite) { next = { ...next, cookie: r.stampedSite }; }
-  if (r.bosSite && r.appServer) {
+  const served = r.outcome.severity !== 'bad';
+  if (served && r.bosSite && r.appServer) {
     next = { ...next, jsSite: r.bosSite, jsServer: r.appServer };
   }
   return next;
