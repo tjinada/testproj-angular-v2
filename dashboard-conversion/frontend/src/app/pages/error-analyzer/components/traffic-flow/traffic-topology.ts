@@ -81,6 +81,20 @@ export const API_GTM_HOSTNAME = 'wlb.apis.olbb.akadns.net';
 export const COOKIE_BYPASSES_GTM = true;
 
 /**
+ * /banking/live.txt is a plain static file served by the httpd process in IHS,
+ * and both GTMs probe the same object.
+ *
+ * It therefore says nothing about the app tier. Killing every JVM leaves it
+ * returning 200, so neither GTM reacts and traffic keeps arriving at a site
+ * that cannot serve it — which is exactly why the unplanned-outage runbook has
+ * a manual "rename live.txt" step to force the drain.
+ *
+ * This corrects an earlier note in this file which had it served through the
+ * WAS plugin and therefore app-aware. It is not.
+ */
+export const LIVE_TXT_STATIC_IN_IHS = true;
+
+/**
  * Legacy ISAM keys off the same cdbbossiteId as APIC, but hard-wires to
  * same-site BOS with no failover leg of its own. The cookie therefore records
  * which *APIC* served the last call, and initISAMSession inherits that answer

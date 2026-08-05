@@ -1,5 +1,5 @@
 import type {
-  GtmId, Resolution, Severity, SimState, SiteId
+  Cohort, CohortResult, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
   APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_COOKIE_NAME, SITE_IDS,
@@ -27,12 +27,25 @@ export interface TfNode {
   state: Severity | null;
   outOfService: boolean;
   isBreak: boolean;
+  /**
+   * Which cohorts traverse this node. 'both' renders in the existing blue —
+   * only genuine divergence takes a cohort colour, so a healthy estate draws
+   * exactly as it always has.
+   */
+  cohort: CohortTag | null;
+  /** True when a cohort is focused and this node belongs only to the other. */
+  muted: boolean;
 }
+
+/** Cohort membership of a drawn element. */
+export type CohortTag = 'both' | Cohort;
 
 /** A laid-out edge. */
 export interface TfEdge {
   d: string;
   kind: 'base' | 'taken' | 'crossover' | 'broken';
+  cohort: CohortTag | null;
+  muted: boolean;
 }
 
 /** A free-floating text label (swimlane titles, edge annotations). */
@@ -270,7 +283,9 @@ function baseLabels(state: SimState, res: Resolution): TfLabel[] {
     { x: RAIL_X.BCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
     { x: RAIL_X.SCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
     { x: 965, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' },
-    { x: 66, y: CSGCB_RAIL_Y - 8, text: '/banking/services/csgcb', kind: 'edge' }
+    // Sits right of the CWH Web lane title and above the trap alert, in the
+    // gap between the property-rule box and the ISAM LTM row.
+    { x: 210, y: CSGCB_RAIL_Y - 6, text: '/banking/services/csgcb', kind: 'edge' }
   ];
 
   /*
@@ -347,59 +362,129 @@ const LANES: TfLane[] = [
 ];
 
 /**
- * Lays out the traffic-flow diagram for a given state and resolution.
- * Pure: geometry only. Nodes on the taken path carry their hop number so the
- * order of traversal is readable without animation.
+ * The frame's headline cohort — drives labels, pills, hop numbers and the
+ * outcome the diagram is annotated for. The focused cohort wins; failing beats
+ * succeeding, because the failure is what the tool was opened for.
  */
-export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
+function pickPrimary(results: CohortResult[], focus: Cohort | null): CohortResult {
+  if (focus) {
+    const f = results.find(r => r.cohort === focus);
+    if (f) { return f; }
+  }
+  return results.find(r => r.resolution.outcome.severity === 'bad')
+    ?? results.find(r => r.cohort === 'existing')
+    ?? results[0];
+}
+
+type PathMap = Record<string, { hop: number; state: Severity }>;
+
+function traversal(res: Resolution): PathMap {
+  const m: PathMap = {};
+  res.steps.forEach((s, i) => s.ids.forEach(id => { m[id] = { hop: i + 1, state: s.state }; }));
+  return m;
+}
+
+/**
+ * Lays out the traffic-flow diagram for one journey frame.
+ *
+ * Both cohorts are drawn at once, but only where they actually differ: a node
+ * or edge travelled by both renders in the existing blue, and cohort colour
+ * appears solely on the divergent tail. On a healthy estate the two cohorts
+ * take the same route, so nothing is two-tone and the frame is identical to
+ * what a single-path render produced.
+ *
+ * Pure: geometry only.
+ */
+export function buildTrafficGraph(frame: JourneyFrame, focus: Cohort | null = null): TfGraph {
+  const state = frame.state;
+  const results = frame.results;
+  const primary = pickPrimary(results, focus);
+  const res = primary.resolution;
+
   const geom = baseNodes(res);
   isamNodes(geom);
   siteNodes(geom, state);
-  const entrySite = res.apicSite ?? res.bosSite;
 
-  // Map node id -> position in the taken path.
-  const onPath: Record<string, { hop: number; state: Severity }> = {};
-  res.steps.forEach((s, i) => s.ids.forEach(id => { onPath[id] = { hop: i + 1, state: s.state }; }));
+  const paths = new Map<Cohort, PathMap>();
+  results.forEach(r => paths.set(r.cohort, traversal(r.resolution)));
+
+  const memberOf = (id: string): CohortTag | null => {
+    const inNew = !!paths.get('new')?.[id];
+    const inOld = !!paths.get('existing')?.[id];
+    if (inNew && inOld) { return 'both'; }
+    if (inNew) { return 'new'; }
+    return inOld ? 'existing' : null;
+  };
+
+  /** Hop badge: the primary cohort's number, falling back to the other's. */
+  const hitFor = (id: string) => {
+    const p = paths.get(primary.cohort)?.[id];
+    if (p) { return p; }
+    for (const r of results) {
+      const h = paths.get(r.cohort)?.[id];
+      if (h) { return h; }
+    }
+    return null;
+  };
 
   const edges: TfEdge[] = baseEdgePairs()
     .filter(([a, b]) => geom[a] && geom[b])
-    .map(([a, b]) => ({ d: curve(geom[a], geom[b]), kind: 'base' as const }));
-  edges.push({ d: clientPropPath(geom), kind: 'base' });
+    .map(([a, b]) => ({
+      d: curve(geom[a], geom[b]), kind: 'base' as const, cohort: null, muted: false
+    }));
+  const baseRail = (d: string): TfEdge => ({ d, kind: 'base', cohort: null, muted: false });
+  edges.push(baseRail(clientPropPath(geom)));
   SITE_IDS.forEach(s => edges.push(
-    { d: railPath(geom, s), kind: 'base' },
-    { d: csgcbPath(geom, s), kind: 'base' },
-    { d: wgaRail(geom, s), kind: 'base' }
+    baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s))
   ));
 
-  // The taken path, drawn over the top.
-  for (let i = 0; i < res.steps.length - 1; i++) {
-    const next = res.steps[i + 1];
-    res.steps[i].ids.forEach(a => next.ids.forEach(b => {
-      if (!geom[a] || !geom[b]) { return; }
-      const leavesEntry = (a.startsWith('extgtm') || a.startsWith('gtm-') || a === 'cloudlet') &&
-        b.includes('-') && !!entrySite && !b.includes(`-${entrySite}`);
-      const kind: TfEdge['kind'] = next.state === 'bad' ? 'broken'
-        : leavesEntry ? 'crossover' : 'taken';
-      // Four hops are drawn as rails rather than beziers, so the taken path
-      // has to reuse the same geometry or it would peel away from the dim edge
-      // underneath it.
-      const d = a === 'cloudlet' && b.startsWith('ltm-') && res.bosSite
-        ? railPath(geom, res.bosSite)
-        : a === 'client' && b === 'akamai-prop'
-          ? clientPropPath(geom)
-          : a === 'akamai-prop' && b.startsWith('isamltm-')
-            ? csgcbPath(geom, b.slice('isamltm-'.length) as SiteId)
-            : a.startsWith('wga-') && b.startsWith('ltm-')
-              ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
-              : curve(geom[a], geom[b]);
-      edges.push({ d, kind });
-    }));
-  }
+  // Taken edges, per cohort, deduped by geometry so a shared hop is drawn once.
+  const taken = new Map<string, { d: string; kind: TfEdge['kind']; who: Set<Cohort> }>();
+  results.forEach(r => {
+    const rs = r.resolution;
+    const entrySite = rs.apicSite ?? rs.bosSite;
+    for (let i = 0; i < rs.steps.length - 1; i++) {
+      const next = rs.steps[i + 1];
+      rs.steps[i].ids.forEach(a => next.ids.forEach(b => {
+        if (!geom[a] || !geom[b]) { return; }
+        const leavesEntry = (a.startsWith('extgtm') || a.startsWith('gtm-') || a === 'cloudlet') &&
+          b.includes('-') && !!entrySite && !b.includes(`-${entrySite}`);
+        const kind: TfEdge['kind'] = next.state === 'bad' ? 'broken'
+          : leavesEntry ? 'crossover' : 'taken';
+        // Four hops are drawn as rails rather than beziers, so the taken path
+        // has to reuse the same geometry or it would peel away from the dim
+        // edge underneath it.
+        const d = a === 'cloudlet' && b.startsWith('ltm-') && rs.bosSite
+          ? railPath(geom, rs.bosSite)
+          : a === 'client' && b === 'akamai-prop'
+            ? clientPropPath(geom)
+            : a === 'akamai-prop' && b.startsWith('isamltm-')
+              ? csgcbPath(geom, b.slice('isamltm-'.length) as SiteId)
+              : a.startsWith('wga-') && b.startsWith('ltm-')
+                ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
+                : curve(geom[a], geom[b]);
+        const key = `${kind}|${d}`;
+        const e = taken.get(key) ?? { d, kind, who: new Set<Cohort>() };
+        e.who.add(r.cohort);
+        taken.set(key, e);
+      }));
+    }
+  });
+
+  taken.forEach(e => {
+    const solo = e.who.size === 1 ? [...e.who][0] : null;
+    edges.push({
+      d: e.d, kind: e.kind,
+      cohort: solo ?? 'both',
+      muted: focus !== null && solo !== null && solo !== focus
+    });
+  });
 
   const nodes: TfNode[] = Object.keys(geom).map(id => {
     const g = geom[id];
-    const hit = onPath[id];
+    const hit = hitFor(id);
     const off = !!state.down[id];
+    const cohort = off ? null : memberOf(id);
     return {
       id,
       x: g.x, y: g.y, width: g.width, height: g.height,
@@ -412,7 +497,9 @@ export function buildTrafficGraph(state: SimState, res: Resolution): TfGraph {
       hop: hit && !off ? hit.hop : null,
       state: hit && !off ? hit.state : null,
       outOfService: off,
-      isBreak: res.breakAt === id
+      isBreak: results.some(r => r.resolution.breakAt === id),
+      cohort,
+      muted: focus !== null && cohort !== null && cohort !== 'both' && cohort !== focus
     };
   });
 

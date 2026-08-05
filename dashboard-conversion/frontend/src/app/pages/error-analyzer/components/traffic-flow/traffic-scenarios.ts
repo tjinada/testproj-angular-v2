@@ -1,44 +1,167 @@
-import type { Scenario } from '../../models/traffic-flow.model';
-import { APP_SERVERS, WEB_SERVERS } from './traffic-topology';
+import type {
+  EnvState, EstateOverrides, JourneyStep, Scenario, ScenarioConfig, SiteId
+} from '../../models/traffic-flow.model';
+import { APIC_INSTANCES, APP_SERVERS, WEB_SERVERS } from './traffic-topology';
+
+export const DEFAULT_CONFIG: ScenarioConfig = {
+  primaryPath: 'api',
+  site: 'SCC',
+  outageSite: 'SCC',
+  outageType: 'unplanned',
+  recovery: 'jvm-then-ihs'
+};
+
+const jvms = (env: EnvState, site: SiteId, down: boolean) => {
+  for (let i = 1; i <= APP_SERVERS; i++) {
+    if (down) { env.down[`app-${site}-${i}`] = true; }
+    else { delete env.down[`app-${site}-${i}`]; }
+  }
+};
+
+const ihs = (env: EnvState, site: SiteId, down: boolean) => {
+  for (let i = 1; i <= WEB_SERVERS; i++) {
+    if (down) { env.down[`web-${site}-${i}`] = true; }
+    else { delete env.down[`web-${site}-${i}`]; }
+  }
+};
+
+const apic = (env: EnvState, site: SiteId, down: boolean) => {
+  if (down) { env.down[`apicfs-${site}`] = true; } else { delete env.down[`apicfs-${site}`]; }
+  for (let i = 1; i <= APIC_INSTANCES; i++) {
+    if (down) { env.down[`apic-${site}-${i}`] = true; }
+    else { delete env.down[`apic-${site}-${i}`]; }
+  }
+};
+
+/** Each primary request is followed by initISAMSession, which pins by cookie. */
+function requests(label: string, c: ScenarioConfig): JourneyStep[] {
+  const primary = c.primaryPath === 'api' ? '/api/cdb' : '/banking/services';
+  return [
+    { kind: 'request', label: `${label} — ${primary}`, path: c.primaryPath },
+    { kind: 'request', label: `${label} — initISAMSession`, path: 'csgcb' }
+  ];
+}
 
 /**
- * Journeys: one user followed across several requests, carrying their
- * cdbbossiteId and JSESSIONID forward so later steps see the consequences of
- * earlier ones. A single request can show the 500; only a journey can show
- * why the cookie was pointing at the dead site in the first place.
+ * The outage stages. Order of operations is the whole point:
+ *
+ * planned   — live.txt is renamed first, so the GTM drains the site before the
+ *             JVMs stop. New arrivals never touch it; only cookie-pinned
+ *             traffic is exposed.
+ * unplanned — the JVMs stop while live.txt is still being served by IHS, so
+ *             both GTMs keep sending into a site that cannot answer. Prod
+ *             support then renames the object to force the drain, and the
+ *             server is shut down last.
  */
-export const SCENARIOS: Scenario[] = [
-  {
-    id: 'isam-500',
-    title: 'initISAMSession 500 after an APIC failover',
-    blurb: 'SCC BOS is down. The /api/cdb call succeeds by failing over to BCC — ' +
-      'but stamps the cookie SCC, which sends the next csgcb call into the dead site.',
-
-    // The scenario pins both 50/50 splits so the journey is deterministic.
-    // Landing on SCC APIC is the precondition for the whole defect.
-    base: env => {
-      env.gtmPick = { bos: 'SCC', api: 'SCC' };
-    },
-
-    steps: [
-      {
-        kind: 'env',
-        label: 'Shut down SCC BOS (IHS + JVMs)',
-        apply: env => {
-          for (let i = 1; i <= WEB_SERVERS; i++) { env.down[`web-SCC-${i}`] = true; }
-          for (let i = 1; i <= APP_SERVERS; i++) { env.down[`app-SCC-${i}`] = true; }
-        }
-      },
-      {
-        kind: 'request',
-        label: 'User loads the app — /api/cdb',
-        path: 'api'
-      },
-      {
-        kind: 'request',
-        label: 'App calls initISAMSession — /banking/services/csgcb',
-        path: 'csgcb'
-      }
-    ]
+function outageStages(c: ScenarioConfig): { label: string; apply: (e: EnvState) => void }[] {
+  const s = c.outageSite;
+  switch (c.outageType) {
+    case 'planned':
+      return [
+        { label: `Rename live.txt on ${s} — GTM drains the site`,
+          apply: e => { e.live[s] = 'renamed'; } },
+        { label: `Shut down ${s} JVMs`, apply: e => jvms(e, s, true) }
+      ];
+    case 'unplanned':
+      return [
+        { label: `${s} JVMs go down — live.txt still served`,
+          apply: e => jvms(e, s, true) },
+        { label: `Prod support renames live.txt on ${s}`,
+          apply: e => { e.live[s] = 'renamed'; } },
+        { label: `Shut down the ${s} server (IHS)`, apply: e => ihs(e, s, true) }
+      ];
+    case 'apic':
+      return [
+        { label: `${s} APIC outage — LTM and all instances`,
+          apply: e => apic(e, s, true) }
+      ];
+    default:
+      return [];
   }
-];
+}
+
+/**
+ * Recovery stages. Only the unplanned mode has an ordering worth choosing,
+ * because only it takes both tiers down. Bringing IHS back before the JVMs
+ * restores live.txt while there is still nothing behind it, so the GTM returns
+ * traffic to a site that answers 503.
+ */
+function recoveryStages(c: ScenarioConfig): { label: string; apply: (e: EnvState) => void }[] {
+  const s = c.outageSite;
+  if (c.recovery === 'none' || c.outageType === 'none') { return []; }
+
+  if (c.outageType === 'apic') {
+    return [{ label: `Bring ${s} APIC back up`, apply: e => apic(e, s, false) }];
+  }
+
+  if (c.outageType === 'planned') {
+    return [{
+      label: `Bring ${s} JVMs up, then restore live.txt`,
+      apply: e => { jvms(e, s, false); e.live[s] = 'present'; }
+    }];
+  }
+
+  const jvmStage = {
+    label: `Bring ${s} JVMs back up`,
+    apply: (e: EnvState) => jvms(e, s, false)
+  };
+  const ihsStage = {
+    label: `Bring ${s} IHS back up — live.txt returns`,
+    apply: (e: EnvState) => { ihs(e, s, false); e.live[s] = 'present'; }
+  };
+  return c.recovery === 'ihs-then-jvm' ? [ihsStage, jvmStage] : [jvmStage, ihsStage];
+}
+
+const OUTAGE_TITLE: Record<string, string> = {
+  none: 'Healthy estate',
+  planned: 'Planned CDBBOS drain',
+  unplanned: 'Unplanned CDBBOS outage',
+  apic: 'APIC outage'
+};
+
+/**
+ * Turns the rail's config into a journey. Pure — the component regenerates on
+ * every control change rather than behind a build button.
+ *
+ * Every stage is followed by a request pair, so each frame answers "who is
+ * broken right now" rather than only showing the end state.
+ */
+export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
+  const steps: JourneyStep[] = [];
+  const stages = outageStages(c);
+  const recovery = recoveryStages(c);
+
+  if (stages.length === 0) {
+    steps.push(...requests('Healthy', c));
+  }
+
+  stages.forEach((stage, i) => {
+    steps.push({ kind: 'env', label: stage.label, apply: stage.apply });
+    steps.push(...requests(`Stage ${i + 1}`, c));
+  });
+
+  recovery.forEach((stage, i) => {
+    steps.push({ kind: 'env', label: stage.label, apply: stage.apply });
+    steps.push(...requests(`Recovery ${i + 1}`, c));
+  });
+
+  const same = c.site === c.outageSite;
+  return {
+    id: `${c.primaryPath}-${c.site}-${c.outageType}-${c.outageSite}-${c.recovery}`,
+    title: `${OUTAGE_TITLE[c.outageType]}${c.outageType === 'none' ? '' : ` on ${c.outageSite}`}`,
+    blurb: c.outageType === 'none'
+      ? `A healthy estate with the user on ${c.site}. Click any box to take it out of service.`
+      : same
+        ? `The user belongs to ${c.site}, which is the site going down.`
+        : `The user belongs to ${c.site} while ${c.outageSite} goes down — the control case.`,
+    // The user's own site is the GTM's answer while both sites are healthy.
+    // Rail-owned settings are applied here so they survive every regeneration.
+    base: env => {
+      env.gtmPick = { bos: c.site, api: c.site };
+      env.ltmMonitor = o.ltmMonitor;
+      env.extGtmMonitor = o.extGtmMonitor;
+      Object.keys(o.down).forEach(id => { env.down[id] = true; });
+    },
+    steps
+  };
+}

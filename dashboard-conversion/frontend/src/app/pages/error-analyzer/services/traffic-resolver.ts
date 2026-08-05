@@ -22,6 +22,9 @@ import {
 
 /** Title and severity per outcome key. */
 const OUTCOMES: Record<OutcomeKey, { title: string; severity: Severity }> = {
+  // Not produced by the resolver — the journey runner uses it for env frames,
+  // where the estate has changed but no request has been made.
+  ENV_CHANGE: { title: 'Estate changed — no request sent', severity: 'warn' },
   DOWN503: { title: 'Service Unavailable — 503', severity: 'bad' },
   ISAM500: { title: 'initISAMSession failed — 500', severity: 'bad' },
   POOL_OFF: { title: 'Pool Offline — call rejected (DACT-104)', severity: 'bad' },
@@ -249,18 +252,24 @@ export function resolveTraffic(state: SimState): Resolution {
 
     const wgaIds = wgas.map(i => `wga-${pinned}-${i}`);
 
-    // The WGA junction is hard-wired same-site. This is where the shared-cookie
-    // defect actually lands: ISAM inherited an answer about APIC and applied it
-    // to BOS.
-    if (!reachable(state, pinned)) {
+    // The WGA junction is hard-wired same-site. Any connection-level refusal
+    // from BOS surfaces as a 500 out of initISAMSession — whether the site is
+    // physically gone, or the LTM pool is empty because DACT-104 has the
+    // monitor watching a renamed liveness object. IHS answering its own 503
+    // (up, but no JVMs) is not this case and falls through to the shared tail.
+    const bosRefused = !reachable(state, pinned) || !ltmPoolUp(state, pinned);
+    if (bosRefused) {
+      const why = !reachable(state, pinned)
+        ? `${pinned} BOS is down and legacy ISAM has no failover leg of its own`
+        : `the ${pinned} BOS LTM pool is empty — DACT-104 has the monitor watching the ` +
+          'liveness object, so a rename marks every member offline and the VIP rejects';
       step(wgaIds, `ISAM WGA (${pinned})`,
         `The junction is hard-wired to same-site BOS — <b>${SITES[pinned].ltmHost}</b>. ` +
-        `${pinned} BOS is down and legacy ISAM has no failover leg of its own, so ` +
-        '<b>initISAMSession</b> fails.', 'bad');
+        `Here ${why}, so <b>initISAMSession</b> fails.`, 'bad');
       return done('ISAM500',
-        `${SITE_COOKIE_NAME} pinned ${pinned} ISAM, whose junction reaches only ${pinned} BOS — ` +
-        'and that site is down. Legacy ISAM shares the cookie with APIC but not APIC\'s failover, ' +
-        `so it cannot reach ${other(pinned)} BOS the way the /api/cdb path can.`,
+        `${SITE_COOKIE_NAME} pinned ${pinned} ISAM, whose junction reaches only ${pinned} BOS, and ` +
+        `${why}. Legacy ISAM shares the cookie with APIC but not APIC's failover, so it cannot ` +
+        `reach ${other(pinned)} BOS the way the /api/cdb path can.`,
         '500', { breakAt: `wga-${pinned}-${wgas[0]}` });
     }
 

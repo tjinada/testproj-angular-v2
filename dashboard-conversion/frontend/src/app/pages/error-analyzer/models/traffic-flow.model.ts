@@ -59,6 +59,7 @@ export interface SimState {
 
 /** Outcome keys, listed in resolver precedence order. */
 export type OutcomeKey =
+  | 'ENV_CHANGE'
   | 'DOWN503'
   | 'ISAM500'
   | 'POOL_OFF'
@@ -155,12 +156,67 @@ export interface Scenario {
   steps: JourneyStep[];
 }
 
-/** One resolved frame of a journey, ready to hand straight to the layout. */
+/** How a site is taken out. Order of operations is the whole story. */
+export type OutageType = 'none' | 'planned' | 'unplanned' | 'apic';
+
+/** Only meaningful for the unplanned mode; others collapse to on/off. */
+export type RecoveryOrder = 'none' | 'jvm-then-ihs' | 'ihs-then-jvm';
+
+/**
+ * Two kinds of user, resolved side by side on every request frame.
+ *
+ * 'new' is stateless — a fresh arrival at this instant, carrying nothing. It
+ * answers "what happens to someone hitting the site right now".
+ * 'existing' carries the cookie and JSESSIONID forward across the journey.
+ *
+ * csgcb frames have no 'new' cohort: the call is post-auth by definition.
+ */
+export type Cohort = 'new' | 'existing';
+
+/** What the builder rail produces. Everything else is derived from it. */
+export interface ScenarioConfig {
+  /** 'banking' or 'api'. csgcb is appended automatically, never chosen. */
+  primaryPath: TrafficPath;
+  /** Where this user belongs: GTM preference, cookie pin, and ISAM front door. */
+  site: SiteId;
+  /** What breaks. Independent of `site`, so the healthy-site control case works. */
+  outageSite: SiteId;
+  outageType: OutageType;
+  recovery: RecoveryOrder;
+}
+
+/**
+ * Estate settings the rail keeps control of during playback. The monitors stay
+ * editable mid-journey on purpose — comparing live.txt against a TCP check is
+ * the whole reason the flip exists — and manual out-of-service toggles let the
+ * healthy ('none') outage double as free-form exploration.
+ */
+export interface EstateOverrides {
+  down: Record<string, true>;
+  ltmMonitor: PoolMonitor;
+  extGtmMonitor: PoolMonitor;
+}
+
+/** One cohort's answer within a frame. */
+export interface CohortResult {
+  cohort: Cohort;
+  state: SimState;
+  resolution: Resolution;
+}
+
+/** One resolved frame of a journey. */
 export interface JourneyFrame {
   label: string;
   kind: JourneyStep['kind'];
+  /** Null on env frames. */
+  path: TrafficPath | null;
+  /**
+   * Representative state for estate-level rendering (out-of-service, liveness,
+   * monitors). Cohorts differ only in the request fields, never the estate.
+   */
   state: SimState;
-  resolution: Resolution;
-  /** The carried session as it stands *after* this frame. */
+  /** One entry per cohort present on this frame. Never empty. */
+  results: CohortResult[];
+  /** The carried session as it stands after this frame. */
   user: UserSession;
 }

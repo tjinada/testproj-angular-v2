@@ -2,13 +2,13 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  GtmId, LivenessState, PoolMonitor, SessionKind, SimState, SiteId, TrafficPath
+  Cohort, CohortResult, EstateOverrides, OutageType, PoolMonitor, RecoveryOrder,
+  ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
-import { resolveTraffic } from '../../services/traffic-resolver';
 import { runJourney } from '../../services/traffic-scenario-runner';
-import { SCENARIOS } from './traffic-scenarios';
+import { DEFAULT_CONFIG, buildScenario } from './traffic-scenarios';
 import { buildTrafficGraph, TfNode, TfPill } from './traffic-flow-layout';
-import { APP_SERVERS, SITE_IDS, defaultSimState, nodeLabel } from './traffic-topology';
+import { SITE_IDS, nodeLabel } from './traffic-topology';
 
 @Component({
   selector: 'app-traffic-flow',
@@ -23,51 +23,80 @@ export class TrafficFlowComponent implements OnInit {
   @Input() sharedParams: Record<string, string> | null = null;
 
   readonly siteIds = SITE_IDS;
-  readonly appServers = Array.from({ length: APP_SERVERS }, (_, i) => i + 1);
-  readonly scenarios = SCENARIOS;
 
-  state = signal<SimState>(defaultSimState());
+  config = signal<ScenarioConfig>({ ...DEFAULT_CONFIG });
+
+  /** Rail-owned estate settings. Survive every journey regeneration. */
+  overrides = signal<EstateOverrides>({ down: {}, ltmMonitor: 'live', extGtmMonitor: 'live' });
+
+  stepIndex = signal(0);
+  /** Null shows both cohorts; set dims the other to base weight. */
+  focus = signal<Cohort | null>(null);
+
   zoom = signal<'fit' | 'full'>('fit');
   linkCopied = signal(false);
   hoveredIds = signal<string[]>([]);
 
-  /** Null in manual mode. Set while a scenario is being replayed. */
-  scenarioId = signal<string | null>(null);
-  stepIndex = signal(0);
+  scenario = computed(() => buildScenario(this.config(), this.overrides()));
+  frames = computed(() => runJourney(this.scenario()));
 
-  /** True while a scenario owns the estate and the manual rail is locked. */
-  playing = computed(() => this.scenarioId() !== null);
+  /** Clamped, because changing the config can shorten the journey underfoot. */
+  activeIndex = computed(() =>
+    Math.min(this.stepIndex(), Math.max(0, this.frames().length - 1)));
+  activeFrame = computed(() => this.frames()[this.activeIndex()]);
 
-  frames = computed(() => {
-    const sc = this.scenarios.find(s => s.id === this.scenarioId());
-    return sc ? runJourney(sc) : [];
+  results = computed<CohortResult[]>(() => this.activeFrame()?.results ?? []);
+  newResult = computed(() => this.results().find(r => r.cohort === 'new') ?? null);
+  oldResult = computed(() => this.results().find(r => r.cohort === 'existing') ?? null);
+
+  /**
+   * The cohort the diagram and trace are annotated for. Mirrors pickPrimary in
+   * the layout: focus wins, then failing, then the existing user.
+   */
+  primary = computed<CohortResult | null>(() => {
+    const rs = this.results();
+    const f = this.focus();
+    if (f) {
+      const hit = rs.find(r => r.cohort === f);
+      if (hit) { return hit; }
+    }
+    return rs.find(r => r.resolution.outcome.severity === 'bad')
+      ?? rs.find(r => r.cohort === 'existing')
+      ?? rs[0] ?? null;
   });
 
-  /** The frame currently on screen, or null when driving manually. */
-  activeFrame = computed(() => this.frames()[this.stepIndex()] ?? null);
+  /** True when the cohorts actually disagree — drives the legend. */
+  diverged = computed(() => {
+    const a = this.newResult(), b = this.oldResult();
+    return !!a && !!b && a.resolution.outcome.key !== b.resolution.outcome.key;
+  });
 
-  /** Scenario frames drive the diagram when playing; the rail drives it otherwise. */
-  effectiveState = computed(() => this.activeFrame()?.state ?? this.state());
+  graph = computed(() => {
+    const frame = this.activeFrame();
+    return frame ? buildTrafficGraph(frame, this.focus()) : null;
+  });
 
-  resolution = computed(() => this.activeFrame()?.resolution ?? resolveTraffic(this.state()));
-  graph = computed(() => buildTrafficGraph(this.effectiveState(), this.resolution()));
+  effectiveState = computed(() => this.activeFrame()?.state ?? null);
+  carried = computed(() => this.activeFrame()?.user ?? null);
 
-  outOfService = computed(() => Object.keys(this.effectiveState().down).map(nodeLabel));
+  outOfService = computed(() => {
+    const s = this.effectiveState();
+    return s ? Object.keys(s.down).map(nodeLabel) : [];
+  });
+
+  /** Ordering only means something when both tiers went down. */
+  recoveryOrderMatters = computed(() => this.config().outageType === 'unplanned');
 
   shareLink = computed(() => {
-    const sc = this.scenarioId();
-    if (sc) {
-      return `/error-analyzer?tab=traffic&sc=${sc}&step=${this.stepIndex()}`;
-    }
-    const s = this.state();
+    const c = this.config(), o = this.overrides();
     const q = new URLSearchParams({
-      tab: 'traffic', path: s.path, sess: s.session, site: s.site,
-      js: String(s.jsession), ltm: s.ltmMonitor, xgtm: s.extGtmMonitor,
-      gtm: `bos:${s.gtmPick.bos},api:${s.gtmPick.api}`,
-      live: `BCC:${s.live.BCC},SCC:${s.live.SCC}`
+      tab: 'traffic', p: c.primaryPath, site: c.site, os: c.outageSite,
+      ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
+      ltm: o.ltmMonitor, xgtm: o.extGtmMonitor
     });
-    const off = Object.keys(s.down);
+    const off = Object.keys(o.down);
     if (off.length) { q.set('off', off.join(',')); }
+    if (this.focus()) { q.set('foc', this.focus() as string); }
     return `/error-analyzer?${q.toString()}`;
   });
 
@@ -77,151 +106,123 @@ export class TrafficFlowComponent implements OnInit {
     if (this.sharedParams) { this.restore(this.sharedParams); }
   }
 
-  /** Rebuilds state from a shared link. Unknown values fall back to defaults. */
+  /** Rebuilds config and overrides from a shared link. Unknown values default. */
   private restore(p: Record<string, string>): void {
-    // A scenario link replays the journey instead of restoring a manual state.
-    if (p['sc'] && this.scenarios.some(s => s.id === p['sc'])) {
-      this.scenarioId.set(p['sc']);
-      const step = Number(p['step']);
-      const max = this.frames().length - 1;
-      this.stepIndex.set(step >= 0 && step <= max ? step : 0);
-      return;
+    const c: ScenarioConfig = { ...DEFAULT_CONFIG };
+    if (p['p'] === 'banking' || p['p'] === 'api') { c.primaryPath = p['p']; }
+    if (p['site'] === 'BCC' || p['site'] === 'SCC') { c.site = p['site']; }
+    if (p['os'] === 'BCC' || p['os'] === 'SCC') { c.outageSite = p['os']; }
+    if (['none', 'planned', 'unplanned', 'apic'].includes(p['ot'])) {
+      c.outageType = p['ot'] as OutageType;
     }
-
-    const next = defaultSimState();
-    if (p['path'] === 'banking' || p['path'] === 'api' || p['path'] === 'csgcb') {
-      next.path = p['path'];
+    if (['none', 'jvm-then-ihs', 'ihs-then-jvm'].includes(p['rec'])) {
+      c.recovery = p['rec'] as RecoveryOrder;
     }
-    if (p['sess'] === 'new' || p['sess'] === 'existing') { next.session = p['sess']; }
-    // csgcb is post-auth, so a link claiming a new session is not a real state.
-    if (next.path === 'csgcb') { next.session = 'existing'; }
-    if (p['site'] === 'BCC' || p['site'] === 'SCC') { next.site = p['site']; }
-    if (p['ltm'] === 'live' || p['ltm'] === 'tcp') { next.ltmMonitor = p['ltm']; }
-    if (p['xgtm'] === 'live' || p['xgtm'] === 'tcp') { next.extGtmMonitor = p['xgtm']; }
+    this.config.set(c);
 
-    const js = Number(p['js']);
-    if (js >= 1 && js <= APP_SERVERS) { next.jsession = js; }
+    const o: EstateOverrides = { down: {}, ltmMonitor: 'live', extGtmMonitor: 'live' };
+    if (p['ltm'] === 'live' || p['ltm'] === 'tcp') { o.ltmMonitor = p['ltm']; }
+    if (p['xgtm'] === 'live' || p['xgtm'] === 'tcp') { o.extGtmMonitor = p['xgtm']; }
+    (p['off'] ?? '').split(',').filter(Boolean).forEach(id => { o.down[id] = true; });
+    this.overrides.set(o);
 
-    (p['gtm'] ?? '').split(',').forEach(pair => {
-      const [gtm, value] = pair.split(':');
-      if ((gtm === 'bos' || gtm === 'api') && (value === 'BCC' || value === 'SCC')) {
-        next.gtmPick[gtm] = value;
-      }
-    });
+    if (p['foc'] === 'new' || p['foc'] === 'existing') { this.focus.set(p['foc']); }
 
-    (p['live'] ?? '').split(',').forEach(pair => {
-      const [site, value] = pair.split(':');
-      if ((site === 'BCC' || site === 'SCC') && (value === 'present' || value === 'renamed')) {
-        next.live[site] = value;
-      }
-    });
-
-    (p['off'] ?? '').split(',').filter(Boolean).forEach(id => { next.down[id] = true; });
-
-    this.state.set(next);
+    const step = Number(p['step']);
+    this.stepIndex.set(step >= 0 && step < this.frames().length ? step : 0);
   }
 
-  /** Writes the current scenario back to the URL without stacking history. */
-  private syncUrl(s: SimState): void {
-    const off = Object.keys(s.down);
+  private syncUrl(): void {
+    const c = this.config(), o = this.overrides();
+    const off = Object.keys(o.down);
     this.router.navigate([], {
       queryParams: {
-        tab: 'traffic', path: s.path, sess: s.session, site: s.site,
-        js: s.jsession, ltm: s.ltmMonitor, xgtm: s.extGtmMonitor,
-        gtm: `bos:${s.gtmPick.bos},api:${s.gtmPick.api}`,
-        live: `BCC:${s.live.BCC},SCC:${s.live.SCC}`,
-        off: off.length ? off.join(',') : null
+        tab: 'traffic', p: c.primaryPath, site: c.site, os: c.outageSite,
+        ot: c.outageType, rec: c.recovery, step: this.activeIndex(),
+        ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
+        off: off.length ? off.join(',') : null,
+        foc: this.focus() ?? null
       },
       replaceUrl: true
     });
   }
 
-  private update(mutate: (s: SimState) => void): void {
-    const next: SimState = {
-      ...this.state(),
-      live: { ...this.state().live },
-      down: { ...this.state().down }
-    };
+  /** Config edits rebuild the journey, so playback restarts from the top. */
+  private setConfig(mutate: (c: ScenarioConfig) => void): void {
+    const next = { ...this.config() };
     mutate(next);
-    this.state.set(next);
-    this.syncUrl(next);
+    this.config.set(next);
+    this.stepIndex.set(0);
+    this.syncUrl();
   }
 
-  /** csgcb is post-auth, so selecting it locks the session to Existing. */
-  setPath(v: TrafficPath): void {
-    this.update(s => {
-      s.path = v;
-      if (v === 'csgcb') { s.session = 'existing'; }
+  private setOverrides(mutate: (o: EstateOverrides) => void): void {
+    const next: EstateOverrides = { ...this.overrides(), down: { ...this.overrides().down } };
+    mutate(next);
+    this.overrides.set(next);
+    this.syncUrl();
+  }
+
+  // ---- rail controls -------------------------------------------------------
+
+  setPrimaryPath(v: TrafficPath): void { this.setConfig(c => { c.primaryPath = v; }); }
+  setSite(v: SiteId): void { this.setConfig(c => { c.site = v; }); }
+  setOutageSite(v: SiteId): void { this.setConfig(c => { c.outageSite = v; }); }
+  setRecovery(v: RecoveryOrder): void { this.setConfig(c => { c.recovery = v; }); }
+
+  setOutageType(v: OutageType): void {
+    this.setConfig(c => {
+      c.outageType = v;
+      // Nothing is down, so there is nothing to recover in a chosen order.
+      if (v === 'none') { c.recovery = 'none'; }
+      else if (v !== 'unplanned' && c.recovery === 'ihs-then-jvm') { c.recovery = 'jvm-then-ihs'; }
     });
   }
 
-  // ---- scenario playback ---------------------------------------------------
+  // Monitors stay editable during playback: comparing live.txt against a TCP
+  // check on the same journey is the reason the flip exists.
+  setLtmMonitor(v: PoolMonitor): void { this.setOverrides(o => { o.ltmMonitor = v; }); }
+  setExtGtmMonitor(v: PoolMonitor): void { this.setOverrides(o => { o.extGtmMonitor = v; }); }
 
-  playScenario(id: string): void {
-    this.scenarioId.set(id);
-    this.stepIndex.set(0);
-    this.syncScenarioUrl();
-  }
-
-  /** Leaves playback and hands the estate back to the rail as it stood. */
-  exitScenario(): void {
-    const frame = this.activeFrame();
-    if (frame) { this.state.set(frame.state); }
-    this.scenarioId.set(null);
-    this.stepIndex.set(0);
-    if (frame) { this.syncUrl(frame.state); }
-  }
+  // ---- playback ------------------------------------------------------------
 
   goToStep(i: number): void {
     if (i < 0 || i >= this.frames().length) { return; }
     this.stepIndex.set(i);
-    this.syncScenarioUrl();
+    this.syncUrl();
   }
 
-  private syncScenarioUrl(): void {
-    this.router.navigate([], {
-      queryParams: { tab: 'traffic', sc: this.scenarioId(), step: this.stepIndex() },
-      replaceUrl: true
-    });
-  }
-
-  setSession(v: SessionKind): void { this.update(s => { s.session = v; }); }
-  setSite(v: SiteId): void { this.update(s => { s.site = v; }); }
-  setGtmPick(gtm: GtmId, v: SiteId): void {
-    this.update(s => { s.gtmPick = { ...s.gtmPick, [gtm]: v }; });
-  }
-  setJsession(v: number): void { this.update(s => { s.jsession = v; }); }
-  setLtmMonitor(v: PoolMonitor): void { this.update(s => { s.ltmMonitor = v; }); }
-  setExtGtmMonitor(v: PoolMonitor): void { this.update(s => { s.extGtmMonitor = v; }); }
-  setLive(site: SiteId, v: LivenessState): void { this.update(s => { s.live[site] = v; }); }
-
-  /** Clicking a pill only does something when the GTM pick is in play. */
-  clickPill(pill: TfPill): void {
-    if (!pill.active || this.scenarioId()) { return; }
-    this.setGtmPick(pill.gtm, pill.site);
+  setFocus(c: Cohort | null): void {
+    this.focus.set(this.focus() === c ? null : c);
+    this.syncUrl();
   }
 
   /** Clicking a box takes it out of service, or brings it back. */
   toggleNode(node: TfNode): void {
-    // Scenario frames are a rebuilt fold, so a toggle here would be silently
-    // discarded on the next step. Playback owns the estate.
-    if (!node.toggleable || this.scenarioId()) { return; }
-    this.update(s => {
-      if (s.down[node.id]) { delete s.down[node.id]; } else { s.down[node.id] = true; }
+    if (!node.toggleable) { return; }
+    this.setOverrides(o => {
+      if (o.down[node.id]) { delete o.down[node.id]; } else { o.down[node.id] = true; }
     });
   }
 
-  resetOutages(): void { this.update(s => { s.down = {}; }); }
+  /**
+   * The GTM pick is derived from the user's site, so the pills are a shortcut
+   * to that control rather than an independent one.
+   */
+  clickPill(pill: TfPill): void {
+    if (!pill.active) { return; }
+    this.setSite(pill.site);
+  }
+
+  resetOutages(): void { this.setOverrides(o => { o.down = {}; }); }
 
   setZoom(v: 'fit' | 'full'): void { this.zoom.set(v); }
 
-  /** Hovering a node or trace row highlights its counterpart. */
   hover(ids: string[]): void { this.hoveredIds.set(ids); }
   clearHover(): void { this.hoveredIds.set([]); }
   isHovered(id: string): boolean { return this.hoveredIds().includes(id); }
   isStepHovered(ids: string[]): boolean {
-    const hot = this.hoveredIds();
-    return ids.some(id => hot.includes(id));
+    return ids.some(id => this.hoveredIds().includes(id));
   }
 
   async copyLink(): Promise<void> {
