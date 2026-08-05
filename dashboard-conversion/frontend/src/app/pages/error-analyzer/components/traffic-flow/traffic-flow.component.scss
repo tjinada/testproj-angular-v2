@@ -531,8 +531,7 @@ path.tf-f-context { stroke: $f-context; stroke-dasharray: 6 5; opacity: .5; }
 }
 .tf-row { display: grid; grid-template-columns: 108px 1fr; gap: 8px; align-items: baseline; }
 .tf-k { font-size: 10.5px; color: $muted; font-weight: 600; }
-.tf-k.tf-f-primary { color: $f-primary; }
-.tf-k.tf-f-isam { color: $f-isam; }
+.tf-k.tf-f-signin { color: $f-current; }
 .tf-v { font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
 .tf-t-ok { color: $ok; } .tf-t-warn { color: $warn; } .tf-t-bad { color: $bad; font-weight: 700; }
 .tf-note { font-size: 11px; color: $muted; line-height: 1.35; margin-top: 2px; }
