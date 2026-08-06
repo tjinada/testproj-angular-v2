@@ -1,0 +1,203 @@
+{
+  "tiles": {
+    "0": {
+      "content": "# CDB Endpoints\n\nServer endpoints whose `url.path` contains one of the tracked patterns. Adjust the time window via the dashboard timeframe selector.",
+      "type": "markdown"
+    },
+    "1": {
+      "content": "## `CDBBOS Endpoints (/banking/services/)`",
+      "type": "markdown"
+    },
+    "2": {
+      "davis": {
+        "davisVisualization": {
+          "isAvailable": true
+        },
+        "enabled": false
+      },
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/banking/services/\"))\n| filter span.kind == \"server\"\n| summarize distinctEndpoints = countDistinctExact(url.path)",
+      "querySettings": {
+        "defaultSamplingRatio": 10,
+        "defaultScanLimitGbytes": 500,
+        "enableSampling": false,
+        "maxResultMegaBytes": 1,
+        "maxResultRecords": 1000
+      },
+      "title": "Distinct Endpoints",
+      "type": "data",
+      "visualization": "singleValue",
+      "visualizationSettings": {
+        "singleValue": {
+          "label": "Endpoints",
+          "prefixIcon": "",
+          "recordField": "distinctEndpoints"
+        }
+      }
+    },
+    "3": {
+      "davis": {
+        "davisVisualization": {
+          "isAvailable": true
+        },
+        "enabled": false
+      },
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/banking/services/\"))\n| filter span.kind == \"server\"\n\n// Sort before summarize so lastSeen and latestTraceId come from the SAME span.\n// takeMax(start_time) + takeFirst(trace.id) are independent aggregations and\n// can return a mismatched pair, which would produce a link whose time window\n// does not contain the trace.\n| sort start_time desc\n| summarize {\n    trafficCount = count(),\n    lastSeen = takeFirst(start_time),\n    latestTraceId = takeFirst(trace.id)\n  },\n  by: { url.path }\n\n| fieldsAdd analyzerLink = concat(\n    \"https://cdbdashboard-route-cdb-auto-63623-dv1.ingress.water.ocp4-dv.bmogc.net/error-analyzer\",\n    \"?trace_id=\", latestTraceId,\n    \"&env=PROD\",\n    \"&from=\", formatTimestamp(lastSeen - 2m, format:\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\", timezone:\"UTC\"),\n    \"&to=\", formatTimestamp(lastSeen + 2m, format:\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\", timezone:\"UTC\")\n  )\n\n| sort lastSeen desc\n| limit 500",
+      "querySettings": {
+        "defaultSamplingRatio": 10,
+        "defaultScanLimitGbytes": 500,
+        "enableSampling": false,
+        "maxResultMegaBytes": 1,
+        "maxResultRecords": 1000
+      },
+      "title": "Endpoints matching /banking/services/",
+      "type": "data",
+      "visualization": "table",
+      "visualizationSettings": {
+        "table": {
+          "columnWidths": {
+            "lastSeen": 220,
+            "latestTraceId": 320,
+            "trafficCount": 140,
+            "url.path": 420,
+            "analyzerLink": 560
+          },
+          "linewrapEnabled": true,
+          "sortBy": [
+            {
+              "columnId": "[\"url.path\"]",
+              "direction": "ascending"
+            }
+          ]
+        }
+      }
+    },
+    "4": {
+      "content": "## `/api/cdb/`",
+      "type": "markdown"
+    },
+    "5": {
+      "davis": {
+        "davisVisualization": {
+          "isAvailable": true
+        },
+        "enabled": false
+      },
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/cdb/\"))\n| filter span.kind == \"server\"\n| fieldsAdd normalizedPath = url.path\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/prd-' LD:stage '/api/'\", \"/api/\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/session-data/' LD:key EOS\", \"/session-data/{cacheKey}\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'v' INT:ver '/' LD:id '/'\", \"v{ver}/{id}/\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'v' INT:ver '/' LD:id EOS\", \"v{ver}/{id}\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/statementSummary/' LD:id EOS\", \"/statementSummary/{id}\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/statementTransactions/' LD:id EOS\", \"/statementTransactions/{id}\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/' INT:n '/'\", \"/{id}/\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/' INT:n EOS\", \"/{id}\")\n| summarize distinctEndpoints = countDistinctExact(normalizedPath)",
+      "querySettings": {
+        "defaultSamplingRatio": 10,
+        "defaultScanLimitGbytes": 500,
+        "enableSampling": false,
+        "maxResultMegaBytes": 1,
+        "maxResultRecords": 1000
+      },
+      "title": "Distinct Endpoints",
+      "type": "data",
+      "visualization": "singleValue",
+      "visualizationSettings": {
+        "singleValue": {
+          "label": "Endpoints",
+          "prefixIcon": "",
+          "recordField": "distinctEndpoints"
+        }
+      }
+    },
+    "6": {
+      "davis": {
+        "davisVisualization": {
+          "isAvailable": true
+        },
+        "enabled": false
+      },
+      "query": "fetch spans, scanLimitGBytes:500\n| filter contains(lower(url.path), lower(\"/cdb/\"))\n| filter span.kind == \"server\"\n| fieldsAdd normalizedPath = url.path\n\n// Strip API Gateway stage prefix\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/prd-' LD:stage '/api/'\", \"/api/\")\n\n// Cache keys\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/session-data/' LD:key EOS\", \"/session-data/{cacheKey}\")\n\n// IDs following any segment ending in v<N> \u2014 catches /v1/, /api-v3/, /servicenamev2/, etc.\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'v' INT:ver '/' LD:id '/'\", \"v{ver}/{id}/\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'v' INT:ver '/' LD:id EOS\", \"v{ver}/{id}\")\n\n// Specific known endpoints with trailing IDs\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/statementSummary/' LD:id EOS\", \"/statementSummary/{id}\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/statementTransactions/' LD:id EOS\", \"/statementTransactions/{id}\")\n\n// Fallback: any remaining purely-numeric segment\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/' INT:n '/'\", \"/{id}/\")\n| fieldsAdd normalizedPath = replacePattern(normalizedPath, \"'/' INT:n EOS\", \"/{id}\")\n\n// Sort before summarize so lastSeen and latestTraceId come from the SAME span.\n| sort start_time desc\n| summarize {\n    trafficCount = count(),\n    distinctRawPaths = countDistinctExact(url.path),\n    lastSeen = takeFirst(start_time),\n    latestTraceId = takeFirst(trace.id)\n  },\n  by: { normalizedPath }\n\n| fieldsAdd analyzerLink = concat(\n    \"https://cdbdashboard-route-cdb-auto-63623-dv1.ingress.water.ocp4-dv.bmogc.net/error-analyzer\",\n    \"?trace_id=\", latestTraceId,\n    \"&env=PROD\",\n    \"&from=\", formatTimestamp(lastSeen - 2m, format:\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\", timezone:\"UTC\"),\n    \"&to=\", formatTimestamp(lastSeen + 2m, format:\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\", timezone:\"UTC\")\n  )\n\n| sort trafficCount desc\n| limit 500",
+      "querySettings": {
+        "defaultSamplingRatio": 10,
+        "defaultScanLimitGbytes": 500,
+        "enableSampling": false,
+        "maxResultMegaBytes": 1,
+        "maxResultRecords": 1000
+      },
+      "title": "Endpoints matching /api/cdb/",
+      "type": "data",
+      "visualization": "table",
+      "visualizationSettings": {
+        "table": {
+          "columnWidths": {
+            "[\"endpoint.name\"]": 465,
+            "[\"request.name\"]": 63.39,
+            "[\"url.path\"]": 663,
+            "lastSeen": 220,
+            "latestTraceId": 320,
+            "trafficCount": 140,
+            "url.path": 420,
+            "analyzerLink": 560
+          },
+          "linewrapEnabled": true,
+          "sortBy": [
+            {
+              "columnId": "[\"trafficCount\"]",
+              "direction": "descending"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "variables": [],
+  "annotations": [],
+  "settings": {
+    "autoRefresh": {
+      "defaultInterval": "5m",
+      "enabled": false
+    },
+    "gridLayout": {
+      "displayMode": "responsive",
+      "mode": "responsive"
+    }
+  },
+  "layouts": {
+    "0": {
+      "h": 3,
+      "w": 24,
+      "x": 0,
+      "y": 0
+    },
+    "1": {
+      "h": 2,
+      "w": 24,
+      "x": 0,
+      "y": 3
+    },
+    "2": {
+      "h": 14,
+      "w": 6,
+      "x": 0,
+      "y": 5
+    },
+    "3": {
+      "h": 14,
+      "w": 18,
+      "x": 6,
+      "y": 5
+    },
+    "4": {
+      "h": 2,
+      "w": 24,
+      "x": 0,
+      "y": 19
+    },
+    "5": {
+      "h": 14,
+      "w": 6,
+      "x": 0,
+      "y": 21
+    },
+    "6": {
+      "h": 16,
+      "w": 18,
+      "x": 6,
+      "y": 21
+    }
+  },
+  "importedWithCode": false,
+  "version": 21
+}
