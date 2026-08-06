@@ -13,7 +13,7 @@ $amber: #f2a900;
 
 .tf-layout {
   display: grid;
-  grid-template-columns: 236px 1fr;
+  grid-template-columns: 264px 1fr;
   gap: 20px;
   align-items: start;
 
@@ -91,7 +91,8 @@ $amber: #f2a900;
   &.tf-seg-narrow button { font-size: 11px; padding: 5px 0; }
   &.tf-seg-danger button[aria-pressed='true'] { background: $bad; }
 
-  /* Path labels are too long to sit side by side in a 236px rail. */
+  /* Stacked segments carry descriptive labels, so they must wrap. The nowrap
+     on .tf-seg button suits BCC/SCC but clips anything longer. */
   &.tf-seg-stack {
     flex-direction: column;
 
@@ -99,9 +100,22 @@ $amber: #f2a900;
       border-right: none;
       border-bottom: 1px solid $line;
       text-align: left;
-      padding: 5px 8px;
+      padding: 6px 9px;
+      white-space: normal;
+      line-height: 1.35;
 
       &:last-child { border-bottom: none; }
+
+      small {
+        display: block;
+        white-space: normal;
+        font-size: 10px;
+        font-weight: 400;
+        color: $muted;
+        margin-top: 1px;
+      }
+
+      &[aria-pressed='true'] small { color: #d8ebf8; }
     }
   }
 }
