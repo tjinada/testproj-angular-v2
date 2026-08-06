@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  CallKind, CallResult, Cohort, EstateOverrides, JourneyFrame, OutageType, PoolMonitor,
-  RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
+  CallKind, CallResult, Cohort, CookieSetter, EstateOverrides, JourneyFrame, OutageType,
+  PoolMonitor, RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { callPaths, runJourney } from '../../services/traffic-scenario-runner';
 import { DEFAULT_CONFIG, buildScenario } from './traffic-scenarios';
@@ -123,6 +123,7 @@ export class TrafficFlowComponent implements OnInit {
   }
 
   setSigninPath(v: TrafficPath): void { this.setConfig(c => { c.signinPath = v; }); }
+  setCookieSetBy(v: CookieSetter): void { this.setConfig(c => { c.cookieSetBy = v; }); }
 
   primaryLabel = computed(() => '/api/cdb');
 

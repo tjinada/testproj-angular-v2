@@ -55,7 +55,22 @@ export interface SimState {
   extGtmMonitor: PoolMonitor;
   /** Node ids taken out of service, keyed for cheap lookup. */
   down: Record<string, true>;
+  /** Where cdbbossiteId is written. Estate-level, not per-request. */
+  cookieSetBy: CookieSetter;
 }
+
+/**
+ * Where cdbbossiteId is written.
+ *
+ * 'edge' — today. Akamai stamps it from the origin it *targeted*, so the value
+ *          records a routing intention. On /api/cdb that is the APIC site,
+ *          which knows nothing about BOS health.
+ * 'ihs'  — proposed. The BOS web server writes it on the response, so it can
+ *          only name a site that just demonstrably served the request. A
+ *          refused or bounced request sets nothing, leaving the user unpinned
+ *          to re-roll the GTM next time.
+ */
+export type CookieSetter = 'edge' | 'ihs';
 
 /** Outcome keys, listed in resolver precedence order. */
 export type OutcomeKey =
@@ -190,6 +205,8 @@ export interface ScenarioConfig {
    *             cookie records a site BOS liveness has already vouched for.
    */
   signinPath: TrafficPath;
+  /** Where cdbbossiteId is written — the proposed IHS-set workaround. */
+  cookieSetBy: CookieSetter;
   /**
    * Which site the deciding GTM's 50/50 answers on sign-in. Applies only when
    * the request arrives unpinned — once cdbbossiteId is set, the Akamai

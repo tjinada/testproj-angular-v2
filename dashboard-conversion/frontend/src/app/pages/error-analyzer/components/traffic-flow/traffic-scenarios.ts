@@ -6,6 +6,7 @@ import { APIC_INSTANCES, APP_SERVERS, WEB_SERVERS } from './traffic-topology';
 /** Opens healthy on BCC, with sign-in where it lives today. */
 export const DEFAULT_CONFIG: ScenarioConfig = {
   signinPath: 'api',
+  cookieSetBy: 'edge',
   site: 'BCC',
   outageSite: 'BCC',
   outageType: 'none',
@@ -158,6 +159,7 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
     // Rail-owned settings are applied here so they survive every regeneration.
     base: env => {
       env.gtmPick = { bos: c.site, api: c.site };
+      env.cookieSetBy = c.cookieSetBy;
       env.ltmMonitor = o.ltmMonitor;
       env.extGtmMonitor = o.extGtmMonitor;
       Object.keys(o.down).forEach(id => { env.down[id] = true; });

@@ -161,7 +161,11 @@ export function resolveTraffic(state: SimState): Resolution {
 
   /** The edge stamps <env>-<SITE> based on the origin it targeted. */
   let stampedSite: SiteId | null = null;
+  const edgeStamps = state.cookieSetBy !== 'ihs';
   const stamp = (site: SiteId) => {
+    // Under the IHS proposal Akamai is strictly read-only for this cookie, so
+    // every edge write is suppressed and the origin writes it instead.
+    if (!edgeStamps) { return; }
     stampedSite = site;
     stampedCookie = `${SITE_COOKIE_NAME}=<env>-${site}`;
   };
@@ -483,6 +487,16 @@ export function resolveTraffic(state: SimState): Resolution {
     : key === 'TIMEOUT'
       ? `JSESSIONID=…${suffix} (new)`
       : null;
+
+  // Under the IHS proposal the cookie is written by the web server on the
+  // response, so it can only ever name a site that just served the request.
+  // Everything that failed earlier returned before reaching here; TIMEOUT is
+  // the one outcome that gets this far without being served, so it is excluded
+  // and the user stays unpinned to re-roll the GTM next time.
+  if (!edgeStamps && key !== 'TIMEOUT') {
+    stampedSite = bosSite;
+    stampedCookie = `${SITE_COOKIE_NAME}=<env>-${bosSite} (set by IHS)`;
+  }
 
   return done(key, why, key === 'TIMEOUT' ? '302 → login' : '200 OK', {
     apicSite,

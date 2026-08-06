@@ -134,6 +134,7 @@ export function defaultSimState(): SimState {
     live: { BCC: 'present', SCC: 'present' },
     ltmMonitor: 'live',
     extGtmMonitor: 'live',
+    cookieSetBy: 'edge',
     down: {}
   };
 }

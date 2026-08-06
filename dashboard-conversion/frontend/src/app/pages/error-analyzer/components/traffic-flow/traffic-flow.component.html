@@ -3,6 +3,20 @@
   <!-- Control rail -->
   <aside class="tf-rail">
     <div class="tf-group">
+      <h3>Cookie set by</h3>
+      <div class="tf-seg tf-seg-stack">
+        <button type="button" [attr.aria-pressed]="config().cookieSetBy === 'edge'"
+          (click)="setCookieSetBy('edge')">Akamai edge
+          <small>today &mdash; records the origin it targeted</small></button>
+        <button type="button" [attr.aria-pressed]="config().cookieSetBy === 'ihs'"
+          (click)="setCookieSetBy('ihs')">BOS IHS
+          <small>proposed &mdash; records the site that served</small></button>
+      </div>
+      <p class="tf-hint">On IHS the cookie is written on the response, so a refused or bounced
+        request pins nothing and the user re-rolls the GTM next time.</p>
+    </div>
+
+    <div class="tf-group">
       <h3>Sign-in path</h3>
       <div class="tf-seg tf-seg-stack">
         <button type="button" [attr.aria-pressed]="config().signinPath === 'api'"
