@@ -122,7 +122,28 @@ export class TrafficFlowComponent implements OnInit {
     return p === 'csgcb' ? 'initISAMSession' : p === 'api' ? '/api/cdb' : '/banking/services';
   }
 
-  setSigninPath(v: TrafficPath): void { this.setConfig(c => { c.signinPath = v; }); }
+  /**
+   * Selecting a sign-in path selects the whole package it belongs to.
+   *
+   * The proposal is not just "move sign-in": once the pin comes from a
+   * BOS-health-aware decision, the internal tiers should stop failing over on
+   * their own, because an independent re-route is precisely what separates the
+   * cookie from the session. So both monitors move to a TCP check with it —
+   * that is also the DACT-104 remediation.
+   *
+   * The monitor toggles stay editable afterwards, so the package can still be
+   * taken apart one piece at a time.
+   */
+  setSigninPath(v: TrafficPath): void {
+    const monitor: PoolMonitor = v === 'banking' ? 'tcp' : 'live';
+    this.overrides.set({
+      ...this.overrides(),
+      down: { ...this.overrides().down },
+      ltmMonitor: monitor,
+      extGtmMonitor: monitor
+    });
+    this.setConfig(c => { c.signinPath = v; });
+  }
 
   primaryLabel = computed(() => '/api/cdb');
 

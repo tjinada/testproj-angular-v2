@@ -7,14 +7,14 @@
       <div class="tf-seg tf-seg-stack">
         <button type="button" [attr.aria-pressed]="config().signinPath === 'api'"
           (click)="setSigninPath('api')">/api/cdb
-          <small>today &mdash; GTM-CDB-API, TCP:443</small></button>
+          <small>today &mdash; GTM-CDB-API on TCP:443, both monitors on live.txt</small></button>
         <button type="button" [attr.aria-pressed]="config().signinPath === 'banking'"
           (click)="setSigninPath('banking')">/banking/services
-          <small>proposed &mdash; GTM-CDB-BOS, live.txt</small></button>
+          <small>proposed &mdash; GTM-CDB-BOS on live.txt, both monitors on TCP</small></button>
       </div>
       <p class="tf-hint">SigninRequestManager arrives unpinned, so whichever GTM answers it
-        decides what goes into <code>cdbbossiteId</code>. Today that is an APIC check, which
-        knows nothing about BOS health.</p>
+        decides what goes into <code>cdbbossiteId</code>. Selecting a path also sets the pool
+        monitors to match &mdash; change them below to take the package apart.</p>
 
       <ol class="tf-seq">
         <li><b class="tf-f-signin">{{ callLabel('signin') }}</b>
