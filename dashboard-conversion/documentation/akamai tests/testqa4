@@ -1,0 +1,4 @@
+dig +short uat.olb.com.edgekey-staging.net
+curl -sk -D- -o /dev/null \
+  --resolve www.olb-qa4.dev.bmo.com:443:<staging-ip> \
+  https://www.olb-qa4.dev.bmo.com/banking/servlet/SigninRequestManager?action=Get
