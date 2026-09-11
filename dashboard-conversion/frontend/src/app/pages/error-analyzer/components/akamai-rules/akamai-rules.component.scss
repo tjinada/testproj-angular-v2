@@ -168,57 +168,59 @@ input[type='search'] {
   }
 }
 
-.estate {
+// One control block. The left gutter labels are the same 76px as the
+// Destination panel's key column below, so both share a left edge.
+.controls {
+  border: 1px solid $line;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.crow {
   display: flex;
-  gap: 26px;
+  gap: 16px;
+  padding: 12px 16px;
+  align-items: flex-start;
+
+  + .crow {
+    border-top: 1px solid $surface-3;
+  }
+}
+
+.clabel {
+  flex: none;
+  width: 76px;
+  padding-top: 9px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $muted-2;
+}
+
+.cfields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  padding: 12px 16px;
-  margin-bottom: 10px;
-  border: 1px solid $line-2;
-  border-radius: 6px;
-  background: $surface-2;
 
-  .group {
+  // Label and control travel together when the row wraps.
+  .grp {
     display: flex;
-    gap: 9px;
+    gap: 8px;
     align-items: center;
   }
 
   .cap {
     font-size: 12px;
-    font-weight: 600;
     color: $muted;
   }
-}
 
-.notes {
-  width: 100%;
-  padding: 6px 10px;
-  font-size: 12px;
-  color: $warn;
-  background: $warn-soft;
-  border: 1px solid $warn-line;
-  border-radius: 4px;
-}
-
-.request {
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  border: 1px solid $line;
-  border-radius: 6px;
-
-  .row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-
-    + .row {
-      margin-top: 11px;
-      padding-top: 11px;
-      border-top: 1px dashed $line;
-    }
+  .lbl {
+    font: 12.5px $mono;
+    color: $muted;
   }
 
   .path {
@@ -226,11 +228,16 @@ input[type='search'] {
     min-width: 300px;
     font: 13px $mono;
   }
+}
 
-  .lbl {
-    font: 12.5px $mono;
-    color: $muted;
-  }
+.notes {
+  margin: 0 16px 12px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: $warn;
+  background: $warn-soft;
+  border: 1px solid $warn-line;
+  border-radius: 4px;
 }
 
 .btn {

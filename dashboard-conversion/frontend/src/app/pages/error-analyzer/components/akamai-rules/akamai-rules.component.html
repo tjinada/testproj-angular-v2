@@ -33,29 +33,71 @@
 
 <!-- ── Trace a request ────────────────────────────────────────────── -->
 @if (config.isLoaded() && mode === 'trace') {
-  <!-- Estate state: what the platform would hand out, as opposed to what
-       this particular request carries. -->
-  <div class="estate">
-    @if (showCloudletArm) {
-      <div class="group">
-        <span class="cap">Cloudlet arm</span>
-        <select [(ngModel)]="cloudletArm" (ngModelChange)="runTrace()">
-          <option value="">none / unknown</option>
-          @for (arm of config.index()!.cloudletArms; track arm.originId) {
-            <option [value]="arm.originId">
-              {{ arm.originId }}@if (arm.pinsHost) { &mdash; pins {{ arm.pinsHost }} }
-            </option>
+  <!-- One control block, ordered by how often each row is touched: the path
+       changes every trace, the session cookies occasionally, the platform
+       state rarely. -->
+  <div class="controls">
+    <div class="crow">
+      <div class="clabel">Request</div>
+      <div class="cfields">
+        <select [(ngModel)]="hostname" (ngModelChange)="onHostChange()">
+          @for (host of config.index()!.hostnames; track host) {
+            <option [value]="host">{{ host }}</option>
           }
         </select>
+        <input class="path" type="text" spellcheck="false" [(ngModel)]="path" (keydown.enter)="runTrace()">
+        <button type="button" class="btn" (click)="runTrace()">Trace</button>
       </div>
-    }
-    <div class="group">
-      <span class="cap">GTM answer</span>
-      <select [(ngModel)]="gtmAnswer" (ngModelChange)="runTrace()">
-        <option value="">unknown</option>
-        <option value="www13">BCC (www13)</option>
-        <option value="www12">SCC (www12)</option>
-      </select>
+    </div>
+
+    <div class="crow">
+      <div class="clabel">Session</div>
+      <div class="cfields">
+        @for (cookie of activeCookies; track cookie) {
+          <span class="grp">
+            <span class="lbl">{{ cookie }}</span>
+            <select [ngModel]="choiceFor(cookie)" (ngModelChange)="onCookieChange(cookie, $event)">
+              <option [value]="derivedSentinel">
+                @if (derivedValue(cookie); as d) { derived: {{ d }} } @else { derived (unknown) }
+              </option>
+              <option value="">not set</option>
+              @for (value of valuesFor(cookie); track value) {
+                <option [value]="value">{{ value }}</option>
+              }
+            </select>
+          </span>
+        }
+      </div>
+    </div>
+
+    <!-- What the platform would hand out, as opposed to what this request
+         carries. On blue./green. hosts the colour is in the URL, so the
+         cloudlet arm has no work to do and is hidden. -->
+    <div class="crow">
+      <div class="clabel">Platform</div>
+      <div class="cfields">
+        @if (showCloudletArm) {
+          <span class="grp">
+            <span class="cap">Cloudlet arm</span>
+            <select [(ngModel)]="cloudletArm" (ngModelChange)="runTrace()">
+              <option value="">none / unknown</option>
+              @for (arm of config.index()!.cloudletArms; track arm.originId) {
+                <option [value]="arm.originId">
+                  {{ arm.originId }}@if (arm.pinsHost) { &mdash; pins {{ arm.pinsHost }} }
+                </option>
+              }
+            </select>
+          </span>
+        }
+        <span class="grp">
+          <span class="cap">GTM answer</span>
+          <select [(ngModel)]="gtmAnswer" (ngModelChange)="runTrace()">
+            <option value="">unknown</option>
+            <option value="www13">BCC (www13)</option>
+            <option value="www12">SCC (www12)</option>
+          </select>
+        </span>
+      </div>
     </div>
 
     @if (stickyCookies.length || drift.length) {
@@ -71,32 +113,6 @@
         }
       </div>
     }
-  </div>
-
-  <div class="request">
-    <div class="row">
-      <select [(ngModel)]="hostname" (ngModelChange)="onHostChange()">
-        @for (host of config.index()!.hostnames; track host) {
-          <option [value]="host">{{ host }}</option>
-        }
-      </select>
-      <input class="path" type="text" spellcheck="false" [(ngModel)]="path" (keydown.enter)="runTrace()">
-      <button type="button" class="btn" (click)="runTrace()">Trace</button>
-    </div>
-    <div class="row cookies">
-      @for (cookie of activeCookies; track cookie) {
-        <span class="lbl">{{ cookie }}</span>
-        <select [ngModel]="choiceFor(cookie)" (ngModelChange)="onCookieChange(cookie, $event)">
-          <option [value]="derivedSentinel">
-            @if (derivedValue(cookie); as d) { derived: {{ d }} } @else { derived (unknown) }
-          </option>
-          <option value="">not set</option>
-          @for (value of valuesFor(cookie); track value) {
-            <option [value]="value">{{ value }}</option>
-          }
-        </select>
-      }
-    </div>
   </div>
 }
 
@@ -294,7 +310,6 @@
       }
     </div>
   }
-}
 
   <!-- No search term: the full tree, for walking up and down from a hit. -->
   @if (!searchTerm.trim()) {

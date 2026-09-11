@@ -112,7 +112,8 @@ export class AkamaiRulesComponent {
   outcome: Outcome | null = null;
   request: TraceRequest | null = null;
   evidence: EvidenceRow[] = [];
-  evidenceOpen = false;
+  /** Open by default — the rules that decided the destination are the point. */
+  evidenceOpen = true;
 
   // ── Browse state ───────────────────────────────────────────────────
   searchTerm = '';
