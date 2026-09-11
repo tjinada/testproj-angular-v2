@@ -1,0 +1,70 @@
+<div class="rule-detail">
+  <div class="crumb">{{ breadcrumb }}</div>
+
+  @if (comments) {
+    <h4>Comment</h4>
+    <div class="comments">
+      @for (seg of segments(comments); track trackByIndex($index)) {
+        <span [class.hit]="seg.hit">{{ seg.text }}</span>
+      }
+    </div>
+  }
+
+  @if (criteria.length) {
+    <h4>Criteria &mdash; {{ criteriaLabel }}</h4>
+    @for (entry of criteria; track trackByIndex($index)) {
+      <div class="entry" [class.negated]="isNegated(entry)">
+        <div class="entry-name">
+          @for (seg of segments(entry.name); track trackByIndex($index)) {
+            <span [class.hit]="seg.hit">{{ seg.text }}</span>
+          }
+        </div>
+        <ng-container [ngTemplateOutlet]="entryBody" [ngTemplateOutletContext]="{ $implicit: entry }"></ng-container>
+      </div>
+    }
+  }
+
+  @if (behaviors.length) {
+    <h4>Behaviors</h4>
+    @for (entry of behaviors; track trackByIndex($index)) {
+      <div class="entry">
+        <div class="entry-name">
+          @for (seg of segments(entry.name); track trackByIndex($index)) {
+            <span [class.hit]="seg.hit">{{ seg.text }}</span>
+          }
+        </div>
+        <ng-container [ngTemplateOutlet]="entryBody" [ngTemplateOutletContext]="{ $implicit: entry }"></ng-container>
+      </div>
+    }
+  }
+</div>
+
+<!-- Shared body for criteria and behaviors: raw XML when present, key/value rows otherwise. -->
+<ng-template #entryBody let-entry>
+  @if (embeddedXml(entry); as xml) {
+    @if (description(entry)) {
+      <div class="kv">
+        <span class="k">description </span>
+        <span class="v">
+          @for (seg of segments(description(entry)); track trackByIndex($index)) {
+            <span [class.hit]="seg.hit">{{ seg.text }}</span>
+          }
+        </span>
+      </div>
+    }
+    <pre class="xml">@for (seg of segments(xml); track trackByIndex($index)) {<span [class.hit]="seg.hit">{{ seg.text }}</span>}</pre>
+  } @else {
+    <div class="kv">
+      @for (row of optionRows(entry); track trackByIndex($index)) {
+        <div>
+          <span class="k">{{ row.key }} </span>
+          <span class="v">
+            @for (seg of segments(row.value); track trackByIndex($index)) {
+              <span [class.hit]="seg.hit">{{ seg.text }}</span>
+            }
+          </span>
+        </div>
+      }
+    </div>
+  }
+</ng-template>

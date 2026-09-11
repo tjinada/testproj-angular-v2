@@ -12,21 +12,22 @@ import { EndpointResultsTableComponent } from './components/endpoint-results-tab
 import { ComponentResultsTableComponent } from './components/component-results-table/component-results-table.component';
 import { CallerResultsTableComponent } from './components/caller-results-table/caller-results-table.component';
 import { TrafficFlowComponent } from './components/traffic-flow/traffic-flow.component';
+import { AkamaiRulesComponent } from './components/akamai-rules/akamai-rules.component';
 import { DashboardLinksComponent } from './components/dashboard-links/dashboard-links.component';
 import { buildFlowGraph, FlowNode } from './components/flow-diagram/flow-layout';
 import { DynatraceService } from './services/dynatrace.service';
 import { ConfigService, DashboardLink, EnvironmentOption } from './services/config.service';
 import { CallerRow, ComponentRow, EndpointMatch, SearchMode, SpanRecord, Timeframe, TraceMatch, UserEventRecord } from './models/trace.model';
 
-type TabId = 'trace' | 'opensearch' | 'traffic' | 'monitoring';
+type TabId = 'trace' | 'opensearch' | 'traffic' | 'akamai-rules' | 'monitoring';
 
 /** Accepted values of the ?tab= query param. */
-const TAB_IDS: TabId[] = ['trace', 'opensearch', 'traffic', 'monitoring'];
+const TAB_IDS: TabId[] = ['trace', 'opensearch', 'traffic', 'akamai-rules', 'monitoring'];
 
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent, TrafficFlowComponent, DashboardLinksComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent, TrafficFlowComponent, AkamaiRulesComponent, DashboardLinksComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })

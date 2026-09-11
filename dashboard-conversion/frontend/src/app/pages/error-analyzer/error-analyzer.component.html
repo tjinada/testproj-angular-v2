@@ -47,6 +47,15 @@
       type="button"
       class="tab-btn"
       role="tab"
+      [attr.aria-selected]="activeTab === 'akamai-rules'"
+      [class.tab-btn-active]="activeTab === 'akamai-rules'"
+      (click)="setTab('akamai-rules')">
+      Akamai Rules
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      role="tab"
       [attr.aria-selected]="activeTab === 'monitoring'"
       [class.tab-btn-active]="activeTab === 'monitoring'"
       (click)="setTab('monitoring')">
@@ -162,6 +171,11 @@
   <!-- Tab: Traffic Flow ────────────────────────────────────────────── -->
   <div [hidden]="activeTab !== 'traffic'" class="tab-panel" role="tabpanel">
     <app-traffic-flow [sharedParams]="trafficParams"></app-traffic-flow>
+  </div>
+
+  <!-- Tab: Akamai Rules ────────────────────────────────────────────── -->
+  <div [hidden]="activeTab !== 'akamai-rules'" class="tab-panel" role="tabpanel">
+    <app-akamai-rules></app-akamai-rules>
   </div>
 
   <!-- Tab: CDB Monitoring ──────────────────────────────────────────── -->

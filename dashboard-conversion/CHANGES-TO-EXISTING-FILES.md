@@ -254,3 +254,61 @@ Run `npm install` in `backend/` after merging.
 fourth tab added; `TabId` union extended to include `'akamai'`; component
 import list updated. The existing tab pattern (`[hidden]="activeTab !== 'xxx'"`)
 is preserved.
+
+## 10. Akamai Rules — New Files (No Action Needed Beyond Merge)
+
+Brand-new tab that evaluates a request against an Akamai PAPI rule tree
+entirely in the browser. The user uploads the Property Manager rule export
+(`propertyName` / `propertyVersion` / `rules`); nothing is sent anywhere.
+**No backend routes, no new dependencies, no `.env` entries.**
+
+Distinct from the Akamai Flow work in section 9: that one calls PAPI live
+and traces a single URL to origin. This one parses an uploaded config and
+answers "where does this request go, and why". Its `TabId` is
+`'akamai-rules'`, leaving `'akamai'` free for the Flow tab.
+
+**Frontend:**
+- `frontend/src/app/pages/error-analyzer/models/akamai-rule-tree.model.ts`
+- `frontend/src/app/pages/error-analyzer/services/akamai-config.service.ts`
+- `frontend/src/app/pages/error-analyzer/services/akamai-papi.ts`
+- `frontend/src/app/pages/error-analyzer/services/akamai-rule-search.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-rules/akamai-rules.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-rules/akamai-rules.component.html`
+- `frontend/src/app/pages/error-analyzer/components/akamai-rules/akamai-rules.component.scss`
+- `frontend/src/app/pages/error-analyzer/components/akamai-rules/rule-detail/rule-detail.component.ts`
+- `frontend/src/app/pages/error-analyzer/components/akamai-rules/rule-detail/rule-detail.component.html`
+- `frontend/src/app/pages/error-analyzer/components/akamai-rules/rule-detail/rule-detail.component.scss`
+
+`akamai-rule-tree.model.ts` re-exports `AkamaiRuleEntry` and `MatchStatus`
+from `akamai.model.ts` (section 9) rather than redeclaring them, so that
+file must be merged too.
+
+**Existing error-analyzer updated again** (already in `dashboard-conversion/`):
+fifth tab added between Traffic Flow and CDB Monitoring; `TabId` union and
+`TAB_IDS` extended with `'akamai-rules'`; `AkamaiRulesComponent` added to the
+import list. The `[hidden]="activeTab !== 'xxx'"` pattern is preserved.
+
+**Future PAPI path:** `akamai-config.service.ts` is the only file that knows
+where the config came from — everything downstream consumes a parsed
+`ConfigIndex`. Swapping upload for a live fetch means adding a
+`loadFromPapi()` beside `loadFromFile()` and a backend route; the evaluator,
+models and components don't change.
+
+**Verify after merge.** The evaluator is easy to make confidently wrong — a
+rule that shouldn't have applied still produces a real-looking origin. Run
+these with cloudlet arm `blue` and GTM answer `BCC` (both are the defaults)
+and check the origins:
+
+| Host | Path | Expected origin |
+| --- | --- | --- |
+| `www1.bmo.com` | `/onlinebanking/cgi-bin/netbnx/CSPMain` | `bmonsori-apisbccprod.bmo.com` |
+| `www1.bmo.com` | `/banking/digital/dashboard` | `bmonsori-new2-www41.harrismycfo.com` |
+| `www1.bmo.com` | `/banking/digital/login` | same, via GTM lookup (forced invalid path) |
+| `blue.www1.bmo.com` | `/banking/digital/login` | `bmonsori-new2-www41.harrismycfo.com` |
+| `www1.bmo.com` | `/api/cdb/contact-handler/signout/signOut` | `bmonsori-apisbccprod.bmo.com` |
+| `www1.bmo.com` | `/aac/sps/authsvc` | `bmonsori-www13.bmo.com` |
+
+**Known gaps.** `PMUSER_CNAME_CHAIN` and `PMUSER_NIM_ARL_ORIGIN_ID` are only
+assigned inside `advanced` XML blocks, so they resolve via the GTM answer
+rather than being read from the config. The GTM switch is global; SPA and
+BOS are separate GTM properties and can disagree in reality.

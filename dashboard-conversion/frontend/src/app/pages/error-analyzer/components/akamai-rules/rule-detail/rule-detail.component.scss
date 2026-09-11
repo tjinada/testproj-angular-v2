@@ -1,0 +1,108 @@
+// Expanded rule view. Matches the Error Analyzer chrome: BMO blue accents,
+// grey scale from the shared tab styling, monospace for anything that came
+// out of the config verbatim.
+
+$bmo: #1B4F72;
+$ink-2: #374151;
+$muted: #6b7280;
+$muted-2: #9ca3af;
+$line: #e5e7eb;
+$line-2: #d1d5db;
+$surface: #ffffff;
+$surface-2: #f9fafb;
+$negative: #b91c1c;
+$negative-soft: #fef2f2;
+$mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+.rule-detail {
+  padding: 4px 16px 16px 34px;
+  background: $surface-2;
+  border-bottom: 1px solid $line;
+}
+
+.crumb {
+  font: 11.5px $mono;
+  color: $muted-2;
+  margin-bottom: 2px;
+  word-break: break-word;
+}
+
+h4 {
+  margin: 12px 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: $muted;
+
+  &:first-of-type {
+    margin-top: 8px;
+  }
+}
+
+.comments {
+  font-size: 12.5px;
+  color: $ink-2;
+  background: $surface;
+  border: 1px solid $line;
+  border-left: 3px solid $line-2;
+  border-radius: 4px;
+  padding: 7px 10px;
+  white-space: pre-wrap;
+}
+
+.entry {
+  border: 1px solid $line;
+  border-radius: 5px;
+  background: $surface;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+
+  // Negation is load-bearing: a six-deep IS_NOT chain reads as its own
+  // opposite without it.
+  &.negated {
+    border-left: 3px solid $negative;
+    background: $negative-soft;
+  }
+}
+
+.entry-name {
+  font: 600 12.5px $mono;
+  color: $bmo;
+  margin-bottom: 4px;
+}
+
+.kv {
+  font: 12.5px/1.7 $mono;
+  border-left: 2px solid $line-2;
+  padding-left: 10px;
+
+  .k {
+    color: $muted;
+  }
+
+  .v {
+    color: $ink-2;
+    word-break: break-word;
+  }
+}
+
+pre.xml {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  background: #1f2937;
+  color: #e5e7eb;
+  border-radius: 4px;
+  font: 12px/1.55 $mono;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hit {
+  background: #fde68a;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+pre.xml .hit {
+  color: #111827;
+}

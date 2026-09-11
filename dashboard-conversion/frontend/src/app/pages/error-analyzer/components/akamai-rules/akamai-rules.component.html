@@ -1,0 +1,344 @@
+<!-- Upload state: nothing loaded yet. -->
+@if (!config.isLoaded()) {
+  <div class="dropzone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+    <div class="dz-title">Drop a PAPI rule tree JSON here</div>
+    <div class="dz-sub">
+      The Property Manager rule export &mdash; the file containing
+      <code>propertyName</code>, <code>propertyVersion</code> and <code>rules</code>.
+      Parsed in the browser; nothing is uploaded.
+    </div>
+    <label class="dz-btn">
+      Choose file
+      <input type="file" accept=".json,application/json" (change)="onFileSelected($event)" hidden>
+    </label>
+    @if (config.error()) {
+      <div class="dz-error">{{ config.error() }}</div>
+    }
+  </div>
+}
+
+@if (config.isLoaded()) {
+  <div class="property">
+    <span class="prop-name">{{ config.index()!.doc.propertyName }}</span>
+    <span class="prop-meta">version <b>{{ config.index()!.doc.propertyVersion }}</b></span>
+    <span class="prop-meta"><b>{{ config.index()!.nodes.length }}</b> rules</span>
+    <button type="button" class="link-btn" (click)="replaceConfig()">Load another</button>
+  </div>
+
+  <div class="modes">
+    <button type="button" class="mode" [class.on]="mode === 'trace'" (click)="setMode('trace')">Trace a request</button>
+    <button type="button" class="mode" [class.on]="mode === 'browse'" (click)="setMode('browse')">Browse all rules</button>
+  </div>
+}
+
+<!-- ── Trace a request ────────────────────────────────────────────── -->
+@if (config.isLoaded() && mode === 'trace') {
+  <!-- Estate state: what the platform would hand out, as opposed to what
+       this particular request carries. -->
+  <div class="estate">
+    @if (showCloudletArm) {
+      <div class="group">
+        <span class="cap">Cloudlet arm</span>
+        <select [(ngModel)]="cloudletArm" (ngModelChange)="runTrace()">
+          <option value="">none / unknown</option>
+          @for (arm of config.index()!.cloudletArms; track arm.originId) {
+            <option [value]="arm.originId">
+              {{ arm.originId }}@if (arm.pinsHost) { &mdash; pins {{ arm.pinsHost }} }
+            </option>
+          }
+        </select>
+      </div>
+    }
+    <div class="group">
+      <span class="cap">GTM answer</span>
+      <select [(ngModel)]="gtmAnswer" (ngModelChange)="runTrace()">
+        <option value="">unknown</option>
+        <option value="www13">BCC (www13)</option>
+        <option value="www12">SCC (www12)</option>
+      </select>
+    </div>
+
+    @if (stickyCookies.length || drift.length) {
+      <div class="notes">
+        @if (stickyCookies.length) {
+          <div>
+            {{ stickyCookies.join(', ') }} is set &mdash; stickiness wins, so the GTM answer only
+            decides what a <em>new</em> session would get.
+          </div>
+        }
+        @for (d of drift; track d.name) {
+          <div><b>Stale session:</b> {{ d.name }}={{ d.has }}, but the estate would issue {{ d.would }} right now.</div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="request">
+    <div class="row">
+      <select [(ngModel)]="hostname" (ngModelChange)="onHostChange()">
+        @for (host of config.index()!.hostnames; track host) {
+          <option [value]="host">{{ host }}</option>
+        }
+      </select>
+      <input class="path" type="text" spellcheck="false" [(ngModel)]="path" (keydown.enter)="runTrace()">
+      <button type="button" class="btn" (click)="runTrace()">Trace</button>
+    </div>
+    <div class="row cookies">
+      @for (cookie of activeCookies; track cookie) {
+        <span class="lbl">{{ cookie }}</span>
+        <select [ngModel]="choiceFor(cookie)" (ngModelChange)="onCookieChange(cookie, $event)">
+          <option [value]="derivedSentinel">
+            @if (derivedValue(cookie); as d) { derived: {{ d }} } @else { derived (unknown) }
+          </option>
+          <option value="">not set</option>
+          @for (value of valuesFor(cookie); track value) {
+            <option [value]="value">{{ value }}</option>
+          }
+        </select>
+      }
+    </div>
+  </div>
+}
+
+<!-- Destination: origin first, because that's the question being asked. -->
+@if (config.isLoaded() && mode === 'trace' && outcome) {
+  <div class="destination">
+    <div class="dest-head">Destination</div>
+
+    <div class="dline">
+      <div class="dkey">Origin</div>
+      <div class="dval">
+        @if (outcome.origin && originResolved) {
+          <span class="big">{{ outcome.origin.host }}</span>
+        } @else if (outcome.origin) {
+          <span class="tag warn">undetermined</span>
+        } @else {
+          <span class="none">no origin rule matched</span>
+        }
+      </div>
+    </div>
+
+    <div class="dline">
+      <div class="dkey">Path</div>
+      <div class="dval">
+        @if (outcome.rewrites.length) {
+          <span class="was">{{ outcome.startPath }}</span>
+          <span class="arrow">&rarr;</span>
+          <span class="big">{{ outcome.path }}</span>
+        } @else {
+          <span class="none">unchanged &mdash; {{ outcome.path }}</span>
+        }
+      </div>
+    </div>
+
+    @if (outcome.decided.length) {
+      <div class="dline">
+        <div class="dkey">Decided</div>
+        <div class="dval decided">
+          @for (step of outcome.decided; track trackByIndex($index)) {
+            @if ($index > 0) { <span class="sep">&rsaquo;</span> }
+            <span [class.warn-text]="step.warn">{{ step.label }}</span>
+          }
+        </div>
+      </div>
+    }
+
+    @if (outcome.cookies.length) {
+      <div class="dline">
+        <div class="dkey">Cookies</div>
+        <div class="dval">
+          @for (cookie of outcome.cookies; track trackByIndex($index)) {
+            <div><span class="tag set">SET</span>{{ cookie.name }}={{ cookie.value }}</div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (outcome.redirect) {
+      <div class="dline">
+        <div class="dkey">Redirect</div>
+        <div class="dval">{{ outcome.redirect.code }} &rarr; {{ outcome.redirect.to }}</div>
+      </div>
+    }
+
+    @if (undecidedCount) {
+      <div class="caveat">
+        {{ undecidedCount }} rules on this path have criteria that can&rsquo;t be decided from the state given.
+      </div>
+    }
+  </div>
+}
+
+<!-- Evidence: collapsed, because the Destination panel is the answer. -->
+@if (config.isLoaded() && mode === 'trace' && outcome) {
+  <details class="evidence" [open]="evidenceOpen" (toggle)="evidenceOpen = $any($event.target).open">
+    <summary>{{ evidence.length }} rules decided this &middot; {{ matchedCount }} matched in total</summary>
+    <div class="rows">
+      @for (row of evidence; track trackById($index, row)) {
+        <div class="card" [class.uncertain]="row.uncertain" [class.open]="openDetailId === row.id"
+             (click)="toggleDetail(row.id)">
+          <div class="crumb">{{ row.crumb }}</div>
+          <div class="card-head"><span class="rname">{{ ruleName(row.id) }}</span></div>
+          @if (row.condition; as cond) {
+            <div class="cond-line">
+              @for (part of cond.parts; track trackByIndex($index)) {
+                @if ($index > 0) { <span class="joiner">{{ cond.joiner }}</span> }
+                <span class="subj">{{ part.subject }}</span>
+                <span class="op" [class.neg]="part.negated">{{ part.operator }}</span>
+                <span class="vals">{{ part.values }}</span>
+              }
+              @if (cond.extra) { <span class="joiner">+{{ cond.extra }} more</span> }
+            </div>
+          }
+          <div class="does">
+            @for (action of row.actions; track trackByIndex($index)) {
+              <div>{{ action }}</div>
+            }
+          </div>
+          @if (row.uncertain) {
+            <div class="why">conditional on {{ row.blockedBy }}</div>
+          }
+        </div>
+        @if (openDetailId === row.id) {
+          <app-rule-detail [node]="nodeById(row.id)"></app-rule-detail>
+        }
+      } @empty {
+        <div class="empty">No routing rules acted on this request.</div>
+      }
+    </div>
+  </details>
+
+  <details class="evidence vars">
+    <summary>Variables &mdash; {{ resolvedVariableCount }} of {{ variableRows.length }} resolved</summary>
+    <div class="rows">
+      @for (row of variableRows; track row.name) {
+        <div class="vrow">
+          <span class="vn">{{ row.name }}</span>
+          <span class="vv" [class.un]="!row.resolved">{{ row.value }}</span>
+          <span class="vs">{{ row.source }}</span>
+        </div>
+      }
+    </div>
+  </details>
+}
+
+<!-- ── Browse all rules ───────────────────────────────────────────── -->
+@if (config.isLoaded() && mode === 'browse') {
+  <div class="search-row">
+    <input type="search" placeholder="Search rules, paths, cookies, variables, behaviors&hellip;"
+           [ngModel]="searchTerm" (ngModelChange)="onSearchInput($event)">
+    <span class="count">
+      @if (searchTerm.trim()) {
+        {{ hitCount }} of {{ config.index()!.nodes.length }} match
+      } @else {
+        {{ config.index()!.nodes.length }} rules
+      }
+    </span>
+  </div>
+
+  @if (!searchTerm.trim() && lastTerm) {
+    <button type="button" class="link-btn back" (click)="backToResults()">
+      &lsaquo; back to {{ lastHitCount }} results for &ldquo;{{ lastTerm }}&rdquo;
+    </button>
+  }
+
+  <!-- Search results are flat: every hit carries its own breadcrumb, so the
+       tree rows above it would just repeat the line below. -->
+  @if (searchTerm.trim()) {
+    <div class="results">
+      @for (hit of hits; track trackById($index, hit)) {
+        <div class="card" [class.open]="openDetailId === hit.id" (click)="toggleDetail(hit.id)">
+          <div class="crumb">
+            @for (crumb of hit.crumbs; track trackByIndex($index)) {
+              @if ($index > 0) { <span class="crumb-sep">&rsaquo;</span> }
+              <span class="crumb-link" (click)="showInTree(crumb.id); $event.stopPropagation()">{{ crumb.name }}</span>
+            }
+          </div>
+          <div class="card-head">
+            <span class="rname">{{ ruleName(hit.id) }}</span>
+            <span class="pills">
+              @for (pill of hit.pills; track trackByIndex($index)) {
+                <span class="pill">{{ pill }}</span>
+              }
+              @if (hit.overflow) { <span class="pill">+{{ hit.overflow }}</span> }
+            </span>
+            <button type="button" class="treebtn" (click)="showInTree(hit.id); $event.stopPropagation()">Show in tree</button>
+          </div>
+          @if (hit.condition; as cond) {
+            <div class="cond-line">
+              @for (part of cond.parts; track trackByIndex($index)) {
+                @if ($index > 0) { <span class="joiner">{{ cond.joiner }}</span> }
+                <span class="subj">{{ part.subject }}</span>
+                <span class="op" [class.neg]="part.negated">{{ part.operator }}</span>
+                <span class="vals">{{ part.values }}</span>
+              }
+              @if (cond.extra) { <span class="joiner">+{{ cond.extra }} more</span> }
+            </div>
+          }
+          @if (hit.matches.length) {
+            <div class="matches">
+              @for (field of hit.matches; track trackByIndex($index)) {
+                <div class="matchline"><span class="mf">{{ field.label }}</span> {{ field.text }}</div>
+              }
+              @if (hit.extraMatches) {
+                <div class="matchline more">+{{ hit.extraMatches }} more fields</div>
+              }
+            </div>
+          }
+        </div>
+        @if (openDetailId === hit.id) {
+          <app-rule-detail [node]="nodeById(hit.id)" [searchTerm]="searchTerm"></app-rule-detail>
+        }
+      } @empty {
+        <div class="empty">Nothing matched &ldquo;{{ searchTerm }}&rdquo;.</div>
+      }
+    </div>
+  }
+}
+
+  <!-- No search term: the full tree, for walking up and down from a hit. -->
+  @if (!searchTerm.trim()) {
+    <div class="tree">
+      @for (row of treeRows; track trackById($index, row)) {
+        <div class="step" [class.open]="openDetailId === row.id" [class.focus]="row.focused"
+             [attr.data-rule-id]="row.id" [style.padding-left]="indentFor(row.depth)"
+             (click)="toggleDetail(row.id)">
+          <span class="caret" [class.leaf]="!row.hasChildren"
+                (click)="toggleExpanded(row.id); $event.stopPropagation()">
+            @if (row.hasChildren) {
+              @if (row.expanded) { &#9662; } @else { &#9656; }
+            } @else { &#9474; }
+          </span>
+          <span class="body">
+            <span class="line1">
+              <span class="rname">{{ ruleName(row.id) }}</span>
+              @if (conditionOf(nodeById(row.id)); as cond) {
+                <span class="cond-line">
+                  @for (part of cond.parts; track trackByIndex($index)) {
+                    @if ($index > 0) { <span class="joiner">{{ cond.joiner }}</span> }
+                    <span class="subj">{{ part.subject }}</span>
+                    <span class="op" [class.neg]="part.negated">{{ part.operator }}</span>
+                    <span class="vals">{{ part.values }}</span>
+                  }
+                  @if (cond.extra) { <span class="joiner">+{{ cond.extra }} more</span> }
+                </span>
+              }
+            </span>
+            @if (behaviorPills(row.id); as pills) {
+              @if (pills.length) {
+                <span class="pills">
+                  @for (pill of pills; track trackByIndex($index)) {
+                    <span class="pill">{{ pill }}</span>
+                  }
+                </span>
+              }
+            }
+          </span>
+        </div>
+        @if (openDetailId === row.id) {
+          <app-rule-detail [node]="nodeById(row.id)"></app-rule-detail>
+        }
+      }
+    </div>
+  }
+}

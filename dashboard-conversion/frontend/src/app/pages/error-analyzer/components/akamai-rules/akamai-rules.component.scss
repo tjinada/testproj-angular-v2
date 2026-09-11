@@ -1,0 +1,688 @@
+// Akamai Rules tab. Chrome matches the rest of the Error Analyzer: BMO blue
+// on white, 6px radii, monospace for anything lifted from the config.
+
+$bmo: #1B4F72;
+$bmo-soft: #e8eff5;
+$ink: #111827;
+$ink-2: #374151;
+$muted: #6b7280;
+$muted-2: #9ca3af;
+$line: #e5e7eb;
+$line-2: #d1d5db;
+$surface: #ffffff;
+$surface-2: #f9fafb;
+$surface-3: #f3f4f6;
+$warn: #92400e;
+$warn-soft: #fffbeb;
+$warn-line: #fde68a;
+$ok: #166534;
+$ok-soft: #ecfdf5;
+$negative: #b91c1c;
+$mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+:host {
+  display: block;
+}
+
+// ── Upload ───────────────────────────────────────────────────────────
+
+.dropzone {
+  border: 2px dashed $line-2;
+  border-radius: 8px;
+  padding: 44px 24px;
+  text-align: center;
+  background: $surface-2;
+}
+
+.dz-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: $bmo;
+  margin-bottom: 6px;
+}
+
+.dz-sub {
+  font-size: 13px;
+  color: $muted;
+  max-width: 520px;
+  margin: 0 auto 16px;
+  line-height: 1.6;
+
+  code {
+    font: 12px $mono;
+    background: $surface-3;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+}
+
+.dz-btn {
+  display: inline-block;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: $bmo;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dz-error {
+  margin-top: 14px;
+  font-size: 13px;
+  color: $negative;
+}
+
+// ── Property bar, mode switch ────────────────────────────────────────
+
+.property {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 12px 16px;
+  border: 1px solid $line;
+  border-radius: 6px;
+  background: $surface-2;
+  margin-bottom: 14px;
+}
+
+.prop-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: $bmo;
+}
+
+.prop-meta {
+  font-size: 12.5px;
+  color: $muted;
+
+  b {
+    color: $ink-2;
+    font-weight: 600;
+  }
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: $bmo;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &.back {
+    display: block;
+    margin-bottom: 10px;
+  }
+}
+
+.property .link-btn {
+  margin-left: auto;
+}
+
+.modes {
+  display: flex;
+  width: fit-content;
+  margin-bottom: 14px;
+  border: 1px solid $line-2;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mode {
+  padding: 7px 16px;
+  font: 500 13px inherit;
+  background: $surface;
+  color: $ink-2;
+  border: none;
+  cursor: pointer;
+
+  + .mode {
+    border-left: 1px solid $line-2;
+  }
+
+  &.on {
+    background: $bmo;
+    color: #fff;
+  }
+}
+
+// ── Estate and request controls ──────────────────────────────────────
+
+select,
+input[type='text'],
+input[type='search'] {
+  padding: 8px 10px;
+  font: 13px inherit;
+  color: $ink;
+  border: 1px solid $line-2;
+  border-radius: 6px;
+  background: $surface;
+
+  &:focus {
+    outline: 2px solid $bmo-soft;
+    border-color: $bmo;
+  }
+}
+
+.estate {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border: 1px solid $line-2;
+  border-radius: 6px;
+  background: $surface-2;
+
+  .group {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+  }
+
+  .cap {
+    font-size: 12px;
+    font-weight: 600;
+    color: $muted;
+  }
+}
+
+.notes {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: $warn;
+  background: $warn-soft;
+  border: 1px solid $warn-line;
+  border-radius: 4px;
+}
+
+.request {
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid $line;
+  border-radius: 6px;
+
+  .row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+
+    + .row {
+      margin-top: 11px;
+      padding-top: 11px;
+      border-top: 1px dashed $line;
+    }
+  }
+
+  .path {
+    flex: 1;
+    min-width: 300px;
+    font: 13px $mono;
+  }
+
+  .lbl {
+    font: 12.5px $mono;
+    color: $muted;
+  }
+}
+
+.btn {
+  padding: 8px 18px;
+  font: 500 13px inherit;
+  border: 1px solid $bmo;
+  border-radius: 6px;
+  background: $bmo;
+  color: #fff;
+  cursor: pointer;
+}
+
+// ── Destination ──────────────────────────────────────────────────────
+
+.destination {
+  border: 1px solid $line;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.dest-head {
+  padding: 9px 16px;
+  background: $bmo;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dline {
+  display: flex;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid $surface-3;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.dkey {
+  flex: none;
+  width: 76px;
+  padding-top: 4px;
+  font-size: 12px;
+  color: $muted;
+  letter-spacing: 0.02em;
+}
+
+.dval {
+  flex: 1;
+  min-width: 0;
+  font: 14px/1.6 $mono;
+  color: $ink;
+  word-break: break-word;
+
+  .was {
+    color: $muted-2;
+    text-decoration: line-through;
+  }
+
+  .arrow {
+    color: $muted-2;
+    padding: 0 8px;
+  }
+
+  .none {
+    font-family: inherit;
+    font-size: 13.5px;
+    color: $muted-2;
+  }
+}
+
+.big {
+  font-size: 17px;
+  font-weight: 600;
+  color: $bmo;
+  letter-spacing: -0.01em;
+}
+
+.decided {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: $ink-2;
+
+  .sep {
+    color: $muted-2;
+    padding: 0 8px;
+  }
+}
+
+.warn-text {
+  color: $warn;
+  font-weight: 600;
+}
+
+.tag {
+  display: inline-block;
+  font: 11px inherit;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: 1px;
+
+  &.set {
+    background: $ok-soft;
+    color: $ok;
+    border: 1px solid #a7f3d0;
+  }
+
+  &.warn {
+    background: $warn-soft;
+    color: $warn;
+    border: 1px solid $warn-line;
+  }
+}
+
+.caveat {
+  padding: 9px 16px;
+  font-size: 12.5px;
+  color: $warn;
+  background: $warn-soft;
+  border-top: 1px solid $warn-line;
+}
+
+// ── Cards: shared by trace evidence and search results ───────────────
+
+details.evidence {
+  border: 1px solid $line;
+  border-radius: 6px;
+  margin-bottom: 14px;
+
+  > summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: $ink-2;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::before {
+      content: '\25B8 ';
+      color: $muted;
+    }
+  }
+
+  &[open] > summary::before {
+    content: '\25BE ';
+  }
+
+  .rows {
+    border-top: 1px solid $line;
+  }
+}
+
+.results {
+  border: 1px solid $line;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.card {
+  padding: 11px 15px 12px;
+  border-bottom: 1px solid $line;
+  cursor: pointer;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: $surface-2;
+  }
+
+  &.open {
+    background: $bmo-soft;
+  }
+
+  &.uncertain {
+    background: $warn-soft;
+  }
+}
+
+.crumb {
+  font: 11px $mono;
+  color: $muted-2;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumb-link {
+  cursor: pointer;
+  text-decoration: underline dotted;
+
+  &:hover {
+    color: $bmo;
+  }
+}
+
+.crumb-sep {
+  padding: 0 6px;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+
+  .rname {
+    font-size: 14px;
+    font-weight: 600;
+    color: $ink;
+  }
+
+  .pills {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+}
+
+.treebtn {
+  flex: none;
+  margin-left: 10px;
+  padding: 2px 9px;
+  font: 11.5px inherit;
+  border: 1px solid $line-2;
+  border-radius: 4px;
+  background: $surface;
+  color: $ink-2;
+  cursor: pointer;
+
+  &:hover {
+    background: $surface-3;
+    border-color: $bmo;
+    color: $bmo;
+  }
+}
+
+// Criteria summary. Clipped to one line so card height stays predictable
+// and the eye can track a single left edge down the list.
+.cond-line {
+  font: 12.5px/1.5 $mono;
+  color: $muted;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .subj {
+    color: $ink-2;
+  }
+
+  .op {
+    color: $muted-2;
+
+    // Negation is load-bearing: without it an IS_NOT chain reads as its
+    // own opposite.
+    &.neg {
+      color: $negative;
+    }
+  }
+
+  .joiner {
+    font-size: 11px;
+    color: $muted-2;
+    padding: 0 2px;
+  }
+}
+
+.does {
+  margin-top: 4px;
+  font: 12.5px $mono;
+  color: $ok;
+}
+
+.why {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: $warn;
+}
+
+.pill {
+  padding: 1px 7px;
+  font: 11px inherit;
+  border-radius: 3px;
+  background: $surface-3;
+  color: $ink-2;
+  border: 1px solid $line;
+}
+
+.pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.matches {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px dashed $line;
+}
+
+.matchline {
+  font: 11.5px/1.6 $mono;
+  color: $ink-2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  + .matchline {
+    margin-top: 2px;
+  }
+
+  .mf {
+    display: inline-block;
+    min-width: 150px;
+    color: $muted-2;
+  }
+
+  &.more {
+    color: $muted-2;
+  }
+}
+
+// ── Browse tree ──────────────────────────────────────────────────────
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+
+  input {
+    flex: 1;
+  }
+
+  .count {
+    font-size: 12.5px;
+    color: $muted;
+    white-space: nowrap;
+  }
+}
+
+.tree {
+  border: 1px solid $line;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 14px 7px 0;
+  border-bottom: 1px solid $surface-3;
+  cursor: pointer;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: $surface-2;
+  }
+
+  &.open {
+    background: $bmo-soft;
+  }
+
+  // Jumped-to rule. Loud on purpose — it has to be findable among the
+  // sixty-odd rows a deep expansion produces.
+  &.focus {
+    background: #fff7d6;
+    box-shadow: inset 3px 0 0 $bmo;
+  }
+
+  .caret {
+    flex: none;
+    width: 18px;
+    text-align: center;
+    line-height: 22px;
+    font-size: 10px;
+    color: $muted-2;
+
+    &.leaf {
+      color: $line-2;
+    }
+  }
+
+  .body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .line1 {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+
+  .rname {
+    font-weight: 500;
+    color: $ink;
+  }
+}
+
+// ── Variables panel ──────────────────────────────────────────────────
+
+.vrow {
+  display: flex;
+  gap: 12px;
+  padding: 5px 16px;
+  font: 12.5px $mono;
+  border-top: 1px solid $surface-3;
+
+  .vn {
+    flex: none;
+    width: 250px;
+    color: $ink-2;
+  }
+
+  .vv {
+    flex: 1;
+    color: $bmo;
+    word-break: break-word;
+
+    &.un {
+      color: $muted-2;
+    }
+  }
+
+  .vs {
+    flex: none;
+    width: 230px;
+    font-family: inherit;
+    font-size: 11.5px;
+    color: $muted-2;
+    text-align: right;
+  }
+}
+
+.empty {
+  padding: 36px 16px;
+  text-align: center;
+  font-size: 13.5px;
+  color: $muted;
+}
