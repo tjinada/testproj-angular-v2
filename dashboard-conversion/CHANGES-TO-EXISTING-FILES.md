@@ -271,7 +271,6 @@ answers "where does this request go, and why". Its `TabId` is
 - `frontend/src/app/pages/error-analyzer/models/akamai-rule-tree.model.ts`
 - `frontend/src/app/pages/error-analyzer/services/akamai-config.service.ts`
 - `frontend/src/app/pages/error-analyzer/services/akamai-papi.ts`
-- `frontend/src/app/pages/error-analyzer/services/akamai-rule-search.ts`
 - `frontend/src/app/pages/error-analyzer/components/akamai-rules/akamai-rules.component.ts`
 - `frontend/src/app/pages/error-analyzer/components/akamai-rules/akamai-rules.component.html`
 - `frontend/src/app/pages/error-analyzer/components/akamai-rules/akamai-rules.component.scss`

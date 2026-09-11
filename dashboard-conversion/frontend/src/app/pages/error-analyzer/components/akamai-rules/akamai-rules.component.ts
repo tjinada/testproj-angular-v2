@@ -10,9 +10,13 @@ import {
   TraceRequest,
   TraceResult
 } from '../../models/akamai-rule-tree.model';
-import { AkamaiConfigService } from '../../services/akamai-config.service';
+import {
+  AkamaiConfigService,
+  findHits,
+  matchFields,
+  snippetAround
+} from '../../services/akamai-config.service';
 import { buildOutcome, evaluate, isResolved } from '../../services/akamai-papi';
-import { findHits, matchFields, snippetAround } from '../../services/akamai-rule-search';
 import { RuleDetailComponent } from './rule-detail/rule-detail.component';
 
 type Mode = 'trace' | 'browse';

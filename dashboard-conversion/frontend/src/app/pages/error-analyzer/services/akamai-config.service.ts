@@ -16,6 +16,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import {
   CloudletArm,
   ConfigIndex,
+  MatchField,
   PapiRule,
   PropertyDoc,
   RuleNode
@@ -220,4 +221,76 @@ function buildGtmMap(nodes: RuleNode[]): Record<string, Record<string, string>> 
   });
 
   return map;
+}
+
+// ── Search ───────────────────────────────────────────────────────────
+//
+// The read side of the index. These live here rather than in their own file
+// because `searchBlob` is built above and nothing outside this module reads
+// it — splitting them apart would separate the query from the thing queried.
+
+/** Rules whose indexed content contains the term, in document order. */
+export function findHits(nodes: RuleNode[], term: string): number[] {
+  const needle = term.trim().toLowerCase();
+  if (!needle) return [];
+  return nodes.filter(node => node.searchBlob.includes(needle)).map(node => node.id);
+}
+
+/** Flattens an option value to the single line a user would read. */
+function flattenValue(value: unknown): string {
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object' && value !== null) return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Every field on a rule whose value contains the term, labelled by where it
+ * lives (e.g. "rewriteUrl.targetUrl", "path.values", "comments").
+ *
+ * Without this a hit often has no visible explanation: the collapsed row
+ * shows the rule name, the first two criteria and the behavior names, while
+ * the match is frequently in a rewrite target or an XML blob.
+ *
+ * The rule name is excluded — it's already on the row and highlighted there.
+ */
+export function matchFields(node: RuleNode, term: string): MatchField[] {
+  const needle = term.trim().toLowerCase();
+  if (!needle) return [];
+
+  const found: MatchField[] = [];
+  const push = (label: string, value: unknown) => {
+    const text = flattenValue(value);
+    if (text.toLowerCase().indexOf(needle) >= 0) found.push({ label, text });
+  };
+
+  const rule = node.rule;
+  if (rule.comments) push('comments', rule.comments);
+  if (rule.uuid) push('uuid', rule.uuid);
+
+  (rule.criteria || []).forEach(c =>
+    Object.keys(c.options || {}).forEach(key => push(`${c.name}.${key}`, (c.options as Record<string, unknown>)[key]))
+  );
+  (rule.behaviors || []).forEach(b =>
+    Object.keys(b.options || {}).forEach(key => push(`${b.name}.${key}`, (b.options as Record<string, unknown>)[key]))
+  );
+
+  return found;
+}
+
+/**
+ * Windows a value around the match so a long path list or an XML blob still
+ * renders as one line.
+ */
+export function snippetAround(text: string, term: string): string {
+  const needle = term.trim().toLowerCase();
+  const at = text.toLowerCase().indexOf(needle);
+  if (at < 0) return text;
+
+  const from = Math.max(0, at - 28);
+  const to = Math.min(text.length, at + needle.length + 44);
+  return (
+    (from > 0 ? '\u2026' : '') +
+    text.slice(from, to).replace(/\s+/g, ' ') +
+    (to < text.length ? '\u2026' : '')
+  );
 }
