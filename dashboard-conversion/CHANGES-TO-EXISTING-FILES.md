@@ -293,6 +293,13 @@ where the config came from — everything downstream consumes a parsed
 `loadFromPapi()` beside `loadFromFile()` and a backend route; the evaluator,
 models and components don't change.
 
+**Two things to supply before this ships:**
+1. `akamaiPortalUrl` in `akamai-rules.component.ts` is currently the generic
+   `https://control.akamai.com` — replace with the BMO portal URL.
+2. Add the screenshot at `public/error-analyzer/akamai-help/download-json.png`,
+   alongside the existing `public/error-analyzer/token-help/` images. The upload
+   guide renders a thumbnail that opens full screen, same as token-setup.
+
 **Verify after merge.** The evaluator is easy to make confidently wrong — a
 rule that shouldn't have applied still produces a real-looking origin. Run
 these with cloudlet arm `blue` and GTM answer `BCC` (both are the defaults)

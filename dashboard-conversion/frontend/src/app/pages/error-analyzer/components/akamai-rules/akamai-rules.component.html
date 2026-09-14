@@ -15,6 +15,32 @@
       <div class="dz-error">{{ config.error() }}</div>
     }
   </div>
+
+  <!-- How to get the file. Mirrors the token-setup guide: link out, numbered
+       steps, thumbnail that opens full screen. -->
+  <div class="guide">
+    <p class="guide-intro">Don&rsquo;t have the file? Export it from Property Manager:</p>
+    <a class="guide-link" [href]="akamaiPortalUrl" target="_blank" rel="noopener">
+      Open Akamai Control Center &#8599;
+    </a>
+    <ol class="guide-steps">
+      <li>Sign in to the Akamai portal</li>
+      <li>Navigate to the Property Manager config</li>
+      <li>Download the rule tree JSON</li>
+    </ol>
+    <div class="guide-thumb" (click)="openHelpImage()" title="Click to enlarge">
+      <img [src]="helpImagePath" alt="Property Manager showing where to download the rule tree JSON" />
+    </div>
+    <span class="guide-caption">Downloading the rule tree (click to enlarge)</span>
+  </div>
+}
+
+<!-- Screenshot preview -->
+@if (helpPreviewSrc) {
+  <div class="preview-overlay" (click)="closeHelpImage()" role="dialog" aria-label="Image preview">
+    <button type="button" class="preview-close" (click)="closeHelpImage()" aria-label="Close preview">&times;</button>
+    <img [src]="helpPreviewSrc" alt="" class="preview-image" (click)="$event.stopPropagation()" />
+  </div>
 }
 
 @if (config.isLoaded()) {

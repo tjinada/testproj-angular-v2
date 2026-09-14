@@ -96,6 +96,22 @@ const DERIVED = '__derived__';
 export class AkamaiRulesComponent {
   readonly config = inject(AkamaiConfigService);
 
+  // ── Upload help ────────────────────────────────────────────────────
+  // TODO: replace with the BMO-specific Akamai Control Center URL.
+  readonly akamaiPortalUrl = 'https://control.akamai.com';
+  /** Served from the app's public folder, like the token-setup screenshots. */
+  readonly helpImagePath = 'error-analyzer/akamai-help/download-json.png';
+  /** Non-null while the screenshot is open full screen. */
+  helpPreviewSrc: string | null = null;
+
+  openHelpImage(): void {
+    this.helpPreviewSrc = this.helpImagePath;
+  }
+
+  closeHelpImage(): void {
+    this.helpPreviewSrc = null;
+  }
+
   mode: Mode = 'trace';
 
   // ── Request state ──────────────────────────────────────────────────
