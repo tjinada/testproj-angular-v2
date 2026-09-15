@@ -337,17 +337,43 @@ export function evaluate(index: ConfigIndex, req: TraceRequest): TraceResult {
 
 // ── 3. Outcome extraction ────────────────────────────────────────────
 
-/** Applies one rewriteUrl behavior to the current path. */
-function applyRewrite(path: string, o: Record<string, any>, target: string): string {
+/**
+ * Applies one rewriteUrl behavior to the current path.
+ *
+ * Each mode reads a different option field — REWRITE uses targetUrl, REPLACE
+ * uses match + targetPath, PREPEND uses targetPathPrepend. Reading targetUrl
+ * for all of them makes REPLACE behave as REMOVE, silently dropping the
+ * matched segment instead of replacing it.
+ *
+ * matchMultiple decides whether every occurrence changes or only the first.
+ */
+function applyRewrite(
+  path: string,
+  o: Record<string, any>,
+  vars: Record<string, string>,
+  req: TraceRequest
+): string {
+  const match = String(o['match'] || '');
+  const all = o['matchMultiple'] === true;
+  // A function replacer keeps $& and friends in the target from being
+  // interpreted as replacement patterns.
+  const replaceOnce = (subject: string, needle: string, value: string) =>
+    needle ? subject.replace(needle, () => value) : subject;
+
   switch (o['behavior']) {
-    case 'REPLACE':
-      return path.split(String(o['match'])).join(target || '');
+    case 'REPLACE': {
+      const target = expandExpression(o['targetPath'], vars, req);
+      return all ? path.split(match).join(target) : replaceOnce(path, match, target);
+    }
     case 'REMOVE':
-      return path.split(String(o['match'])).join('');
+      return all ? path.split(match).join('') : replaceOnce(path, match, '');
     case 'PREPEND':
-      return (target || '') + path;
-    default:
+      return expandExpression(o['targetPathPrepend'], vars, req) + path;
+    case 'REWRITE':
+    default: {
+      const target = expandExpression(o['targetUrl'], vars, req);
       return target || path;
+    }
   }
 }
 
@@ -372,6 +398,7 @@ export function buildOutcome(index: ConfigIndex, req: TraceRequest, result: Trac
     path: req.path,
     rewrites: [],
     origin: null,
+    originOrder: [],
     cookies: [],
     redirect: null,
     actions: {},
@@ -390,7 +417,7 @@ export function buildOutcome(index: ConfigIndex, req: TraceRequest, result: Trac
       switch (behavior.name) {
         case 'rewriteUrl': {
           const before = outcome.path;
-          const after = applyRewrite(before, o, expandExpression(o['targetUrl'], vars, req));
+          const after = applyRewrite(before, o, vars, req);
           if (after === before) break;
           if (certain) {
             outcome.rewrites.push({ ...ref, before, after });
@@ -414,8 +441,13 @@ export function buildOutcome(index: ConfigIndex, req: TraceRequest, result: Trac
               forwardHostHeader:
                 o['forwardHostHeader'] === 'CUSTOM' ? String(o['customForwardHostHeader']) : o['forwardHostHeader']
             };
+            outcome.originOrder.push({ ruleId: match.id, host });
+            did.push(`origin ${host}`);
+          } else {
+            // Behaviors on an uncertain rule are never applied, so this is a
+            // candidate that didn't run — not one that got overruled later.
+            did.push(`would set origin ${host}`);
           }
-          did.push(`origin ${host}`);
           break;
         }
 
@@ -492,14 +524,19 @@ function buildDecided(index: ConfigIndex, result: TraceResult, outcome: Outcome)
     steps.push({ label: 'no valid cookie' });
   }
 
-  if (target && isResolved(target.value)) {
+  if (!target || target.ruleId === null) {
+    // No rule assigned it, so the value is just the declared default. Saying
+    // "property default" here reads as an explanation when it's the absence
+    // of one — some properties route on a different variable entirely.
+    steps.push({ label: 'no rule set a target', warn: true });
+  } else if (isResolved(target.value)) {
     if (/PMUSER_CNAME_CHAIN/.test(target.raw || '')) {
       const chain = result.prov['PMUSER_CNAME_CHAIN'];
       steps.push({ label: `GTM lookup on ${chain ? chain.raw.replace(/^GTM lookup on /, '') : ''}` });
     } else {
       steps.push({ label: target.ruleName });
     }
-  } else if (target) {
+  } else {
     steps.push({ label: 'GTM answer not supplied', warn: true });
   }
 

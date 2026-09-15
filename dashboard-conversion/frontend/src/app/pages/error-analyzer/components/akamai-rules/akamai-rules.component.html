@@ -218,9 +218,17 @@
     <div class="rows">
       @for (row of evidence; track trackById($index, row)) {
         <div class="card" [class.uncertain]="row.uncertain" [class.open]="openDetailId === row.id"
+             [class.final]="row.originState === 'final'"
              (click)="toggleDetail(row.id)">
           <div class="crumb">{{ row.crumb }}</div>
-          <div class="card-head"><span class="rname">{{ ruleName(row.id) }}</span></div>
+          <div class="card-head">
+            <span class="rname">{{ ruleName(row.id) }}</span>
+            @switch (row.originState) {
+              @case ('final') { <span class="finalbadge">final origin</span> }
+              @case ('superseded') { <span class="supbadge">superseded</span> }
+              @case ('notApplied') { <span class="supbadge">not applied</span> }
+            }
+          </div>
           @if (row.condition; as cond) {
             <div class="cond-line">
               @for (part of cond.parts; track trackByIndex($index)) {
@@ -234,7 +242,8 @@
           }
           <div class="does">
             @for (action of row.actions; track trackByIndex($index)) {
-              <div>{{ action }}</div>
+              <div [class.struck]="isSupersededOrigin(row, action)"
+                   [class.dim]="isUnappliedLine(row, action)">{{ action }}</div>
             }
           </div>
           @if (row.uncertain) {

@@ -72,6 +72,13 @@ interface EvidenceRow {
   actions: string[];
   uncertain: boolean;
   blockedBy: string;
+  /**
+   * Several rules can name an origin on one request, and only one survives.
+   * 'final' is the one in use, 'superseded' applied but was replaced with a
+   * different host, 'notApplied' never ran because its criteria were
+   * undecidable. Null when the rule doesn't touch the origin.
+   */
+  originState: 'final' | 'superseded' | 'notApplied' | null;
 }
 
 // ── Cookie model ─────────────────────────────────────────────────────
@@ -315,9 +322,41 @@ export class AkamaiRulesComponent {
           condition: this.conditionOf(node),
           actions: outcome.actions[match.id],
           uncertain: match.status === 'partial',
-          blockedBy: match.unknown.join(', ')
+          blockedBy: match.unknown.join(', '),
+          originState: this.originStateFor(match.id, match.status === 'full', outcome)
         };
       });
+  }
+
+  /**
+   * Classifies a rule's relationship to the final origin. A later rule writing
+   * the same host changes nothing worth flagging, so only a genuine value
+   * change counts as superseded.
+   */
+  private originStateFor(
+    id: number,
+    applied: boolean,
+    outcome: Outcome
+  ): 'final' | 'superseded' | 'notApplied' | null {
+    const names = (outcome.actions[id] || []).some(
+      action => action.startsWith('origin ') || action.startsWith('would set origin ')
+    );
+    if (!names) return null;
+    if (!applied) return 'notApplied';
+    if (outcome.origin && outcome.origin.ruleId === id) return 'final';
+
+    const mine = outcome.originOrder.find(entry => entry.ruleId === id);
+    return mine && outcome.origin && mine.host !== outcome.origin.host ? 'superseded' : null;
+  }
+
+  /** True for the origin line on a rule whose value was actually replaced. */
+  isSupersededOrigin(row: EvidenceRow, action: string): boolean {
+    return row.originState === 'superseded' && action.startsWith('origin ');
+  }
+
+  /** True for a line describing something that never ran. */
+  isUnappliedLine(row: EvidenceRow, action: string): boolean {
+    return row.originState === 'notApplied' && action.startsWith('would set origin ');
   }
 
   get matchedCount(): number {

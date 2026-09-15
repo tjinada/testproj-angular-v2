@@ -213,6 +213,11 @@ export interface Outcome {
    * would name a host the request never reaches.
    */
   origin: OriginResult | null;
+  /**
+   * Every origin that was actually applied, in evaluation order. Needed to
+   * tell "a later rule replaced this value" from "this rule never ran".
+   */
+  originOrder: { ruleId: number; host: string }[];
   /** Session-routing cookies stamped on the response. */
   cookies: CookieWrite[];
   redirect: RedirectResult | null;

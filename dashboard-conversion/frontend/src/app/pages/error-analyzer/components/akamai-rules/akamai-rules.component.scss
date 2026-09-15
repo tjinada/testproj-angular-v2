@@ -524,6 +524,34 @@ details.evidence {
   &.uncertain {
     background: $warn-soft;
   }
+
+  // The origin that actually survives to the end of evaluation.
+  &.final {
+    background: #f0fdf4;
+    box-shadow: inset 3px 0 0 $ok;
+
+    &:hover {
+      background: #e7f9ee;
+    }
+  }
+}
+
+.finalbadge {
+  padding: 1px 7px;
+  font: 10.5px inherit;
+  border-radius: 3px;
+  background: $ok-soft;
+  color: $ok;
+  border: 1px solid #a7f3d0;
+}
+
+.supbadge {
+  padding: 1px 7px;
+  font: 10.5px inherit;
+  border-radius: 3px;
+  background: $surface-3;
+  color: $muted;
+  border: 1px solid $line;
 }
 
 .crumb {
@@ -619,6 +647,17 @@ details.evidence {
   margin-top: 4px;
   font: 12.5px $mono;
   color: $ok;
+
+  // Struck: it ran, then a later rule replaced the value.
+  .struck {
+    color: $muted-2;
+    text-decoration: line-through;
+  }
+
+  // Dimmed: it never ran at all, so there was nothing to replace.
+  .dim {
+    color: $muted-2;
+  }
 }
 
 .why {
