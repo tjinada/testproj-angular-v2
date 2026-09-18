@@ -65,6 +65,7 @@ interface ParticipatingDATeams {
 export class ReleaseDetailComponent implements OnInit {
   @Input({ required: true }) releaseId!: string;
   @Output() back = new EventEmitter<void>();
+  @Output() abortRelease = new EventEmitter<string>();
 
   private readonly api = inject(ReleaseWorkflowService);
   private readonly auth = inject(AuthService);
@@ -565,6 +566,22 @@ export class ReleaseDetailComponent implements OnInit {
   formatDate(iso: string | null): string {
     if (!iso) return '—';
     return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  formatDateTime(iso: string | null): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  /** Hand the release up to the section root, which owns the close modal. */
+  onAbort(release: Release): void {
+    this.abortRelease.emit(release.releaseId);
   }
 
   // ----- locked stage helper for the empty-pane message -----

@@ -1,4 +1,10 @@
-<div class="sp">
+<div class="sp" [class.sp--readonly]="readOnly">
+
+  @if (readOnly) {
+    <div class="sp__readonly-note">
+      This release is closed. Stages are frozen and cannot be edited.
+    </div>
+  }
 
   @if (showHeader) {
     <!-- top action bar -->

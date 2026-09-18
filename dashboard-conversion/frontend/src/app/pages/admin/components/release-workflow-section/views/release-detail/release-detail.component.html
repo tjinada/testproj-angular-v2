@@ -10,7 +10,24 @@
   } @else if (error()) {
     <div class="state-message state-message--error">{{ error() }}</div>
   } @else if (release(); as r) {
-    <h1 class="page-title">{{ r.releaseId }} — {{ r.title }}</h1>
+    <div class="page-title-row">
+      <h1 class="page-title">{{ r.releaseId }} — {{ r.title }}</h1>
+      @if (!r.closure) {
+        <button class="btn btn-secondary" type="button" (click)="onAbort(r)">
+          <i class="bi bi-x-circle" aria-hidden="true"></i>
+          Close Release
+        </button>
+      }
+    </div>
+
+    @if (r.closure; as c) {
+      <div class="closure-banner">
+        <div class="closure-banner__title">
+          Release closed by {{ c.closedBy }} on {{ formatDateTime(c.closedAt) }}
+        </div>
+        <div class="closure-banner__comment">{{ c.comment }}</div>
+      </div>
+    }
 
     <div class="header-meta">
       <span [class]="releaseStatusClass(r.status)">{{ releaseStatusLabel(r.status) }}</span>

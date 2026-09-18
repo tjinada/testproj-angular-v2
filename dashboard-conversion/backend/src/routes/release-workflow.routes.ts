@@ -45,6 +45,15 @@ function notFound(res: Response, msg: string): Response {
   return res.status(404).json({ error: msg });
 }
 
+function conflict(res: Response, msg: string): Response {
+  return res.status(409).json({ error: msg });
+}
+
+/** Maps the closed-release latch onto a 409. Returns null when unrelated. */
+function closedConflict(res: Response, error: any): Response | null {
+  return error?.message?.includes('is closed') ? conflict(res, error.message) : null;
+}
+
 function isReleaseType(v: unknown): v is ReleaseType {
   return v === 'bundle' || v === 'independent' || v === 'hotfix';
 }
@@ -521,6 +530,8 @@ router.put('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: 
     const updated = await releaseWorkflowService.update(releaseId, patch);
     res.json({ message: 'Release updated successfully', release: updated });
   } catch (error: any) {
+    const closed = closedConflict(res, error);
+    if (closed) return closed;
     if (error?.message?.includes('not found')) {
       return notFound(res, error.message);
     }
@@ -551,6 +562,8 @@ router.put(
       );
       res.json({ message: 'Sub-step updated', subStep });
     } catch (error: any) {
+      const closed = closedConflict(res, error);
+      if (closed) return closed;
       if (error?.message?.includes('not found')) {
         return notFound(res, error.message);
       }
@@ -580,6 +593,8 @@ router.put(
       const stage = await releaseWorkflowService.setStageNa(releaseId, stageId, na, actor);
       res.json({ message: 'Stage updated', stage });
     } catch (error: any) {
+      const closed = closedConflict(res, error);
+      if (closed) return closed;
       if (error?.message?.includes('not found')) {
         return notFound(res, error.message);
       }
@@ -632,6 +647,8 @@ router.patch(
       );
       res.json({ message: 'Metadata updated', release });
     } catch (error: any) {
+      const closed = closedConflict(res, error);
+      if (closed) return closed;
       if (error?.message?.includes('not found')) {
         return notFound(res, error.message);
       }
@@ -665,6 +682,8 @@ router.post(
       const checks = await releaseWorkflowService.runChecks(releaseId, stageId);
       res.json({ checks });
     } catch (error: any) {
+      const closed = closedConflict(res, error);
+      if (closed) return closed;
       if (error?.message?.includes('not found')) {
         return notFound(res, error.message);
       }
@@ -673,6 +692,38 @@ router.post(
     }
   },
 );
+
+// ----- POST /api/release-workflow/:releaseId/abort -----
+
+/**
+ * POST /api/release-workflow/:releaseId/abort
+ * Body: { comment, actor? }
+ * Closes the release early (rejected at a gate, or abandoned after pre-prod
+ * defects). Latches the release read-only; stages are left untouched.
+ */
+router.post('/:releaseId/abort', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {
+  try {
+    const { releaseId } = req.params;
+    const { comment, actor } = req.body ?? {};
+
+    if (typeof comment !== 'string' || !comment.trim()) {
+      return badRequest(res, 'Body field "comment" (non-empty string) is required');
+    }
+    if (actor !== undefined && typeof actor !== 'string') {
+      return badRequest(res, 'Body field "actor" must be a string');
+    }
+
+    const release = await releaseWorkflowService.abort(releaseId, comment, actor);
+    res.json({ message: 'Release closed successfully', release });
+  } catch (error: any) {
+    const closed = closedConflict(res, error);
+    if (closed) return closed;
+    if (error?.message?.includes('not found')) return notFound(res, error.message);
+    if (error?.message?.includes('comment is required')) return badRequest(res, error.message);
+    console.error('Error closing release:', error);
+    res.status(500).json({ error: 'Failed to close release' });
+  }
+});
 
 // ----- DELETE /api/release-workflow/:releaseId -----
 

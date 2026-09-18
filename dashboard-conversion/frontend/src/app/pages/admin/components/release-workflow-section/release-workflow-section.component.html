@@ -1,11 +1,59 @@
 @if (view() === 'list') {
   <app-releases-list
-    (openRelease)="goToDetail($event)" />
+    (openRelease)="goToDetail($event)"
+    (abortRelease)="openAbort($event)" />
 }
 
 
 @if (view() === 'detail' && selectedReleaseId()) {
   <app-release-detail
     [releaseId]="selectedReleaseId()!"
-    (back)="goToList()" />
+    (back)="goToList()"
+    (abortRelease)="openAbort($event)" />
+}
+
+<!-- ── Close Release Modal ──────────────────────────────────────────────── -->
+@if (abortTarget(); as targetId) {
+  <div class="modal-backdrop" (click)="closeAbort()">
+    <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="abort-modal-title">
+
+      <div class="modal-header">
+        <h2 class="modal-title" id="abort-modal-title">Close {{ targetId }}</h2>
+        <button class="modal-close" type="button" aria-label="Close" (click)="closeAbort()">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 3l10 10M13 3L3 13"/>
+          </svg>
+        </button>
+      </div>
+
+      @if (abortError()) {
+        <div class="modal-error">{{ abortError() }}</div>
+      }
+
+      <div class="modal-body">
+        <div class="form-row">
+          <label for="abortComment">Reason <span class="required">*</span></label>
+          <textarea
+            id="abortComment"
+            [(ngModel)]="abortComment"
+            [disabled]="abortSubmitting()"
+            placeholder="e.g. Rejected at pre-prod sign-off — regression in e-transfer flow."></textarea>
+        </div>
+        <p class="field-hint">
+          This closes the release permanently. Stages stay as they are, but no further
+          changes can be made and it cannot be reopened.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="secondary-btn" (click)="closeAbort()" [disabled]="abortSubmitting()">
+          Cancel
+        </button>
+        <button type="button" class="danger-btn" (click)="submitAbort()" [disabled]="abortSubmitting()">
+          {{ abortSubmitting() ? 'Closing...' : 'Close Release' }}
+        </button>
+      </div>
+
+    </div>
+  </div>
 }

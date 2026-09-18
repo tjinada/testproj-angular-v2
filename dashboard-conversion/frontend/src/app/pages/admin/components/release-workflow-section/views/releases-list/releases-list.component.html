@@ -41,6 +41,9 @@
               </td>
               <td>
                 <span [class]="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+                @if (r.closure; as c) {
+                  <div class="muted small closure-note" [title]="c.comment">{{ c.comment }}</div>
+                }
               </td>
               <td>
                 <div>{{ currentStageName(r) }}</div>
@@ -57,6 +60,13 @@
               </td>
               <td class="col-actions">
                 <div class="actions-cell">
+                  @if (!r.closure) {
+                    <button class="icon-btn" type="button" title="Close release"
+                            (click)="onAbort(r, $event)"
+                            [disabled]="isDeleting(r.releaseId)">
+                      <i class="bi bi-x-circle" aria-hidden="true"></i>
+                    </button>
+                  }
                   <button class="icon-btn icon-btn-danger" type="button" title="Delete"
                           (click)="onDelete(r, $event)"
                           [disabled]="isDeleting(r.releaseId)">

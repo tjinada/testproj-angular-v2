@@ -40,6 +40,10 @@ class ReleaseWorkflowService {
       const data = await artifactoryService.getFileContent(this.dataFileName);
       const releases: ReleaseWorkflowData = { ...data };
       this.normalizeLegacyReleaseTypes(releases);
+      // Releases persisted before early-close existed carry no `closure` key.
+      for (const release of Object.values(releases)) {
+        if (release.closure === undefined) release.closure = null;
+      }
       return releases;
     } catch (error) {
       console.log('No existing release_workflow_data found in artifactory');
@@ -66,6 +70,16 @@ class ReleaseWorkflowService {
     if (stage.id === this.earlyRetrofitReleaseStageId) return;
     if (release.type !== 'bundle') return;
     throw new Error(`Bundle releases cannot be skipped at the ${action} level`);
+  }
+
+  /**
+   * A closed release is a latched, read-only record. Every mutation path calls
+   * this first so the rule is enforced server-side, not just hidden in the UI.
+   */
+  private assertNotClosed(release: Release): void {
+    if (release.closure) {
+      throw new Error(`Release '${release.releaseId}' is closed and cannot be modified`);
+    }
   }
 
   private normalizeLegacyReleaseTypes(releases: ReleaseWorkflowData): void {
@@ -135,6 +149,7 @@ class ReleaseWorkflowService {
       createdAt: now,
       updatedAt: now,
       metadata: this.buildMetadata(metadata),
+      closure: null,
       stages: cloneStageTemplate(),
     };
 
@@ -176,6 +191,7 @@ class ReleaseWorkflowService {
     if (!existing) {
       throw new Error(`Release '${releaseId}' not found`);
     }
+    this.assertNotClosed(existing);
 
     const normalizedReleaseComponents = patch.releaseComponents
       ? normalizeReleaseComponents({
@@ -225,6 +241,7 @@ class ReleaseWorkflowService {
     const releases = await this.load();
     const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
+    this.assertNotClosed(release);
 
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
@@ -258,6 +275,7 @@ class ReleaseWorkflowService {
     const releases = await this.load();
     const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
+    this.assertNotClosed(release);
 
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
@@ -343,6 +361,7 @@ class ReleaseWorkflowService {
     const releases = await this.load();
     const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
+    this.assertNotClosed(release);
 
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
@@ -478,6 +497,35 @@ class ReleaseWorkflowService {
     return true;
   }
 
+  // ----- close early -----
+
+  /**
+   * Close a release early — rejected at a gate, or abandoned after pre-prod
+   * defects. Stages are left exactly as they are so the record still shows how
+   * far the release got; only the closure latch is written.
+   */
+  async abort(releaseId: string, comment: string, actor?: string): Promise<Release> {
+    const trimmed = comment.trim();
+    if (!trimmed) throw new Error('A comment is required to close a release');
+
+    const releases = await this.load();
+    const release = releases[releaseId];
+    if (!release) throw new Error(`Release '${releaseId}' not found`);
+    this.assertNotClosed(release);
+
+    const now = new Date().toISOString();
+    release.closure = {
+      comment: trimmed,
+      closedBy: actor ?? 'unknown',
+      closedAt: now,
+    };
+    release.status = 'aborted';
+    release.updatedAt = now;
+
+    await this.save(releases);
+    return release;
+  }
+
   private toGovernanceKey(releaseId: string): string {
     const bare = releaseId.trim().toLowerCase().replace(/^release\//, '');
     return `release/${bare}`;
@@ -543,6 +591,7 @@ class ReleaseWorkflowService {
     const releases = await this.load();
     const release = releases[releaseId];
     if (!release) throw new Error(`Release '${releaseId}' not found`);
+    this.assertNotClosed(release);
 
     // Update intakePageUrl to the corresponding tech-governance intake list.
     let intakePageIdToUpdate: string | null = null;
@@ -705,8 +754,9 @@ class ReleaseWorkflowService {
       stageStatusById.set(stage.id, newStatus);
     }
 
-    // Roll up to release-level status.
-    release.status = this.computeReleaseStatus(release.stages);
+    // Roll up to release-level status. A closed release is latched to
+    // 'aborted' regardless of how far its stages got.
+    release.status = release.closure ? 'aborted' : this.computeReleaseStatus(release.stages);
   }
 
   private computeStageStatus(

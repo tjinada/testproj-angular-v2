@@ -58,6 +58,16 @@ export interface Override {
   overriddenAt: string;
 }
 
+/**
+ * Set when a release is closed early. Non-null means the release is latched
+ * read-only and its status is 'aborted'.
+ */
+export interface ReleaseClosure {
+  comment: string;
+  closedBy: string;
+  closedAt: string;
+}
+
 export interface Stage {
   id: string;
   displayOrder: number;
@@ -133,6 +143,7 @@ export interface Release {
   createdAt: string;
   updatedAt: string;
   metadata: ReleaseMetadata;
+  closure: ReleaseClosure | null;
   stages: Stage[];
 }
 

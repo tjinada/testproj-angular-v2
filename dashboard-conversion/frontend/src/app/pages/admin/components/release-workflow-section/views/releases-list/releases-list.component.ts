@@ -28,6 +28,7 @@ import { releaseIdExample, releaseIdValidationMessage } from '../../../../../../
 })
 export class ReleasesListComponent implements OnInit {
   @Output() openRelease = new EventEmitter<string>();
+  @Output() abortRelease = new EventEmitter<string>();
 
   private readonly earlyRetrofitReleaseStageId = 'stage3-early-retrofit-release';
 
@@ -384,6 +385,12 @@ export class ReleasesListComponent implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  /** Hand the release up to the section root, which owns the close modal. */
+  onAbort(release: Release, ev: Event): void {
+    ev.stopPropagation();
+    this.abortRelease.emit(release.releaseId);
   }
 
   isDeleting(releaseId: string): boolean {

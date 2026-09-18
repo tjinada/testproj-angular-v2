@@ -53,6 +53,17 @@ export interface Override {
   overriddenAt: string;
 }
 
+/**
+ * Set when a release is closed early — rejected at a gate, or abandoned after
+ * pre-prod defects. Presence of this object latches the release: status
+ * becomes 'aborted' and all mutations are rejected.
+ */
+export interface ReleaseClosure {
+  comment: string;
+  closedBy: string;
+  closedAt: string;
+}
+
 // ===== stage =====
 
 export interface Stage {
@@ -132,6 +143,7 @@ export interface Release {
   createdAt: string;
   updatedAt: string;
   metadata: ReleaseMetadata;
+  closure: ReleaseClosure | null;   // non-null once the release is closed early
   stages: Stage[];               // always 11 entries, ordered by displayOrder
 }
 

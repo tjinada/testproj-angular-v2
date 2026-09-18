@@ -109,6 +109,21 @@ export class ReleaseWorkflowService {
     );
   }
 
+  /**
+   * Close a release early (rejected at a gate, or abandoned after pre-prod
+   * defects). Latches the release read-only; stages are left untouched.
+   */
+  abort(
+    releaseId: string,
+    comment: string,
+    actor?: string,
+  ): Observable<{ message: string; release: Release }> {
+    return this.http.post<{ message: string; release: Release }>(
+      `${this.base}/${encodeURIComponent(releaseId)}/abort`,
+      { comment, actor },
+    );
+  }
+
   delete(releaseId: string): Observable<{ message: string; releaseId: string }> {
     return this.http.delete<{ message: string; releaseId: string }>(
       `${this.base}/${encodeURIComponent(releaseId)}`,

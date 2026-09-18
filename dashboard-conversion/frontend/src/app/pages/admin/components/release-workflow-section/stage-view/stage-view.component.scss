@@ -484,3 +484,28 @@
 }
 
 @keyframes ss-spin { to { transform: rotate(360deg); } }
+// ── Closed release: frozen stage ───────────────────────────────────────────
+// Action methods also early-return on readOnly, and the backend 409s either
+// way. This layer just stops the UI offering controls that can't do anything.
+
+.sp__readonly-note {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #FCEBEB;
+  border: 1px solid #F4D0D0;
+  border-radius: 4px;
+  color: #791F1F;
+  font-size: 12px;
+}
+
+.sp--readonly {
+  button:not(.ss-btn--ghost),
+  input,
+  textarea,
+  .ss-cb {
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  .ss-btn--ghost { display: none; }
+}

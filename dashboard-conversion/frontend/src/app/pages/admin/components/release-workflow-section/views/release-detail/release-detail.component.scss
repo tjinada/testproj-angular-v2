@@ -608,3 +608,33 @@
     text-align: left;
   }
 }
+// ── Closed release ─────────────────────────────────────────────────────────
+
+.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.closure-banner {
+  margin: 4px 0 14px;
+  padding: 10px 14px;
+  background: #FCEBEB;
+  border: 1px solid #F4D0D0;
+  border-left: 3px solid #C0392B;
+  border-radius: 4px;
+}
+
+.closure-banner__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #791F1F;
+}
+
+.closure-banner__comment {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #333;
+  white-space: pre-wrap;
+}

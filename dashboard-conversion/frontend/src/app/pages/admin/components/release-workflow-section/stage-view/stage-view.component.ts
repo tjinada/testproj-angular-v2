@@ -66,6 +66,14 @@ export class StageViewComponent implements OnChanges {
     return email ? usernameFromEmail(email) : null;
   }
 
+  /**
+   * A closed release is frozen. The backend rejects writes with a 409 either
+   * way; this stops the UI from offering them in the first place.
+   */
+  get readOnly(): boolean {
+    return !!this.release?.closure;
+  }
+
   /** Sub-step IDs whose row is in edit mode (input visible, populated with current value). */
   readonly editingIds = signal<Set<string>>(new Set());
 
@@ -287,6 +295,7 @@ export class StageViewComponent implements OnChanges {
   // ----- actions: edit, save, cancel -----
 
   beginEdit(s: SubStep): void {
+    if (this.readOnly) return;
     if (!s.editableField) return;
     this.clearFieldError(s.id);
     this.editingIds.update((set) => {
@@ -399,6 +408,7 @@ export class StageViewComponent implements OnChanges {
   }
 
   private updateSubStep(s: SubStep, state: SubStepState, source: SubStep['source']): void {
+    if (this.readOnly) return;
     this.stageError.set(null);
     const actor = this.currentActor() ?? undefined;
     this.api
@@ -519,6 +529,7 @@ export class StageViewComponent implements OnChanges {
   }
 
   toggleStageNa(): void {
+    if (this.readOnly) return;
     if (this.stageNaPending() || !this.hasVisibleSubSteps() || !this.canShowStageNaAction()) return;
 
     this.stageNaPending.set(true);
@@ -582,6 +593,7 @@ export class StageViewComponent implements OnChanges {
 
   createMaster(type: 'ui' | 'bos'): void {
     if (!this.release?.releaseId) return;
+    if (this.readOnly) return;
     const isUi = type === 'ui';
     if ((isUi && this.creatingUi()) || (!isUi && this.creatingBos())) return;
 
@@ -623,6 +635,7 @@ export class StageViewComponent implements OnChanges {
   }
 
   runAllChecks(): void {
+    if (this.readOnly) return;
     if (this.runningAll()) return;
     this.runningAll.set(true);
     this.stageError.set(null);
