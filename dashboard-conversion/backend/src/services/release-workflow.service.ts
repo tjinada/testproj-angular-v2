@@ -802,11 +802,6 @@ class ReleaseWorkflowService {
    */
   private reconcileRelease(release: Release): string[] {
     const changes: string[] = [];
-
-    // Snapshot per-instance sub-step state BEFORE any mutation, so a sub-step
-    // moved to a different stage can keep its checked state. Only ids that are
-    // globally unique across the release are eligible — stage-scoped ids mean a
-    // duplicated id can't be matched unambiguously across a move.
     const priorSubStepState = snapshotUniqueSubStepState(release);
 
     const beforeSheriffFields = JSON.stringify({
@@ -881,11 +876,6 @@ class ReleaseWorkflowService {
         changes.push(`${tplStage.id}: updated displayOrder to ${tplStage.displayOrder}`);
       }
 
-      // sync template-controlled structural fields so changes to a stage's
-      // parallelism, dependencies, or label reach existing releases. These are
-      // not user-editable per release; gating is re-derived from dependsOn by the
-      // recompute pass that runs after reconcile. (status is intentionally NOT
-      // touched here — that's computed progress.)
       if (stage.name !== tplStage.name) {
         stage.name = tplStage.name;
         changes.push(`${tplStage.id}: updated name`);
@@ -996,19 +986,13 @@ class ReleaseWorkflowService {
       );
     }
 
-    // Keep stages in template displayOrder so a newly added or renumbered stage
-    // lands in the right position on existing releases (the UI renders array
-    // order, so persisting the sorted array is what fixes placement).
     const beforeOrder = release.stages.map((s) => s.id).join(',');
     release.stages.sort((a, b) => a.displayOrder - b.displayOrder);
     if (release.stages.map((s) => s.id).join(',') !== beforeOrder) {
       changes.push('reordered stages to match template displayOrder');
     }
 
-    // Carry sub-step state across a stage move. A sub-step whose id is globally
-    // unique in the result, was captured pre-reconcile, and now sits at template
-    // default (a freshly cloned move target) gets its prior state restored.
-    // In-place sub-steps snapshot to their own value, so this is a no-op for them.
+    // Carry sub-step state across a stage move.
     const resultCounts = new Map<string, number>();
     for (const stage of release.stages) {
       for (const sub of stage.subSteps) {
@@ -1060,11 +1044,6 @@ function indexOf<T>(arr: T[], pred: (item: T) => boolean): number {
 
 type SubStepInstanceState = Pick<SubStep, 'state' | 'source' | 'completedAt' | 'completedBy'>;
 
-/**
- * Capture per-instance state for every sub-step whose id occurs exactly once
- * across the whole release. Stage-scoped ids mean a duplicated id can't be
- * matched unambiguously across a move, so duplicates are excluded.
- */
 function snapshotUniqueSubStepState(release: Release): Map<string, SubStepInstanceState> {
   const counts = new Map<string, number>();
   for (const stage of release.stages) {

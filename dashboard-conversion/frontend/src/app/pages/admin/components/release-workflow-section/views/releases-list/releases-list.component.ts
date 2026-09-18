@@ -5,6 +5,7 @@ import {
   EventEmitter,
   OnInit,
   Output,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -15,6 +16,7 @@ import { Release, ReleaseComponents, ReleaseStatus, ReleaseType } from '../../..
 import { AuthService } from '../../../../../../services/auth.service';
 import { Admin } from '../../../../../../models/admin.models';
 import { normalizeSheriff, usernameFromEmail } from '../../../../../../utils/sheriff.util';
+import { releaseIdExample, releaseIdValidationMessage } from '../../../../../../utils/release-id.util';
 
 @Component({
   selector: 'app-releases-list',
@@ -26,6 +28,8 @@ import { normalizeSheriff, usernameFromEmail } from '../../../../../../utils/she
 })
 export class ReleasesListComponent implements OnInit {
   @Output() openRelease = new EventEmitter<string>();
+
+  private readonly earlyRetrofitReleaseStageId = 'stage3-early-retrofit-release';
 
   private readonly api = inject(ReleaseWorkflowService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -48,9 +52,59 @@ export class ReleasesListComponent implements OnInit {
   modalReleaseId = '';
   modalTitle = '';
   modalType = signal<ReleaseType>('bundle');
-  modalSheriff = '';
-  modalBackupSheriff = '';
+  modalUiSheriff = '';
+  modalUiBackupSheriff = '';
+  modalBosSheriff = '';
+  modalBosBackupSheriff = '';
   readonly modalReleaseComponents = signal<ReleaseComponents>({ cdbui: false, cdbbos: false });
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── retrofit reminder logic ──────────────────────────────────────────────
+  
+  /** Find the earliest in-progress release by creation date */
+  readonly earliestInProgressRelease = computed(() => {
+    const inProgress = this.releases().filter((r) => r.status === 'in_progress');
+    if (inProgress.length === 0) return null;
+
+    const earliestCreatedAt = Math.min(
+      ...inProgress.map((r) => new Date(r.createdAt).getTime())
+    );
+    return inProgress.find((r) => new Date(r.createdAt).getTime() === earliestCreatedAt) || null;
+  });
+
+  readonly retrofitReminders = computed(() => {
+    const activeRelease = this.earliestInProgressRelease();
+    if (!activeRelease) return [];
+
+    // Find releases created after the earliest in-progress release
+    const activeCreatedAt = new Date(activeRelease.createdAt).getTime();
+    const newReleases = this.releases().filter((r) => {
+      const createdAt = new Date(r.createdAt).getTime();
+      return createdAt > activeCreatedAt;
+    });
+
+    // Filter to only releases that haven't completed the retrofit stage
+    return newReleases.filter((r) => !this.isRetrofitStageComplete(r));
+  });
+
+  readonly hasRetrofitReminders = computed(() => this.retrofitReminders().length > 0);
+
+  readonly retrofitReminderMessage = computed(() => {
+    const reminders = this.retrofitReminders();
+    if (reminders.length === 0) return '';
+
+    const activeRelease = this.earliestInProgressRelease();
+    const activeReleaseName = activeRelease ? activeRelease.releaseId : '';
+
+    const releaseNames = reminders
+      .map((r) => `${r.releaseId}`)
+      .join(', ');
+
+    const pluralSuffix = reminders.length === 1 ? '' : 's';
+    const activeReleaseInfo = activeReleaseName ? ` [${activeReleaseName}]` : '';
+    return `New release${pluralSuffix} created during active release${activeReleaseInfo}: ${releaseNames}. ` +
+           `Please complete the retrofit stage${pluralSuffix} for the mentioned release${pluralSuffix}.`;
+  });
   // ─────────────────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
@@ -81,8 +135,10 @@ export class ReleasesListComponent implements OnInit {
     this.modalReleaseId = '';
     this.modalTitle = '';
     this.modalType.set('bundle');
-    this.modalSheriff = '';
-    this.modalBackupSheriff = '';
+    this.modalUiSheriff = '';
+    this.modalUiBackupSheriff = '';
+    this.modalBosSheriff = '';
+    this.modalBosBackupSheriff = '';
     this.modalReleaseComponents.set({ cdbui: false, cdbbos: false });
     this.modalError.set(null);
     this.modalSubmitting.set(false);
@@ -96,6 +152,14 @@ export class ReleasesListComponent implements OnInit {
 
   setModalType(t: ReleaseType): void {
     this.modalType.set(t);
+  }
+
+  modalReleaseIdExample(): string {
+    return releaseIdExample(this.modalType());
+  }
+
+  modalReleaseIdValidationMessage(): string | null {
+    return releaseIdValidationMessage(this.modalReleaseId, this.modalType());
   }
 
   setModalReleaseComponent(component: keyof ReleaseComponents, checked: boolean): void {
@@ -112,14 +176,19 @@ export class ReleasesListComponent implements OnInit {
       this.modalError.set('Release ID is required.');
       return;
     }
+    const releaseIdError = this.modalReleaseIdValidationMessage();
+    if (releaseIdError) {
+      this.modalError.set(releaseIdError);
+      return;
+    }
     if (!this.modalTitle.trim()) {
       this.modalError.set('Title is required.');
       return;
     }
 
-    const sheriff = normalizeSheriff(this.modalSheriff);
-    if (!sheriff) {
-      this.modalError.set('Sheriff is required.');
+    const missingSheriffMessage = this.missingModalSheriffMessage();
+    if (missingSheriffMessage) {
+      this.modalError.set(missingSheriffMessage);
       return;
     }
     if (!this.hasSelectedReleaseComponents()) {
@@ -127,7 +196,18 @@ export class ReleasesListComponent implements OnInit {
       return;
     }
 
-    const backupSheriff = normalizeSheriff(this.modalBackupSheriff) || null;
+    const uiSheriff = this.modalReleaseComponents().cdbui
+      ? normalizeSheriff(this.modalUiSheriff)
+      : null;
+    const uiBackupSheriff = this.modalReleaseComponents().cdbui
+      ? normalizeSheriff(this.modalUiBackupSheriff) || null
+      : null;
+    const bosSheriff = this.modalReleaseComponents().cdbbos
+      ? normalizeSheriff(this.modalBosSheriff)
+      : null;
+    const bosBackupSheriff = this.modalReleaseComponents().cdbbos
+      ? normalizeSheriff(this.modalBosBackupSheriff) || null
+      : null;
 
     this.modalSubmitting.set(true);
 
@@ -135,8 +215,10 @@ export class ReleasesListComponent implements OnInit {
       releaseId: this.modalReleaseId.trim(),
       title: this.modalTitle.trim(),
       type: this.modalType(),
-      sheriff,
-      backupSheriff,
+      uiSheriff,
+      uiBackupSheriff,
+      bosSheriff,
+      bosBackupSheriff,
       releaseComponents: this.modalReleaseComponents(),
     }).subscribe({
       next: (resp) => {
@@ -231,9 +313,52 @@ export class ReleasesListComponent implements OnInit {
   canSubmitModal(): boolean {
     if (this.modalSubmitting()) return false;
     if (!this.modalReleaseId.trim()) return false;
+    if (this.modalReleaseIdValidationMessage()) return false;
     if (!this.modalTitle.trim()) return false;
-    if (!normalizeSheriff(this.modalSheriff)) return false;
-    return this.hasSelectedReleaseComponents();
+    if (!this.hasSelectedReleaseComponents()) return false;
+    return !this.missingModalSheriffMessage();
+  }
+
+  private missingModalSheriffMessage(): string | null {
+    if (this.loadingAdmins()) {
+      return 'Loading admin list...';
+    }
+    if (this.admins().length === 0) {
+      return this.adminsError() || 'Admin list is unavailable.';
+    }
+
+    const components = this.modalReleaseComponents();
+    if (components.cdbui && !this.isValidAdminSheriff(this.modalUiSheriff)) {
+      return this.modalUiSheriff.trim()
+        ? 'CDB UI sheriff must match an admin username.'
+        : 'CDB UI sheriff is required.';
+    }
+    if (components.cdbui && !this.isOptionalAdminSheriff(this.modalUiBackupSheriff)) {
+      return 'CDB UI backup sheriff must match an admin username.';
+    }
+    if (components.cdbbos && !this.isValidAdminSheriff(this.modalBosSheriff)) {
+      return this.modalBosSheriff.trim()
+        ? 'CDB BOS sheriff must match an admin username.'
+        : 'CDB BOS sheriff is required.';
+    }
+    if (components.cdbbos && !this.isOptionalAdminSheriff(this.modalBosBackupSheriff)) {
+      return 'CDB BOS backup sheriff must match an admin username.';
+    }
+    return null;
+  }
+
+  private validAdminUsernames(): Set<string> {
+    return new Set(this.admins().map((admin) => usernameFromEmail(admin.email).toLowerCase()));
+  }
+
+  private isValidAdminSheriff(value: string): boolean {
+    const normalized = normalizeSheriff(value).toLowerCase();
+    return normalized.length > 0 && this.validAdminUsernames().has(normalized);
+  }
+
+  private isOptionalAdminSheriff(value: string): boolean {
+    const normalized = normalizeSheriff(value);
+    return normalized.length === 0 || this.validAdminUsernames().has(normalized.toLowerCase());
   }
 
 
@@ -263,5 +388,10 @@ export class ReleasesListComponent implements OnInit {
 
   isDeleting(releaseId: string): boolean {
     return this.deletingId() === releaseId;
+  }
+
+  private isRetrofitStageComplete(release: Release): boolean {
+    const retrofitStage = release.stages.find((s) => s.id === this.earlyRetrofitReleaseStageId);
+    return retrofitStage ? retrofitStage.status === 'complete' : false;
   }
 }

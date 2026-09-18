@@ -350,9 +350,9 @@
               <div class="rail-stage__main">
                 <div class="rail-stage__head">
                   <span class="rail-stage__name">{{ stage.name }}</span>
-                  @if (stage.kind === 'parallel') {
-                    <span class="rail-stage__pll">parallel</span>
-                  }
+                  <span class="rail-stage__status" [ngClass]="'rail-stage__status--' + stage.status.replace('_', '-')">
+                    {{ formatStageStatus(stage.status) }}
+                  </span>
                 </div>
                 <div class="rail-stage__meta">
                   {{ subStepsComplete(stage, r) }} / {{ visibleSubStepCount(stage, r) }} · {{ stageStatusLabel(stage.status) }}

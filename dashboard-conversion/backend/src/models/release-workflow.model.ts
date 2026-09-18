@@ -87,10 +87,10 @@ export interface ReleaseMetadata {
   sealightsDisablePrUrl: string | null; 
   preProdLetterUrl: string | null;
   prodLetterUrl: string | null;
-  retrofitPleaseCdbUiPrUrl: string | null;
-  retrofitPleaseCdbUiConfigPrUrl: string | null;
-  retrofitPleaseCdbbosPrUrl: string | null;
-  retrofitPleaseCdbbosConfigPrUrl: string | null;
+  earlyRetrofitCdbUiPrUrl: string | null;
+  earlyRetrofitCdbUiConfigPrUrl: string | null;
+  earlyRetrofitCdbbosPrUrl: string | null;
+  earlyRetrofitCdbbosConfigPrUrl: string | null;
   retrofitCdbUiPrUrl: string | null;
   retrofitCdbConfigsPrUrl: string | null;
   retrofitCdbUiSwaggerPrUrl: string | null;

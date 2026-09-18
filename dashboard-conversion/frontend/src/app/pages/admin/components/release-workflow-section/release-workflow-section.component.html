@@ -1,24 +1,8 @@
 @if (view() === 'list') {
   <app-releases-list
-    (newRelease)="goToCreate()"
-    (openRelease)="goToDetail($event)"
-    (editRelease)="goToEdit($event)" />
+    (openRelease)="goToDetail($event)" />
 }
 
-@if (view() === 'create') {
-  <app-create-release
-    mode="create"
-    (cancel)="goToList()"
-    (saved)="goToDetail($event)" />
-}
-
-@if (view() === 'edit' && editingReleaseId()) {
-  <app-create-release
-    mode="edit"
-    [editingReleaseId]="editingReleaseId()!"
-    (cancel)="goToList()"
-    (saved)="goToList()" />
-}
 
 @if (view() === 'detail' && selectedReleaseId()) {
   <app-release-detail

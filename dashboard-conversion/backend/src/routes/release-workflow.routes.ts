@@ -2,12 +2,34 @@ import { Router, Request, Response } from 'express';
 import releaseWorkflowService from '../services/release-workflow.service';
 import appDataService from '../services/app-data.service';
 import { requireAuth } from '../middleware/auth';
+import jiraService from '../services/jira.service';
 import { techGovernanceReleasesIntakeService } from '../services';
 import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
 import { createConfigJiras, CreateConfigJirasResult } from '../services/create-config-jiras.service';
 import { Release, ReleaseComponents, ReleaseType, SubStepSource, SubStepState } from '../models/release-workflow.model';
+import confluenceExportService from '../services/confluence-export.service';
+import config from '../config';
+import ConfluenceService from '../services/confluence.service';
+import { resolveIntakeParentPageId, getIntakeSpaceKey, buildIntakePageUrl } from '../config/intake-board.config';
+import { IntakeStep1, IntakeFormData } from '../services/intake-template';
+import { loadIntakeTemplate } from '../services/intake-template-loader';
 
 const router = Router();
+
+// In-memory locks to mitigate race conditions when creating intakes
+const intakeCreationLocks = new Map<string, Promise<any>>();
+
+
+/**
+ * Escape a string for safe interpolation into CQL queries.
+ * Escapes double-quotes, backslashes, and single-quotes.
+ */
+function escapeCql(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/'/g, "\\'");
+}
 
 type ReleaseParams  = { releaseId: string };
 type StageParams    = { releaseId: string; stageId: string };
@@ -128,6 +150,18 @@ router.get('/', requireAuth, async (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/release-workflow/intake-template
+ * Returns the intake template YAML as JSON for the frontend to render forms dynamically.
+ */
+// Intake template endpoint moved to /api/tech-intake
+
+/**
+ * GET /api/release-workflow/users/search?q={query}
+ * Proxy to Jira user search API and return simplified user list.
+ */
+// User search endpoint moved to /api/tech-intake
+
 // ----- POST /api/release-workflow/:releaseId/create-config-jiras -----
 /**
  * Create the two master config JIRA tickets and per-DA-team subtasks.
@@ -192,6 +226,27 @@ router.post(
 );
 
 // ----- GET /api/release-workflow/:releaseId -----
+// ----- NEW: Intake lookup + pull (Phase 5.3) -----
+/**
+ * GET /api/release-workflow/intake/lookup?release=R95&daTeam=Team+Name
+ * Search for exported intake pages under the release's Tech Governance parent page.
+ */
+// intake lookup moved to /api/tech-intake
+
+/**
+ * GET /api/release-workflow/intake/:pageId/pull
+ * Pulls the intake-data content property from a specific page
+ */
+// pull handler moved to /api/tech-intake
+
+/**
+ * POST /api/release-workflow/intake/:pageId/push
+ * Push updated intake data back to an existing Confluence page.
+ * Updates both the page body (re-rendered HTML) and the intake-data content property.
+ */
+// intake push moved to /api/tech-intake
+
+// ----- GET /api/release-workflow/:releaseId -----
 
 router.get('/:releaseId', requireAuth, async (req: Request<ReleaseParams>, res: Response) => {  try {
     const { releaseId } = req.params;
@@ -212,34 +267,63 @@ router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParam
     const release = await releaseWorkflowService.getById(releaseId);
     if (!release) return notFound(res, `Release '${releaseId}' not found`);
     const entry = techGovernanceReleasesIntakeService.findByBranch(releaseId);
+
     const resolution = entry
       ? resolveDATeamsByCodes(codesFromIntakes(entry.intakes), entry.intakes)
       : { matched: [], unmatched: [] };
 
-    // Group matched teams and emails by scope
+    // Build a lookup from jira code -> matched DA team for fallbacks
+    const daTeamByCode = new Map<string, typeof resolution.matched[0]>();
+    for (const team of resolution.matched) {
+      for (const proj of team.jiraProjects ?? []) {
+        const key = (proj ?? '').trim().toUpperCase();
+        if (key) daTeamByCode.set(key, team);
+      }
+    }
+
+    // Group intakes by scope, building one row per intake. Use DA team data
+    // only as a fallback for dev lead and team name.
     const scopes = ['CDB UI', 'CDB BOS'];
     const emailsByScope: Record<string, string> = {};
-    const teamsByScope: Record<string, typeof resolution.matched> = {};
+    const teamsByScope: Record<string, Array<{ devLeadName: string; devLeadEmail: string; teamName: string; intakeTitle: string }>> = {};
     for (const scope of scopes) {
-      // Only include teams whose comma-separated scope list contains a matching
-      // CDB UI or CDB BOS item. Teams with no scope are excluded — they have
-      // no config changes to PR.
-      const teamsInScope = resolution.matched.filter((t) => {
-        if (!t.scope) return false; // no scope signals = exclude from config emails
-        // Check if the comma-separated scope list contains CDB UI or CDB BOS
-        const scopeItems = t.scope.split(',').map(s => s.trim());
-        if (scope === 'CDB UI') {
-          return scopeItems.some(s => s.startsWith('CDB UI'));
-        } else if (scope === 'CDB BOS') {
-          return scopeItems.some(s => s.startsWith('CDB BOS'));
-        }
-        return false;
-      });
-      teamsByScope[scope] = teamsInScope;
+      const rows: Array<{ devLeadName: string; devLeadEmail: string; teamName: string; intakeTitle: string }> = [];
       const emails = new Set<string>();
-      for (const t of teamsInScope) {
-        if (t.devLead?.email) emails.add(t.devLead.email);
+      for (const intake of entry?.intakes ?? []) {
+        const intakeScope = (intake.scope || '').toLowerCase();
+        const hasNoScope = !intake.scope;
+        let belongsInScope = false;
+        if (hasNoScope) {
+          // No scope declared — include in both emails
+          belongsInScope = true;
+        } else if (intakeScope === 'both') {
+          belongsInScope = true;
+        } else if (scope === 'CDB BOS') {
+          belongsInScope = intakeScope.includes('cdb bos') || intakeScope.includes('cdbbos');
+        } else if (scope === 'CDB UI') {
+          belongsInScope = intakeScope.includes('cdb ui');
+        }
+        if (!belongsInScope) continue;
+
+        const code = (intake.jira || '').trim().toUpperCase();
+        const daTeam = code ? daTeamByCode.get(code) : undefined;
+
+        const devLeadName = intake.confluenceDevLeadName || daTeam?.devLead?.name || intake.author || '';
+        const devLeadEmail = intake.confluenceDevLeadEmail || daTeam?.devLead?.email || '';
+        const teamName = daTeam ? daTeam.name : (intake.title || code || 'Unknown');
+        const intakeTitle = intake.title || '';
+
+        if (devLeadName) rows.push({ devLeadName, devLeadEmail, teamName, intakeTitle });
+        if (devLeadEmail) emails.add(devLeadEmail);
       }
+      // Deduplicate rows where same dev lead + same team + same intake would produce identical lines
+      const seen = new Set<string>();
+      teamsByScope[scope] = rows.filter((r) => {
+        const key = `${r.devLeadEmail}|${r.teamName}|${r.intakeTitle}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       emailsByScope[scope] = [...emails].join('; ');
     }
 
@@ -266,16 +350,26 @@ router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParam
 
     const cdbBosBranchUrl =
       release.metadata?.cdbbosConfigBranchUrl ||
-      `https://github.com/BMO-Prod/CDB_BOS_configs_63623/tree/release/${releaseName.toLowerCase()}`;
+      `https://github.com/BMO-Prod/OnlineBanking_config_734/tree/release/${releaseName.toLowerCase()}`;
     const cdbBosBranchName = release.metadata?.cdbbosConfigBranchUrl
       ? extractBranchFromUrl(release.metadata.cdbbosConfigBranchUrl)
       : `release/${releaseName.toLowerCase()}`;
 
-    const buildTeamTable = (teams: typeof resolution.matched) =>
-      (teams || [])
-        .map((t) => (t.devLead && t.devLead.name ? `${t.devLead.name}\t${t.name}` : null))
-        .filter((l): l is string => Boolean(l))
-        .join('\n');
+    const buildTeamTable = (rows: Array<{ devLeadName: string; teamName: string; intakeTitle: string }>) => {
+      // Count how many times each team name appears
+      const teamCount = new Map<string, number>();
+      for (const r of rows) {
+        teamCount.set(r.teamName, (teamCount.get(r.teamName) || 0) + 1);
+      }
+      return (rows || []).map((r) => {
+        // Only show intake title in brackets when the same team name appears more than once
+        const isDuplicate = (teamCount.get(r.teamName) || 0) > 1;
+        const displayTeam = isDuplicate && r.intakeTitle && r.intakeTitle !== r.teamName
+          ? `${r.teamName} (${r.intakeTitle})`
+          : r.teamName;
+        return `${r.devLeadName}\t${displayTeam}`;
+      }).join('\n');
+    };
 
     const cdbUiTeamTable = buildTeamTable(teamsByScope['CDB UI'] || []);
     const cdbBosTeamTable = buildTeamTable(teamsByScope['CDB BOS'] || []);
@@ -298,16 +392,16 @@ router.get('/:releaseId/da-teams', requireAuth, async (req: Request<ReleaseParam
           `${cdbUiTeamTable}`,
       },
       cdbBOS: {
-        subject: `CDB BOS Config ${releaseName} - Release Branch Created`,
+        subject: `CDBBOS Config ${releaseName} - Release Branch Created`,
         to: emailsByScope['CDB BOS'] ?? '',
         body:
           `Hello Team,\n\n` +
-          `I have created the CDB BOS Config ${releaseName} release branch ${cdbBosBranchUrl}/PROD .\n\n` +
-          `Please raise PR's to above branch for CDB BOS Config for ${releaseName} bundle.\n` +
+          `I have created the CDBBOS Config ${releaseName} release branch ${cdbBosBranchUrl}/PROD .\n\n` +
+          `Please raise PR's to above branch for CDBBOS Configs for ${releaseName} bundle.\n` +
           `To all the ADM's who are part of ${releaseName}, Please forward this email to your developers if I have missed anyone.\n\n` +
           `Steps/Process:\n` +
           `1. Create a branch off ${cdbBosBranchName}\n` +
-          `2. Add/Update your project's config changes in prod/cdbbos-app-properties.json\n` +
+          `2. Add/Update your project's config changes in PROD/BCC/ and PROD/SCC/ files\n` +
           `3. Create a PR with your project name in title and details in the description section\n\n` +
           `Features with missed configs will not work as expected in pre-prod, so please make sure all the required config changes for your project are merged into the release branch (feature toggles, urls, entitlements, etc.)\n\n` +
           `Dev Lead Name\tDA Team\n` +
@@ -395,6 +489,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to create release' });
   }
 });
+
+// export-intake moved to /api/tech-intake
 
 // ----- PUT /api/release-workflow/:releaseId -----
 

@@ -1,15 +1,25 @@
 <div class="release-workflow-page">
-  <h1 class="page-title">Release Workflow Management</h1>
-
   <div class="releases-section">
-    <h2 class="section-title">Releases ({{ releases().length }})</h2>
+    <div class="releases-header">
+      <h2 class="section-title">Releases ({{ releases().length }})</h2>
+      <button class="btn btn-primary" type="button" (click)="openModal()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        Add Release
+      </button>
+    </div>
+
+    @if (hasRetrofitReminders()) {
+      <div class="retrofit-reminder-banner">
+        {{ retrofitReminderMessage() }}
+      </div>
+    }
 
     @if (loading()) {
       <div class="state-message">Loading releases…</div>
     } @else if (error()) {
       <div class="state-message state-message--error">{{ error() }}</div>
     } @else if (releases().length === 0) {
-      <div class="state-message">No releases yet. Click "+ New Release" to start one.</div>
+      <div class="state-message">No releases yet. Click "Add Release" to start one.</div>
     } @else {
       <table class="releases-table">
         <thead>
@@ -47,16 +57,10 @@
               </td>
               <td class="col-actions">
                 <div class="actions-cell">
-                  <button class="icon-btn icon-btn--danger" type="button" title="Delete"
+                  <button class="icon-btn icon-btn-danger" type="button" title="Delete"
                           (click)="onDelete(r, $event)"
                           [disabled]="isDeleting(r.releaseId)">
-                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M2.5 4h11"/>
-                      <path d="M6 4V2.5h4V4"/>
-                      <path d="M3.5 4l.7 9.2a1 1 0 001 .8h5.6a1 1 0 001-.8l.7-9.2"/>
-                      <path d="M6.5 7v4"/>
-                      <path d="M9.5 7v4"/>
-                    </svg>
+                    <i class="bi bi-trash" aria-hidden="true"></i>
                   </button>
                 </div>
               </td>
@@ -65,10 +69,6 @@
         </tbody>
       </table>
     }
-
-    <div class="actions-row">
-      <button class="primary-btn" type="button" (click)="openModal()">+ New Release</button>
-    </div>
   </div>
 </div>
 
@@ -93,14 +93,7 @@
       <div class="modal-body">
 
         <div class="form-row">
-          <label for="modalReleaseId">Release ID <span class="required">*</span></label>
-          <input id="modalReleaseId" type="text" [(ngModel)]="modalReleaseId"
-                 placeholder="e.g. R80.0.1"
-                 [disabled]="modalSubmitting()" />
-        </div>
-
-        <div class="form-row">
-          <label>Release Type <span class="required">*</span></label>
+          <span class="form-label">Release Type <span class="required">*</span></span>
           <div class="segmented">
             <button type="button"
                     [class.active]="modalType() === 'bundle'"
@@ -111,10 +104,21 @@
                     (click)="setModalType('independent')"
                     [disabled]="modalSubmitting()">Independent</button>
             <button type="button"
-                    [class.active]="modalType() === 'hotfix'"
-                    (click)="setModalType('hotfix')"
-                    [disabled]="modalSubmitting()">Hotfix</button>
+                  [class.active]="modalType() === 'hotfix'"
+                  (click)="setModalType('hotfix')"
+                  [disabled]="modalSubmitting()">EQF/Hotfix</button>
           </div>
+        </div>
+
+        <div class="form-row">
+          <label for="modalReleaseId">Release ID <span class="required">*</span></label>
+          <input id="modalReleaseId" type="text" [(ngModel)]="modalReleaseId"
+                 [placeholder]="'e.g. ' + modalReleaseIdExample()"
+                 [disabled]="modalSubmitting()" />
+          <div class="field-hint">Expected format: {{ modalReleaseIdExample() }}</div>
+          @if (modalReleaseIdValidationMessage(); as releaseIdError) {
+            <div class="field-error">{{ releaseIdError }}</div>
+          }
         </div>
 
         <div class="form-row">
@@ -125,7 +129,7 @@
         </div>
 
         <div class="form-row">
-          <label>Release Components <span class="required">*</span></label>
+          <span class="form-label">Release Components <span class="required">*</span></span>
           <div class="component-options">
             <label class="component-option">
               <input
@@ -147,28 +151,46 @@
           <div class="field-hint">General workflow steps stay visible regardless of which components are selected.</div>
         </div>
 
-        <div class="form-row">
-          <label for="modalSheriff">Sheriff <span class="required">*</span></label>
-          <input id="modalSheriff" type="text" [(ngModel)]="modalSheriff" list="sheriffAdmins"
-            placeholder="Select sheriff (admin)" [disabled]="modalSubmitting()" />
-          <datalist id="sheriffAdmins">
-            @for (a of admins(); track a.email) {
-            <option [value]="usernameFromEmail(a.email)">{{ a.email }}</option>
-            }
-          </datalist>
-        </div>
+        <datalist id="sheriffAdmins">
+          @for (a of admins(); track a.email) {
+          <option [value]="usernameFromEmail(a.email)">{{ a.email }}</option>
+          }
+        </datalist>
 
-        <div class="form-row">
-          <label for="modalBackupSheriff">Backup Sheriff</label>
-          <input id="modalBackupSheriff" type="text" [(ngModel)]="modalBackupSheriff" list="sheriffAdmins"
-            placeholder="Select backup sheriff (admin)"
-            [disabled]="modalSubmitting()" />
-        </div>
+        @if (modalReleaseComponents().cdbui) {
+          <div class="form-row">
+            <label for="modalUiSheriff">CDB UI Sheriff <span class="required">*</span></label>
+            <input id="modalUiSheriff" type="text" [(ngModel)]="modalUiSheriff" list="sheriffAdmins"
+              placeholder="Select CDB UI sheriff (admin)" [disabled]="modalSubmitting()" />
+          </div>
+
+          <div class="form-row">
+            <label for="modalUiBackupSheriff">CDB UI Backup Sheriff</label>
+            <input id="modalUiBackupSheriff" type="text" [(ngModel)]="modalUiBackupSheriff" list="sheriffAdmins"
+              placeholder="Select CDB UI backup sheriff (admin)"
+              [disabled]="modalSubmitting()" />
+          </div>
+        }
+
+        @if (modalReleaseComponents().cdbbos) {
+          <div class="form-row">
+            <label for="modalBosSheriff">CDB BOS Sheriff <span class="required">*</span></label>
+            <input id="modalBosSheriff" type="text" [(ngModel)]="modalBosSheriff" list="sheriffAdmins"
+              placeholder="Select CDB BOS sheriff (admin)" [disabled]="modalSubmitting()" />
+          </div>
+
+          <div class="form-row">
+            <label for="modalBosBackupSheriff">CDB BOS Backup Sheriff</label>
+            <input id="modalBosBackupSheriff" type="text" [(ngModel)]="modalBosBackupSheriff" list="sheriffAdmins"
+              placeholder="Select CDB BOS backup sheriff (admin)"
+              [disabled]="modalSubmitting()" />
+          </div>
+        }
 
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="primary-btn" (click)="onModalSubmit()" [disabled]="!canSubmitModal()">
+        <button type="button" class="btn btn-primary" (click)="onModalSubmit()" [disabled]="!canSubmitModal()">
           {{ modalSubmitting() ? 'Creating…' : 'Start release' }}
         </button>
       </div>

@@ -78,17 +78,23 @@ export interface ReleaseMetadata {
   preProdDate: string | null;
   prodDate: string | null;
   jiraTracker: string | null;
-  intakePageId: string | null;
+  intakePageUrl: string | null;
   intakeSheetUrl: string | null;
   confluencePageId: string | null;
   fixVersion: string | null;
   envMatrixPrUrl: string | null;
   cdbUiConfigJiraUrl: string | null;
+  cdbUiSwaggerBranchUrl: string | null;
   sealightsDisablePrUrl: string | null;
   preProdLetterUrl: string | null;
   prodLetterUrl: string | null;
+  earlyRetrofitCdbUiPrUrl: string | null;
+  earlyRetrofitCdbUiConfigPrUrl: string | null;
+  earlyRetrofitCdbbosPrUrl: string | null;
+  earlyRetrofitCdbbosConfigPrUrl: string | null;
   retrofitCdbUiPrUrl: string | null;
   retrofitCdbConfigsPrUrl: string | null;
+  retrofitCdbUiSwaggerPrUrl: string | null;
   retrofitFreddyPrUrl: string | null;
   tagCdbUiUrl: string | null;
   tagCdbConfigsUrl: string | null;
@@ -99,6 +105,7 @@ export interface ReleaseMetadata {
   cdbbosJiraUrl: string | null;
   retrofitCdbbosPrUrl: string | null;
   retrofitCdbbosConfigPrUrl: string | null;
+  retrofitCdbbosSwaggerPrUrl: string | null;
   tagCdbbosUrl: string | null;
   tagCdbbosConfigUrl: string | null;
   dependencyJarBranchUrls: string | null;
@@ -118,8 +125,10 @@ export interface Release {
   title: string;
   type: ReleaseType;
   status: ReleaseStatus;
-  sheriff: string;
-  backupSheriff: string | null;
+  uiSheriff: string | null;
+  uiBackupSheriff: string | null;
+  bosSheriff: string | null;
+  bosBackupSheriff: string | null;
   releaseComponents: ReleaseComponents;
   createdAt: string;
   updatedAt: string;
@@ -131,8 +140,10 @@ export interface CreateReleaseInput {
   releaseId: string;
   title: string;
   type: ReleaseType;
-  sheriff: string;
-  backupSheriff?: string | null;
+  uiSheriff?: string | null;
+  uiBackupSheriff?: string | null;
+  bosSheriff?: string | null;
+  bosBackupSheriff?: string | null;
   releaseComponents: ReleaseComponents;
   metadata?: Partial<ReleaseMetadata>;
 }
