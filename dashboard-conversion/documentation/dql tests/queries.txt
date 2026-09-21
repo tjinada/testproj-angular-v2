@@ -16,3 +16,13 @@ fetch spans, from:-1h, scanLimitGBytes: 500
             clients  = countDistinct(`request_attribute.ReqAttr.CDB.ClientIP`),
             by:{colour, channel, host}
 | sort requests desc
+
+fetch spans, from:-15m
+| filter span.kind == "server" and request.is_root_span == true
+| filter http.request.header.host == "www1.bmo.com"
+| filter `http.request.header.x-bmo-env` == "blue"
+| fieldsAdd pg = entityName(dt.entity.process_group)
+| summarize requests = count(),
+            clients = countDistinct(`http.request.header.x-forwarded-for`),
+            by:{pg, url.path}
+| sort requests desc
