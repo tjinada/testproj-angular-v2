@@ -5,3 +5,14 @@
   "requestTimeoutMilliseconds": 30000,
   "enablePreview": false
 }
+
+fetch spans, from:-1h, scanLimitGBytes: 500
+| filter span.kind == "server" and request.is_root_span == true
+| filter http.request.header.host == "www1.bmo.com"
+| fieldsAdd colour  = coalesce(`http.request.header.x-bmo-env`, "none"),
+            channel = coalesce(`http.request.header.x-channeltype`, "web/none"),
+            host    = entityName(dt.entity.host)
+| summarize requests = count(),
+            clients  = countDistinct(`request_attribute.ReqAttr.CDB.ClientIP`),
+            by:{colour, channel, host}
+| sort requests desc
