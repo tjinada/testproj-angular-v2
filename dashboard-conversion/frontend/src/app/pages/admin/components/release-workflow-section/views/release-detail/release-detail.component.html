@@ -368,7 +368,7 @@
                 <div class="rail-stage__head">
                   <span class="rail-stage__name">{{ stage.name }}</span>
                   <span class="rail-stage__status" [ngClass]="'rail-stage__status--' + stage.status.replace('_', '-')">
-                    {{ formatStageStatus(stage.status) }}
+                    {{ stageStatusLabel(stage.status) }}
                   </span>
                 </div>
                 <div class="rail-stage__meta">
