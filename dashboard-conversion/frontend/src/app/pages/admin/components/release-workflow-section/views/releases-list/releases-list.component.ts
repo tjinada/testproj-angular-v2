@@ -117,7 +117,7 @@ export class ReleasesListComponent implements OnInit {
     this.error.set(null);
     this.api.list().subscribe({
       next: (data) => {
-        this.releases.set(data);
+        this.releases.set([...data].sort((a, b) => this.compareReleaseIds(a.releaseId, b.releaseId)));
         this.loading.set(false);
         this.cdr.detectChanges();
       },
@@ -128,6 +128,34 @@ export class ReleasesListComponent implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  /**
+   * Newest release first: R95 → R94 → R93 → R92.2 → R92.1 → R92.0.5 → R92.
+   * Segments compare numerically, so R100 outranks R92 and R92.10 outranks
+   * R92.2 — neither of which a plain string sort gets right. A bare "R92"
+   * sorts after its own patch line, being the oldest of that family. IDs with
+   * no numeric part always land last, whichever way the numbers run.
+   */
+  private compareReleaseIds(a: string, b: string): number {
+    const segments = (id: string): number[] | null => {
+      const match = id.match(/\d+(?:\.\d+)*/);
+      return match ? match[0].split('.').map(Number) : null;
+    };
+
+    const sa = segments(a);
+    const sb = segments(b);
+    if (!sa && !sb) return a.localeCompare(b);
+    if (!sa) return 1;
+    if (!sb) return -1;
+
+    const len = Math.max(sa.length, sb.length);
+    for (let i = 0; i < len; i++) {
+      const da = sa[i] ?? -1;
+      const db = sb[i] ?? -1;
+      if (da !== db) return db - da;
+    }
+    return 0;
   }
 
   // ── modal ────────────────────────────────────────────────────────────────
