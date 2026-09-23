@@ -48,8 +48,6 @@ const stageDraftCache = new Map<string, StageDraftState>();
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StageViewComponent implements OnChanges {
-  private readonly earlyRetrofitReleaseStageId = 'stage3-early-retrofit-release';
-
   @Input({ required: true }) stage!: Stage;
   @Input({ required: true }) release!: Release;
   @Input() showHeader = true;
@@ -509,12 +507,12 @@ export class StageViewComponent implements OnChanges {
   }
 
   canShowStageNaAction(): boolean {
-    if (this.stage.status === 'complete') return false;
-    return this.release.type !== 'bundle' || this.stage.id === this.earlyRetrofitReleaseStageId;
+    // Skipping is allowed on every release type; only a completed stage is off limits.
+    return this.stage.status !== 'complete';
   }
 
   canExcludeSubSteps(): boolean {
-    return this.release.type !== 'bundle' || this.stage.id === this.earlyRetrofitReleaseStageId;
+    return true;
   }
 
   private resetTransientRowState(): void {

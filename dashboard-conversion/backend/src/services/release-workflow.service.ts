@@ -22,7 +22,6 @@ import {
 } from '../models/release-workflow.model';
 
 class ReleaseWorkflowService {
-  private readonly earlyRetrofitReleaseStageId = 'stage3-early-retrofit-release';
   private readonly dataFileName = 'release_workflow_data.json';
 
   constructor() {
@@ -64,12 +63,6 @@ class ReleaseWorkflowService {
   /** Returns a single release by ID, or undefined if not found. */
   async getById(releaseId: string): Promise<Release | undefined> {
     return (await this.load())[releaseId];
-  }
-
-  private assertBundleReleaseCanSkip(release: Release, stage: Stage, action: 'sub-step' | 'stage'): void {
-    if (stage.id === this.earlyRetrofitReleaseStageId) return;
-    if (release.type !== 'bundle') return;
-    throw new Error(`Bundle releases cannot be skipped at the ${action} level`);
   }
 
   /**
@@ -246,10 +239,6 @@ class ReleaseWorkflowService {
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
 
-    if (patch.state === 'n_a') {
-      this.assertBundleReleaseCanSkip(release, stage, 'sub-step');
-    }
-
     const subStep = stage.subSteps.find((s) => s.id === subStepId);
     if (!subStep) throw new Error(`Sub-step '${subStepId}' not found in stage '${stageId}'`);
 
@@ -279,9 +268,6 @@ class ReleaseWorkflowService {
 
     const stage = release.stages.find((s) => s.id === stageId);
     if (!stage) throw new Error(`Stage '${stageId}' not found in release '${releaseId}'`);
-    if (na) {
-      this.assertBundleReleaseCanSkip(release, stage, 'stage');
-    }
     if (stage.status === 'complete') {
       throw new Error(`Completed stage '${stageId}' cannot be updated with stage-level N/A`);
     }

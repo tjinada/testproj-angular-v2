@@ -567,9 +567,6 @@ router.put(
       if (error?.message?.includes('not found')) {
         return notFound(res, error.message);
       }
-      if (error?.message?.includes('Bundle releases cannot be skipped')) {
-        return badRequest(res, error.message);
-      }
       console.error('Error updating sub-step:', error);
       res.status(500).json({ error: 'Failed to update sub-step' });
     }
@@ -597,9 +594,6 @@ router.put(
       if (closed) return closed;
       if (error?.message?.includes('not found')) {
         return notFound(res, error.message);
-      }
-      if (error?.message?.includes('Bundle releases cannot be skipped')) {
-        return badRequest(res, error.message);
       }
       if (error?.message?.includes('cannot be updated with stage-level N/A')) {
         return badRequest(res, error.message);
