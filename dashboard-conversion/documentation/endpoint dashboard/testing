@@ -46,3 +46,13 @@ fetch spans, scanLimitGBytes:500
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n '/'", "/{id}/")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/' INT:n EOS", "/{id}")
 | summarize distinctEndpoints = countDistinctExact(normalizedPath)
+
+
+## R93 SBALERTS MFE - otp/profile
+RewriteRule ^/api/cdb-ui/service-product/business-banking/customer-alerts/otp/profile$ https://bmonsori-apisbccperf.bmo.com/api/cdb/service-product/business-banking/customer-alerts/otp/profile [P,L]
+
+<LocationMatch "^/api/cdb-ui/service-product/business-banking/customer-alerts/otp/profile$">
+    SetEnvIf x-bmo-env "^green$" IS_GREEN_COLOR
+    RequestHeader set x-api-key "98da2c74c43a541ade29acf1163a77f9-pr1" env=!IS_GREEN_COLOR
+    RequestHeader set x-api-key "98da2c74c43a541ade29acf1163a77f9-pr2" env=IS_GREEN_COLOR
+</LocationMatch>
