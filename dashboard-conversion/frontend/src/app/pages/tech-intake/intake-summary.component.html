@@ -1,0 +1,348 @@
+<div class="summary-container">
+  <!-- Project Identity Section -->
+  <div class="summary-section">
+    <div class="summary-section-header">Project Identity</div>
+    <div class="summary-grid">
+      <div class="summary-row">
+        <span class="summary-label">Release:</span>
+        <span class="summary-value">{{ selectedRelease || '—' }}</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">DA Team:</span>
+        <span class="summary-value">{{ selectedDATeam || '—' }}</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Jira Board:</span>
+        <span class="summary-value">
+          @if (jiraBoardKey) {
+            <a [href]="`https://bmo.atlassian.net/browse/${jiraBoardKey}`" target="_blank" rel="noopener noreferrer">{{ jiraBoardKey }}</a>
+          } @else {
+            —
+          }
+        </span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Page Title:</span>
+        <span class="summary-value">
+          {{ selectedRelease && jiraBoardKey ? selectedRelease + ' - ' + jiraBoardKey + (intakeTitleSuffix ? ' - ' + intakeTitleSuffix : '') : '—' }}
+        </span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Submitted By:</span>
+        <span class="summary-value">{{ selectedUser?.displayName || '—' }}</span>
+      </div>
+    </div>
+  </div>
+  <!-- Change Scope Section -->
+  <div class="summary-section">
+    <div class="summary-section-header">Change Scope</div>
+    @if (template?.step2?.scopes) {
+      <div class="scope-grid-summary">
+        @for (scope of template.step2.scopes; track scope.id) {
+          <div class="scope-chip" [class.selected]="isScopeSelected(scope.id)">
+            <span class="scope-check">{{ isScopeSelected(scope.id) ? '☑' : '☐' }}</span>
+            <span class="scope-name">{{ scope.label }}</span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+  <!-- General Fields Section -->
+  @if (template?.general?.fields) {
+    <div class="summary-section">
+      <div class="summary-section-header">{{ template.general.label || 'General' }}</div>
+      <div class="summary-grid">
+        @for (field of template.general.fields; track field.field) {
+          <div class="summary-row" [class.full-width]="field.type === 'textarea'">
+            <span class="summary-label">{{ field.label }}:</span>
+            <span class="summary-value">
+              @if (field.type === 'link' && generalValues[field.field]) {
+                <a [href]="generalValues[field.field]" target="_blank" rel="noopener noreferrer">{{ generalValues[field.field] }}</a>
+              } @else if (isArray(generalValues[field.field])) {
+                {{ generalValues[field.field].join(', ') || '—' }}
+              } @else {
+                {{ generalValues[field.field] || '—' }}
+              }
+              @if (field.type === 'yes-no' && generalValues[field.field] === 'Yes' && field.conditionalFields?.whenYes) {
+                <div class="sub-values">
+                  @for (sub of field.conditionalFields.whenYes; track sub.field) {
+                    @if (generalValues[sub.field]) {
+                      <div class="sub-value-item">
+                        @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
+                        <span>{{ isArray(generalValues[sub.field]) ? generalValues[sub.field].join(', ') : generalValues[sub.field] }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+              @if (field.type === 'radio' && field.hasDetails && field.detailField && generalValues[field.detailField]) {
+                <div class="sub-values">
+                  <span>{{ generalValues[field.detailField] }}</span>
+                </div>
+              }
+              @if (field.type === 'radio-with-link' && generalValues[field.field + '_link']) {
+                <div class="sub-values">
+                  <a [href]="generalValues[field.field + '_link']" target="_blank" rel="noopener noreferrer">{{ generalValues[field.field + '_link'] }}</a>
+                </div>
+              }
+              @if (field.type === 'conditional-radio' && generalValues[field.field] && generalValues[field.field] !== 'No' && field.conditionalFields?.whenNotNo) {
+                <div class="sub-values">
+                  @for (sub of field.conditionalFields.whenNotNo; track sub.field) {
+                    @if (generalValues[sub.field]) {
+                      <div class="sub-value-item">
+                        @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
+                        <span>{{ isArray(generalValues[sub.field]) ? generalValues[sub.field].join(', ') : generalValues[sub.field] }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+              @if (field.type === 'conditional-radio' && generalValues[field.field] === 'No' && field.conditionalFields?.whenNo) {
+                <div class="sub-values">
+                  @for (sub of field.conditionalFields.whenNo; track sub.field) {
+                    @if (generalValues[sub.field]) {
+                      <div class="sub-value-item">
+                        @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
+                        <span>{{ generalValues[sub.field] }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+  <!-- Scope-Specific Sections (only selected scopes) -->
+  @for (entry of getVisibleScopeSections(); track entry.key; let i = $index) {
+    <div class="summary-section scope-section">
+      <div class="summary-section-header">
+        <span class="scope-section-number">{{ i + 1 }}</span>
+        {{ entry.section.label }}
+      </div>
+      <div class="summary-grid">
+        @for (field of entry.section.fields; track field.field) {
+          <div class="summary-row" [class.full-width]="field.type === 'textarea' || field.type === 'dynamic-rows'">
+            <span class="summary-label">{{ field.label }}:</span>
+            <span class="summary-value">
+              @if (field.type === 'link' && scopeValues[field.field]) {
+                <a [href]="scopeValues[field.field]" target="_blank" rel="noopener noreferrer">{{ scopeValues[field.field] }}</a>
+              } @else if (field.type === 'dynamic-rows' && field.columns) {
+                @if (dynamicRows[field.field] && dynamicRows[field.field].length > 0) {
+                  <table class="summary-table">
+                    <thead>
+                      <tr>
+                        @for (col of field.columns; track col) {
+                          <th>{{ col }}</th>
+                        }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of dynamicRows[field.field]; track $index) {
+                        <tr>
+                          @for (cell of row; track $index) {
+                            <td>{{ cell || '—' }}</td>
+                          }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                } @else {
+                  —
+                }
+              } @else if (isArray(scopeValues[field.field])) {
+                {{ scopeValues[field.field].join(', ') || '—' }}
+              } @else {
+                {{ scopeValues[field.field] || '—' }}
+              }
+              @if (field.type === 'yes-no' && scopeValues[field.field] === 'Yes' && field.conditionalFields?.whenYes) {
+                <div class="sub-values">
+                  @for (sub of field.conditionalFields.whenYes; track sub.field) {
+                    @if (scopeValues[sub.field]) {
+                      <div class="sub-value-item">
+                        @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
+                        <span>{{ isArray(scopeValues[sub.field]) ? scopeValues[sub.field].join(', ') : scopeValues[sub.field] }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+              @if (field.type === 'radio' && field.hasDetails && field.detailField && scopeValues[field.detailField]) {
+                <div class="sub-values">
+                  <span>{{ scopeValues[field.detailField] }}</span>
+                </div>
+              }
+              @if (field.type === 'radio-with-link' && scopeValues[field.field + '_link']) {
+                <div class="sub-values">
+                  <a [href]="scopeValues[field.field + '_link']" target="_blank" rel="noopener noreferrer">{{ scopeValues[field.field + '_link'] }}</a>
+                </div>
+              }
+              @if (field.type === 'conditional-radio' && scopeValues[field.field] && scopeValues[field.field] !== 'No' && field.conditionalFields?.whenNotNo) {
+                <div class="sub-values">
+                  @for (sub of field.conditionalFields.whenNotNo; track sub.field) {
+                    @if (scopeValues[sub.field]) {
+                      <div class="sub-value-item">
+                        @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
+                        <span>{{ isArray(scopeValues[sub.field]) ? scopeValues[sub.field].join(', ') : scopeValues[sub.field] }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+              @if (field.type === 'conditional-radio' && scopeValues[field.field] === 'No' && field.conditionalFields?.whenNo) {
+                <div class="sub-values">
+                  @for (sub of field.conditionalFields.whenNo; track sub.field) {
+                    @if (scopeValues[sub.field]) {
+                      <div class="sub-value-item">
+                        @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
+                        <span>{{ scopeValues[sub.field] }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+  <!-- Action Buttons -->
+  <!-- No-change notification (server-provided only) -->
+  @if (noChangeMessage) {
+    <div class="no-change-banner">
+      <i class="bi bi-info-circle-fill"></i>
+      <span>{{ noChangeMessage }}</span>
+    </div>
+  }
+  <div class="summary-actions">
+    @if (exportSuccess) {
+      <div class="export-success-banner">
+        <i class="bi bi-check-circle-fill"></i>
+        <span>{{ editMode ? 'Intake updated on Confluence.' : 'Intake submitted and exported to Confluence.' }}</span>
+        <a [href]="exportSuccess.pageUrl" target="_blank" rel="noopener noreferrer">View Page ↗</a>
+      </div>
+    }
+    @if (exportError) {
+      <div class="export-error-banner">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>{{ exportError }}</span>
+      </div>
+    }
+    <div class="summary-action-buttons">
+      <button class="btn btn-secondary" (click)="backToEdit.emit()" [disabled]="isExporting">← Back to Edit</button>
+      <button class="btn btn-primary"
+        (click)="handlePrimaryActionClick()"
+        [disabled]="isExporting || !!exportSuccess">
+        @if (isExporting) {
+          <span class="spinner"></span> Updating...
+        } @else {
+          {{ editMode ? 'Review & Update' : 'Submit' }}
+        }
+      </button>
+    </div>
+  </div>
+  <!-- Confirm Changes Modal (Edit Mode) -->
+  
+
+  @if (showNoChangesModal) {
+    <div class="no-changes-modal-overlay">
+      <div class="no-changes-modal" (click)="$event.stopPropagation()">
+        <div class="no-changes-modal-header">
+          <h3>No Changes Detected</h3>
+        </div>
+        <div class="no-changes-modal-body">
+          <p>Make at least one edit before submitting.</p>
+        </div>
+        <div class="no-changes-modal-footer">
+          <button class="btn btn-primary" (click)="closeNoChangesModal()">OK</button>
+        </div>
+      </div>
+    </div>
+  }
+
+
+  @if (showConfirmModal) {
+    <div class="confirm-modal-overlay" (click)="closeConfirmModal()">
+      <div class="confirm-modal" (click)="$event.stopPropagation()">
+        <div class="confirm-modal-header">
+          <h3>Confirm Changes</h3>
+          <button class="confirm-modal-close" (click)="closeConfirmModal()">✕</button>
+        </div>
+        <div class="confirm-modal-body">
+          @if (changedFields.length > 0) {
+            <p class="confirm-modal-subtitle">
+              <span class="changes-badge">{{ changedFields.length }}</span>
+              {{ changedFields.length === 1 ? 'field' : 'fields' }} will be updated on the Confluence page.
+              Please review before confirming.
+            </p>
+            <table class="changes-table">
+              <thead>
+                <tr>
+                  <th>Section</th>
+                  <th>Field</th>
+                  <th>Previous Value</th>
+                  <th>New Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (change of changedFields; track change.field) {
+                  @if (change.oldValue !== null) {
+                    <!-- Case 1 & 2: Parent changed (with or without sub-fields) -->
+                    <tr class="change-row change-row--parent"
+                        [class.change-row--has-subs]="change.subChanges?.length">
+                      <td class="changes-section-cell"
+                          [attr.rowspan]="1 + (change.subChanges?.length || 0)">
+                        {{ change.section }}
+                      </td>
+                      <td class="changes-field-cell changes-field-cell--parent">
+                        {{ change.label }}
+                      </td>
+                      <td class="changes-old">{{ formatChangeValue(change.oldValue) }}</td>
+                      <td class="changes-new">{{ formatChangeValue(change.newValue) }}</td>
+                    </tr>
+                  } @else {
+                    <!-- Case 3: Parent unchanged, sub-fields only -->
+                    <tr class="change-row change-row--parent change-row--sub-only">
+                      <td class="changes-section-cell"
+                          [attr.rowspan]="1 + (change.subChanges?.length || 0)">
+                        {{ change.section }}
+                      </td>
+                      <td class="changes-field-cell changes-field-cell--parent"
+                          colspan="3">
+                        {{ change.label }}
+                        <span class="sub-only-label">sub-fields updated</span>
+                      </td>
+                    </tr>
+                  }
+                  <!-- Sub-field rows (all cases) -->
+                  @if (change.subChanges?.length) {
+                    @for (sub of change.subChanges; track sub.field) {
+                      <tr class="change-row change-row--sub">
+                        <td class="changes-field-cell changes-field-cell--sub">
+                          ↳ {{ sub.label }}
+                        </td>
+                        <td class="changes-old">{{ formatChangeValue(sub.oldValue) }}</td>
+                        <td class="changes-new">{{ formatChangeValue(sub.newValue) }}</td>
+                      </tr>
+                    }
+                  }
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="no-changes-text">No changes detected.</p>
+          }
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn btn-secondary" (click)="closeConfirmModal()">← Go Back</button>
+          <button class="btn btn-primary" (click)="confirmAndSubmit()" [disabled]="changedFields.length === 0">
+            ✓ Confirm &amp; Update
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

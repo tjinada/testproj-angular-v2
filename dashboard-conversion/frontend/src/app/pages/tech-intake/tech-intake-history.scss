@@ -1,0 +1,480 @@
+/* Tag badge styles for history drawer array values */
+.hc-tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  max-width: 140px;
+  justify-content: flex-end;
+}
+.hc-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hc-tag--old {
+  color: #bf2600;
+  background: #ffebe6;
+  text-decoration: line-through;
+}
+.hc-tag--new {
+  color: #006644;
+  background: #e3fcef;
+}
+
+// ─── Edit Mode Banner Actions ─────────────────────────────────────
+.edit-mode-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+/* history-trigger-btn removed — migrated to stepper area */
+// ─── History Overlay ──────────────────────────────────────────────
+.history-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 30, 66, 0.32);
+  z-index: 200;
+  animation: fadeIn 0.2s ease-out;
+}
+// ─── History Side Drawer ──────────────────────────────────────────
+.history-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 92vw;
+  height: 100vh;
+  background: #fff;
+  box-shadow: -4px 0 24px rgba(9, 30, 66, 0.18);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  &.open {
+    transform: translateX(0);
+  }
+}
+.history-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid #ebecf0;
+  flex-shrink: 0;
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #172b4d;
+    flex: 1;
+  }
+}
+.history-drawer-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #6554c0;
+  border-radius: 12px;
+  padding: 2px 8px;
+}
+.history-drawer-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #6b778c;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  &:hover {
+    background: #f4f5f7;
+    color: #172b4d;
+  }
+}
+.history-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.history-drawer-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b778c;
+  p { margin: 0 0 6px; font-size: 14px; }
+}
+.history-drawer-empty-sub {
+  font-size: 12px !important;
+  color: #97a0af !important;
+}
+// ─── History Timeline ─────────────────────────────────────────────
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.history-entry {
+  position: relative;
+  padding: 14px 16px;
+  background: #fafbfc;
+  border: 1px solid #ebecf0;
+  border-radius: 8px;
+  transition: border-color 0.15s;
+  &:hover {
+    border-color: #c1c7d0;
+  }
+  &--latest {
+    border-color: #6554c0;
+    background: #f8f7ff;
+  }
+}
+.history-latest-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6554c0;
+  background: #eae6ff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-bottom: 8px;
+}
+.history-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.history-who {
+  font-weight: 600;
+  font-size: 13px;
+  color: #172b4d;
+}
+.history-when {
+  font-size: 11px;
+  color: #6b778c;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.history-email {
+  font-size: 11px;
+  color: #97a0af;
+  margin-bottom: 8px;
+}
+.history-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.history-field-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #eae6ff;
+  color: #403294;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: default;
+}
+.history-details {
+  margin-top: 8px;
+  > summary {
+    font-size: 12px;
+    color: #0052cc;
+    cursor: pointer;
+    font-weight: 500;
+    user-select: none;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 0;
+    &::-webkit-details-marker { display: none; }
+    .history-details-arrow {
+      font-size: 9px;
+      display: inline-block;
+      transition: transform 0.15s;
+    }
+    &:hover { text-decoration: underline; }
+  }
+  &[open] > summary .history-details-arrow {
+    transform: rotate(90deg);
+  }
+}
+.history-change-count {
+  color: #6b778c;
+  font-weight: 400;
+  font-size: 11px;
+}
+// ─── Change Card List ─────────────────────────────────────────────
+.history-change-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+}
+.history-change-card {
+  border: 1px solid #dfe1e6;
+  border-radius: 6px;
+  overflow: visible !important;
+  background: #fff;
+}
+// ─── Parent Row ─────────────────────────────────────────────────--
+.history-change-parent {
+  display: grid;
+  // Label takes remaining space, values are fixed right column
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f4f5f7;
+  min-height: 34px;
+}
+.history-change-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #172b4d;
+  line-height: 1.4;
+  // Allow wrapping on label side — values stay pinned right
+  word-break: normal;       // never break mid-word
+  overflow-wrap: anywhere;  // only wrap if absolutely needed
+  min-width: 0;
+}
+// ─── Inline value pills (old → new) ──────────────────────────────
+.history-change-values {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  // Stack vertically if both pills are long
+  flex-wrap: nowrap;
+}
+.hc-old {
+  font-size: 11px;
+  color: #bf2600;
+  background: #ffebe6;
+  text-decoration: line-through;
+  padding: 2px 6px;
+  border-radius: 3px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
+.hc-arrow {
+  font-size: 11px;
+  color: #97a0af;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.hc-new {
+  font-size: 11px;
+  color: #006644;
+  background: #e3fcef;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
+// "—" empty value — render as a dash pill, not blank
+.hc-old:empty,
+.hc-new:empty {
+  display: none;
+}
+.hc-sub-only-tag {
+  font-size: 10px;
+  color: #97a0af;
+  font-style: italic;
+  white-space: nowrap;
+  padding: 2px 0;
+  line-height: 1.4;
+  align-self: center;
+}
+// ─── Sub-fields Collapsible ─────────────────────────────────────--
+.history-sub-details {
+  border-top: 1px solid #ebecf0;
+}
+.history-sub-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 5px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #5e6c84;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  background: #fafbfc;
+  transition: background 0.1s;
+  &::-webkit-details-marker { display: none; }
+  .sub-arrow {
+    font-size: 8px;
+    display: inline-block;
+    transition: transform 0.15s;
+    color: #97a0af;
+    flex-shrink: 0;
+  }
+  &:hover {
+    background: #f0f1f3;
+    color: #172b4d;
+  }
+}
+.history-sub-details[open] .history-sub-summary .sub-arrow {
+  transform: rotate(90deg);
+}
+// ─── Sub-field Rows ─────────────────────────────────────────-----
+.history-sub-list {
+  border-left: 3px solid #dfe1e6;
+  margin-left: 12px;
+}
+.history-sub-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 8px;
+  padding: 5px 10px 5px 10px;
+  border-bottom: 1px solid #f4f5f7;
+  &:last-child {
+    border-bottom: none;
+  }
+  &:hover {
+    background: #fafbfc;
+  }
+}
+.history-sub-label {
+  font-size: 11px;
+  color: #44546f;
+  line-height: 1.4;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  padding-top: 2px; // align with pill top
+}
+.history-no-details {
+  font-size: 12px;
+  color: #6b778c;
+  font-style: italic;
+  margin: 4px 0 0;
+}
+/* Ensure drawer transform transitions remain but width changes are instant during drag */
+.history-drawer {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// ─── Drag Handle ──────────────────────────────────────────────────
+.history-drawer-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s;
+  // Visible grip indicator
+  &::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 40px;
+    border-radius: 2px;
+    background: #dfe1e6;
+    transition: background 0.15s, height 0.15s;
+  }
+  &:hover {
+    background: rgba(101, 84, 192, 0.06);
+    &::after {
+      background: #6554c0;
+      height: 56px;
+    }
+  }
+  &:active {
+    background: rgba(101, 84, 192, 0.1);
+    &::after {
+      background: #6554c0;
+    }
+  }
+}
+// Prevent text selection while dragging
+.history-drawer.is-dragging {
+  user-select: none;
+}
+// ─── Pill tooltip indicator ───────────────────────────────────────
+.hc-pill {
+  position: relative;
+  cursor: default;
+  // Show tooltip only when data-tooltip attribute is present
+  &[data-tooltip] {
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(0, 0, 0, 0.3);
+  }
+  // Tooltip is injected as a real DOM node by the component
+}
+
+
+
+/* Ensure tooltips are not clipped by card or list containers */
+.history-drawer .history-change-list {
+  overflow: visible; /* allow tooltips to escape card boundaries */
+}
+.history-change-card {
+  overflow: visible !important; /* tooltips must escape the card */
+}
+.history-sub-list {
+  overflow: visible; /* same for sub-rows */
+}
+// ─── Wider drawer adjustments ─────────────────────────────────────
+// When drawer is wider, give value pills more room
+.history-drawer .history-change-parent {
+  gap: 12px;
+}
+.history-drawer .hc-old,
+.history-drawer .hc-new {
+  // Allow pills to grow when drawer is wider
+  max-width: 160px;
+}
+// On mobile, disable drag handle
+@media (max-width: 600px) {
+  .history-drawer-resize-handle {
+    display: none;
+  }
+  .history-drawer {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+}
+// ─── Keyboard close support ───────────────────────────────────────
+// (handled in TS via HostListener if needed)
+@media (max-width: 600px) {
+  .history-drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}

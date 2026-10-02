@@ -1,0 +1,346 @@
+.summary-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+// ─── Section Cards ───────────────────────────────────────────────
+.summary-section {
+  background: #fff;
+  border: 1px solid #e4e7eb;
+  border-radius: 8px;
+  padding: 24px 32px;
+  margin-bottom: 16px;
+  &.scope-section {
+    border-left: 4px solid #0052cc;
+  }
+}
+.summary-section-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: #172b4d;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebecf0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scope-section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #0052cc;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+// ─── Label/Value Grid ────────────────────────────────────────────
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.summary-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid #f4f5f7;
+  gap: 12px;
+  &:last-child {
+    border-bottom: none;
+  }
+  &.full-width {
+    grid-column: 1 / -1;
+  }
+}
+.summary-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5e6c84;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+.summary-value {
+  font-size: 14px;
+  color: #172b4d;
+  word-break: break-word;
+  flex: 1;
+  a {
+    color: #0052cc;
+    text-decoration: none;
+    word-break: break-all;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+// ─── Sub-values (conditional fields) ─────────────────────────────
+.sub-values {
+  margin-top: 6px;
+  padding-left: 12px;
+  border-left: 2px solid #ebecf0;
+}
+.sub-value-item {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.sub-label {
+  font-weight: 500;
+  color: #5e6c84;
+  margin-right: 6px;
+}
+// ─── Scope Grid (checkmarks) ─────────────────────────────────────
+.scope-grid-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.scope-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #e4e7eb;
+  background: #fafbfc;
+  font-size: 13px;
+  color: #5e6c84;
+  transition: all 0.15s ease;
+  &.selected {
+    background: #e6f0ff;
+    border-color: #0052cc;
+    color: #172b4d;
+    font-weight: 500;
+  }
+}
+.scope-check {
+  font-size: 16px;
+  line-height: 1;
+}
+.scope-name {
+  flex: 1;
+}
+.changes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+  th, td {
+    padding: 8px 12px;
+    border: 1px solid #e4e7eb;
+    text-align: left;
+    vertical-align: middle;
+    word-break: break-word;
+  }
+  th {
+    background: #f4f5f7;
+    font-weight: 600;
+    color: #5e6c84;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  // ── Row types ──────────────────────────────────────────────────
+  // Parent row — bold, light grey tint
+  .change-row--parent td {
+    background: #f8f9fa;
+    font-weight: 600;
+  }
+  // Sub-only parent row — italic grey header, no value columns
+  .change-row--sub-only td {
+    background: #f0f0f0;
+    color: #44546f;
+    font-style: italic;
+    font-weight: 500;
+  }
+  // Sub-field row — indented, lighter
+  .change-row--sub td {
+    background: #fff;
+    font-weight: 400;
+  }
+  // ── Field label column ─────────────────────────────────────────
+  .changes-section-cell {
+    font-weight: 500;
+    color: #5e6c84;
+    white-space: nowrap;
+    vertical-align: top;
+  }
+  .changes-field-cell--parent {
+    font-weight: 600;
+    color: #172b4d;
+  }
+  .changes-field-cell--sub {
+    color: #5e6c84;
+    font-size: 12px;
+    padding-left: 24px !important;
+    font-weight: 400;
+  }
+  // ── Value columns ──────────────────────────────────────────────
+  .changes-old {
+    color: #bf2600;
+    background: #fff0f0 !important;
+    text-decoration: line-through;
+    opacity: 0.85;
+  }
+  .changes-new {
+    color: #006644;
+    background: #e3fcef !important;
+    font-weight: 500;
+  }
+  // ── Sub-only label pill ────────────────────────────────────────
+  .sub-only-label {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 11px;
+    font-weight: 400;
+    font-style: italic;
+    color: #97a0af;
+  }
+}
+// ─── No Changes (inline removed; modal-only styles kept below) ─────
+.no-changes-text {
+  color: #6b778c;
+  font-size: 14px;
+  margin: 0;
+}
+// ─── Confirm Changes Modal ────────────────────────────────────────
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 30, 66, 0.54);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+  animation: fadeIn 0.15s ease-out;
+}
+.confirm-modal {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(9, 30, 66, 0.25);
+  width: 100%;
+  max-width: 780px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.2s ease-out;
+}
+.confirm-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #ebecf0;
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #172b4d;
+  }
+}
+.confirm-modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #6b778c;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  &:hover {
+    background: #f4f5f7;
+    color: #172b4d;
+  }
+}
+.confirm-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+.confirm-modal-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #172b4d;
+  margin: 0 0 16px;
+}
+.confirm-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #ebecf0;
+  background: #fafbfc;
+  border-radius: 0 0 8px 8px;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+// ─── No-change notification banner ───────────────────────────────
+.no-change-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #deebff;
+  border: 1px solid #b3d4ff;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #0747a6;
+  i {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+}
+
+/* No-changes modal overlay */
+.no-changes-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.no-changes-modal {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+.no-changes-modal-header h3 {
+  margin: 0 0 12px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #172B4D;
+}
+.no-changes-modal-body p {
+  margin: 0 0 24px 0;
+  font-size: 0.95rem;
+  color: #505F79;
+}
+.no-changes-modal-footer {
+  display: flex;
+  justify-content: center;
+}
+
+// ─── Edit History Section ────────────────────────────────────────
+/* Edit history styles moved to parent component */

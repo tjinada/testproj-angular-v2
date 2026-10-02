@@ -1,0 +1,414 @@
+pageTitle: "📝 PLATFORM CDB INTAKE CHECKLIST 📝"
+renderOrder:
+  - field: pageVisualDesign
+  - field: pageFlowDiagram
+  - field: cddSa
+  - field: ssoDeeplink
+    source: cdb_ui
+  - field: otpFlows
+    source: cdb_ui
+  - field: featureToggle
+  - field: olderMobileApps
+  - field: forcedUpdate
+  - field: entitlements
+  - synthetic: changingConfigurations
+  - field: cookies
+  - field: akamaiChangeType
+    source: akamai
+  - field: apis
+  - field: websphereChanges
+    source: cdbbos
+  - field: isamChangeType
+    source: isam
+  - field: freddyChangeType
+    source: freddy
+  - field: globalComponents
+    source: cdb_ui
+  - field: persistenceStorage
+    source: cdb_ui
+  - field: newNavigation
+    source: cdb_ui
+  - field: codeModularization
+    source: cdb_ui
+  - field: multiStepForms
+    source: cdb_ui
+  - field: capacitorPlugins
+    source: cdb_ui
+  - field: newSdks
+    source: cdb_ui
+  - field: npmPackages
+    source: cdb_ui
+  - field: channelsDescription
+    source: channels
+  - field: awsLambdaDescription
+    source: aws_lambda
+  - field: risk
+step1:
+  - field: daTeam
+    label: "DA Team"
+    type: text
+    source: da-teams
+  - field: release
+    label: "Release"
+    type: text
+    source: releases
+  - field: jiraBoardKey
+    label: "Jira Board Key"
+    type: link
+    source: da-teams
+    placeholder: "e.g. https://bmo.atlassian.net/browse/PROJ"
+  - field: intakeTitle
+    label: "Intake Title"
+    type: text
+    auto: "{release} - {daTeam}"
+general:
+  label: "General"
+  fields:
+    - field: pageVisualDesign
+      label: "Page Visual Design"
+      type: link
+      hint: "Figma / design link"
+      placeholder: "e.g. https://www.figma.com/design/abc123/Design-Name?node-id=0-1"
+    - field: pageFlowDiagram
+      label: "Page Flow Diagram (Optional)"
+      type: link
+      required: false
+      placeholder: "e.g. https://www.figma.com/... or Confluence link (leave blank if same as Visual Design)"
+    - field: cddSa
+      label: "Code Design Document (CDD) / SA (Solution Architecture)"
+      type: radio-with-link
+      render: per-option-row
+      linkPlaceholder: "e.g. https://iserver-prod.bmogc.net/document/... or Confluence CDD page URL"
+      options:
+        - label: "New Document"
+          hasLink: true
+        - label: "Updating existing document"
+          hasLink: true
+    - field: featureToggle
+      label: "Adding/Updating Feature Toggle"
+      type: conditional-radio
+      required: true
+      options: ["New Feature Toggle", "Update Feature Toggle (or delete)", "Pilot Toggle", "No"]
+      render: split-no
+      conditionalFields:
+        whenNotNo:
+          - label: "Where to embed the toggle?"
+            field: featureToggleEmbed
+            type: checkbox
+            options: ["UI", "CDBBOS"]
+          - label: "Toggle name(s)"
+            field: featureToggleNames
+            type: text
+            placeholder: "e.g. FEATURE_NAME_TOGGLE, ANOTHER_TOGGLE"
+          - label: "Release toggle removing timeline?"
+            field: featureToggleRemovalTimeline
+            type: text
+            placeholder: "e.g. R96 or \"No plan to remove\""
+          - label: "Pilot toggle removing timeline?"
+            field: pilotToggleRemovalTimeline
+            type: text
+            placeholder: "e.g. R96 or \"No plan to remove\""
+        whenNo:
+          - label: "Justification for no feature toggle"
+            field: featureToggleJustification
+            type: textarea
+            placeholder: "e.g. Fixing production issues / Minimal code change with no user impact"
+    - field: olderMobileApps
+      label: "Older versions of mobile apps impacted"
+      type: yes-no
+      required: true
+    - field: forcedUpdate
+      label: "Mobile App Forced Update needed"
+      type: yes-no
+      hint: "If yes, Platform Business Approval is required."
+      required: true
+    - field: entitlements
+      label: "Adding Entitlements"
+      type: yes-no
+      required: true
+      conditionalFields:
+        whenYes:
+          - field: entitlementTypes
+            type: checkbox
+            options: ["Role derived", "Product based", "Channel based"]
+          - label: "Details"
+            field: entitlementDetails
+            type: textarea
+            placeholder: "e.g. Entitlement name, type, and affected channels"
+    - field: cookies
+      label: "Cookies changes"
+      type: radio
+      options: ["New", "Update", "No"]
+      hasDetails: true
+      detailField: cookiesDetails
+      hint: "Add details of new or modified cookies and OT scan details"
+      render: split-no
+      detailPlaceholder: "e.g. Cookie name, purpose, expiry. OneTrust scan required for new cookies (Law25)."
+    - field: apis
+      label: "Adding or changing APIs"
+      type: yes-no
+      required: true
+      conditionalFields:
+        whenYes:
+          - field: apiTypes
+            type: checkbox
+            options: ["Using Angular HttpClient", "Native", "New API endpoints (details/sequence diagrams)", "Direct ISAM call"]
+          - label: "Details"
+            field: apiDetails
+            type: textarea
+            placeholder: |
+              e.g. GET /api/endpoint — Description
+              POST /api/endpoint — Description
+    - field: risk
+      label: "Technical risk"
+      type: radio
+      options: ["Low", "Medium", "High"]
+      hasDetails: true
+      detailField: riskDetails
+      detailPlaceholder: "e.g. Reason for technical risk level (new feature with SSO + config changes)"
+      alwaysShowDetails: true
+step2:
+  label: "Change Scope"
+  scopes:
+    - id: cdb_ui
+      label: "CDB UI"
+    - id: cdb_ui_config
+      label: "CDB UI Config"
+    - id: cdbbos
+      label: "CDBBOS"
+    - id: cdbbos_config
+      label: "CDBBOS Config"
+    - id: akamai
+      label: "Akamai"
+    - id: channels
+      label: "Channels"
+    - id: aws_lambda
+      label: "AWS Lambda"
+    - id: isam
+      label: "ISAM Configuration Changes"
+    - id: freddy
+      label: "Freddy Components Changes"
+scopeDetails:
+  cdb_ui:
+    label: "CDB UI"
+    showWhen: cdb_ui
+    fields:
+      - field: ssoDeeplink
+        label: "SSO/Deeplink"
+        type: yes-no
+        conditionalFields:
+          whenYes:
+            - field: ssoTypes
+              type: checkbox
+              options: ["SSO In/Deeplink (From Site → CDB Page)", "SSO Out (From CDB Page → Site)", "New Web View", "System Browser (leaving app)"]
+            - label: "How to pass token/session"
+              field: ssoTokenMethod
+              type: checkbox
+              options: ["By Form Post", "By URL Parameters"]
+      - field: otpFlows
+        label: "Introducing new OTP flow(s)"
+        type: yes-no
+        conditionalFields:
+          whenYes:
+            - label: "Which API call triggers OTP?"
+              field: otpApiCall
+              type: textarea
+              placeholder: "e.g. /profile or /api/endpoint-that-triggers-otp"
+      - field: globalComponents
+        label: "CDB App global component(s) changes"
+        type: yes-no
+        conditionalFields:
+          whenYes:
+            - field: globalComponentTypes
+              type: checkbox
+              options: ["Page", "Banner", "Error page", "Tab component", "Pipes", "Directives"]
+            - label: "Details"
+              field: globalComponentDetails
+              type: textarea
+              placeholder: "e.g. Component name — description of change and impact"
+      - field: persistenceStorage
+        label: "Using Persistence storage"
+        type: yes-no
+        conditionalFields:
+          whenYes:
+            - field: storageTypes
+              type: checkbox
+              options: ["Local Storage", "Session Storage", "Other"]
+            - label: "When/how to remove saved data?"
+              field: storageRemovalPlan
+              type: textarea
+              placeholder: "e.g. Cleared on logout / session expiry / after X minutes"
+      - field: newNavigation
+        label: "Adding New Navigation"
+        type: yes-no
+        conditionalFields:
+          whenYes:
+            - label: "Angular route"
+              field: angularRouteTypes
+              type: checkbox
+              options: ["Route with Lazy loaded child modules", "Page Route", "Modal(Dialog) Route", "Tab Route", "Module federation", "New Route"]
+            - label: "Beyond App"
+              field: beyondAppNavigation
+              type: checkbox
+              options: ["To a new web view", "To a system browser"]
+            - label: "New route path(s)"
+              field: newRouteDetails
+              type: text
+              placeholder: "e.g. /feature-name/* or MFE/module-name"
+            - label: "Beyond App details"
+              field: beyondAppDetails
+              type: text
+              placeholder: "e.g. FAQ opens branch locator in in-app-browser on mobile"
+      - field: codeModularization
+        label: "Code Modularization"
+        type: checkbox
+        options: ["Lazy loaded modules", "Lazy loaded language bundles", "Module federation", "Not applicable"]
+        render: split-last
+      - field: multiStepForms
+        label: "Multi-step Forms changes"
+        type: radio
+        options: ["New", "Update", "No"]
+        hasDetails: true
+        detailField: multiStepFormsDetails
+        render: split-no
+        detailPlaceholder: "e.g. Form name — brief description of steps"
+      - field: capacitorPlugins
+        label: "Capacitor plugins changes"
+        type: radio
+        options: ["New", "Update", "No"]
+        hasDetails: true
+        detailField: capacitorPluginsDetails
+        render: split-no
+        detailPlaceholder: "e.g. Plugin name — description of usage (link to Jira ticket if applicable)"
+      - field: newSdks
+        label: "New SDKs added in Mobile app"
+        type: radio
+        options: ["New", "Update", "No"]
+        hasDetails: true
+        detailField: newSdksDetails
+        render: split-no
+        detailPlaceholder: "e.g. SDK name@version — purpose"
+      - field: npmPackages
+        label: "npm library/package changes"
+        type: radio
+        options: ["New", "Update", "No"]
+        hasDetails: true
+        detailField: npmPackagesDetails
+        render: split-no
+        detailPlaceholder: "e.g. @package/name@version — reason for adding/updating"
+      
+  cdb_ui_config:
+    label: "CDB UI Config"
+    showWhen: cdb_ui_config
+    fields:
+      - field: uiConfigEntries
+        label: "Config entries"
+        type: dynamic-rows
+        columns: ["Config file", "Config name", "Value"]
+        columnPlaceholders: ["e.g. environment.json", "e.g. FEATURE_FLAG_NAME or allowFeatureName", "e.g. true / \"value\" / [\"OLB\",\"MBW\"]"]
+  cdbbos:
+    label: "CDBBOS"
+    showWhen: cdbbos
+    fields:
+      - field: websphereChanges
+        label: "WebSphere Application Server Changes"
+        type: yes-no
+        conditionalFields:
+          whenYes:
+            - field: websphereTypes
+              type: checkbox
+              options: ["Work Manager", "Data Source", "SSL Components", "Certificates", "Dependency JAR files", "Others"]
+            - label: "Details"
+              field: websphereDetails
+              type: textarea
+              placeholder: "e.g. New Work Manager for async service calls to X"
+  cdbbos_config:
+    label: "CDBBOS Config"
+    showWhen: cdbbos_config
+    fields:
+      - field: bosConfigEntries
+        label: "Config entries"
+        type: dynamic-rows
+        columns: ["Config file", "Config name", "Value"]
+        columnPlaceholders: ["e.g. cdbbos-apic-config.xml", "e.g. endpoint.url.serviceName", "e.g. /api/v2/service-endpoint"]
+  akamai:
+    label: "Akamai"
+    showWhen: akamai
+    fields:
+      - field: akamaiChangeType
+        label: "Akamai changes"
+        type: radio
+        options: ["New", "Update"]
+        required: true
+        render: split-no
+        alwaysShowDetails: true
+      - field: akamaiDetails
+        label: "Akamai change details"
+        type: textarea
+        required: true
+        placeholder: "e.g. New rule for /api/path — DACT-XXX Jira ticket"
+  isam:
+    label: "ISAM Configuration Changes"
+    showWhen: isam
+    fields:
+      - field: isamChangeType
+        label: "ISAM configuration changes"
+        type: radio
+        options: ["New", "Update"]
+        required: true
+        render: split-no
+        alwaysShowDetails: true
+      - field: isamDetails
+        label: "ISAM change details"
+        type: textarea
+        required: true
+        placeholder: "e.g. /cdb/path/to/resource/get — description"
+  freddy:
+    label: "Freddy Components Changes"
+    showWhen: freddy
+    fields:
+      - field: freddyChangeType
+        label: "Freddy components changes"
+        type: radio
+        options: ["New", "Update", "No"]
+        required: true
+        hasDetails: true
+        detailField: freddyDetails
+        detailPlaceholder: "e.g. Component Name — description — https://github.com/test/pull/XXX"
+        render: split-no
+  channels:
+    label: "Channels"
+    showWhen: channels
+    fields:
+      - field: channelsDescription
+        label: "Channels changes"
+        type: textarea
+        required: true
+        placeholder: "Describe the changes being made to Channels (e.g., new channel configuration, routing changes, channel-specific logic)"
+  aws_lambda:
+    label: "AWS Lambda"
+    showWhen: aws_lambda
+    fields:
+      - field: awsLambdaDescription
+        label: "AWS Lambda changes"
+        type: textarea
+        required: true
+        placeholder: "Describe the AWS Lambda changes (e.g., new function, trigger changes, environment updates)"
+
+synthetics:
+  changingConfigurations:
+    label: "Changing Configurations"
+    options:
+      - id: ui_config
+        label: "UI config"
+        scopeCheck: cdb_ui_config
+        dynamicRowsKey: uiConfigEntries
+        prompt: "Add/Update - config name - value (if applicable)"
+      - id: bos_config
+        label: "CDBBOS Config"
+        scopeCheck: cdbbos_config
+        dynamicRowsKey: bosConfigEntries
+        prompt: "Add/Update - Name of config file - config name - value (if applicable)"
+      - id: no
+        label: "No"
+        isDefault: true

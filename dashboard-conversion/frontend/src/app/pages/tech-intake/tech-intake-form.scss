@@ -1,0 +1,918 @@
+.page-header {
+  margin-bottom: 12px;
+
+  h1 {
+    margin: 0 0 6px;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+}
+
+:host {
+  .intake-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+    &__section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px;
+      background: var(--bmo-albicant, #f7f7f7);
+      border-radius: 8px;
+      border: 1px solid var(--bmo-grey-200, #e0e0e0);
+    }
+    &__section-title {
+      font-size: var(--heading3, 1.125rem);
+      font-weight: var(--font-weight-bold1, 700);
+      color: var(--bmo-slate, #333);
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--bmo-grey-200, #e0e0e0);
+    }
+    &__field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      &--nested {
+        margin-left: 24px;
+        padding-left: 16px;
+        border-left: 2px solid var(--bmo-grey-200, #e0e0e0);
+      }
+      &--full {
+        width: 100%;
+      }
+    }
+    &__label {
+      font-size: 0.875rem;
+      font-weight: var(--font-weight-bold1, 600);
+      color: var(--bmo-slate, #333);
+      margin-bottom: 4px;
+    }
+    &__hint {
+      font-size: 0.75rem;
+      color: var(--bmo-grey-600, #666);
+      margin-bottom: 4px;
+    }
+    &__input {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 0.875rem;
+      border: 1px solid var(--bmo-grey-300, #ccc);
+      border-radius: 4px;
+      background: #fff;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+      &:focus {
+        outline: none;
+        border-color: var(--bmo-primary-blue, #0075be);
+        box-shadow: 0 0 0 2px rgba(0, 117, 190, 0.15);
+      }
+      &::placeholder {
+        color: var(--bmo-grey-400, #999);
+        font-size: 0.8125rem;
+      }
+    }
+    &__textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px 12px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      border: 1px solid var(--bmo-grey-300, #ccc);
+      border-radius: 4px;
+      background: #fff;
+      resize: vertical;
+      box-sizing: border-box;
+      line-height: 1.5;
+      &:focus {
+        outline: none;
+        border-color: var(--bmo-primary-blue, #0075be);
+        box-shadow: 0 0 0 2px rgba(0, 117, 190, 0.15);
+      }
+      &::placeholder {
+        color: var(--bmo-grey-400, #999);
+        font-size: 0.8125rem;
+      }
+    }
+    &__options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    &__option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      input[type="radio"],
+      input[type="checkbox"] {
+        margin: 0;
+        width: 16px;
+        height: 16px;
+      }
+    }
+    &__table-wrapper {
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+    &__table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      th, td {
+        padding: 8px 12px;
+        border: 1px solid var(--bmo-grey-300, #ccc);
+        text-align: left;
+      }
+      th {
+        background: var(--bmo-grey-100, #f0f0f0);
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--bmo-grey-300, #ccc);
+        border-radius: 4px;
+        font-size: 0.8125rem;
+        box-sizing: border-box;
+      }
+    }
+  }
+}
+
+/* Step 2 & 4 — Field sections */
+.section-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.section-header { font-size: 16px; font-weight: 700; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 2px solid #2d8ad3; color: #2d8ad3; }
+/* Success screen icon + helpers */
+.success-screen {
+  .success-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #e3fcef;
+    color: #006644;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 auto 16px;
+    border: 2px solid #c6f6d5;
+  }
+  .success-subtitle {
+    color: #44546f;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .success-view-btn { display: inline-block; margin-bottom: 8px; }
+}
+.scope-instruction { font-size: 14px; color: var(--text-secondary); margin: 0 0 14px; }
+/* Hide non-active sections */
+.section-card.hidden {
+  display: none;
+}
+// ── Instructions card ─────────────────────────────────────────────────────
+.instructions-card {
+  .instructions-body {
+    padding: 4px 0 8px;
+  }
+  .instructions-intro {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #44546f);
+    margin: 0 0 20px;
+    line-height: 1.6;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--bmo-grey-100, #f0f0f0);
+  }
+  .instructions-steps {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+  .instructions-step {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--bmo-grey-100, #f0f0f0);
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+  .instructions-step-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bmo-primary-blue, #0075be);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .instructions-step-content {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    strong {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--bmo-slate, #172b4d);
+      margin-bottom: 3px;
+    }
+    p {
+      margin: 0;
+      color: var(--text-secondary, #44546f);
+      font-size: 0.825rem;
+      line-height: 1.55;
+    }
+  }
+  .instructions-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bmo-albicant, #f7f7f7);
+    border-radius: 6px;
+    border-left: 3px solid var(--bmo-primary-blue, #0075be);
+    font-size: 0.825rem;
+    color: var(--text-secondary, #44546f);
+    line-height: 1.5;
+    i {
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: var(--bmo-primary-blue, #0075be);
+      font-size: 1rem;
+    }
+    strong {
+      color: var(--bmo-slate, #172b4d);
+    }
+  }
+  .instructions-flows {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 0 28px;
+    margin-bottom: 20px;
+  }
+  .instructions-flow-divider {
+    background: var(--bmo-grey-200, #e0e0e0);
+    width: 1px;
+    align-self: stretch;
+  }
+  .instructions-flow-heading {
+    font-size: 0.875rem;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    &--create {
+      background: #e3fcef;
+      color: #006644;
+    }
+    &--edit {
+      background: #deebff;
+      color: #0747a6;
+    }
+  }
+  .instructions-flow-col {
+    .instructions-steps {
+      grid-template-columns: 1fr;
+      margin-bottom: 0;
+    }
+    .instructions-step {
+      padding-left: 0;
+      padding-right: 0;
+      border-right: none;
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
+  @media (max-width: 900px) {
+    .instructions-flows {
+      grid-template-columns: 1fr;
+    }
+    .instructions-flow-divider {
+      height: 1px;
+      width: 100%;
+    }
+    .instructions-step {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      border-right: none !important;
+      border-bottom: 1px solid var(--bmo-grey-100, #f0f0f0) !important;
+      &:last-child {
+        border-bottom: none !important;
+      }
+    }
+  }
+}
+/* Apply improved form layout to existing markup used in the template
+   - keep HTML unchanged but enforce labels above inputs and full-width controls
+   - readable textareas, consistent spacing using 8px grid */
+.form-card {
+  .field-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--bmo-grey-100, #f0f0f0);
+    &:last-child { border-bottom: none; }
+    .field-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--bmo-slate, #333);
+      padding-top: 8px;
+      line-height: 1.4;
+    }
+    .field-hint {
+      font-size: 11px;
+      color: var(--bmo-grey-600, #666);
+      margin-top: 2px;
+    }
+    .field-control {
+      width: 100%;
+      min-width: 0;
+      input[type="text"], input[type="url"], select, textarea {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      textarea { min-height: 100px; }
+    }
+  }
+
+  
+  input[type="text"], input[type="url"], select {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    font-size: 0.875rem;
+    border: 1px solid var(--bmo-grey-300, #ccc);
+    border-radius: 6px;
+    background: #fff;
+    box-sizing: border-box;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 10px 12px;
+    font-size: 0.875rem;
+    border: 1px solid var(--bmo-grey-300, #ccc);
+    border-radius: 6px;
+    resize: vertical;
+    box-sizing: border-box;
+    line-height: 1.5;
+  }
+
+  /* Ensure placeholder text is readable and will ellipsize if needed */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--bmo-grey-400, #999);
+    font-size: 0.8125rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Make dynamic tables responsive */
+  .dynamic-table, .dynamic-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .dynamic-table th, .dynamic-table td {
+    padding: 8px 10px;
+    border: 1px solid var(--bmo-grey-200, #e0e0e0);
+  }
+
+/* .history-changes-table removed — replaced by compact card layout styles below */
+
+  /* Radio / checkbox groups — use horizontal wrap to fill available space */
+  .radio-group,
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    margin-top: 6px;
+  }
+  .radio-option,
+  .checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 140px;
+  }
+  .radio-option input,
+  .checkbox-option input { width: 16px; height: 16px; }
+}
+
+.form-card {
+  padding: 16px;
+
+  /* Sub-link inputs (radio-with-link) should expand to available width */
+  .sub-link-input {
+    display: block;
+    margin-top: 8px;
+    margin-left: 28px;
+    width: calc(100% - 28px);
+    min-width: 0;
+    padding: 10px 12px;
+    font-size: 0.875rem;
+    border: 1px solid var(--bmo-grey-300, #ccc);
+    border-left: 4px solid rgba(45, 138, 211, 0.4);
+    border-radius: 0 6px 6px 0;
+    background: #f8fbff;
+    box-sizing: border-box;
+  }
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font: inherit;
+  }
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.message {
+  margin-top: 14px;
+  color: var(--text-secondary);
+}
+
+.message.error {
+  color: var(--error);
+}
+
+.success-banner {
+  background: #e6f9e6;
+  border: 1px solid #4caf50;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.success-banner i {
+  color: #4caf50;
+}
+
+.success-banner a {
+  color: #2d8ad3;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.success-screen {
+  background: #f7ffef;
+  border: 1px solid #c6f6d5;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+.success-screen h2 { margin: 0 0 8px; }
+.success-screen .meta { color: var(--text-secondary); font-size: 0.95rem; margin-top: 6px; }
+.success-actions { display: flex; gap: 12px; justify-content: center; margin-top: 16px; }
+.success-actions .btn { min-width: 160px; }
+
+
+
+/* Standalone placeholder helper used in templates */
+.placeholder-text {
+  color: #97a0af;
+  font-style: italic;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+
+@media (max-width: 900px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.date-field-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  input[type="date"] {
+    max-width: 200px;
+  }
+}
+.date-preview {
+  font-size: 13px;
+  color: #44546f;
+  font-style: italic;
+}
+
+/* User search dropdown styles */
+.user-search-dropdown {
+  position: absolute;
+  z-index: 1000;
+  width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-top: 4px;
+  padding: 4px 0;
+  list-style: none;
+}
+.user-search-dropdown li {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #172b4d;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user-search-dropdown li:hover {
+  background: #f4f5f7;
+}
+.user-search-dropdown li .user-name {
+  font-weight: 500;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f0f0;
+  .field-control {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+}
+.subtle-spacing {
+  /* placeholder utility - no rules, keeps spacing consistent if needed */
+}
+
+/* Give form controls room to breathe on wider screens */
+.field-row {
+  .field-control {
+    max-width: 980px;
+  }
+}
+.form-card {
+  .field-control > input[type="text"],
+  .field-control > input[type="url"],
+  .field-control > select,
+  .field-control > textarea {
+    max-width: 760px;
+  }
+  .field-control > textarea {
+    min-height: 110px;
+  }
+}
+
+/* Use available horizontal space for option groups */
+.form-card {
+  .radio-group,
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 8px 22px;
+    align-items: flex-start;
+  }
+  .radio-option,
+  .checkbox-option {
+    min-width: 160px;
+    max-width: 100%;
+  }
+}
+.field-row:last-child { border-bottom: none; }
+/* Conditional sub-fields — revealed when Yes/No or radio triggers them.
+   These sit inside .field-control so they already span the right column.
+   Make them visually distinct but USE the full width. */
+.sub-fields {
+  margin-top: 12px;
+  padding: 16px 20px;
+  border-left: 4px solid rgba(45, 138, 211, 0.4);
+  background: #f8fbff;
+  border-radius: 0 8px 8px 0;
+  width: 100%;
+  box-sizing: border-box;
+  .sub-field {
+    margin-bottom: 14px;
+    &:last-child { margin-bottom: 0; }
+    label.field-label,
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary, #5e6c84);
+      margin-bottom: 6px;
+      padding-top: 0;
+    }
+    input[type="text"],
+    input[type="url"],
+    textarea {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    textarea { min-height: 90px; }
+  }
+  /* Checkboxes/radios inside sub-fields: use horizontal grid */
+  .checkbox-group,
+  .radio-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px 20px;
+  }
+}
+
+/* Hint shown when user has typed 1-2 characters for the user search */
+.search-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b778c;
+  font-style: italic;
+}
+
+.readonly-field {
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #333;
+  a { color: #0052cc; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .placeholder-text { color: #999; font-style: italic; }
+}
+
+
+.title-input-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.title-prefix {
+  padding: 10px 12px;
+  background: #f0f0f0;
+  color: #666;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border-right: 1px solid var(--border, #e0e0e0);
+  user-select: none;
+}
+.title-input-group input {
+  flex: 1;
+  border: none;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  outline: none;
+  min-width: 0;
+}
+.title-input-group input:disabled {
+  background: #fafafa;
+  cursor: not-allowed;
+}
+/* Locked suffix input + edit button */
+.title-suffix-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  input {
+    flex: 1;
+    &.locked {
+      background: #f4f5f7;
+      color: #6b778c;
+      cursor: default;
+    }
+  }
+}
+.title-suffix-edit-btn {
+  background: none;
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s;
+  &:hover {
+    background: #f0f4ff;
+    border-color: #0052cc;
+  }
+}
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: #6b778c;
+  margin-top: 4px;
+}
+.sub-field { margin-bottom: 8px; }
+/* Dynamic rows */
+.dynamic-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+  table-layout: fixed;
+  th {
+    background: #f5f5f5;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border, #e0e0e0);
+    white-space: nowrap;
+  }
+  td {
+    padding: 4px 6px;
+    border: 1px solid var(--border, #e0e0e0);
+  }
+  input {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 0.8125rem;
+    box-sizing: border-box;
+    &::placeholder {
+      color: var(--bmo-grey-400, #999);
+      font-size: 0.75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+  th:last-child,
+  td:last-child {
+    width: 40px;
+    text-align: center;
+  }
+}
+.remove-row-btn { background: none; border: none; color: #b3261e; cursor: pointer; font-size: 16px; padding: 4px; }
+.add-row-btn { font-size: 13px; color: #2d8ad3; background: none; border: none; cursor: pointer; font-weight: 600; }
+.add-row-btn:hover { text-decoration: underline; }
+/* Radio/checkbox groups — use horizontal wrap to fill available space */
+.radio-group,
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+.radio-option,
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 140px;
+}
+.radio-option input,
+.checkbox-option input {
+  accent-color: #2d8ad3;
+  cursor: pointer;
+}
+
+/* Required field indicator */
+.required-mark {
+  color: #de350b;
+  font-weight: 700;
+  font-size: 14px;
+}
+/* Validation notification banner */
+.validation-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fffae6;
+  border: 1px solid #ff991f;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #172b4d;
+  animation: slideDown 0.2s ease-out;
+}
+.validation-banner i {
+  color: #ff991f;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.validation-banner span { flex: 1; }
+.validation-dismiss {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #6b778c;
+  padding: 4px;
+  line-height: 1;
+}
+.validation-dismiss:hover { color: #172b4d; }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 900px) {
+  .scope-grid { grid-template-columns: 1fr; }
+  .field-row { grid-template-columns: 1fr !important; gap: 6px; }
+  .stepper { flex-wrap: wrap; justify-content: center; }
+  .step-connector { width: 20px; }
+
+
+
+  .sub-fields {
+    margin-left: 0;
+    max-width: 100%;
+    padding: 12px 14px;
+  }
+  .sub-link-input {
+    margin-left: 0;
+    width: 100%;
+  }
+  .form-card {
+    .radio-group,
+    .checkbox-group {
+      flex-direction: column;
+      gap: 8px;
+    }
+    .radio-option,
+    .checkbox-option {
+      min-width: unset;
+    }
+  }
+}
+
+.sub-link-input {
+  display: block;
+  margin-top: 8px;
+  margin-left: 28px;
+  width: calc(100% - 28px);
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  border: 1px solid var(--bmo-grey-300, #ccc);
+  border-left: 4px solid rgba(45, 138, 211, 0.4);
+  border-radius: 0 6px 6px 0;
+  background: #f8fbff;
+  box-sizing: border-box;
+}

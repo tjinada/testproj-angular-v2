@@ -1,0 +1,1794 @@
+import { Component, OnInit, HostListener } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+export interface FieldChange {
+  field: string;           // field key
+  label: string;           // human-readable label
+  section: string;         // e.g. "General", "CDB UI", "Change Scope"
+  oldValue: any;           // null means parent itself didn't change (sub-only)
+  newValue: any;           // null means parent itself didn't change (sub-only)
+  subChanges?: SubFieldChange[];  // populated when sub-fields also changed
+}
+export interface SubFieldChange {
+  field: string;
+  label: string;
+  oldValue: any;
+  newValue: any;
+}
+import { FormsModule } from '@angular/forms';
+import { IntakeSummaryComponent } from './intake-summary.component';
+import { ApiService } from '../../services/api.service';
+
+@Component({
+  selector: 'app-tech-intake',
+  standalone: true,
+  imports: [CommonModule, FormsModule, IntakeSummaryComponent],
+  templateUrl: './tech-intake.component.html',
+  styleUrls: [
+    './tech-intake.component.scss',
+    './tech-intake-form.scss',
+    './tech-intake-stepper.scss',
+    './tech-intake-history.scss',
+    './tech-intake-modal.scss'
+  ],
+})
+export class TechIntakeComponent implements OnInit {
+  // Stepper
+  currentStep: 1 | 2 | 3 | 4 | 5 = 1;
+
+  // Template loaded from backend
+  template: any = null;
+
+  // Step 1 (existing)
+  releases: { releaseId: string; title: string }[] = [];
+  daTeams: { name: string; jiraProjects: string[] }[] = [];
+  // Full unfiltered list of DA teams (for Create flow)
+  allDaTeams: { name: string; jiraProjects: string[] }[] = [];
+  selectedRelease = '';
+  selectedDATeam = '';
+  jiraBoardKey = '';
+  jiraBoardLink = '';
+  intakeTitle = '';
+  intakeTitleSuffix = '';
+  titleSuffixLocked = true;
+  // User search/typeahead
+  userSearchTerm = '';
+  userResults: Array<{ accountId: string; displayName: string; email: string }> = [];
+  selectedUser: { accountId: string; displayName: string; email: string } | null = null;
+  private _userSearchTimeout: any = null;
+
+  // Step 2 (General)
+  generalValues: Record<string, any> = {};
+
+  // Step 3 (Scopes)
+  selectedScopes: Set<string> = new Set();
+
+  // Step 4 (Scope details)
+  scopeValues: Record<string, any> = {};
+  dynamicRows: Record<string, any[][]> = {};
+  // Step 4 sub-step tracking
+  activeScopeIndex = 0;
+  maxVisitedScopeIndex = 0; // tracks highest scope index user has reached
+
+  private _visibleScopeSectionsCache: { key: string; section: any }[] | null = null;
+  private _lastScopeSnapshot = '';
+
+  // UI state
+  isExporting = false;
+  exportError: string | null = null;
+  exportSuccess: { pageId: string; pageUrl: string } | null = null;
+  isLoading = true;
+  error: string | null = null;
+  // History drawer state (edit mode)
+  showHistoryDrawer = false;
+  // ─── History drawer resize ────────────────────────────────────────
+  drawerWidth = 420; // default px
+  isDragging = false; // public for template binding while actively dragging
+  private _dragStartX = 0;
+  private _dragStartWidth = 0;
+  private readonly DRAWER_MIN_WIDTH = 320;
+  private readonly DRAWER_MAX_WIDTH = 780;
+  // Tooltip popup element (injected to document.body)
+  private _tooltipEl: HTMLElement | null = null;
+  // Post-export state
+  postExportState: 'idle' | 'success' = 'idle';
+  // Validation notification
+  validationMessage: string | null = null;
+  private _validationTimeout: any = null;
+
+  // Change detection (edit mode)
+  private _originalFormSnapshot: string | null = null;
+  noChangeMessage: string | null = null;
+
+  // --- Create / Edit modal state ---
+  showCreateModal = false;
+  createForm = { release: '', daTeam: '' };
+  createModalError: string | null = null;
+  createModalLoading = false;
+  createModalExistingIntake: { pageId: string; title: string } | null = null;
+  createModalChecking = false;
+  // Duplicate intake modal state
+  createModalState: 'select' | 'results' | 'schema-warning' | null = null;
+  previousIntakes: Array<{
+    release: string;
+    title: string;
+    pageId: string;
+    url: string;
+    lastUpdated: string | null;
+    updatedBy: string | null;
+  }> = [];
+  previousIntakesLoading = false;
+  selectedDuplicationSource: { release: string; title: string; pageId: string; url: string } | null = null;
+  // Schema drift warning data (populated by Prompt 3 logic)
+  schemaDriftWarnings: string[] = [];
+  duplicationInProgress = false;
+  showEditModal = false;
+  editModalRelease = '';
+  editModalPages: Array<{ pageId: string; title: string; url: string; lastUpdated: string | null; updatedBy: string | null }> = [];
+  editModalPagesLoading = false;
+  editModalSelectedPageId = '';
+  editModalLoading = false;
+  editMode = false;
+  editPageId = '';
+  // Edit history loaded from Confluence content property
+  editHistory: Array<{
+    editedBy: { name: string; email: string; accountId?: string };
+    editedAt: string;
+    fieldsChanged: FieldChange[];
+  }> = [];
+
+  // Edit-mode intake pages list (when a release is selected in edit mode)
+  editIntakePages: Array<{ pageId: string; title: string; url: string; lastUpdated: string | null; updatedBy: string | null }> = [];
+  editIntakePagesLoading = false;
+  // Original creator information from the pulled intake (read-only in edit mode)
+  originalCreator: { name: string; email: string } | null = null;
+  // Whether a create/edit modal has been submitted to open the form
+  modalSubmitted = false;
+
+  constructor(private readonly apiService: ApiService) {}
+
+  ngOnInit(): void {
+    void this.loadData();
+  }
+
+  toggleHistoryDrawer(): void {
+    if (this.showHistoryDrawer) {
+      this.closeHistoryDrawer();
+    } else {
+      this.showHistoryDrawer = true;
+    }
+  }
+
+  closeHistoryDrawer(): void {
+    this.showHistoryDrawer = false;
+    // reset to default width when closed so it reopens consistently
+    this.drawerWidth = 420;
+    // ensure any injected tooltip is removed when closing
+    this.hideTooltip();
+  }
+
+  onDrawerDragStart(event: MouseEvent): void {
+    this.isDragging = true;
+    this._dragStartX = event.clientX;
+    this._dragStartWidth = this.drawerWidth;
+    event.preventDefault();
+    const onMove = (e: MouseEvent) => {
+      if (!this.isDragging) return;
+      const delta = this._dragStartX - e.clientX;
+      this.drawerWidth = Math.min(
+        this.DRAWER_MAX_WIDTH,
+        Math.max(this.DRAWER_MIN_WIDTH, this._dragStartWidth + delta)
+      );
+    };
+    const onUp = () => {
+      this.isDragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  // ─── Tooltip popup (injected to body to escape scroll/overflow contexts) ──
+  onPillMouseEnter(event: MouseEvent, el: HTMLElement): void {
+    const text = el?.getAttribute?.('data-tooltip');
+    if (!text) return;
+    const rect = el.getBoundingClientRect();
+    this.showTooltipFor(el, rect);
+  }
+
+  onPillMouseLeave(_event: MouseEvent): void {
+    this.hideTooltip();
+  }
+
+  showTooltipFor(pill: HTMLElement, rect: DOMRect): void {
+    const text = pill.getAttribute('data-tooltip');
+    if (!text) return;
+    this.hideTooltip(); // remove any existing
+    const el = document.createElement('div');
+    el.className = 'hc-tooltip-popup';
+    el.textContent = text;
+    document.body.appendChild(el);
+    this._tooltipEl = el;
+    // Position above the pill, centered
+    requestAnimationFrame(() => {
+      const tipRect = el.getBoundingClientRect();
+      let left = rect.left + rect.width / 2 - tipRect.width / 2;
+      let top = rect.top - tipRect.height - 8;
+      // Clamp to viewport
+      left = Math.max(8, Math.min(left, window.innerWidth - tipRect.width - 8));
+      if (top < 8) top = rect.bottom + 8; // flip below if no room above
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+      el.style.opacity = '1';
+    });
+  }
+
+  hideTooltip(): void {
+    if (this._tooltipEl) {
+      this._tooltipEl.remove();
+      this._tooltipEl = null;
+    }
+  }
+
+  private clearConditionalSubFields(store: 'general' | 'scope', field: any, selectedValue: string): void {
+    const storeRef = store === 'general' ? this.generalValues : this.scopeValues;
+    const cond = field.conditionalFields || {};
+    const normalizedValue = String(selectedValue || '').toLowerCase();
+    const isNo = normalizedValue === 'no';
+    // ── Conditionally clear detailField ──────────────────────────
+    // Only clear the detail value when switching to an option that hides the
+    // details textarea (the last option, unless alwaysShowDetails is set).
+    // This prevents "High" risk from wiping details just because it's last.
+    if (field.detailField && field.detailField in storeRef) {
+      if (field.type === 'yes-no') {
+        // yes-no fields: always clear details on change (old behaviour)
+        delete storeRef[field.detailField];
+      } else if (field.options && field.options.length > 0 && !field.alwaysShowDetails) {
+  const lastOption = String(field.options[field.options.length - 1]).toLowerCase();
+  if (normalizedValue === lastOption) {
+    // Switching TO the last option hides the textarea — clear so stale
+    // data doesn't persist invisibly
+    delete storeRef[field.detailField];
+  }
+  // Switching between any non-last options: preserve the detail value
+}
+
+
+    }
+    // ── Clear conditional sub-fields based on direction ───────────
+    if (isNo) {
+      // Switching to No — clear whenNotNo and whenYes sub-fields
+      for (const sub of (cond.whenNotNo || [])) {
+        if (sub.field) delete storeRef[sub.field];
+      }
+      for (const sub of (cond.whenYes || [])) {
+        if (sub.field) delete storeRef[sub.field];
+      }
+    } else {
+      // Switching away from No — clear whenNo sub-fields
+      for (const sub of (cond.whenNo || [])) {
+        if (sub.field) delete storeRef[sub.field];
+      }
+    }
+    // ── Fallback: clear implicit detail keys (only when switching to No) ──
+    // Some fields store their detail textarea under a key that doesn't
+    // match the explicit detailField — try common naming patterns.
+    // Only delete if the key actually exists to avoid noise.
+    if (isNo) {
+      const implicitKeys = [
+        `${field.field}Details`,
+        `${field.field}Description`,
+        `${field.field}_details`,
+        `${field.field}_description`,
+      ];
+      for (const key of implicitKeys) {
+        if (key in storeRef) delete storeRef[key];
+      }
+    }
+  }
+
+  exitEditMode(): void {
+    const preserveReleases = this.releases;
+    const preserveAllDaTeams = this.allDaTeams;
+    this.resetForm();
+    this.releases = preserveReleases;
+    this.allDaTeams = preserveAllDaTeams;
+    this.daTeams = this.allDaTeams;
+    this.editMode = false;
+    this.editPageId = '';
+    this.editIntakePages = [];
+    this.originalCreator = null;
+    this.currentStep = 1;
+  }
+
+  async loadData(): Promise<void> {
+    this.isLoading = true;
+    try {
+      const [releases, daTeamsData, template] = await Promise.all([
+        this.apiService.request<any[]>('GET', '/api/tech-intake/releases'),
+        this.apiService.request<Record<string, any>>('GET', '/api/tech-intake/da-teams'),
+        this.apiService.request<any>('GET', '/api/tech-intake/intake-template'),
+      ]);
+
+      this.releases = (releases || []).map((r) => ({ releaseId: r.releaseId, title: r.title }));
+      // Keep an unfiltered master list for Create flow and initialize visible list
+      this.allDaTeams = Object.values(daTeamsData || {}).map((t: any) => ({ name: t.name, jiraProjects: t.jiraProjects || [] }));
+      this.daTeams = this.allDaTeams;
+      this.template = template;
+    } catch (err: any) {
+      this.error = err?.error?.error || err?.message || 'Failed to load data';
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  openCreateModal(): void {
+    this.showCreateModal = true;
+    this.createModalState = 'select';
+    this.createForm = { release: '', daTeam: '' };
+    this.createModalError = null;
+    this.createModalLoading = false;
+    this.createModalExistingIntake = null;
+    this.createModalChecking = false;
+    this.previousIntakes = [];
+    this.previousIntakesLoading = false;
+    this.selectedDuplicationSource = null;
+    this.schemaDriftWarnings = [];
+    this.duplicationInProgress = false;
+  }
+
+  closeCreateModal(): void {
+    this.showCreateModal = false;
+    this.createModalState = null;
+  }
+
+  async onCreateModalSelectionChange(): Promise<void> {
+    // Reset modal-specific state
+    this.createModalExistingIntake = null;
+    this.createModalError = null;
+    this.previousIntakes = [];
+    this.selectedDuplicationSource = null;
+    this.createModalState = 'select';
+    if (!this.createForm.release || !this.createForm.daTeam) return;
+    this.createModalChecking = true;
+    try {
+      // Resolve board key for this DA team (if available)
+      const team = this.allDaTeams.find(t => t.name === this.createForm.daTeam);
+      const boardKey = (team?.jiraProjects?.[0] || '').trim();
+
+      // Step 1: Check if an intake already exists for this release+team
+      const lookupUrl = boardKey
+        ? `/api/tech-intake/intake/lookup?release=${encodeURIComponent(this.createForm.release)}&boardKey=${encodeURIComponent(boardKey)}`
+        : `/api/tech-intake/intake/lookup?release=${encodeURIComponent(this.createForm.release)}&daTeam=${encodeURIComponent(this.createForm.daTeam)}`;
+
+      const data = await this.apiService.request<any>('GET', lookupUrl);
+      const results = data.results || [];
+      if (results.length > 0) {
+        // Intake already exists — show inline message
+        this.createModalExistingIntake = { pageId: results[0].pageId, title: results[0].title || '' };
+        this.createModalState = 'select';
+        return;
+      }
+
+      // Step 2: No existing intake — fetch previous intakes for this DA team
+      if (boardKey) {
+        this.previousIntakesLoading = true;
+        this.createModalState = 'results';
+        try {
+          const teamData = await this.apiService.request<any>('GET', `/api/tech-intake/intakes-by-team/${encodeURIComponent(boardKey)}`);
+          this.previousIntakes = teamData.intakes || [];
+        } catch (err) {
+          console.error('Failed to fetch previous intakes:', err);
+          this.previousIntakes = [];
+        } finally {
+          this.previousIntakesLoading = false;
+        }
+      } else {
+        // No board key available — show results state with empty table
+        this.createModalState = 'results';
+      }
+    } catch (err) {
+      console.error('Create modal lookup failed:', err);
+      this.createModalError = 'Failed to check for existing intakes.';
+    } finally {
+      this.createModalChecking = false;
+    }
+  }
+
+  async submitCreateModal(): Promise<void> {
+    if (!this.createForm.release || !this.createForm.daTeam) return;
+    // Case 1: Existing intake — redirect to edit
+    if (this.createModalExistingIntake) {
+      this.createModalLoading = true;
+      this.createModalError = null;
+      try {
+        const pageId = this.createModalExistingIntake.pageId;
+        const pulled = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${pageId}/pull`);
+        const formData = pulled.formData || pulled;
+        const preserveReleases = this.releases;
+        const preserveAllDaTeams = this.allDaTeams;
+        this.resetForm();
+        this.releases = preserveReleases;
+        this.allDaTeams = preserveAllDaTeams;
+        this.daTeams = this.allDaTeams;
+        this.populateFormFromData(formData);
+        this._originalFormSnapshot = this.getFormStateSnapshot();
+        if (pulled.createdBy) {
+          this.originalCreator = { name: pulled.createdBy.name || pulled.exportedBy || 'unknown', email: pulled.createdBy.email || '' };
+        }
+        this.editHistory = pulled.editHistory || [];
+        this.editMode = true;
+        this.editPageId = pageId;
+        this.closeCreateModal();
+        this.modalSubmitted = true;
+        this.goToStep(1);
+      } catch (err) {
+        console.error('Create modal submit failed:', err);
+        this.createModalError = 'Something went wrong. Please try again.';
+      } finally {
+        this.createModalLoading = false;
+      }
+      return;
+    }
+    // Case 2: Duplicate from a previous intake
+    if (this.selectedDuplicationSource) {
+      await this.beginDuplication();
+      return;
+    }
+    // Case 3: Create brand new (blank) intake
+    this.createModalLoading = true;
+    this.createModalError = null;
+    try {
+      const preserveReleases = this.releases;
+      const preserveAllDaTeams = this.allDaTeams;
+      this.resetForm();
+      this.releases = preserveReleases;
+      this.allDaTeams = preserveAllDaTeams;
+      this.daTeams = this.allDaTeams;
+      this.editMode = false;
+      this.editPageId = '';
+      this.selectedRelease = this.createForm.release;
+      this.selectedDATeam = this.createForm.daTeam;
+      this.onDATeamChange();
+      this.titleSuffixLocked = false; // Blank-create: unlock suffix for new intake
+      this.closeCreateModal();
+      this.modalSubmitted = true;
+      this.goToStep(1);
+    } catch (err) {
+      console.error('Create modal submit failed:', err);
+      this.createModalError = 'Something went wrong. Please try again.';
+    } finally {
+      this.createModalLoading = false;
+    }
+  }
+
+  selectDuplicationSource(intake: { release: string; title: string; pageId: string; url: string } | null): void {
+    if (this.selectedDuplicationSource?.pageId === intake?.pageId) {
+      // Deselect if clicking same row
+      this.selectedDuplicationSource = null;
+    } else {
+      this.selectedDuplicationSource = intake || null;
+    }
+  }
+
+  // Temporary storage for fetched source data when showing schema-warning
+  private _pendingDuplicationData: any = null;
+
+  /**
+   * Fetch source intake data, detect schema drift (stub), and either show
+   * a warning or apply duplication.
+   */
+  async beginDuplication(): Promise<void> {
+    if (!this.selectedDuplicationSource) return;
+    this.duplicationInProgress = true;
+    this.createModalError = null;
+    try {
+      const sourcePageId = this.selectedDuplicationSource.pageId;
+      const pulled = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${sourcePageId}/pull`);
+      const sourceFormData = pulled.formData || pulled;
+      // Store for proceedDespiteDrift
+      this._pendingDuplicationData = sourceFormData;
+      // Schema drift detection
+      const unmappedFields = this.detectSchemaDrift(sourceFormData);
+      const newRequiredFields = this.getNewTemplateFields(sourceFormData);
+      // Combine warnings
+      const allWarnings: string[] = [];
+      if (unmappedFields.length > 0) {
+        allWarnings.push('── Fields that will be SKIPPED (no longer in template) ──');
+        allWarnings.push(...unmappedFields);
+      }
+      if (newRequiredFields.length > 0) {
+        if (allWarnings.length > 0) allWarnings.push(''); // spacer
+        allWarnings.push('── Fields that will be BLANK (new in current template) ──');
+        allWarnings.push(...newRequiredFields);
+      }
+      if (allWarnings.length > 0) {
+        this.schemaDriftWarnings = allWarnings;
+        this.createModalState = 'schema-warning';
+        return;
+      }
+      // No drift — proceed directly
+      this.applyDuplication(sourceFormData);
+    } catch (err) {
+      console.error('Duplication failed:', err);
+      this.createModalError = 'Failed to load source intake data.';
+    } finally {
+      this.duplicationInProgress = false;
+    }
+  }
+
+  /**
+   * Detect fields in sourceFormData that don't exist in current template.
+   * Stub: return empty array for now; full logic will be added in Prompt 3.
+   */
+  private getTemplateFieldKeys(): {
+    knownGeneralKeys: Set<string>;
+    knownScopeKeys: Set<string>;
+    knownScopeIds: Set<string>;
+    generalFieldLabels: Map<string, string>;
+    scopeFieldLabels: Map<string, string>;
+  } {
+    const knownGeneralKeys = new Set<string>();
+    const knownScopeKeys = new Set<string>();
+    const generalFieldLabels = new Map<string, string>();
+    const scopeFieldLabels = new Map<string, string>();
+    for (const f of (this.template.general?.fields || [])) {
+      knownGeneralKeys.add(f.field);
+      generalFieldLabels.set(f.field, f.label || f.field);
+      if (f.detailField) {
+        knownGeneralKeys.add(f.detailField);
+        generalFieldLabels.set(f.detailField, `${f.label || f.field} (details)`);
+      }
+      if (f.type === 'radio-with-link' || (Array.isArray(f.options) && f.options.some((o: any) => o.hasLink))) {
+        knownGeneralKeys.add(`${f.field}_link`);
+        generalFieldLabels.set(`${f.field}_link`, `${f.label || f.field} (link)`);
+      }
+      const cond = f.conditionalFields || {};
+      for (const sub of [...(cond.whenYes || []), ...(cond.whenNo || []), ...(cond.whenNotNo || [])]) {
+        if (sub.field) {
+          knownGeneralKeys.add(sub.field);
+          generalFieldLabels.set(sub.field, sub.label || sub.field);
+        }
+      }
+    }
+    for (const [_key, section] of Object.entries(this.template.scopeDetails || {})) {
+      const sec = section as any;
+      for (const f of (sec.fields || [])) {
+        knownScopeKeys.add(f.field);
+        scopeFieldLabels.set(f.field, f.label || f.field);
+        if (f.detailField) knownScopeKeys.add(f.detailField);
+        if (f.type === 'radio-with-link' || (Array.isArray(f.options) && f.options.some((o: any) => o.hasLink))) {
+          knownScopeKeys.add(`${f.field}_link`);
+          scopeFieldLabels.set(`${f.field}_link`, `${f.label || f.field} (link)`);
+        }
+        const cond = f.conditionalFields || {};
+        for (const sub of [...(cond.whenYes || []), ...(cond.whenNo || []), ...(cond.whenNotNo || [])]) {
+          if (sub.field) {
+            knownScopeKeys.add(sub.field);
+            scopeFieldLabels.set(sub.field, sub.label || sub.field);
+          }
+        }
+      }
+    }
+    const knownScopeIds = new Set<string>((this.template.step2?.scopes || []).map((s: any) => s.id));
+    return { knownGeneralKeys, knownScopeKeys, knownScopeIds, generalFieldLabels, scopeFieldLabels };
+  }
+
+  detectSchemaDrift(sourceFormData: any): string[] {
+    if (!this.template || !sourceFormData) return [];
+    const unmapped: string[] = [];
+    const { generalValues: sourceGeneral, selectedScopes: sourceSelectedScopes, scopeValues: sourceScopeValues, dynamicRows: sourceDynamicRows } = this.normalizeSourceFormData(sourceFormData);
+    const { knownGeneralKeys, knownScopeKeys, knownScopeIds, generalFieldLabels, scopeFieldLabels } = this.getTemplateFieldKeys();
+    // ── 2. Check source generalValues against known general keys ───────
+    for (const key of Object.keys(sourceGeneral || {})) {
+      if (!knownGeneralKeys.has(key)) {
+        const label = generalFieldLabels.get(key) || key;
+        unmapped.push(`General: ${label}`);
+      }
+    }
+    // ── 3. Check source scopeValues against known scope keys ───────────
+    for (const key of Object.keys(sourceScopeValues || {})) {
+      if (!knownScopeKeys.has(key)) {
+        const label = scopeFieldLabels.get(key) || key;
+        unmapped.push(`Scope: ${label}`);
+      }
+    }
+    // ── 4. Check source dynamicRows against known scope keys ───────────
+    for (const key of Object.keys(sourceDynamicRows || {})) {
+      if (!knownScopeKeys.has(key)) {
+        const label = scopeFieldLabels.get(key) || key;
+        unmapped.push(`Scope (table): ${label}`);
+      }
+    }
+    // ── 5. Check source selectedScopes against known scope IDs ─────────
+    for (const scopeId of sourceSelectedScopes || []) {
+      if (!knownScopeIds.has(scopeId)) {
+        // Try to find a human label from source context
+        unmapped.push(`Scope section: ${scopeId}`);
+      }
+    }
+    return unmapped;
+  }
+
+  /**
+   * Identify fields in the current template that don't exist in the source formData.
+   * These are new fields added since the source intake was created — they'll use default values.
+   */
+  getNewTemplateFields(sourceFormData: any): string[] {
+    if (!this.template || !sourceFormData) return [];
+    const newFields: string[] = [];
+    const { generalValues: sourceGeneral, selectedScopes: sourceSelectedScopes, scopeValues: sourceScopeValues, dynamicRows: sourceDynamicRows } = this.normalizeSourceFormData(sourceFormData);
+    const sourceGeneralKeys = new Set(Object.keys(sourceGeneral || {}));
+    const sourceScopeKeys = new Set([
+      ...Object.keys(sourceScopeValues || {}),
+      ...Object.keys(sourceDynamicRows || {}),
+    ]);
+    // Use template keys helper
+    const { knownGeneralKeys, knownScopeKeys } = this.getTemplateFieldKeys();
+    // Check general fields
+    for (const f of (this.template.general?.fields || [])) {
+      if (f.required && !sourceGeneralKeys.has(f.field)) {
+        newFields.push(`General: ${f.label || f.field} (required — will be blank)`);
+      }
+    }
+    // Check scope fields (only for scopes the source had selected)
+    const sourceScopes = new Set(sourceSelectedScopes || []);
+    for (const [_key, section] of Object.entries(this.template.scopeDetails || {})) {
+      const sec = section as any;
+      if (!sourceScopes.has(sec.showWhen)) continue; // Only check scopes the source used
+      for (const f of (sec.fields || [])) {
+        if (f.required && !sourceScopeKeys.has(f.field)) {
+          newFields.push(`${sec.label || 'Scope'}: ${f.label || f.field} (required — will be blank)`);
+        }
+      }
+    }
+    return newFields;
+  }
+
+  /**
+   * Apply duplicated data to the form and switch to create flow.
+   */
+  applyDuplication(sourceFormData: any): void {
+    // Capture target release/team BEFORE clearing the form
+    const targetRelease = this.createForm.release;
+    const targetDATeam = this.createForm.daTeam;
+
+    const preserveReleases = this.releases;
+    const preserveAllDaTeams = this.allDaTeams;
+    // ── Strip deprecated fields from source before populating ──────────
+    const cleanedFormData = this.cleanSourceFormData(sourceFormData);
+    this.resetForm();
+    this.releases = preserveReleases;
+    this.allDaTeams = preserveAllDaTeams;
+    this.daTeams = this.allDaTeams;
+    // Populate form from cleaned source data
+    this.populateFormFromData(cleanedFormData);
+    // Override identity fields with TARGET release/team
+    this.selectedRelease = targetRelease;
+    this.selectedDATeam = targetDATeam;
+    this.onDATeamChange();
+    this.intakeTitleSuffix = '';
+    this.titleSuffixLocked = false; // New intake — unlocked
+    this.editMode = false;
+    this.editPageId = '';
+    this.originalCreator = null;
+    this._pendingDuplicationData = null;
+    this.closeCreateModal();
+    this.modalSubmitted = true;
+    this.goToStep(1);
+  }
+
+  proceedDespiteDrift(): void {
+    if (this._pendingDuplicationData) {
+      this.applyDuplication(this._pendingDuplicationData);
+      this._pendingDuplicationData = null;
+    }
+  }
+
+  cancelDrift(): void {
+    this.schemaDriftWarnings = [];
+    this._pendingDuplicationData = null;
+    this.createModalState = 'results';
+  }
+
+  openEditModal(): void {
+    this.showEditModal = true;
+    this.editModalRelease = '';
+    this.editModalPages = [];
+    this.editModalPagesLoading = false;
+    this.editModalSelectedPageId = '';
+    this.editModalLoading = false;
+  }
+
+  closeEditModal(): void {
+    this.showEditModal = false;
+  }
+
+  async onEditModalReleaseChange(): Promise<void> {
+    this.editModalPages = [];
+    this.editModalSelectedPageId = '';
+    if (!this.editModalRelease) return;
+    this.editModalPagesLoading = true;
+    try {
+      const data = await this.apiService.request<any>(
+        'GET',
+        `/api/tech-intake/intake/lookup?release=${encodeURIComponent(this.editModalRelease)}`
+      );
+      this.editModalPages = data.results || [];
+    } catch (err) {
+      console.error('Failed to load intakes for edit modal:', err);
+    } finally {
+      this.editModalPagesLoading = false;
+    }
+  }
+
+  async submitEditModal(): Promise<void> {
+    if (!this.editModalSelectedPageId) return;
+    this.editModalLoading = true;
+    try {
+      const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${this.editModalSelectedPageId}/pull`);
+      const formData = data.formData || data;
+      const preserveReleases = this.releases;
+      const preserveAllDaTeams = this.allDaTeams;
+      this.resetForm();
+      this.releases = preserveReleases;
+      this.allDaTeams = preserveAllDaTeams;
+      this.daTeams = this.allDaTeams;
+      this.populateFormFromData(formData);
+      this._originalFormSnapshot = this.getFormStateSnapshot();
+      if (data.createdBy) {
+        this.originalCreator = { name: data.createdBy.name || data.exportedBy || 'unknown', email: data.createdBy.email || '' };
+      }
+      this.editHistory = data.editHistory || [];
+      this.editMode = true;
+      this.editPageId = this.editModalSelectedPageId;
+      this.editIntakePages = this.editModalPages;
+      this.closeEditModal();
+      this.modalSubmitted = true;
+      this.goToStep(1);
+    } catch (err) {
+      console.error('Failed to load intake for editing:', err);
+      alert('Failed to load intake data.');
+    } finally {
+      this.editModalLoading = false;
+    }
+  }
+
+  get editingPageTitle(): string {
+    return this.editIntakePages.find(p => p.pageId === this.editPageId)?.title || this.intakeTitle || '';
+  }
+
+  get editingPageUrl(): string {
+    return this.editIntakePages.find(p => p.pageId === this.editPageId)?.url || '';
+  }
+
+  /**
+   * Enter edit mode for the intake that was just created without clearing form values.
+   * This is used by the success-screen "Edit This Intake" action.
+   */
+  editCurrentIntake(): void {
+    if (!this.exportSuccess?.pageId) return;
+    this.editMode = true;
+    this.editPageId = this.exportSuccess.pageId;
+    this.postExportState = 'idle';
+    this.exportError = null;
+    // Navigate back to first step for editing
+    this.goToStep(1);
+  }
+
+  // Typeahead: query Jira users via backend proxy
+  onUserSearchTermChange(term: string): void {
+    this.userSearchTerm = term;
+    this.selectedUser = null;
+    if (this._userSearchTimeout) clearTimeout(this._userSearchTimeout);
+    if (!term || term.trim().length < 3) {
+      this.userResults = [];
+      return;
+    }
+    this._userSearchTimeout = setTimeout(async () => {
+      try {
+        const data = await this.apiService.request<any[]>('GET', `/api/tech-intake/users/search?q=${encodeURIComponent(term)}`);
+        this.userResults = (data || []).slice(0, 8).map((u: any) => ({ accountId: u.accountId || '', displayName: u.displayName || '', email: u.email || '' }));
+      } catch (err) {
+        console.error('User search failed', err);
+        this.userResults = [];
+      }
+    }, 300);
+  }
+
+  selectUser(u: { accountId: string; displayName: string; email: string }): void {
+    this.selectedUser = u;
+    this.userSearchTerm = u.displayName || u.email || '';
+    this.userResults = [];
+  }
+
+  populateFormFromData(formData: any): void {
+    // Map stored formData back into the component's form state
+    if (!formData) return;
+    // step1 may contain release/daTeam/jiraBoardKey/intakeTitle
+    if (formData.step1) {
+      const s1 = formData.step1;
+      this.selectedRelease = s1.release || s1.releaseId || this.selectedRelease;
+      this.selectedDATeam = s1.daTeam || s1.team || this.selectedDATeam;
+      // Normalize jiraBoardKey: accept either a raw key (CCBT1) or a URL
+      const rawJira = s1.jiraBoardKey || s1.jira || this.jiraBoardKey || '';
+      if (rawJira) {
+        const m = String(rawJira).trim().match(/([A-Z0-9]+)\/?$/i);
+        this.jiraBoardKey = m ? m[1] : String(rawJira).trim();
+        // Build a clickable link for UI
+        this.jiraBoardLink = `https://bmo.atlassian.net/browse/${this.jiraBoardKey}`;
+      }
+      const fullTitle = s1.intakeTitle || s1.title || '';
+      if (fullTitle) {
+        const prefix = `${this.selectedRelease} - ${this.jiraBoardKey}`;
+        const prefixWithDash = `${prefix} - `;   // ← space BEFORE and AFTER the dash
+        if (this.jiraBoardKey && fullTitle.startsWith(prefixWithDash)) {
+          // Full title stored — extract suffix
+          this.intakeTitleSuffix = fullTitle.slice(prefixWithDash.length);
+          this.intakeTitle = prefix;
+        } else if (this.jiraBoardKey && fullTitle === prefix) {
+          // No suffix
+          this.intakeTitleSuffix = '';
+          this.intakeTitle = prefix;
+        } else if (this.jiraBoardKey && !fullTitle.includes(' - ')) {
+          // Only the suffix was stored (legacy export behaviour)
+          this.intakeTitleSuffix = fullTitle;
+          this.intakeTitle = prefix;
+        } else {
+          // Fallback: keep full title in intakeTitle
+          this.intakeTitle = fullTitle;
+          this.intakeTitleSuffix = '';
+        }
+      } else {
+        this.intakeTitleSuffix = '';
+      }
+    }
+    // Capture original creator if present in formData
+    if (formData.createdBy || formData.metadata?.createdBy) {
+      const creator = formData.createdBy || { name: formData.metadata?.createdBy || 'unknown', email: '' };
+      this.originalCreator = {
+        name: typeof creator === 'string' ? creator : (creator.name || creator.displayName || 'unknown'),
+        email: typeof creator === 'object' ? (creator.email || '') : '',
+      };
+    }
+    // selected scopes
+    if (formData.step2 && Array.isArray(formData.step2.scopes)) {
+      this.selectedScopes = new Set(formData.step2.scopes || []);
+    } else if (formData.selectedScopes && Array.isArray(formData.selectedScopes)) {
+      this.selectedScopes = new Set(formData.selectedScopes || []);
+    }
+    // general values and scope values
+    if (formData.step3 && formData.step3.general) {
+      this.generalValues = { ...formData.step3.general };
+      // Normalize any display-formatted dates back to ISO for the date picker
+      this.normalizeDateFieldsInStore(this.generalValues, this.template?.general?.fields || []);
+    } else if (formData.generalValues) {
+      this.generalValues = { ...formData.generalValues };
+      this.normalizeDateFieldsInStore(this.generalValues, this.template?.general?.fields || []);
+    }
+    if (formData.step3) {
+      const sv = { ...formData.step3 };
+      delete sv.general;
+      this.scopeValues = { ...(sv || {}) };
+      // Normalize date fields in scope values if any
+      const allScopeFields = Object.values(this.template?.scopeDetails || {}).flatMap((s: any) => s.fields || []);
+      this.normalizeDateFieldsInStore(this.scopeValues, allScopeFields || []);
+      // Backwards compatibility: map old generic keys to new description keys if present
+      if (!this.scopeValues['channelsDescription'] && this.scopeValues['channelsDetails']) {
+        this.scopeValues['channelsDescription'] = this.scopeValues['channelsDetails'];
+      }
+      if (!this.scopeValues['awsLambdaDescription'] && this.scopeValues['awsLambdaDetails']) {
+        this.scopeValues['awsLambdaDescription'] = this.scopeValues['awsLambdaDetails'];
+      }
+    } else if (formData.scopeValues) {
+      this.scopeValues = { ...formData.scopeValues };
+      const allScopeFields = Object.values(this.template?.scopeDetails || {}).flatMap((s: any) => s.fields || []);
+      this.normalizeDateFieldsInStore(this.scopeValues, allScopeFields || []);
+    }
+    if (formData.dynamicRows) {
+      this.dynamicRows = { ...formData.dynamicRows };
+    }
+    // Title suffix should be locked when loading existing data
+    this.titleSuffixLocked = true;
+  }
+
+  unlockTitleSuffix(): void {
+    this.titleSuffixLocked = false;
+  }
+
+  startNewIntake(): void {
+    this.resetForm();
+    this.editMode = false;
+    this.editPageId = '';
+    this.editIntakePages = [];
+    this.originalCreator = null;
+    this.exportSuccess = null;
+    this.exportError = null;
+    this.postExportState = 'idle';
+    this.currentStep = 1;
+  }
+
+  resetForm(): void {
+    this.selectedRelease = '';
+    this.selectedDATeam = '';
+    this.jiraBoardKey = '';
+    this.intakeTitle = '';
+    this.intakeTitleSuffix = '';
+    this.selectedUser = null;
+    this.userSearchTerm = '';
+    this.userResults = [];
+    this.originalCreator = null;
+    this.generalValues = {};
+    this.selectedScopes = new Set();
+    this.scopeValues = {};
+    this.dynamicRows = {};
+    this.currentStep = 1;
+    this.activeScopeIndex = 0;
+    this.maxVisitedScopeIndex = 0;
+    this.exportSuccess = null;
+    this.exportError = null;
+    this.postExportState = 'idle';
+    this.editHistory = [];
+    this.closeHistoryDrawer();
+    this.modalSubmitted = false;
+    // Duplication modal state resets
+    this.previousIntakes = [];
+    this.previousIntakesLoading = false;
+    this.selectedDuplicationSource = null;
+    this.schemaDriftWarnings = [];
+    this.duplicationInProgress = false;
+    this._pendingDuplicationData = null;
+    this.createModalState = null;
+    this.titleSuffixLocked = true;
+  }
+
+  onDATeamChange(): void {
+    const team = this.daTeams.find((t) => t.name === this.selectedDATeam);
+    if (team && team.jiraProjects && team.jiraProjects.length > 0) {
+      // jiraBoardKey should be the project key (e.g. CCBT1)
+      this.jiraBoardKey = team.jiraProjects[0];
+      this.jiraBoardLink = `https://bmo.atlassian.net/browse/${this.jiraBoardKey}`;
+    } else {
+      this.jiraBoardKey = '';
+      this.jiraBoardLink = '';
+    }
+    // Title prefix/suffix is handled separately; preserve any user-entered suffix.
+  }
+
+  onReleaseChange(): void {
+    // Title prefix/suffix is handled separately; preserve any user-entered suffix.
+    if (!this.selectedRelease) return;
+    if (this.editMode) {
+      // In edit mode: fetch existing intake pages for this release
+      void this.loadIntakePagesForRelease();
+    } else {
+      // In create mode: show all DA teams (no filtering)
+      this.daTeams = this.allDaTeams;
+    }
+  }
+
+  async loadIntakePagesForRelease(): Promise<void> {
+    this.editIntakePagesLoading = true;
+    this.editIntakePages = [];
+    try {
+      const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/lookup?release=${encodeURIComponent(this.selectedRelease)}`);
+      this.editIntakePages = data.results || [];
+    } catch (err) {
+      console.error('Failed to load intake pages for release:', err);
+    } finally {
+      this.editIntakePagesLoading = false;
+    }
+  }
+
+  async selectIntakePageForEdit(page: { pageId: string; title: string; url?: string }): Promise<void> {
+    try {
+      const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${page.pageId}/pull`);
+      const formData = data.formData || data;
+      this.populateFormFromData(formData);
+      // Capture snapshot after selecting intake for edit
+      this._originalFormSnapshot = this.getFormStateSnapshot();
+      if (data.createdBy) {
+        this.originalCreator = { name: data.createdBy.name || data.exportedBy || 'unknown', email: data.createdBy.email || '' };
+      }
+      // Capture edit history from pull response
+      this.editHistory = data.editHistory || [];
+      this.editPageId = page.pageId;
+      // don't auto-advance; let user review then Next
+    } catch (err) {
+      console.error('Failed to load intake:', err);
+      alert('Failed to load intake data.');
+    }
+  }
+
+  private updateIntakeTitle(): void {
+    // No-op: page title is composed at export time from selectedRelease, selectedDATeam and intakeTitleSuffix
+  }
+
+  goToStep(step: 1 | 2 | 3 | 4 | 5): void {
+    if (step === this.currentStep) return;
+    const movingForward = step > this.currentStep;
+    // Gate forward navigation on Step 1 completion for both modes
+    // (stepper buttons are already disabled in template, this is a safety guard)
+    if (movingForward && step > 1 && !this.canProceedFromStep(1)) return;
+    // For steps beyond 1, only gate create mode on per-step validation
+    if (movingForward && step > 1 && !this.editMode && !this.canProceedFromStep(this.currentStep)) return;
+    this.currentStep = step;
+    // Navigating away from the review/submit step should clear any export state
+    if (step !== 5) {
+      this.exportError = null;
+      this.exportSuccess = null;
+      this.postExportState = 'idle';
+    }
+    if (step === 4 && movingForward) {
+      this.activeScopeIndex = 0; // Reset to first sub-step when entering scopes
+      this.maxVisitedScopeIndex = this.editMode ? Math.max(0, this.getVisibleScopeSections().length - 1) : 0;
+    }
+  }
+
+  canProceedFromStep(step: number): boolean {
+    switch (step) {
+      case 1:
+        if (this.editMode) {
+          return !!this.editPageId && !!this.selectedUser;
+        }
+        return !!this.selectedRelease && !!this.selectedDATeam && !!this.selectedUser && !!this.jiraBoardKey;
+      case 2:
+        return this.validateGeneralFields();
+      case 3:
+        return this.selectedScopes.size > 0;
+      case 4:
+        // Must have visited all scope sub-steps AND pass current scope field validation
+        return this.hasCompletedAllScopes() && this.validateCurrentScopeFields();
+      case 5:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  backToLastScope(): void {
+    const visible = this.getVisibleScopeSections();
+    this.activeScopeIndex = Math.max(0, (visible || []).length - 1);
+    // User already visited all scopes if returning from summary — mark visited
+    this.maxVisitedScopeIndex = Math.max(this.maxVisitedScopeIndex, this.activeScopeIndex);
+    this.currentStep = 4;
+  }
+  
+
+  // Advance to the next visible scope sub-step (used by the Next button inside Step 4)
+  advanceToNextScope(): void {
+    const visible = this.getVisibleScopeSections();
+    if (this.activeScopeIndex < visible.length - 1) {
+      this.activeScopeIndex++;
+      this.maxVisitedScopeIndex = Math.max(this.maxVisitedScopeIndex, this.activeScopeIndex);
+    }
+  }
+
+  // Go back to the previous visible scope sub-step
+  goToPreviousScope(): void {
+    if (this.activeScopeIndex > 0) {
+      this.activeScopeIndex--;
+    }
+  }
+
+  // Can the user click the sub-step button for `index`?
+  canGoToScopeIndex(index: number): boolean {
+    // Can only go to indices you've already visited (or the current one)
+    return index <= this.maxVisitedScopeIndex;
+  }
+
+  // Has the user reached the last scope sub-step at least once?
+  hasCompletedAllScopes(): boolean {
+    const visible = this.getVisibleScopeSections();
+    if (visible.length === 0) return false;
+    return this.maxVisitedScopeIndex >= visible.length - 1;
+  }
+
+  // Attempt to advance to a target step, showing validation feedback if blocked
+  attemptNext(targetStep: 1 | 2 | 3 | 4 | 5): void {
+    // In edit mode, always proceed freely
+    if (this.editMode) {
+      this.validationMessage = null;
+      this.goToStep(targetStep);
+      return;
+    }
+    const currentStep = this.currentStep;
+    if (this.canProceedFromStep(currentStep)) {
+      this.validationMessage = null;
+      this.goToStep(targetStep);
+    } else {
+      this.validationMessage = this.getValidationMessage(currentStep);
+      if (this._validationTimeout) clearTimeout(this._validationTimeout);
+      this._validationTimeout = setTimeout(() => {
+        this.validationMessage = null;
+      }, 5000);
+    }
+  }
+
+  private getValidationMessage(step: number): string {
+    switch (step) {
+      case 1:
+        if (this.editMode) {
+          if (!this.editPageId) return 'Please select an intake page to edit.';
+          if (!this.selectedUser) return 'Please search and select your name.';
+        } else {
+          if (!this.selectedRelease) return 'Please select a release.';
+          if (!this.selectedDATeam) return 'Please select a DA team.';
+          if (!this.selectedUser) return 'Please search and select your name.';
+          if (!this.jiraBoardKey) return 'Jira board link is missing — select a DA team.';
+        }
+        return 'Please fill all required fields.';
+      case 2: {
+        const missing = this.getMissingRequiredGeneralFields();
+        if (missing.length > 0) {
+          return `Please fill required fields: ${missing.join(', ')}`;
+        }
+        return 'Please fill all required fields marked with *.';
+      }
+      case 3:
+        return 'Please select at least one change scope.';
+      case 4:
+        if (!this.hasCompletedAllScopes()) {
+          return 'Please navigate through all scope sections before proceeding.';
+        }
+        return 'Please fill all required fields in the current scope section.';
+      default:
+        return 'Please complete all required fields.';
+    }
+  }
+
+  private getMissingRequiredGeneralFields(): string[] {
+    if (!this.template?.general?.fields) return [];
+    const missing: string[] = [];
+    for (const f of this.template.general.fields) {
+      if (f.required) {
+        const val = this.generalValues[f.field];
+        if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) {
+          missing.push(f.label);
+        }
+      }
+    }
+    return missing;
+  }
+
+  validateGeneralFields(): boolean {
+    try {
+      if (!this.template) return false;
+      const gen = this.template.general?.fields || [];
+      for (const f of gen) {
+        if (f.required) {
+          const val = this.generalValues[f.field];
+          if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) return false;
+        }
+      }
+      // Also validate detail fields that are required conditionally
+      for (const f of gen) {
+        if (f.detailRequiredWhen && f.detailField) {
+          if (this.generalValues[f.field] === f.detailRequiredWhen) {
+            const detailVal = this.generalValues[f.detailField];
+            if (!detailVal || (typeof detailVal === 'string' && detailVal.trim() === '')) return false;
+          }
+        }
+      }
+      return true;
+    } catch (e) { return true; }
+  }
+
+  validateCurrentScopeFields(): boolean {
+    try {
+      const visible = this.getVisibleScopeSections();
+      if (!visible || visible.length === 0) return false;
+      const entry = visible[this.activeScopeIndex];
+      if (!entry || !entry.section) return false;
+      const fields = entry.section.fields || [];
+      for (const f of fields) {
+        if (f.required) {
+          const val = this.scopeValues[f.field];
+          if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) return false;
+        }
+        // If field has a detailField and the textarea is currently visible, require it
+        if (f.hasDetails && f.detailField) {
+          const selectedVal = this.scopeValues[f.field];
+          if (selectedVal !== undefined && selectedVal !== null) {
+            // Textarea is visible when alwaysShowDetails OR selected value is not the last option
+            const lastOption = f.options?.[f.options.length - 1];
+            const detailVisible = f.alwaysShowDetails || (lastOption !== undefined ? selectedVal !== lastOption : true);
+            if (detailVisible) {
+              const detailVal = this.scopeValues[f.detailField];
+              if (detailVal === undefined || detailVal === null || (typeof detailVal === 'string' && detailVal.trim() === '')) return false;
+            }
+          }
+        }
+        // In create mode: dynamic-rows fields must have at least one row with data
+        if (!this.editMode && f.type === 'dynamic-rows') {
+          const rows = this.dynamicRows[f.field] || [];
+          if (rows.length === 0) return false;
+          // Check that at least one row has at least one non-empty cell
+          const hasFilledRow = rows.some(row =>
+            Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
+          );
+          if (!hasFilledRow) return false;
+        }
+      }
+      return true;
+    } catch (e) { return true; }
+  }
+
+  toggleScope(scopeId: string): void {
+    if (this.selectedScopes.has(scopeId)) this.selectedScopes.delete(scopeId);
+    else this.selectedScopes.add(scopeId);
+    this._visibleScopeSectionsCache = null; // Invalidate cache
+    // Reset active index if it's now out of bounds
+    const visible = this.getVisibleScopeSections();
+    if (this.activeScopeIndex >= visible.length) {
+      this.activeScopeIndex = Math.max(0, visible.length - 1);
+    }
+    // Reset visited tracking since scope list changed
+    this.maxVisitedScopeIndex = 0;
+  }
+
+  get allScopeSectionsVisited(): boolean {
+    return this.activeScopeIndex >= this.getVisibleScopeSections().length - 1;
+  }
+
+  isScopeSelected(scopeId: string): boolean {
+    return this.selectedScopes.has(scopeId);
+  }
+
+  getVisibleScopeSections(): { key: string; section: any }[] {
+    const snapshot = Array.from(this.selectedScopes).sort().join(',');
+    if (this._lastScopeSnapshot === snapshot && this._visibleScopeSectionsCache) {
+      return this._visibleScopeSectionsCache;
+    }
+    this._lastScopeSnapshot = snapshot;
+    if (!this.template || !this.template.scopeDetails) return [];
+    this._visibleScopeSectionsCache = Object.entries(this.template.scopeDetails)
+      .map(([k, v]) => ({ key: k, section: v as any }))
+      .filter((s) => this.selectedScopes.has(s.section.showWhen));
+    return this._visibleScopeSectionsCache;
+  }
+
+  // Banner message for edit mode — varies depending on whether an intake
+  // page has been loaded for editing or the user is still at Step 1.
+  get editModeBannerMessage(): string {
+    // Try to resolve a loaded page title from known sources
+    const page = (this.editIntakePages || []).find((p) => p.pageId === this.editPageId);
+    const title = page?.title || this.intakeTitle || '';
+    if (title && title.trim().length > 0) {
+      return `Editing: ${title}`;
+    }
+    return 'Select a release to view all editable intakes for that release';
+  }
+
+
+  // Field helpers
+  getFieldValue(store: 'general' | 'scope', fieldName: string): any {
+    return store === 'general' ? this.generalValues[fieldName] : this.scopeValues[fieldName];
+  }
+
+  setFieldValue(store: 'general' | 'scope', fieldName: string, value: any): void {
+    if (store === 'general') this.generalValues[fieldName] = value;
+    else this.scopeValues[fieldName] = value;
+    // Clear sub-fields when a yes-no or conditional-radio/radio field changes value
+    try {
+      const allFields = [
+        ...(this.template?.general?.fields || []),
+        ...Object.values(this.template?.scopeDetails || {}).flatMap((s: any) => s.fields || []),
+      ];
+      const fieldDef = allFields.find((f: any) => f.field === fieldName);
+      if (fieldDef && (fieldDef.type === 'yes-no' || fieldDef.type === 'conditional-radio' || fieldDef.type === 'radio')) {
+        // Always clear sub-fields and detail fields on any value change
+        this.clearConditionalSubFields(store, fieldDef, String(value || ''));
+      }
+    } catch (e) {
+      // noop
+    }
+  }
+
+  toggleCheckboxValue(store: 'general' | 'scope', fieldName: string, option: string): void {
+    const storeRef = store === 'general' ? this.generalValues : this.scopeValues;
+    const arr = (storeRef[fieldName] = storeRef[fieldName] || []) as string[];
+    const idx = arr.indexOf(option);
+    if (idx >= 0) arr.splice(idx, 1);
+    else arr.push(option);
+  }
+
+  isCheckboxChecked(store: 'general' | 'scope', fieldName: string, option: string): boolean {
+    const storeRef = store === 'general' ? this.generalValues : this.scopeValues;
+    const arr = storeRef[fieldName] || [];
+    return Array.isArray(arr) && arr.indexOf(option) >= 0;
+  }
+
+  addDynamicRow(fieldName: string, columnCount: number): void {
+    const rows = (this.dynamicRows[fieldName] = this.dynamicRows[fieldName] || []);
+    rows.push(new Array(columnCount).fill(''));
+  }
+
+  removeDynamicRow(fieldName: string, index: number): void {
+    const rows = this.dynamicRows[fieldName] || [];
+    rows.splice(index, 1);
+  }
+
+  updateDynamicRowCell(fieldName: string, rowIndex: number, colIndex: number, value: string): void {
+    const rows = (this.dynamicRows[fieldName] = this.dynamicRows[fieldName] || []);
+    rows[rowIndex][colIndex] = value;
+  }
+
+  formatDateForDisplay(isoDate: string): string {
+    if (!isoDate) return '';
+    // Input is YYYY-MM-DD from <input type="date">
+    const [year, month, day] = isoDate.split('-').map(Number);
+    if (!year || !month || !day) return isoDate;
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: '2-digit',
+    });
+    // Output: "July 20, 2026", "May 07, 2026", etc.
+  }
+
+  private getFormattedGeneralValues(): Record<string, any> {
+    const formatted: Record<string, any> = { ...(this.generalValues || {}) };
+    // Format date fields for export (human-readable)
+    if (this.template?.general?.fields) {
+      for (const f of this.template.general.fields) {
+        if (f.type === 'date' && formatted[f.field]) {
+          formatted[f.field] = this.formatDateForDisplay(formatted[f.field]);
+        }
+      }
+    }
+    return formatted;
+  }
+
+  private parseDisplayDateToIso(display: string): string | null {
+    if (!display || typeof display !== 'string') return null;
+    // If already in ISO YYYY-MM-DD, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(display)) return display;
+    const parsed = new Date(display);
+    if (isNaN(parsed.getTime())) return null;
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private normalizeDateFieldsInStore(store: Record<string, any>, fieldDefs: any[]): void {
+    if (!store || !fieldDefs) return;
+    for (const f of fieldDefs) {
+      if (f && f.type === 'date' && store[f.field]) {
+        const iso = this.parseDisplayDateToIso(store[f.field]);
+        if (iso) store[f.field] = iso;
+      }
+    }
+  }
+
+  /**
+   * Remove fields from source formData that don't exist in the current template.
+   * Returns a new object (does not mutate the original).
+   */
+  private cleanSourceFormData(sourceFormData: any): any {
+    if (!this.template || !sourceFormData) return sourceFormData;
+    const { knownGeneralKeys, knownScopeKeys, knownScopeIds } = this.getTemplateFieldKeys();
+    // Normalize source to canonical shape first
+    const normalized = this.normalizeSourceFormData(sourceFormData);
+
+    // Build cleaned copy
+    const cleaned: any = {
+      step1: { ...(sourceFormData.step1 || {}) },
+      generalValues: {},
+      selectedScopes: [],
+      scopeValues: {},
+      dynamicRows: {},
+    };
+    // Copy only known general fields
+    for (const [key, val] of Object.entries(normalized.generalValues || {})) {
+      if (knownGeneralKeys.has(key)) {
+        cleaned.generalValues[key] = val;
+      }
+    }
+    // Copy only known scope selections
+    for (const scopeId of (normalized.selectedScopes || [])) {
+      if (knownScopeIds.has(scopeId)) {
+        cleaned.selectedScopes.push(scopeId);
+      }
+    }
+    // Copy only known scope values
+    for (const [key, val] of Object.entries(normalized.scopeValues || {})) {
+      if (knownScopeKeys.has(key)) {
+        cleaned.scopeValues[key] = val;
+      }
+    }
+    // Copy only known dynamic rows
+    for (const [key, val] of Object.entries(normalized.dynamicRows || {})) {
+      if (knownScopeKeys.has(key)) {
+        cleaned.dynamicRows[key] = val;
+      }
+    }
+    return cleaned;
+  }
+
+  private normalizeSourceFormData(sourceFormData: any): {
+    generalValues: Record<string, any>;
+    selectedScopes: string[];
+    scopeValues: Record<string, any>;
+    dynamicRows: Record<string, any>;
+  } {
+    // Safety net: the pull endpoint normalizes old -> new format before returning,
+    // but handle the case where raw property data (old or new) reaches the frontend.
+    let generalValues: Record<string, any> = {};
+    let selectedScopes: string[] = [];
+    let scopeValues: Record<string, any> = {};
+    let dynamicRows: Record<string, any> = {};
+    // General values — old format: step3.general, new format: generalValues
+    if (sourceFormData.step3?.general) {
+      generalValues = { ...sourceFormData.step3.general };
+    } else if (sourceFormData.generalValues) {
+      generalValues = { ...sourceFormData.generalValues };
+    }
+    // Selected scopes — old format: step2.scopes, new format: selectedScopes
+    if (Array.isArray(sourceFormData.step2?.scopes)) {
+      selectedScopes = [...sourceFormData.step2.scopes];
+    } else if (Array.isArray(sourceFormData.selectedScopes)) {
+      selectedScopes = [...sourceFormData.selectedScopes];
+    }
+    // Scope values — old format: everything in step3 except "general", new format: scopeValues
+    if (sourceFormData.step3) {
+      const sv = { ...sourceFormData.step3 };
+      delete sv.general;
+      scopeValues = sv;
+    } else if (sourceFormData.scopeValues) {
+      scopeValues = { ...sourceFormData.scopeValues };
+    }
+    // Dynamic rows — same key in both formats
+    dynamicRows = { ...(sourceFormData.dynamicRows || {}) };
+    return { generalValues, selectedScopes, scopeValues, dynamicRows };
+  }
+
+  formatSectionHeader(item: string): string {
+    return (item || '').replace(/──/g, '').trim();
+  }
+
+  // Change-detection helpers
+  private getFormStateSnapshot(): string {
+    const state = {
+      intakeTitleSuffix: this.intakeTitleSuffix || '',
+      generalValues: { ...(this.generalValues || {}) },
+      selectedScopes: Array.from(this.selectedScopes || []).sort(),
+      scopeValues: { ...(this.scopeValues || {}) },
+      dynamicRows: { ...(this.dynamicRows || {}) },
+    };
+    return JSON.stringify(state);
+  }
+
+  hasFormChanged(): boolean {
+    if (!this._originalFormSnapshot) return true;
+    return this.getFormStateSnapshot() !== this._originalFormSnapshot;
+  }
+
+  getChangedFields(): FieldChange[] {
+    if (!this._originalFormSnapshot || !this.editMode) return [];
+    const original = JSON.parse(this._originalFormSnapshot);
+    const result: FieldChange[] = [];
+    // ── Utility: compare two values ──────────────────────────────
+    const isDiff = (a: any, b: any): boolean =>
+      JSON.stringify(a ?? '') !== JSON.stringify(b ?? '');
+    // ── Utility: collect sub-field changes for a parent ──────────
+    const collectSubs = (
+      subFieldDefs: any[],
+      store: 'general' | 'scope'
+    ): SubFieldChange[] => {
+      const subs: SubFieldChange[] = [];
+      for (const sub of subFieldDefs || []) {
+        if (!sub.field) continue;
+        const oldVal = store === 'general'
+          ? original.generalValues?.[sub.field]
+          : original.scopeValues?.[sub.field];
+        const newVal = store === 'general'
+          ? this.generalValues?.[sub.field]
+          : this.scopeValues?.[sub.field];
+        if (isDiff(oldVal, newVal)) {
+          subs.push({
+            field: sub.field,
+            label: sub.label || sub.field,
+            oldValue: oldVal ?? '—',
+            newValue: newVal ?? '—',
+          });
+        }
+      }
+      return subs;
+    };
+    // ── Utility: get ALL sub-field defs from a field def ─────────
+    // Covers: conditionalFields.whenYes, whenNo, whenNotNo
+    // Also covers detailField (radio hasDetails pattern)
+    const getAllSubDefs = (f: any): any[] => {
+      const cond = f.conditionalFields || {};
+      const subs = [
+        ...(cond.whenYes || []),
+        ...(cond.whenNo || []),
+        ...(cond.whenNotNo || []),
+      ];
+      // detailField is stored as a sibling key, not a sub-field def —
+      // wrap it so collectSubs can handle it uniformly
+      if (f.detailField) {
+        subs.push({ field: f.detailField, label: 'Details' });
+      }
+      return subs;
+    };
+    // ── 1. General fields ─────────────────────────────────────────
+    // ── 0. Title suffix ──────────────────────────────────────────
+    const originalSuffix = original.intakeTitleSuffix || '';
+    const currentSuffix = this.intakeTitleSuffix || '';
+    if (originalSuffix !== currentSuffix) {
+      result.push({
+        field: 'intakeTitleSuffix',
+        label: 'Intake Title Suffix',
+        section: 'General',
+        oldValue: originalSuffix || '—',
+        newValue: currentSuffix || '—',
+      });
+    }
+
+    const generalFields: any[] = this.template?.general?.fields || [];
+    for (const f of generalFields) {
+      const oldVal = original.generalValues?.[f.field];
+      const newVal = this.generalValues?.[f.field];
+      const parentChanged = isDiff(oldVal, newVal);
+      const subChanges = collectSubs(getAllSubDefs(f), 'general');
+      if (parentChanged || subChanges.length > 0) {
+        result.push({
+          field: f.field,
+          label: f.label || f.field,
+          section: 'General',
+          // null signals "parent value itself didn't change, only sub-fields did"
+          oldValue: parentChanged ? (oldVal ?? '—') : null,
+          newValue: parentChanged ? (newVal ?? '—') : null,
+          subChanges: subChanges.length > 0 ? subChanges : undefined,
+        });
+      }
+    }
+    // ── 2. Selected scopes ────────────────────────────────────────
+    const oldScopes = new Set<string>(original.selectedScopes || []);
+    const newScopes = this.selectedScopes;
+    const allScopeIds = new Set([...oldScopes, ...newScopes]);
+    for (const scopeId of allScopeIds) {
+      if (oldScopes.has(scopeId) !== newScopes.has(scopeId)) {
+        const scopeLabel =
+          this.template?.step2?.scopes?.find((s: any) => s.id === scopeId)?.label || scopeId;
+        result.push({
+          field: scopeId,
+          label: scopeLabel,
+          section: 'Change Scope',
+          oldValue: oldScopes.has(scopeId) ? 'Selected' : 'Not selected',
+          newValue: newScopes.has(scopeId) ? 'Selected' : 'Not selected',
+        });
+      }
+    }
+    // ── 3. Scope detail fields ────────────────────────────────────
+    const scopeSections: any[] = Object.values(this.template?.scopeDetails || {});
+    for (const section of scopeSections) {
+      const sectionLabel: string = section.label || 'Scope Details';
+      for (const f of (section.fields || [])) {
+        const oldVal = original.scopeValues?.[f.field];
+        const newVal = this.scopeValues?.[f.field];
+        const parentChanged = isDiff(oldVal, newVal);
+        const subChanges = collectSubs(getAllSubDefs(f), 'scope');
+        if (parentChanged || subChanges.length > 0) {
+          result.push({
+            field: f.field,
+            label: f.label || f.field,
+            section: sectionLabel,
+            oldValue: parentChanged ? (oldVal ?? '—') : null,
+            newValue: parentChanged ? (newVal ?? '—') : null,
+            subChanges: subChanges.length > 0 ? subChanges : undefined,
+          });
+        }
+      }
+    }
+    // ── 4. Dynamic rows ───────────────────────────────────────────
+    const allDynKeys = new Set([
+      ...Object.keys(original.dynamicRows || {}),
+      ...Object.keys(this.dynamicRows || {}),
+    ]);
+    for (const key of allDynKeys) {
+      const oldRows = original.dynamicRows?.[key] || [];
+      const newRows = this.dynamicRows?.[key] || [];
+      if (isDiff(oldRows, newRows)) {
+        // Find the field def to get a label and section
+        let label = key;
+        let section = 'Scope Details';
+        for (const sec of scopeSections) {
+          const found = (sec.fields || []).find((f: any) => f.field === key);
+          if (found) { label = found.label || key; section = sec.label || section; break; }
+        }
+        result.push({
+          field: key,
+          label,
+          section,
+          oldValue: `${oldRows.length} row(s)`,
+          newValue: `${newRows.length} row(s)`,
+        });
+      }
+    }
+    return result;
+  }
+
+  get changedFieldsList(): FieldChange[] {
+    if (!this.editMode) return [];
+    return this.getChangedFields();
+  }
+
+  getTotalChangeCount(fieldsChanged: any[]): number {
+    if (!fieldsChanged?.length) return 0;
+    return fieldsChanged.reduce((total: number, change: any) => {
+      const parentChanged = change.oldValue !== null && change.oldValue !== undefined && !(change.oldValue === '—' && change.newValue === '—');
+      const parentCount = parentChanged ? 1 : 0;
+      const subCount = change.subChanges?.length || 0;
+      return total + parentCount + subCount;
+    }, 0);
+  }
+
+  // Show newest edits first (moved from summary component)
+  get reversedEditHistory() {
+    return [...this.editHistory].reverse();
+  }
+
+  formatHistoryDate(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  formatChangeValue(val: any): string {
+    if (val === null || val === undefined) return '—';
+    if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : '—';
+    const str = String(val).trim();
+    return str || '—';
+  }
+
+  isArrayValue(val: any): boolean {
+    return Array.isArray(val) && val.length > 0;
+  }
+
+  formatChangeValueAsArray(val: any): string[] {
+    if (Array.isArray(val)) return val.filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+    if (val === null || val === undefined) return [];
+    const str = String(val).trim();
+    return str ? [str] : [];
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.showHistoryDrawer) {
+      this.closeHistoryDrawer();
+    }
+  }
+
+  get canExport(): boolean {
+    return !!this.selectedRelease && !!this.selectedDATeam && !!this.jiraBoardKey && this.selectedScopes.size > 0 && !this.isExporting;
+  }
+
+  async exportToConfluence(): Promise<void> {
+    // Block in edit mode if nothing changed
+    if (this.editMode && !this.hasFormChanged()) {
+      this.noChangeMessage = 'No changes detected — nothing to update.';
+      if (this._validationTimeout) clearTimeout(this._validationTimeout);
+      this._validationTimeout = setTimeout(() => { this.noChangeMessage = null; }, 5000);
+      return;
+    }
+    this.isExporting = true;
+    this.exportError = null;
+    this.exportSuccess = null;
+    try {
+      const payload: any = {
+        step1: {
+          daTeam: this.selectedDATeam,
+          release: this.selectedRelease,
+          jiraBoardKey: this.jiraBoardKey,
+        },
+        generalValues: this.getFormattedGeneralValues(),
+        selectedScopes: Array.from(this.selectedScopes),
+        scopeValues: this.scopeValues,
+        dynamicRows: this.dynamicRows,
+      };
+// Only send the optional suffix — buildIntakeTitle on the backend
+// already prepends "<release> - <boardKey> -"
+
+payload.step1.intakeTitle = this.intakeTitleSuffix || '';
+ 
+
+      let result: any;
+      if (this.editMode && this.editPageId) {
+        // Push update to existing page
+        try {
+          // Include editor identity if selected (no-login flow)
+          if (this.selectedUser) payload.editedBy = { name: this.selectedUser.displayName, email: this.selectedUser.email, accountId: this.selectedUser.accountId };
+          // Include changed fields for audit
+          payload.fieldsChanged = this.getChangedFields();
+          result = await this.apiService.request<any>('POST', `/api/tech-intake/intake/${this.editPageId}/push`, payload);
+          this.exportSuccess = {
+            pageId: result.pageId,
+            pageUrl: result.pageUrl,
+          };
+          this.postExportState = 'success';
+          // Append the new audit entry to local editHistory immediately
+          // so the drawer reflects the latest edit without requiring a re-pull
+          const newEntry = {
+            editedBy: {
+              name: this.selectedUser?.displayName || 'Unknown',
+              email: this.selectedUser?.email || '',
+              accountId: this.selectedUser?.accountId || '',
+            },
+            editedAt: new Date().toISOString(),
+            fieldsChanged: this.getChangedFields(),
+          } as any;
+          this.editHistory = [...(this.editHistory || []), newEntry];
+          // Reset snapshot so change detection is fresh for the next edit
+          this._originalFormSnapshot = this.getFormStateSnapshot();
+        } catch (err: any) {
+          const status = err?.status || err?.error?.status;
+          const msg = err?.error?.error || err?.message || 'Push failed';
+          if (status === 409) {
+            this.exportError = 'Version conflict — the page was modified since you loaded it. Please re-pull and try again.';
+          } else {
+            this.exportError = msg;
+          }
+          return;
+        }
+      } else {
+        // Create new intake (existing flow)
+        // Keep frontend hints for parent/space; backend resolves server-side
+        payload.parentPageId = '1356094131';
+        payload.spaceId = 'SSRELEASE';
+        payload.daTeam = this.selectedDATeam;
+        payload.release = this.selectedRelease;
+        payload.jiraBoardKey = this.jiraBoardKey;
+        payload.intakeTitle = this.intakeTitleSuffix;
+
+        // Include creator identity if selected (no-login flow)
+        if (this.selectedUser) payload.requestor = { name: this.selectedUser.displayName, email: this.selectedUser.email, accountId: this.selectedUser.accountId };
+        try {
+          result = await this.apiService.request<any>('POST', '/api/tech-intake/export', payload);
+          this.exportSuccess = {
+            pageId: result.page?.id || result.pageId || '',
+            pageUrl: result.pageUrl || '',
+          };
+          // Immediately mark post-export success to drive success-screen UI
+          this.postExportState = 'success';
+        } catch (err: any) {
+          const status = err?.status || err?.error?.status;
+          if (status === 409 && err?.error?.exists && err?.error?.pageId) {
+            this.exportError = 'An intake already exists for this release and team. Opening for editing…';
+            const pageId = err.error.pageId;
+            try {
+              const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${pageId}/pull`);
+              const formData = data.formData || data;
+              this.populateFormFromData(formData);
+              // Capture snapshot after pulling existing intake for editing
+              this._originalFormSnapshot = this.getFormStateSnapshot();
+              this.editMode = true;
+              this.editPageId = pageId;
+              this.goToStep(1);
+            } catch (pullErr) {
+              console.error('Failed to pull existing intake:', pullErr);
+              this.exportError = 'An intake exists but failed to load it for editing.';
+            }
+            return;
+          }
+          throw err;
+        }
+      }
+    } catch (err: any) {
+      this.exportError = err?.error?.error || err?.message || 'Export failed';
+    } finally {
+      this.isExporting = false;
+    }
+  }
+}
