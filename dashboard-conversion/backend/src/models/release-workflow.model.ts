@@ -96,8 +96,10 @@ export interface ReleaseMetadata {
   cdbUiConfigJiraUrl: string | null;
   cdbUiSwaggerBranchUrl: string | null;
   sealightsDisablePrUrl: string | null; 
-  preProdLetterUrl: string | null;
-  prodLetterUrl: string | null;
+  preProdLetterUrl: string | null;      // CDB UI
+  prodLetterUrl: string | null;         // CDB UI
+  cdbbosPreProdLetterUrl: string | null;
+  cdbbosProdLetterUrl: string | null;
   earlyRetrofitCdbUiPrUrl: string | null;
   earlyRetrofitCdbUiConfigPrUrl: string | null;
   earlyRetrofitCdbbosPrUrl: string | null;

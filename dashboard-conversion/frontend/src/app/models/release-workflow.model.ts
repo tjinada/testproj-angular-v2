@@ -98,6 +98,8 @@ export interface ReleaseMetadata {
   sealightsDisablePrUrl: string | null;
   preProdLetterUrl: string | null;
   prodLetterUrl: string | null;
+  cdbbosPreProdLetterUrl: string | null;
+  cdbbosProdLetterUrl: string | null;
   earlyRetrofitCdbUiPrUrl: string | null;
   earlyRetrofitCdbUiConfigPrUrl: string | null;
   earlyRetrofitCdbbosPrUrl: string | null;

@@ -532,6 +532,8 @@ class ReleaseWorkflowService {
       sealightsDisablePrUrl: input?.sealightsDisablePrUrl ?? null,
       preProdLetterUrl: input?.preProdLetterUrl ?? null,
       prodLetterUrl: input?.prodLetterUrl ?? null,
+      cdbbosPreProdLetterUrl: input?.cdbbosPreProdLetterUrl ?? null,
+      cdbbosProdLetterUrl: input?.cdbbosProdLetterUrl ?? null,
       earlyRetrofitCdbUiPrUrl: input?.earlyRetrofitCdbUiPrUrl ?? null,
       earlyRetrofitCdbUiConfigPrUrl: input?.earlyRetrofitCdbUiConfigPrUrl ?? null,
       earlyRetrofitCdbbosPrUrl: input?.earlyRetrofitCdbbosPrUrl ?? null,

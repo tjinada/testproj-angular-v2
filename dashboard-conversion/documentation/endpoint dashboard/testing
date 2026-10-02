@@ -37,7 +37,8 @@ fetch spans, scanLimitGBytes:500
 | filter contains(lower(url.path), lower("/api/cdb/"))
 | filter span.kind == "server"
 | fieldsAdd normalizedPath = url.path
-| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")
+| fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/prd-' LD:stage '/api/'", "/api/")   
+
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'/session-data/' LD:key EOS", "/session-data/{cacheKey}")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'v' INT:ver '/' LD:id '/'", "v{ver}/{id}/")
 | fieldsAdd normalizedPath = replacePattern(normalizedPath, "'v' INT:ver '/' LD:id EOS", "v{ver}/{id}")
@@ -56,3 +57,34 @@ RewriteRule ^/api/cdb-ui/service-product/business-banking/customer-alerts/otp/pr
     RequestHeader set x-api-key "98da2c74c43a541ade29acf1163a77f9-pr1" env=!IS_GREEN_COLOR
     RequestHeader set x-api-key "98da2c74c43a541ade29acf1163a77f9-pr2" env=IS_GREEN_COLOR
 </LocationMatch>
+\
+
+  - id: stage7-doc-prep
+    name: Documentation Prep
+    kind: parallel
+    dependsOn: [stage4-build-stabilization]
+    blocks: [stage8-pre-prod]
+    subSteps:
+      - id: draft-pre-prod-letter
+        label: Draft Pre-PROD delivery letter
+        track: cdbui
+        editableField: preProdLetterUrl
+        runner: confluencePageUrlCheck
+      - id: draft-prod-letter
+        label: Draft PROD delivery letter
+        track: cdbui
+        editableField: prodLetterUrl
+        runner: confluencePageUrlCheck
+      - id: close-jira-subtasks
+        label: Close JIRA subtasks + master ticket for UI Configs
+        track: cdbui
+      - id: draft-cdbbos-pre-prod-letter
+        label: Draft Pre-PROD delivery letter
+        track: cdbbos
+        editableField: cdbbosPreProdLetterUrl
+        runner: confluencePageUrlCheck
+      - id: draft-cdbbos-prod-letter
+        label: Draft PROD delivery letter
+        track: cdbbos
+        editableField: cdbbosProdLetterUrl
+        runner: confluencePageUrlCheck
