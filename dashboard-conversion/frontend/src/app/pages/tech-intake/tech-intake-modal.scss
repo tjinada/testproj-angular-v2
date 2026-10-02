@@ -223,3 +223,30 @@
     cursor: not-allowed;
     opacity: 1;
   }
+
+/* Text inputs in modals (Your name, DA team filter) match the selects */
+.form-group input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  box-sizing: border-box;
+}
+.form-group .title-input-group input[type="text"] {
+  border: none;
+  border-radius: 0;
+}
+
+/* "Blank intake" row — the default Start-from choice */
+.previous-intakes-table .blank-intake-row td { background: #fafbfc; }
+.muted-text { color: #6b778c; font-weight: 400; }
+
+/* Discard-changes confirmation */
+.modal-dialog--narrow { width: 460px; }
+.modal-footer .btn-danger {
+  background: #de350b;
+  border: 1px solid #de350b;
+  color: #fff;
+  &:hover { background: #bf2600; border-color: #bf2600; }
+}

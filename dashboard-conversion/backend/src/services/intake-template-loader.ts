@@ -18,6 +18,13 @@ export interface IntakeFieldDef {
   // NEW rendering hints
   render?: 'split-no' | 'split-last' | 'per-option-row';
   skipRender?: boolean;
+  placeholder?: string;
+  // Value pre-selected when the form starts and the field has no value (Option B)
+  default?: string | string[];
+  // Checkbox option that clears all others when ticked (and is cleared by any other)
+  exclusive?: string;
+  // detailField must be filled whenever its textarea is visible
+  detailRequired?: boolean;
 }
 
 export interface IntakeScopeDef {

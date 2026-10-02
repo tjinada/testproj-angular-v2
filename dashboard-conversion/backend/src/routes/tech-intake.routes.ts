@@ -75,12 +75,13 @@ function normalizeIntakePropertyValue(rawValue: any) {
 
 /**
  * GET /api/tech-intake/releases
- * Returns minimal release list (id + title only) for the intake form dropdown.
+ * Returns minimal release list (id + title + status) for the intake form dropdowns.
+ * Status lets the Create flow hide complete/aborted releases.
  */
 router.get('/releases', async (_req: Request, res: Response) => {
   try {
     const releases = Object.values(await releaseWorkflowService.getAll());
-    const minimal = (releases || []).map((r: any) => ({ releaseId: r.releaseId, title: r.title }));
+    const minimal = (releases || []).map((r: any) => ({ releaseId: r.releaseId, title: r.title, status: r.status }));
     res.json(minimal);
   } catch (error) {
     console.error('Error fetching releases for intake:', error);

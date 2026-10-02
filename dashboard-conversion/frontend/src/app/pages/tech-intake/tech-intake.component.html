@@ -5,8 +5,8 @@
     <p class="subtitle">Create Confluence intake pages for release DA team onboarding</p>
   </div>
   <div class="step-actions-right">
-    <button class="btn btn-secondary" (click)="openCreateModal()">+ New Intake</button>
-    <button class="btn btn-secondary" (click)="openEditModal()">✏️ Modify Existing</button>
+    <button class="btn btn-secondary" (click)="requestCreateModal()">+ New Intake</button>
+    <button class="btn btn-secondary" (click)="requestEditModal()">✏️ Modify Existing</button>
   </div>
 </div>
 
@@ -17,12 +17,6 @@
 } @else {
 
 @if (editMode) {
-  <div class="edit-mode-banner">
-    <i class="bi bi-pencil-square"></i>
-    <span><strong>Edit Mode</strong> — {{ editModeBannerMessage }}</span>
-    <div class="edit-mode-banner-actions">
-    </div>
-  </div>
   <!-- History Drawer Overlay -->
   @if (showHistoryDrawer) {
     <div class="history-overlay" (click)="closeHistoryDrawer()"></div>
@@ -204,35 +198,23 @@
 @if (modalSubmitted) {
   <div class="card stepper-card">
   <div class="stepper">
-    <button class="step-btn" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="goToStep(1)">
-      <span class="step-number">1</span><span class="step-label">Project Identity</span>
+    <button class="step-btn" [class.active]="currentStep === 'general'" [class.completed]="isStepBefore('general')" (click)="goToStep('general')">
+      <span class="step-number">1</span><span class="step-label">General</span>
     </button>
-    <div class="step-connector" [class.active]="currentStep > 1"></div>
-    <button class="step-btn" [class.active]="currentStep === 2" [class.completed]="currentStep > 2"
-      (click)="goToStep(2)"
-      [disabled]="!canProceedFromStep(1)">
-      <span class="step-number">2</span><span class="step-label">General</span>
+    <div class="step-connector" [class.active]="isStepBefore('general')"></div>
+    <button class="step-btn" [class.active]="currentStep === 'scope'" [class.completed]="isStepBefore('scope')" (click)="goToStep('scope')">
+      <span class="step-number">2</span><span class="step-label">Change Scope</span>
     </button>
-    <div class="step-connector" [class.active]="currentStep > 2"></div>
-    <button class="step-btn" [class.active]="currentStep === 3" [class.completed]="currentStep > 3"
-      (click)="goToStep(3)"
-      [disabled]="!canProceedFromStep(1)">
-      <span class="step-number">3</span><span class="step-label">Change Scope</span>
+    <div class="step-connector" [class.active]="isStepBefore('scope')"></div>
+    <button class="step-btn" [class.active]="currentStep === 'details'" [class.completed]="isStepBefore('details')" (click)="goToStep('details')">
+      <span class="step-number">3</span><span class="step-label">Scope Details{{ selectedScopes.size > 0 ? ' (' + selectedScopes.size + ')' : '' }}</span>
     </button>
-    <div class="step-connector" [class.active]="currentStep > 3"></div>
-    <button class="step-btn" [class.active]="currentStep === 4"
-      (click)="goToStep(4)"
-      [disabled]="!canProceedFromStep(1)">
-      <span class="step-number">4</span><span class="step-label">Scope Details{{ selectedScopes.size > 0 ? ' (' + selectedScopes.size + ')' : '' }}</span>
-    </button>
-    <div class="step-connector" [class.active]="currentStep > 4"></div>
-    <button class="step-btn" [class.active]="currentStep === 5"
-      (click)="goToStep(5)"
-      [disabled]="!canProceedFromStep(1)">
-      <span class="step-number">5</span><span class="step-label">Review &amp; Submit</span>
+    <div class="step-connector" [class.active]="isStepBefore('details')"></div>
+    <button class="step-btn" [class.active]="currentStep === 'review'" (click)="goToStep('review')">
+      <span class="step-number">4</span><span class="step-label">Review &amp; Submit</span>
     </button>
   </div>
-    @if (currentStep === 4 && getVisibleScopeSections().length > 1) {
+    @if (currentStep === 'details' && getVisibleScopeSections().length > 1) {
     <div class="sub-stepper">
       @for (entry of getVisibleScopeSections(); track entry.key; let i = $index) {
         <button class="sub-step-btn"
@@ -241,7 +223,7 @@
                 [class.locked]="!canGoToScopeIndex(i)"
                 (click)="canGoToScopeIndex(i) && (activeScopeIndex = i)"
                 [disabled]="!canGoToScopeIndex(i)">
-          <span class="sub-step-number">4.{{ i + 1 }}</span>
+          <span class="sub-step-number">3.{{ i + 1 }}</span>
           <span class="sub-step-label">{{ entry.section.label }}</span>
         </button>
         @if (i < getVisibleScopeSections().length - 1) {
@@ -251,147 +233,54 @@
     </div>
   }
   </div>
-@if (editMode && editHistory.length > 0) {
-    <div class="stepper-history-row">
-      <button class="history-btn" (click)="toggleHistoryDrawer()">
+
+  <!-- Identity bar: replaces the old Project Identity step; visible on every step -->
+  <div class="identity-bar" [class.identity-bar--edit]="editMode">
+    @if (editMode) {
+      <span class="identity-badge"><i class="bi bi-pencil-square"></i> Edit mode</span>
+    }
+    <span class="identity-item"><span class="identity-label">Release</span>{{ selectedRelease }}</span>
+    <span class="identity-item"><span class="identity-label">DA Team</span>{{ selectedDATeam }}</span>
+    @if (jiraBoardKey) {
+      <span class="identity-item">
+        <span class="identity-label">Jira</span>
+        <a [href]="jiraBoardLink" target="_blank" rel="noopener noreferrer">{{ jiraBoardKey }} ↗</a>
+      </span>
+    }
+    <span class="identity-item identity-item--title">
+      <span class="identity-label">Page</span>
+      @if (titleSuffixLocked) {
+        <span>{{ pageTitlePrefix }}{{ intakeTitleSuffix ? ' - ' + intakeTitleSuffix : '' }}</span>
+        <button type="button" class="title-suffix-edit-btn" (click)="unlockTitleSuffix()" title="Edit title suffix">✏️</button>
+      } @else {
+        <span class="title-input-group identity-title-input">
+          <span class="title-prefix">{{ pageTitlePrefix }} -</span>
+          <input type="text" [(ngModel)]="intakeTitleSuffix" placeholder="Optional suffix" />
+        </span>
+        @if (editMode) {
+          <span class="field-hint">Renames the Confluence page on submit</span>
+        }
+      }
+      @if (editingPageUrl) {
+        <a [href]="editingPageUrl" target="_blank" rel="noopener noreferrer">View ↗</a>
+      }
+    </span>
+    @if (editMode) {
+      <span class="identity-item"><span class="identity-label">Created by</span>{{ originalCreator?.name || 'Unknown' }}</span>
+      <span class="identity-item"><span class="identity-label">Editing as</span>{{ selectedUser?.displayName }}</span>
+    } @else {
+      <span class="identity-item"><span class="identity-label">Created by</span>{{ selectedUser?.displayName }}</span>
+    }
+    @if (editMode && editHistory.length > 0) {
+      <button class="history-btn identity-history-btn" (click)="toggleHistoryDrawer()">
         <i class="bi bi-clock-history"></i>
         {{ editHistory.length }} {{ editHistory.length === 1 ? 'edit' : 'edits' }} — View History
       </button>
-    </div>
-  }
-  <!-- STEP 1: Project Identity -->
-  @if (currentStep === 1) {
-  <div class="card form-card">
-    <div class="section-header">Project Identity</div>
-    <div class="form-grid">
-      <!-- Release and DA Team: only show selectors/labels in create mode -->
-      @if (!editMode) {
-        @if (selectedRelease) {
-          <div class="field">
-            <label>Release</label>
-            <div class="readonly-field">{{ selectedRelease }}</div>
-          </div>
-        } @else {
-          <div class="field">
-            <label for="release">Release *</label>
-            <select id="release" [(ngModel)]="selectedRelease" (ngModelChange)="onReleaseChange()">
-              <option value="" disabled>Select a release</option>
-              @for (release of releases; track release.releaseId) {
-                <option [value]="release.releaseId">{{ release.releaseId }} — {{ release.title }}</option>
-              }
-            </select>
-          </div>
-        }
-        @if (selectedDATeam) {
-          <div class="field">
-            <label>DA Team</label>
-            <div class="readonly-field">{{ selectedDATeam }}</div>
-          </div>
-        } @else {
-          <div class="field">
-            <label for="daTeam">DA Team *</label>
-            <select id="daTeam" [(ngModel)]="selectedDATeam" (ngModelChange)="onDATeamChange()">
-              <option value="" disabled>Select a DA team</option>
-              @for (team of daTeams; track team.name) {
-                <option [value]="team.name">{{ team.name }}</option>
-              }
-            </select>
-          </div>
-        }
-      }
-      <!-- Edit mode: show release, DA team, and selected intake as read-only labels -->
-      @if (editMode && editPageId) {
-        <div class="field">
-          <label>Release</label>
-          <div class="readonly-field">{{ selectedRelease }}</div>
-        </div>
-        <div class="field">
-          <label>DA Team</label>
-          <div class="readonly-field">{{ selectedDATeam }}</div>
-        </div>
-        <div class="field field-full">
-          <label>Editing Intake</label>
-          <div class="readonly-field">
-            {{ editingPageTitle }}
-            @if (editingPageUrl) {
-              <a [href]="editingPageUrl" target="_blank" rel="noopener noreferrer" style="margin-left: 8px;">View ↗</a>
-            }
-          </div>
-        </div>
-      }
-      <!-- Creator display (Edit mode) — read-only label showing original creator -->
-      @if (editMode && originalCreator) {
-        <div class="field">
-          <label>Tech Intake Created By</label>
-          <div class="readonly-field">
-            <span>{{ originalCreator.name }}</span>
-            @if (originalCreator.email) { <span class="user-email"> — {{ originalCreator.email }}</span> }
-          </div>
-        </div>
-      }
-      <!-- User identity input (both modes) -->
-      <div class="field">
-        <label for="userSearch">{{ editMode ? 'Your Name (Editor)' : 'Tech Intake Created By' }} *</label>
-        <div style="position: relative;">
-          <input id="userSearch" type="text" [(ngModel)]="userSearchTerm" (ngModelChange)="onUserSearchTermChange($event)" placeholder="Type at least 3 characters to search..." />
-          @if (userSearchTerm.length > 0 && userSearchTerm.length < 3) {
-            <span class="field-hint search-hint">Type at least 3 characters to search</span>
-          }
-          @if (userResults.length > 0) {
-            <ul class="user-search-dropdown">
-              @for (u of userResults; track u.accountId) {
-                <li (click)="selectUser(u)">
-                  <span class="user-name">{{ u.displayName }}</span>
-                  @if (u.email) { <span class="user-email">{{ u.email }}</span> }
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      </div>
-      <div class="field field-full">
-        <label>Jira Board Link *</label>
-        <div class="readonly-field">
-          @if (jiraBoardLink) {
-            <a [href]="jiraBoardLink" target="_blank" rel="noopener noreferrer">{{ jiraBoardLink }}</a>
-          } @else if (jiraBoardKey) {
-            <a [href]="`https://bmo.atlassian.net/browse/${jiraBoardKey}`" target="_blank" rel="noopener noreferrer">{{ jiraBoardKey }}</a>
-          } @else {
-            <span class="placeholder-text">Auto-filled when DA team is selected</span>
-          }
-        </div>
-      </div>
-      <div class="field field-full title-suffix-group">
-        <label for="intakeTitleSuffix">Page Title</label>
-        <div class="title-input-group title-suffix-input-wrapper">
-          <span class="title-prefix">{{ selectedRelease && jiraBoardKey ? selectedRelease + ' - ' + jiraBoardKey + ' - ' : 'Select release & team' }}</span>
-          <input id="intakeTitleSuffix" type="text" [(ngModel)]="intakeTitleSuffix"
-            [readonly]="editMode && titleSuffixLocked"
-            [class.locked]="editMode && titleSuffixLocked"
-            placeholder="Optional suffix appended to page title" />
-          @if (editMode && titleSuffixLocked) {
-            <button type="button" class="title-suffix-edit-btn" (click)="unlockTitleSuffix()" title="Edit title suffix">✏️</button>
-          }
-        </div>
-        @if (editMode && titleSuffixLocked) {
-          <span class="field-hint">Click edit to rename this intake</span>
-        } @else if (editMode && !titleSuffixLocked) {
-          <span class="field-hint">Changing this will rename the Confluence page on save</span>
-        }
-      </div>
-    </div>
-    <div class="step-actions">
-      <div class="step-actions-right">
-        <button class="btn btn-primary" (click)="attemptNext(2)" [disabled]="!canProceedFromStep(1)">Next →</button>
-      </div>
-    </div>
+    }
   </div>
-  }
 
-  
-
-<!-- STEP 2: General Fields -->
-@if (currentStep === 2 && template?.general?.fields) {
+<!-- STEP 1: General Fields -->
+@if (currentStep === 'general' && template?.general?.fields) {
 <div class="card form-card">
   <div class="section-header">{{ template.general.label || 'General' }}</div>
   @for (field of template.general.fields; track field.field) {
@@ -414,6 +303,7 @@
         }
         @if (field.type === 'link') {
           <input type="url" [value]="getFieldValue('general', field.field) || ''" (input)="setFieldValue('general', field.field, $any($event.target).value)" [placeholder]="field.placeholder || 'https://...'" />
+          @if (isInvalidLink(getFieldValue('general', field.field))) { <span class="field-error">Must start with http:// or https://</span> }
         }
         @if (field.type === 'textarea') {
           <textarea rows="3" [placeholder]="field.placeholder || ''" [value]="getFieldValue('general', field.field) || ''" (input)="setFieldValue('general', field.field, $any($event.target).value)"></textarea>
@@ -431,7 +321,7 @@
             <div class="sub-fields">
               @for (sub of field.conditionalFields.whenYes; track sub.field) {
                 <div class="sub-field">
-                  @if (sub.label) { <label class="field-label">{{ sub.label }}</label> }
+                  @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                   @if (sub.type === 'checkbox' && sub.options) {
                     <div class="checkbox-group">
                       @for (opt of sub.options; track opt) {
@@ -488,6 +378,7 @@
           </div>
           @if (getFieldValue('general', field.field)) {
             <input type="url" class="sub-link-input" [placeholder]="field.linkPlaceholder || 'Paste link...'" [value]="getFieldValue('general', field.field + '_link') || ''" (input)="setFieldValue('general', field.field + '_link', $any($event.target).value)" />
+          @if (isInvalidLink(getFieldValue('general', field.field + '_link'))) { <span class="field-error">Must start with http:// or https://</span> }
           }
         }
         @if (field.type === 'conditional-radio') {
@@ -502,7 +393,7 @@
             <div class="sub-fields">
               @for (sub of field.conditionalFields.whenNotNo; track sub.field) {
                 <div class="sub-field">
-                  @if (sub.label) { <label class="field-label">{{ sub.label }}</label> }
+                  @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                   @if (sub.type === 'checkbox' && sub.options) {
                     <div class="checkbox-group">
                       @for (opt of sub.options; track opt) {
@@ -526,7 +417,7 @@
             <div class="sub-fields">
               @for (sub of field.conditionalFields.whenNo; track sub.field) {
                 <div class="sub-field">
-                  @if (sub.label) { <label class="field-label">{{ sub.label }}</label> }
+                  @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                   @if (sub.type === 'textarea') {
                     <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('general', sub.field) || ''" (input)="setFieldValue('general', sub.field, $any($event.target).value)"></textarea>
                   }
@@ -539,16 +430,15 @@
     </div>
   }
   <div class="step-actions">
-    <button class="btn btn-secondary" (click)="goToStep(1)">← Back</button>
     <div class="step-actions-right">
-      <button class="btn btn-primary" (click)="attemptNext(3)" [disabled]="!canProceedFromStep(2)">Next →</button>
+      <button class="btn btn-primary" (click)="attemptNext('scope')" [disabled]="!canProceedFromStep('general')">Next →</button>
     </div>
   </div>
 </div>
 }
 
-<!-- STEP 3: Change Scope -->
-@if (currentStep === 3 && template?.step2?.scopes) {
+<!-- STEP 2: Change Scope -->
+@if (currentStep === 'scope' && template?.step2?.scopes) {
 <div class="card form-card">
   <div class="section-header">{{ template.step2.label || 'Change Scope' }}</div>
   <p class="scope-instruction">Select all areas impacted by this change. Scope-specific detail fields will appear in the next step.</p>
@@ -561,23 +451,23 @@
     }
   </div>
     <div class="step-actions">
-    <button class="btn btn-secondary" (click)="goToStep(2)">← Back</button>
+    <button class="btn btn-secondary" (click)="goToStep('general')">← Back</button>
     <div class="step-actions-right">
-      <button class="btn btn-primary" (click)="attemptNext(4)" [disabled]="!canProceedFromStep(3)">Next →</button>
+      <button class="btn btn-primary" (click)="attemptNext('details')" [disabled]="!canProceedFromStep('scope')">Next →</button>
     </div>
   </div>
 </div>
 }
 
-<!-- STEP 4: Scope Details -->
-@if (currentStep === 4) {
+<!-- STEP 3: Scope Details -->
+@if (currentStep === 'details') {
 <div class="card form-card">
   @if (getVisibleScopeSections().length === 0) {
     <p class="message">No scope-specific sections to show. Go back and select at least one scope.</p>
   }
   @for (entry of getVisibleScopeSections(); track entry.key; let i = $index) {
     <div class="section-card" [class.hidden]="i !== activeScopeIndex">
-      <div class="section-header">4.{{ i + 1 }} — {{ entry.section.label }}</div>
+      <div class="section-header">3.{{ i + 1 }} — {{ entry.section.label }}</div>
       @if (!entry.section.fields || entry.section.fields.length === 0) {
         <div class="field-row">
           <div class="field-label">Describe your change</div>
@@ -606,6 +496,7 @@
             }
             @if (field.type === 'link') {
               <input type="url" [value]="getFieldValue('scope', field.field) || ''" (input)="setFieldValue('scope', field.field, $any($event.target).value)" [placeholder]="field.placeholder || 'https://...'" />
+          @if (isInvalidLink(getFieldValue('scope', field.field))) { <span class="field-error">Must start with http:// or https://</span> }
             }
             @if (field.type === 'textarea') {
               <textarea rows="3" [placeholder]="field.placeholder || ''" [value]="getFieldValue('scope', field.field) || ''" (input)="setFieldValue('scope', field.field, $any($event.target).value)"></textarea>
@@ -623,7 +514,7 @@
                 <div class="sub-fields">
                   @for (sub of field.conditionalFields.whenYes; track sub.field) {
                     <div class="sub-field">
-                      @if (sub.label) { <label class="field-label">{{ sub.label }}</label> }
+                      @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                       @if (sub.type === 'checkbox' && sub.options) {
                         <div class="checkbox-group">
                           @for (opt of sub.options; track opt) {
@@ -703,6 +594,7 @@
               </div>
               @if (getFieldValue('scope', field.field)) {
                 <input type="url" class="sub-link-input" [placeholder]="field.linkPlaceholder || 'Paste link...'" [value]="getFieldValue('scope', field.field + '_link') || ''" (input)="setFieldValue('scope', field.field + '_link', $any($event.target).value)" />
+          @if (isInvalidLink(getFieldValue('scope', field.field + '_link'))) { <span class="field-error">Must start with http:// or https://</span> }
               }
             }
             @if (field.type === 'conditional-radio') {
@@ -717,7 +609,7 @@
                 <div class="sub-fields">
                   @for (sub of field.conditionalFields.whenNotNo; track sub.field) {
                     <div class="sub-field">
-                      @if (sub.label) { <label class="field-label">{{ sub.label }}</label> }
+                      @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                       @if (sub.type === 'checkbox' && sub.options) {
                         <div class="checkbox-group">
                           @for (opt of sub.options; track opt) {
@@ -741,7 +633,7 @@
                 <div class="sub-fields">
                   @for (sub of field.conditionalFields.whenNo; track sub.field) {
                     <div class="sub-field">
-                      @if (sub.label) { <label class="field-label">{{ sub.label }}</label> }
+                      @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                       @if (sub.type === 'textarea') {
                         <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('scope', sub.field) || ''" (input)="setFieldValue('scope', sub.field, $any($event.target).value)"></textarea>
                       }
@@ -757,22 +649,22 @@
   }
     <div class="sub-step-nav">
     @if (activeScopeIndex > 0) {
-      <button class="btn btn-secondary" (click)="goToPreviousScope()">← Previous: 4.{{ activeScopeIndex }} {{ getVisibleScopeSections()[activeScopeIndex - 1].section.label }}</button>
+      <button class="btn btn-secondary" (click)="goToPreviousScope()">← Previous: 3.{{ activeScopeIndex }} {{ getVisibleScopeSections()[activeScopeIndex - 1].section.label }}</button>
     } @else {
-      <button class="btn btn-secondary" (click)="goToStep(3)">← Back</button>
+      <button class="btn btn-secondary" (click)="goToStep('scope')">← Back</button>
     }
     @if (activeScopeIndex < getVisibleScopeSections().length - 1) {
-      <button class="btn btn-primary" (click)="advanceToNextScope()" [disabled]="!editMode && !validateCurrentScopeFields()">Next: 4.{{ activeScopeIndex + 2 }} {{ getVisibleScopeSections()[activeScopeIndex + 1].section.label }} →</button>
+      <button class="btn btn-primary" (click)="advanceToNextScope()" [disabled]="!editMode && !validateCurrentScopeFields()">Next: 3.{{ activeScopeIndex + 2 }} {{ getVisibleScopeSections()[activeScopeIndex + 1].section.label }} →</button>
     } @else {
-      <button class="btn btn-primary" (click)="attemptNext(5)" [disabled]="!canProceedFromStep(4)">Next →</button>
+      <button class="btn btn-primary" (click)="attemptNext('review')" [disabled]="!canProceedFromStep('details')">Next →</button>
     }
   </div>
 </div>
 
 
 }
-<!-- STEP 5: Review & Submit -->
-@if (currentStep === 5) {
+<!-- STEP 4: Review & Submit -->
+@if (currentStep === 'review') {
   @if (postExportState === 'success') {
     <div class="success-screen">
       <div class="success-icon">✓</div>
@@ -795,6 +687,16 @@
       </div>
     </div>
   } @else {
+      @if (submitBlockers.length > 0) {
+        <div class="submit-blockers">
+          <div class="submit-blockers-title"><i class="bi bi-exclamation-circle-fill"></i> Complete these before submitting</div>
+          <ul>
+            @for (b of submitBlockers; track $index) {
+              <li><button type="button" class="link-btn" (click)="goToBlocker(b)">{{ b.label }}</button></li>
+            }
+          </ul>
+        </div>
+      }
       <app-intake-summary
       [template]="template"
       [selectedRelease]="selectedRelease"
@@ -817,7 +719,7 @@
     ></app-intake-summary>
   }
 }
-  <!-- closes @if (currentStep === 5) -->
+  <!-- closes @if (currentStep === 'review') -->
 } @else {
   <div class="card form-card instructions-card">
     <div class="section-header">👋 Welcome to Tech Intake</div>
@@ -833,39 +735,32 @@
               <div class="instructions-step-number">1</div>
               <div class="instructions-step-content">
                 <strong>Click "+ New Intake"</strong>
-                <p>A popup will appear asking you to select a Release and DA Team. If an intake already exists for that combination, you'll be automatically redirected into edit mode instead.</p>
+                <p>A popup asks for your name, the Release, the DA Team and an optional page title suffix, then lets you start blank or duplicate one of your team's previous intakes. If an intake already exists for that combination, you'll be redirected into edit mode instead.</p>
               </div>
             </div>
             <div class="instructions-step">
               <div class="instructions-step-number">2</div>
-              <div class="instructions-step-content">
-                <strong>Fill in Project Identity</strong>
-                <p>Your selected Release and DA Team are shown as read-only. Search for and select your name as the intake creator. The Jira board link is auto-filled from your DA team.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">3</div>
               <div class="instructions-step-content">
                 <strong>Complete General Fields</strong>
                 <p>Fill in design links, feature toggles, API changes, technical risk level, and other release-wide details. Required fields are marked with *.</p>
               </div>
             </div>
             <div class="instructions-step">
-              <div class="instructions-step-number">4</div>
+              <div class="instructions-step-number">3</div>
               <div class="instructions-step-content">
                 <strong>Select Change Scope</strong>
                 <p>Check all areas impacted — CDB UI, CDBBOS, Akamai, ISAM, Channels, AWS Lambda, and more. Only selected scopes appear in the next step.</p>
               </div>
             </div>
             <div class="instructions-step">
-              <div class="instructions-step-number">5</div>
+              <div class="instructions-step-number">4</div>
               <div class="instructions-step-content">
                 <strong>Fill in Scope Details</strong>
                 <p>Complete the detail fields for each selected scope. Config scopes (CDB UI Config, CDBBOS Config) require at least one filled table row before you can proceed.</p>
               </div>
             </div>
             <div class="instructions-step">
-              <div class="instructions-step-number">6</div>
+              <div class="instructions-step-number">5</div>
               <div class="instructions-step-content">
                 <strong>Review and Submit</strong>
                 <p>Review a full summary of your entries then click <strong>Submit</strong> to publish a new intake page directly to the SSRELEASE Confluence space.</p>
@@ -883,32 +778,25 @@
               <div class="instructions-step-number">1</div>
               <div class="instructions-step-content">
                 <strong>Click "✏️ Modify Existing"</strong>
-                <p>A popup will appear. Select the Release, then choose the specific intake page you want to edit from the list of existing intakes for that release.</p>
+                <p>A popup asks for your name (recorded as the editor in the audit history) and the Release, then you choose the intake page to edit.</p>
               </div>
             </div>
             <div class="instructions-step">
               <div class="instructions-step-number">2</div>
               <div class="instructions-step-content">
-                <strong>Confirm Your Identity</strong>
-                <p>The Release, DA Team, and original intake creator are shown as read-only. Search for and select your name — this is recorded as the editor for the audit history.</p>
+                <strong>Update Any Fields Freely</strong>
+                <p>All steps are unlocked — jump to any step and update General Fields, Change Scope, or Scope Details. Submit stays blocked until required fields are complete.</p>
               </div>
             </div>
             <div class="instructions-step">
               <div class="instructions-step-number">3</div>
-              <div class="instructions-step-content">
-                <strong>Update Any Fields Freely</strong>
-                <p>All steps are unlocked — you can jump to any step and update General Fields, Change Scope, or Scope Details without being blocked by validation.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">4</div>
               <div class="instructions-step-content">
                 <strong>Review Changes and Submit</strong>
                 <p>The Review step highlights only the fields you changed. Click <strong>Submit</strong> to push your updates to the existing Confluence page. A no-change guard prevents accidental empty submissions.</p>
               </div>
             </div>
             <div class="instructions-step">
-              <div class="instructions-step-number">5</div>
+              <div class="instructions-step-number">4</div>
               <div class="instructions-step-content">
                 <strong>View Edit History</strong>
                 <p>After submitting, the stepper shows a <strong>View History</strong> button. Every edit is recorded with the editor's name, timestamp, and a full list of changed fields.</p>
@@ -925,6 +813,31 @@
   </div>
 }
 <!-- closes @if (modalSubmitted) @else instructions -->
+<!-- Shared "Your name" Jira user search — used by both the Create and Modify modals -->
+<ng-template #userSearchField>
+  <div class="form-group">
+    <label for="userSearch">Your Name *</label>
+    <div class="typeahead">
+      <input id="userSearch" type="text" autocomplete="off" [ngModel]="userSearchTerm" (ngModelChange)="onUserSearchTermChange($event)" placeholder="Type at least 3 characters to search…" />
+      @if (selectedUser) {
+        <span class="field-hint">✓ {{ selectedUser.email || selectedUser.displayName }} — recorded as the {{ showEditModal ? 'editor' : 'creator (or editor, if the intake already exists)' }}</span>
+      } @else if (userSearchTerm.length > 0 && userSearchTerm.length < 3) {
+        <span class="field-hint">Type at least 3 characters to search</span>
+      }
+      @if (userResults.length > 0) {
+        <ul class="user-search-dropdown">
+          @for (u of userResults; track u.accountId) {
+            <li (click)="selectUser(u)">
+              <span class="user-name">{{ u.displayName }}</span>
+              @if (u.email) { <span class="user-email">{{ u.email }}</span> }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</ng-template>
+
 @if (showCreateModal) {
   <div class="modal-backdrop" (click)="closeCreateModal()"></div>
   <div class="modal">
@@ -937,21 +850,33 @@
         <button class="modal-close" (click)="closeCreateModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <!-- STATE: select (Release + DA Team dropdowns) — always visible in 'select' and 'results' -->
+        <!-- STATE: select / results — identity, release, team, title -->
         <div *ngIf="createModalState === 'select' || createModalState === 'results'">
+          <ng-container *ngTemplateOutlet="userSearchField"></ng-container>
           <div class="form-group">
             <label for="create-release">Release *</label>
             <select id="create-release" [(ngModel)]="createForm.release" (ngModelChange)="onCreateModalSelectionChange()">
               <option value="">Select release…</option>
-              <option *ngFor="let r of releases" [value]="r.releaseId">{{ r.releaseId }}{{ r.title ? ' — ' + r.title : '' }}</option>
+              <option *ngFor="let r of openReleases" [value]="r.releaseId">{{ releaseLabel(r) }}</option>
             </select>
           </div>
           <div class="form-group">
             <label for="create-da-team">DA Team *</label>
-            <select id="create-da-team" [(ngModel)]="createForm.daTeam" (ngModelChange)="onCreateModalSelectionChange()">
-              <option value="">Select DA team…</option>
-              <option *ngFor="let t of allDaTeams" [value]="t.name">{{ t.name }}</option>
-            </select>
+            <div class="typeahead">
+              <input id="create-da-team" type="text" autocomplete="off"
+                     [ngModel]="teamSearchTerm" (ngModelChange)="onTeamSearchChange($event)"
+                     (focus)="showTeamResults = true" (blur)="showTeamResults = false"
+                     placeholder="Type to filter DA teams…" />
+              <ul *ngIf="showTeamResults && filteredDaTeams().length > 0" class="user-search-dropdown">
+                <!-- mousedown (not click) so the selection lands before the input's blur hides the list -->
+                <li *ngFor="let t of filteredDaTeams()" [class.selected]="t.name === createForm.daTeam"
+                    (mousedown)="$event.preventDefault(); selectTeam(t)">
+                  <span class="user-name">{{ t.name }}</span>
+                  <span class="user-email" *ngIf="t.jiraProjects[0]">{{ t.jiraProjects[0] }}</span>
+                </li>
+              </ul>
+              <span *ngIf="showTeamResults && teamSearchTerm && filteredDaTeams().length === 0" class="field-hint">No DA team matches "{{ teamSearchTerm }}"</span>
+            </div>
           </div>
           <!-- Checking spinner -->
           <div *ngIf="createModalChecking" class="modal-checking">
@@ -962,22 +887,25 @@
             <p>An intake already exists for <strong>{{ createForm.release }}</strong> / <strong>{{ createForm.daTeam }}</strong>:</p>
             <p class="existing-title">{{ createModalExistingIntake.title }}</p>
           </div>
+          <!-- Page title (new intakes only) -->
+          <div *ngIf="createForm.release && createForm.daTeam && !createModalExistingIntake && !createModalChecking" class="form-group">
+            <label for="create-title-suffix">Page Title</label>
+            <div class="title-input-group">
+              <span class="title-prefix">{{ createForm.release }} - {{ createModalBoardKey || createForm.daTeam }} -</span>
+              <input id="create-title-suffix" type="text" [(ngModel)]="createForm.titleSuffix" placeholder="Optional suffix appended to page title" />
+            </div>
+          </div>
           <!-- Error message -->
           <div *ngIf="createModalError" class="modal-error">{{ createModalError }}</div>
         </div>
-        <!-- STATE: results — previous intakes table -->
+        <!-- STATE: results — start blank (default) or duplicate a previous intake -->
         <div *ngIf="createModalState === 'results' && !createModalExistingIntake && !createModalChecking">
           <div class="duplication-section">
-              <p class="modal-info-text" *ngIf="previousIntakes.length > 0">
-                Select a previous intake to duplicate, or create a blank one:
-              </p>
-              <p class="modal-info-text" *ngIf="!previousIntakesLoading && previousIntakes.length === 0">
-                No previous intakes found for this team. Click below to create a blank intake.
-              </p>
-              <div *ngIf="previousIntakesLoading" class="modal-checking">
-                Loading previous intakes…
-              </div>
-              <div *ngIf="!previousIntakesLoading && previousIntakes.length > 0" class="previous-intakes-table-wrapper">
+            <p class="modal-info-text">Start from:</p>
+            <div *ngIf="previousIntakesLoading" class="modal-checking">
+              Loading previous intakes…
+            </div>
+            <div *ngIf="!previousIntakesLoading" class="previous-intakes-table-wrapper">
               <table class="previous-intakes-table">
                 <thead>
                   <tr>
@@ -988,6 +916,15 @@
                   </tr>
                 </thead>
                 <tbody>
+                  <tr class="blank-intake-row" [class.selected]="!selectedDuplicationSource" (click)="selectDuplicationSource(null)">
+                    <td>
+                      <input type="radio"
+                             [checked]="!selectedDuplicationSource"
+                             (click)="$event.stopPropagation(); selectDuplicationSource(null)"
+                             name="duplication-source" />
+                    </td>
+                    <td colspan="3"><strong>Blank intake</strong> <span class="muted-text">— start with an empty form</span></td>
+                  </tr>
                   <tr *ngFor="let intake of previousIntakes"
                       [class.selected]="selectedDuplicationSource?.pageId === intake.pageId"
                       (click)="selectDuplicationSource(intake)">
@@ -1005,6 +942,7 @@
                   </tr>
                 </tbody>
               </table>
+              <p class="modal-info-text" *ngIf="previousIntakes.length === 0">No previous intakes found for this team.</p>
             </div>
           </div>
         </div>
@@ -1032,18 +970,18 @@
         <ng-container *ngIf="createModalState === 'select' || (createModalState === 'results' && createModalExistingIntake)">
           <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
           <button class="btn btn-primary"
-                  [disabled]="!createForm.release || !createForm.daTeam || createModalChecking || createModalLoading"
+                  [disabled]="!selectedUser || !createForm.release || !createForm.daTeam || createModalChecking || createModalLoading"
                   (click)="submitCreateModal()">
             {{ createModalExistingIntake ? 'Edit Existing Intake' : 'Continue' }}
           </button>
         </ng-container>
-        <!-- State: results (no existing intake, showing table) -->
+        <!-- State: results (no existing intake, showing Start-from table) -->
         <ng-container *ngIf="createModalState === 'results' && !createModalExistingIntake && !createModalChecking">
           <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
           <button class="btn btn-primary"
-                  [disabled]="createModalLoading || duplicationInProgress"
+                  [disabled]="!selectedUser || createModalLoading || duplicationInProgress"
                   (click)="submitCreateModal()">
-            {{ duplicationInProgress ? 'Loading…' : (selectedDuplicationSource ? 'Duplicate Existing Intake' : 'Create New Intake') }}
+            {{ duplicationInProgress ? 'Loading…' : (selectedDuplicationSource ? 'Duplicate selected intake' : 'Start blank intake') }}
           </button>
         </ng-container>
         <!-- State: schema-warning -->
@@ -1065,12 +1003,13 @@
         <button class="modal-close" (click)="closeEditModal()">×</button>
       </div>
       <div class="modal-body">
+        <ng-container *ngTemplateOutlet="userSearchField"></ng-container>
         <div class="form-group">
           <label>Release *</label>
           <select [(ngModel)]="editModalRelease" (ngModelChange)="onEditModalReleaseChange()">
             <option value="" disabled>Select a release</option>
             @for (release of releases; track release.releaseId) {
-              <option [value]="release.releaseId">{{ release.releaseId }} — {{ release.title }}</option>
+              <option [value]="release.releaseId">{{ releaseLabel(release) }}</option>
             }
           </select>
         </div>
@@ -1103,10 +1042,31 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" (click)="closeEditModal()">Cancel</button>
-        <button class="btn btn-primary" (click)="submitEditModal()" [disabled]="editModalLoading || !editModalSelectedPageId">
+        <button class="btn btn-primary" (click)="submitEditModal()" [disabled]="editModalLoading || !editModalSelectedPageId || !selectedUser">
           {{ editModalLoading ? 'Loading...' : 'Load &amp; Edit' }}
         </button>
       </div>
     </div>
   </div>
-}}
+}
+
+<!-- Unsaved-changes guard for "+ New Intake" / "Modify Existing" -->
+@if (showDiscardModal) {
+  <div class="modal-backdrop" (click)="cancelDiscard()"></div>
+  <div class="modal">
+    <div class="modal-dialog modal-dialog--narrow" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Discard unsaved changes?</h3>
+        <button class="modal-close" (click)="cancelDiscard()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>This intake has changes that haven't been submitted to Confluence. Starting another intake will discard them.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="cancelDiscard()">Keep editing</button>
+        <button class="btn btn-danger" (click)="confirmDiscard()">Discard changes</button>
+      </div>
+    </div>
+  </div>
+}
+}

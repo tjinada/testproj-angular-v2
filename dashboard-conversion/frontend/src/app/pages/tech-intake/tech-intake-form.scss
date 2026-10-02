@@ -916,3 +916,95 @@
   background: #f8fbff;
   box-sizing: border-box;
 }
+/* ─── Identity bar (replaces the Project Identity step) ─────────────── */
+.identity-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  background: #f7f9fc;
+  border: 1px solid #dfe1e6;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #172b4d;
+  a { color: #0052cc; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+}
+.identity-bar--edit {
+  background: #fffbea;
+  border-color: #ffc107;
+}
+.identity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #ffc107;
+  color: #5c4400;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.identity-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.identity-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b778c;
+}
+.identity-title-input {
+  min-width: 280px;
+  .title-prefix,
+  input { padding: 4px 8px; }
+}
+.identity-item--title .field-hint { margin-top: 0; }
+.identity-history-btn { margin-left: auto; }
+
+/* ─── Inline validation ──────────────────────────────────────────────── */
+.field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #de350b;
+}
+
+/* ─── Review: what blocks Submit ─────────────────────────────────────── */
+.submit-blockers {
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  background: #ffebe6;
+  border: 1px solid #ff8f73;
+  border-radius: 6px;
+  color: #172b4d;
+  ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+  }
+  li { margin: 2px 0; }
+}
+.submit-blockers-title {
+  font-weight: 600;
+  color: #bf2600;
+  i { margin-right: 4px; }
+}
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #0052cc;
+  text-align: left;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
+
+/* Type-to-filter inputs (user search, DA team) anchor their dropdown here */
+.typeahead { position: relative; }
+.user-search-dropdown li.selected { background: #e8f1ff; }

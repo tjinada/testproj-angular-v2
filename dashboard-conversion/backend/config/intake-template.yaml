@@ -94,10 +94,12 @@ general:
         whenNotNo:
           - label: "Where to embed the toggle?"
             field: featureToggleEmbed
+            required: true
             type: checkbox
             options: ["UI", "CDBBOS"]
           - label: "Toggle name(s)"
             field: featureToggleNames
+            required: true
             type: text
             placeholder: "e.g. FEATURE_NAME_TOGGLE, ANOTHER_TOGGLE"
           - label: "Release toggle removing timeline?"
@@ -111,6 +113,7 @@ general:
         whenNo:
           - label: "Justification for no feature toggle"
             field: featureToggleJustification
+            required: true
             type: textarea
             placeholder: "e.g. Fixing production issues / Minimal code change with no user impact"
     - field: olderMobileApps
@@ -129,13 +132,17 @@ general:
       conditionalFields:
         whenYes:
           - field: entitlementTypes
+            required: true
             type: checkbox
             options: ["Role derived", "Product based", "Channel based"]
           - label: "Details"
             field: entitlementDetails
+            required: true
             type: textarea
             placeholder: "e.g. Entitlement name, type, and affected channels"
     - field: cookies
+      detailRequired: true
+      default: "No"
       label: "Cookies changes"
       type: radio
       options: ["New", "Update", "No"]
@@ -151,10 +158,12 @@ general:
       conditionalFields:
         whenYes:
           - field: apiTypes
+            required: true
             type: checkbox
             options: ["Using Angular HttpClient", "Native", "New API endpoints (details/sequence diagrams)", "Direct ISAM call"]
           - label: "Details"
             field: apiDetails
+            required: true
             type: textarea
             placeholder: |
               e.g. GET /api/endpoint — Description
@@ -194,11 +203,13 @@ scopeDetails:
     showWhen: cdb_ui
     fields:
       - field: ssoDeeplink
+        default: "No"
         label: "SSO/Deeplink"
         type: yes-no
         conditionalFields:
           whenYes:
             - field: ssoTypes
+              required: true
               type: checkbox
               options: ["SSO In/Deeplink (From Site → CDB Page)", "SSO Out (From CDB Page → Site)", "New Web View", "System Browser (leaving app)"]
             - label: "How to pass token/session"
@@ -206,45 +217,55 @@ scopeDetails:
               type: checkbox
               options: ["By Form Post", "By URL Parameters"]
       - field: otpFlows
+        default: "No"
         label: "Introducing new OTP flow(s)"
         type: yes-no
         conditionalFields:
           whenYes:
             - label: "Which API call triggers OTP?"
               field: otpApiCall
+              required: true
               type: textarea
               placeholder: "e.g. /profile or /api/endpoint-that-triggers-otp"
       - field: globalComponents
+        default: "No"
         label: "CDB App global component(s) changes"
         type: yes-no
         conditionalFields:
           whenYes:
             - field: globalComponentTypes
+              required: true
               type: checkbox
               options: ["Page", "Banner", "Error page", "Tab component", "Pipes", "Directives"]
             - label: "Details"
               field: globalComponentDetails
+              required: true
               type: textarea
               placeholder: "e.g. Component name — description of change and impact"
       - field: persistenceStorage
+        default: "No"
         label: "Using Persistence storage"
         type: yes-no
         conditionalFields:
           whenYes:
             - field: storageTypes
+              required: true
               type: checkbox
               options: ["Local Storage", "Session Storage", "Other"]
             - label: "When/how to remove saved data?"
               field: storageRemovalPlan
+              required: true
               type: textarea
               placeholder: "e.g. Cleared on logout / session expiry / after X minutes"
       - field: newNavigation
+        default: "No"
         label: "Adding New Navigation"
         type: yes-no
         conditionalFields:
           whenYes:
             - label: "Angular route"
               field: angularRouteTypes
+              required: true
               type: checkbox
               options: ["Route with Lazy loaded child modules", "Page Route", "Modal(Dialog) Route", "Tab Route", "Module federation", "New Route"]
             - label: "Beyond App"
@@ -260,11 +281,15 @@ scopeDetails:
               type: text
               placeholder: "e.g. FAQ opens branch locator in in-app-browser on mobile"
       - field: codeModularization
+        default: ["Not applicable"]
+        exclusive: "Not applicable"
         label: "Code Modularization"
         type: checkbox
         options: ["Lazy loaded modules", "Lazy loaded language bundles", "Module federation", "Not applicable"]
         render: split-last
       - field: multiStepForms
+        detailRequired: true
+        default: "No"
         label: "Multi-step Forms changes"
         type: radio
         options: ["New", "Update", "No"]
@@ -273,6 +298,8 @@ scopeDetails:
         render: split-no
         detailPlaceholder: "e.g. Form name — brief description of steps"
       - field: capacitorPlugins
+        detailRequired: true
+        default: "No"
         label: "Capacitor plugins changes"
         type: radio
         options: ["New", "Update", "No"]
@@ -281,6 +308,8 @@ scopeDetails:
         render: split-no
         detailPlaceholder: "e.g. Plugin name — description of usage (link to Jira ticket if applicable)"
       - field: newSdks
+        detailRequired: true
+        default: "No"
         label: "New SDKs added in Mobile app"
         type: radio
         options: ["New", "Update", "No"]
@@ -289,6 +318,8 @@ scopeDetails:
         render: split-no
         detailPlaceholder: "e.g. SDK name@version — purpose"
       - field: npmPackages
+        detailRequired: true
+        default: "No"
         label: "npm library/package changes"
         type: radio
         options: ["New", "Update", "No"]
@@ -311,15 +342,18 @@ scopeDetails:
     showWhen: cdbbos
     fields:
       - field: websphereChanges
+        default: "No"
         label: "WebSphere Application Server Changes"
         type: yes-no
         conditionalFields:
           whenYes:
             - field: websphereTypes
+              required: true
               type: checkbox
               options: ["Work Manager", "Data Source", "SSL Components", "Certificates", "Dependency JAR files", "Others"]
             - label: "Details"
               field: websphereDetails
+              required: true
               type: textarea
               placeholder: "e.g. New Work Manager for async service calls to X"
   cdbbos_config:
@@ -368,6 +402,7 @@ scopeDetails:
     showWhen: freddy
     fields:
       - field: freddyChangeType
+        detailRequired: true
         label: "Freddy components changes"
         type: radio
         options: ["New", "Update", "No"]

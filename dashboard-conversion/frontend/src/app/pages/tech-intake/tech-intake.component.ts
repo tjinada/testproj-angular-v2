@@ -19,6 +19,18 @@ import { FormsModule } from '@angular/forms';
 import { IntakeSummaryComponent } from './intake-summary.component';
 import { ApiService } from '../../services/api.service';
 
+export type StepId = 'general' | 'scope' | 'details' | 'review';
+const STEP_ORDER: StepId[] = ['general', 'scope', 'details', 'review'];
+// Releases in these states don't accept new intakes (still listed for Modify)
+const CLOSED_RELEASE_STATUSES = ['complete', 'aborted'];
+const LINK_PATTERN = /^https?:\/\//i;
+
+export interface SubmitBlocker {
+  label: string;
+  step: StepId;
+  scopeIndex?: number;
+}
+
 @Component({
   selector: 'app-tech-intake',
   standalone: true,
@@ -34,13 +46,24 @@ import { ApiService } from '../../services/api.service';
 })
 export class TechIntakeComponent implements OnInit {
   // Stepper
-  currentStep: 1 | 2 | 3 | 4 | 5 = 1;
+  currentStep: StepId = 'general';
+  // Review-step list of missing/invalid fields that block Submit
+  submitBlockers: SubmitBlocker[] = [];
 
   // Template loaded from backend
   template: any = null;
 
-  // Step 1 (existing)
-  releases: { releaseId: string; title: string }[] = [];
+  // Identity (collected in the Create / Modify modals)
+  // All releases, newest first (Modify modal)
+  releases: { releaseId: string; title: string; status?: string }[] = [];
+  // Releases still accepting intakes, newest first (Create modal)
+  openReleases: { releaseId: string; title: string; status?: string }[] = [];
+  // Create modal DA team type-to-filter
+  teamSearchTerm = '';
+  showTeamResults = false;
+  // In-app "discard unsaved changes?" confirmation
+  showDiscardModal = false;
+  private _pendingDiscardAction: (() => void) | null = null;
   daTeams: { name: string; jiraProjects: string[] }[] = [];
   // Full unfiltered list of DA teams (for Create flow)
   allDaTeams: { name: string; jiraProjects: string[] }[] = [];
@@ -102,10 +125,10 @@ export class TechIntakeComponent implements OnInit {
 
   // --- Create / Edit modal state ---
   showCreateModal = false;
-  createForm = { release: '', daTeam: '' };
+  createForm = { release: '', daTeam: '', titleSuffix: '' };
   createModalError: string | null = null;
   createModalLoading = false;
-  createModalExistingIntake: { pageId: string; title: string } | null = null;
+  createModalExistingIntake: { pageId: string; title: string; url?: string } | null = null;
   createModalChecking = false;
   // Duplicate intake modal state
   createModalState: 'select' | 'results' | 'schema-warning' | null = null;
@@ -137,9 +160,8 @@ export class TechIntakeComponent implements OnInit {
     fieldsChanged: FieldChange[];
   }> = [];
 
-  // Edit-mode intake pages list (when a release is selected in edit mode)
+  // Intake page(s) for the intake being edited — drives the identity bar "View ↗" link
   editIntakePages: Array<{ pageId: string; title: string; url: string; lastUpdated: string | null; updatedBy: string | null }> = [];
-  editIntakePagesLoading = false;
   // Original creator information from the pulled intake (read-only in edit mode)
   originalCreator: { name: string; email: string } | null = null;
   // Whether a create/edit modal has been submitted to open the form
@@ -299,7 +321,7 @@ export class TechIntakeComponent implements OnInit {
     this.editPageId = '';
     this.editIntakePages = [];
     this.originalCreator = null;
-    this.currentStep = 1;
+    this.currentStep = 'general';
   }
 
   async loadData(): Promise<void> {
@@ -311,9 +333,14 @@ export class TechIntakeComponent implements OnInit {
         this.apiService.request<any>('GET', '/api/tech-intake/intake-template'),
       ]);
 
-      this.releases = (releases || []).map((r) => ({ releaseId: r.releaseId, title: r.title }));
+      this.releases = (releases || [])
+        .map((r) => ({ releaseId: r.releaseId, title: r.title, status: r.status }))
+        .sort((a, b) => TechIntakeComponent.compareReleaseIdsDesc(a.releaseId, b.releaseId));
+      this.openReleases = this.releases.filter((r) => !CLOSED_RELEASE_STATUSES.includes(r.status || ''));
       // Keep an unfiltered master list for Create flow and initialize visible list
-      this.allDaTeams = Object.values(daTeamsData || {}).map((t: any) => ({ name: t.name, jiraProjects: t.jiraProjects || [] }));
+      this.allDaTeams = Object.values(daTeamsData || {})
+        .map((t: any) => ({ name: t.name, jiraProjects: t.jiraProjects || [] }))
+        .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
       this.daTeams = this.allDaTeams;
       this.template = template;
     } catch (err: any) {
@@ -323,10 +350,134 @@ export class TechIntakeComponent implements OnInit {
     }
   }
 
+  // ─── Release / DA team pick lists ─────────────────────────────────
+  /** Version-aware, newest first: R97, R95, R92.2, R92.1, R92.0.5, R92.0.1, R92 */
+  private static compareReleaseIdsDesc(a: string, b: string): number {
+    const parse = (id: string) => String(id || '').replace(/^r/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+    const pa = parse(a);
+    const pb = parse(b);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const diff = (pb[i] ?? 0) - (pa[i] ?? 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  }
+
+  /** "R94 — CIAM R3.2 Release" instead of "R94 — R94 - CIAM R3.2 Release" */
+  releaseLabel(r: { releaseId: string; title: string }): string {
+    const id = r.releaseId || '';
+    const title = (r.title || '').trim();
+    if (!title || title === id) return id;
+    const rest = title.slice(id.length);
+    const repeatsId = title.toLowerCase().startsWith(id.toLowerCase()) && /^(\s|-|—|:|$)/.test(rest);
+    const display = repeatsId ? rest.replace(/^[\s\-—:]+/, '') : title;
+    return display ? `${id} — ${display}` : id;
+  }
+
+  filteredDaTeams(): { name: string; jiraProjects: string[] }[] {
+    const term = this.teamSearchTerm.trim().toLowerCase();
+    if (!term || term === this.createForm.daTeam.toLowerCase()) return this.allDaTeams;
+    return this.allDaTeams.filter((t) => t.name.toLowerCase().includes(term));
+  }
+
+  onTeamSearchChange(term: string): void {
+    this.teamSearchTerm = term;
+    this.showTeamResults = true;
+    if (this.createForm.daTeam && term !== this.createForm.daTeam) {
+      this.createForm.daTeam = '';
+      void this.onCreateModalSelectionChange();
+    }
+  }
+
+  selectTeam(team: { name: string }): void {
+    this.createForm.daTeam = team.name;
+    this.teamSearchTerm = team.name;
+    this.showTeamResults = false;
+    void this.onCreateModalSelectionChange();
+  }
+
+  /** Board key for the team picked in the Create modal (drives the title prefix preview) */
+  get createModalBoardKey(): string {
+    return (this.allDaTeams.find((t) => t.name === this.createForm.daTeam)?.jiraProjects?.[0] || '').trim();
+  }
+
+  // ─── Unsaved-changes guard ────────────────────────────────────────
+  get hasUnsavedChanges(): boolean {
+    return this.modalSubmitted && this.postExportState !== 'success' && this.hasFormChanged();
+  }
+
+  private runOrConfirmDiscard(action: () => void): void {
+    if (!this.hasUnsavedChanges) {
+      action();
+      return;
+    }
+    this._pendingDiscardAction = action;
+    this.showDiscardModal = true;
+  }
+
+  requestCreateModal(): void {
+    this.runOrConfirmDiscard(() => this.openCreateModal());
+  }
+
+  requestEditModal(): void {
+    this.runOrConfirmDiscard(() => this.openEditModal());
+  }
+
+  confirmDiscard(): void {
+    const action = this._pendingDiscardAction;
+    this.cancelDiscard();
+    action?.();
+  }
+
+  cancelDiscard(): void {
+    this.showDiscardModal = false;
+    this._pendingDiscardAction = null;
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.hasUnsavedChanges) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  }
+
+  // ─── Form entry ───────────────────────────────────────────────────
+  /**
+   * Common entry into the wizard after a modal (blank, duplicate or edit).
+   * Defaults are applied BEFORE the snapshot so they never show up as user edits.
+   */
+  private enterForm(): void {
+    this.applyFieldDefaults();
+    this._originalFormSnapshot = this.getFormStateSnapshot();
+    this.titleSuffixLocked = true;
+    this.submitBlockers = [];
+    this.validationMessage = null;
+    this.modalSubmitted = true;
+    this.currentStep = 'general';
+  }
+
+  /** Option B: seed YAML `default:` values for any field that has no value yet. */
+  private applyFieldDefaults(): void {
+    if (!this.template) return;
+    const seed = (store: Record<string, any>, fields: any[] = []) => {
+      for (const f of fields) {
+        if (f.default === undefined || store[f.field] !== undefined) continue;
+        store[f.field] = Array.isArray(f.default) ? [...f.default] : f.default;
+      }
+    };
+    seed(this.generalValues, this.template.general?.fields);
+    for (const section of Object.values(this.template.scopeDetails || {}) as any[]) {
+      seed(this.scopeValues, section.fields);
+    }
+  }
+
   openCreateModal(): void {
     this.showCreateModal = true;
     this.createModalState = 'select';
-    this.createForm = { release: '', daTeam: '' };
+    this.createForm = { release: '', daTeam: '', titleSuffix: '' };
+    this.teamSearchTerm = '';
+    this.showTeamResults = false;
     this.createModalError = null;
     this.createModalLoading = false;
     this.createModalExistingIntake = null;
@@ -366,7 +517,7 @@ export class TechIntakeComponent implements OnInit {
       const results = data.results || [];
       if (results.length > 0) {
         // Intake already exists — show inline message
-        this.createModalExistingIntake = { pageId: results[0].pageId, title: results[0].title || '' };
+        this.createModalExistingIntake = { pageId: results[0].pageId, title: results[0].title || '', url: results[0].url || '' };
         this.createModalState = 'select';
         return;
       }
@@ -397,7 +548,7 @@ export class TechIntakeComponent implements OnInit {
   }
 
   async submitCreateModal(): Promise<void> {
-    if (!this.createForm.release || !this.createForm.daTeam) return;
+    if (!this.createForm.release || !this.createForm.daTeam || !this.selectedUser) return;
     // Case 1: Existing intake — redirect to edit
     if (this.createModalExistingIntake) {
       this.createModalLoading = true;
@@ -413,16 +564,16 @@ export class TechIntakeComponent implements OnInit {
         this.allDaTeams = preserveAllDaTeams;
         this.daTeams = this.allDaTeams;
         this.populateFormFromData(formData);
-        this._originalFormSnapshot = this.getFormStateSnapshot();
         if (pulled.createdBy) {
           this.originalCreator = { name: pulled.createdBy.name || pulled.exportedBy || 'unknown', email: pulled.createdBy.email || '' };
         }
         this.editHistory = pulled.editHistory || [];
         this.editMode = true;
         this.editPageId = pageId;
+        // Lets the identity bar show the "View ↗" link for this page
+        this.editIntakePages = [{ pageId, title: this.createModalExistingIntake?.title || '', url: this.createModalExistingIntake?.url || '', lastUpdated: null, updatedBy: null }];
         this.closeCreateModal();
-        this.modalSubmitted = true;
-        this.goToStep(1);
+        this.enterForm();
       } catch (err) {
         console.error('Create modal submit failed:', err);
         this.createModalError = 'Something went wrong. Please try again.';
@@ -451,10 +602,9 @@ export class TechIntakeComponent implements OnInit {
       this.selectedRelease = this.createForm.release;
       this.selectedDATeam = this.createForm.daTeam;
       this.onDATeamChange();
-      this.titleSuffixLocked = false; // Blank-create: unlock suffix for new intake
+      this.intakeTitleSuffix = this.createForm.titleSuffix.trim();
       this.closeCreateModal();
-      this.modalSubmitted = true;
-      this.goToStep(1);
+      this.enterForm();
     } catch (err) {
       console.error('Create modal submit failed:', err);
       this.createModalError = 'Something went wrong. Please try again.';
@@ -463,13 +613,9 @@ export class TechIntakeComponent implements OnInit {
     }
   }
 
+  /** null = "Blank intake" row (the default). Plain radio semantics — no click-to-deselect. */
   selectDuplicationSource(intake: { release: string; title: string; pageId: string; url: string } | null): void {
-    if (this.selectedDuplicationSource?.pageId === intake?.pageId) {
-      // Deselect if clicking same row
-      this.selectedDuplicationSource = null;
-    } else {
-      this.selectedDuplicationSource = intake || null;
-    }
+    this.selectedDuplicationSource = intake;
   }
 
   // Temporary storage for fetched source data when showing schema-warning
@@ -668,15 +814,13 @@ export class TechIntakeComponent implements OnInit {
     this.selectedRelease = targetRelease;
     this.selectedDATeam = targetDATeam;
     this.onDATeamChange();
-    this.intakeTitleSuffix = '';
-    this.titleSuffixLocked = false; // New intake — unlocked
+    this.intakeTitleSuffix = this.createForm.titleSuffix.trim();
     this.editMode = false;
     this.editPageId = '';
     this.originalCreator = null;
     this._pendingDuplicationData = null;
     this.closeCreateModal();
-    this.modalSubmitted = true;
-    this.goToStep(1);
+    this.enterForm();
   }
 
   proceedDespiteDrift(): void {
@@ -724,7 +868,7 @@ export class TechIntakeComponent implements OnInit {
   }
 
   async submitEditModal(): Promise<void> {
-    if (!this.editModalSelectedPageId) return;
+    if (!this.editModalSelectedPageId || !this.selectedUser) return;
     this.editModalLoading = true;
     try {
       const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${this.editModalSelectedPageId}/pull`);
@@ -736,7 +880,6 @@ export class TechIntakeComponent implements OnInit {
       this.allDaTeams = preserveAllDaTeams;
       this.daTeams = this.allDaTeams;
       this.populateFormFromData(formData);
-      this._originalFormSnapshot = this.getFormStateSnapshot();
       if (data.createdBy) {
         this.originalCreator = { name: data.createdBy.name || data.exportedBy || 'unknown', email: data.createdBy.email || '' };
       }
@@ -745,8 +888,7 @@ export class TechIntakeComponent implements OnInit {
       this.editPageId = this.editModalSelectedPageId;
       this.editIntakePages = this.editModalPages;
       this.closeEditModal();
-      this.modalSubmitted = true;
-      this.goToStep(1);
+      this.enterForm();
     } catch (err) {
       console.error('Failed to load intake for editing:', err);
       alert('Failed to load intake data.');
@@ -771,10 +913,18 @@ export class TechIntakeComponent implements OnInit {
     if (!this.exportSuccess?.pageId) return;
     this.editMode = true;
     this.editPageId = this.exportSuccess.pageId;
+    this.editIntakePages = [{ pageId: this.exportSuccess.pageId, title: '', url: this.exportSuccess.pageUrl, lastUpdated: null, updatedBy: null }];
+    this.originalCreator = this.selectedUser ? { name: this.selectedUser.displayName, email: this.selectedUser.email } : null;
     this.postExportState = 'idle';
     this.exportError = null;
-    // Navigate back to first step for editing
-    this.goToStep(1);
+    // What was just published is the new baseline for change detection
+    this._originalFormSnapshot = this.getFormStateSnapshot();
+    this.goToStep('general');
+  }
+
+  /** "<release> - <boardKey>" — the fixed part of the Confluence page title */
+  get pageTitlePrefix(): string {
+    return [this.selectedRelease, this.jiraBoardKey].filter(Boolean).join(' - ');
   }
 
   // Typeahead: query Jira users via backend proxy
@@ -906,7 +1056,7 @@ export class TechIntakeComponent implements OnInit {
     this.exportSuccess = null;
     this.exportError = null;
     this.postExportState = 'idle';
-    this.currentStep = 1;
+    this.currentStep = 'general';
   }
 
   resetForm(): void {
@@ -915,15 +1065,16 @@ export class TechIntakeComponent implements OnInit {
     this.jiraBoardKey = '';
     this.intakeTitle = '';
     this.intakeTitleSuffix = '';
-    this.selectedUser = null;
-    this.userSearchTerm = '';
+    // selectedUser / userSearchTerm are intentionally kept: same person for the whole session
     this.userResults = [];
     this.originalCreator = null;
     this.generalValues = {};
     this.selectedScopes = new Set();
     this.scopeValues = {};
     this.dynamicRows = {};
-    this.currentStep = 1;
+    this._originalFormSnapshot = null;
+    this.submitBlockers = [];
+    this.currentStep = 'general';
     this.activeScopeIndex = 0;
     this.maxVisitedScopeIndex = 0;
     this.exportSuccess = null;
@@ -956,91 +1107,43 @@ export class TechIntakeComponent implements OnInit {
     // Title prefix/suffix is handled separately; preserve any user-entered suffix.
   }
 
-  onReleaseChange(): void {
-    // Title prefix/suffix is handled separately; preserve any user-entered suffix.
-    if (!this.selectedRelease) return;
-    if (this.editMode) {
-      // In edit mode: fetch existing intake pages for this release
-      void this.loadIntakePagesForRelease();
-    } else {
-      // In create mode: show all DA teams (no filtering)
-      this.daTeams = this.allDaTeams;
-    }
-  }
-
-  async loadIntakePagesForRelease(): Promise<void> {
-    this.editIntakePagesLoading = true;
-    this.editIntakePages = [];
-    try {
-      const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/lookup?release=${encodeURIComponent(this.selectedRelease)}`);
-      this.editIntakePages = data.results || [];
-    } catch (err) {
-      console.error('Failed to load intake pages for release:', err);
-    } finally {
-      this.editIntakePagesLoading = false;
-    }
-  }
-
-  async selectIntakePageForEdit(page: { pageId: string; title: string; url?: string }): Promise<void> {
-    try {
-      const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${page.pageId}/pull`);
-      const formData = data.formData || data;
-      this.populateFormFromData(formData);
-      // Capture snapshot after selecting intake for edit
-      this._originalFormSnapshot = this.getFormStateSnapshot();
-      if (data.createdBy) {
-        this.originalCreator = { name: data.createdBy.name || data.exportedBy || 'unknown', email: data.createdBy.email || '' };
-      }
-      // Capture edit history from pull response
-      this.editHistory = data.editHistory || [];
-      this.editPageId = page.pageId;
-      // don't auto-advance; let user review then Next
-    } catch (err) {
-      console.error('Failed to load intake:', err);
-      alert('Failed to load intake data.');
-    }
-  }
-
-  private updateIntakeTitle(): void {
-    // No-op: page title is composed at export time from selectedRelease, selectedDATeam and intakeTitleSuffix
-  }
-
-  goToStep(step: 1 | 2 | 3 | 4 | 5): void {
+  goToStep(step: StepId): void {
     if (step === this.currentStep) return;
-    const movingForward = step > this.currentStep;
-    // Gate forward navigation on Step 1 completion for both modes
-    // (stepper buttons are already disabled in template, this is a safety guard)
-    if (movingForward && step > 1 && !this.canProceedFromStep(1)) return;
-    // For steps beyond 1, only gate create mode on per-step validation
-    if (movingForward && step > 1 && !this.editMode && !this.canProceedFromStep(this.currentStep)) return;
+    const movingForward = STEP_ORDER.indexOf(step) > STEP_ORDER.indexOf(this.currentStep);
+    // Create mode gates forward moves on the current step; edit mode navigates freely
+    // (Submit is still blocked by submitBlockers in both modes)
+    if (movingForward && !this.editMode && !this.canProceedFromStep(this.currentStep)) return;
     this.currentStep = step;
     // Navigating away from the review/submit step should clear any export state
-    if (step !== 5) {
+    if (step !== 'review') {
       this.exportError = null;
       this.exportSuccess = null;
       this.postExportState = 'idle';
     }
-    if (step === 4 && movingForward) {
+    if (step === 'details' && movingForward) {
       this.activeScopeIndex = 0; // Reset to first sub-step when entering scopes
       this.maxVisitedScopeIndex = this.editMode ? Math.max(0, this.getVisibleScopeSections().length - 1) : 0;
     }
+    if (step === 'review') {
+      this.submitBlockers = this.computeSubmitBlockers();
+    }
   }
 
-  canProceedFromStep(step: number): boolean {
+  /** True when `step` comes before the current step (stepper "completed" styling). */
+  isStepBefore(step: StepId): boolean {
+    return STEP_ORDER.indexOf(step) < STEP_ORDER.indexOf(this.currentStep);
+  }
+
+  canProceedFromStep(step: StepId): boolean {
     switch (step) {
-      case 1:
-        if (this.editMode) {
-          return !!this.editPageId && !!this.selectedUser;
-        }
-        return !!this.selectedRelease && !!this.selectedDATeam && !!this.selectedUser && !!this.jiraBoardKey;
-      case 2:
+      case 'general':
         return this.validateGeneralFields();
-      case 3:
+      case 'scope':
         return this.selectedScopes.size > 0;
-      case 4:
+      case 'details':
         // Must have visited all scope sub-steps AND pass current scope field validation
         return this.hasCompletedAllScopes() && this.validateCurrentScopeFields();
-      case 5:
+      case 'review':
         return true;
       default:
         return false;
@@ -1052,11 +1155,10 @@ export class TechIntakeComponent implements OnInit {
     this.activeScopeIndex = Math.max(0, (visible || []).length - 1);
     // User already visited all scopes if returning from summary — mark visited
     this.maxVisitedScopeIndex = Math.max(this.maxVisitedScopeIndex, this.activeScopeIndex);
-    this.currentStep = 4;
+    this.currentStep = 'details';
   }
-  
 
-  // Advance to the next visible scope sub-step (used by the Next button inside Step 4)
+  // Advance to the next visible scope sub-step (used by the Next button inside Scope Details)
   advanceToNextScope(): void {
     const visible = this.getVisibleScopeSections();
     if (this.activeScopeIndex < visible.length - 1) {
@@ -1086,7 +1188,7 @@ export class TechIntakeComponent implements OnInit {
   }
 
   // Attempt to advance to a target step, showing validation feedback if blocked
-  attemptNext(targetStep: 1 | 2 | 3 | 4 | 5): void {
+  attemptNext(targetStep: StepId): void {
     // In edit mode, always proceed freely
     if (this.editMode) {
       this.validationMessage = null;
@@ -1106,113 +1208,125 @@ export class TechIntakeComponent implements OnInit {
     }
   }
 
-  private getValidationMessage(step: number): string {
+  private getValidationMessage(step: StepId): string {
     switch (step) {
-      case 1:
-        if (this.editMode) {
-          if (!this.editPageId) return 'Please select an intake page to edit.';
-          if (!this.selectedUser) return 'Please search and select your name.';
-        } else {
-          if (!this.selectedRelease) return 'Please select a release.';
-          if (!this.selectedDATeam) return 'Please select a DA team.';
-          if (!this.selectedUser) return 'Please search and select your name.';
-          if (!this.jiraBoardKey) return 'Jira board link is missing — select a DA team.';
-        }
-        return 'Please fill all required fields.';
-      case 2: {
-        const missing = this.getMissingRequiredGeneralFields();
-        if (missing.length > 0) {
-          return `Please fill required fields: ${missing.join(', ')}`;
-        }
-        return 'Please fill all required fields marked with *.';
+      case 'general': {
+        const issues = this.getGeneralIssues();
+        return issues.length > 0 ? `Please complete: ${issues.join(', ')}` : 'Please fill all required fields marked with *.';
       }
-      case 3:
+      case 'scope':
         return 'Please select at least one change scope.';
-      case 4:
+      case 'details': {
         if (!this.hasCompletedAllScopes()) {
           return 'Please navigate through all scope sections before proceeding.';
         }
-        return 'Please fill all required fields in the current scope section.';
+        const issues = this.getScopeIssues(this.activeScopeIndex);
+        return issues.length > 0 ? `Please complete: ${issues.join(', ')}` : 'Please fill all required fields in the current scope section.';
+      }
       default:
         return 'Please complete all required fields.';
     }
   }
 
-  private getMissingRequiredGeneralFields(): string[] {
-    if (!this.template?.general?.fields) return [];
-    const missing: string[] = [];
-    for (const f of this.template.general.fields) {
-      if (f.required) {
-        const val = this.generalValues[f.field];
-        if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) {
-          missing.push(f.label);
-        }
+  // ─── Validation (single rule: YAML `required` / `detailRequired` + currently visible) ───
+  private isBlank(value: any): boolean {
+    return value === undefined || value === null
+      || (typeof value === 'string' && value.trim() === '')
+      || (Array.isArray(value) && value.length === 0);
+  }
+
+  /** Same visibility rule the template uses for the detail textarea. */
+  private isDetailVisible(field: any, value: any): boolean {
+    return !!field.hasDetails && !!field.detailField && !!value
+      && (!!field.alwaysShowDetails || value !== field.options?.[field.options.length - 1]);
+  }
+
+  /** Sub-fields currently shown under a yes-no / conditional-radio parent. */
+  private getVisibleSubFields(field: any, value: any): any[] {
+    const cond = field.conditionalFields || {};
+    if (field.type === 'yes-no') return value === 'Yes' ? cond.whenYes || [] : [];
+    if (field.type === 'conditional-radio') {
+      if (!value) return [];
+      return value === 'No' ? cond.whenNo || [] : cond.whenNotNo || [];
+    }
+    return [];
+  }
+
+  isInvalidLink(value: any): boolean {
+    return !this.isBlank(value) && !LINK_PATTERN.test(String(value).trim());
+  }
+
+  private hasFilledRow(fieldName: string): boolean {
+    return (this.dynamicRows[fieldName] || []).some((row) =>
+      Array.isArray(row) && row.some((cell) => cell !== null && cell !== undefined && String(cell).trim() !== ''),
+    );
+  }
+
+  /** Human-readable list of missing / invalid entries for a set of fields. */
+  private getFieldIssues(store: 'general' | 'scope', fields: any[] = []): string[] {
+    const values = store === 'general' ? this.generalValues : this.scopeValues;
+    const issues: string[] = [];
+    for (const f of fields) {
+      const label = f.label || f.field;
+      const value = values[f.field];
+      if (f.type === 'dynamic-rows') {
+        if (!this.hasFilledRow(f.field)) issues.push(`${label} (at least one row)`);
+        continue;
+      }
+      if (f.required && this.isBlank(value)) issues.push(label);
+      if (f.type === 'link' && this.isInvalidLink(value)) issues.push(`${label} (must start with http:// or https://)`);
+      if (f.type === 'radio-with-link' && this.isInvalidLink(values[`${f.field}_link`])) {
+        issues.push(`${label} link (must start with http:// or https://)`);
+      }
+      if (f.detailRequired && this.isDetailVisible(f, value) && this.isBlank(values[f.detailField])) {
+        issues.push(`${label} — details`);
+      }
+      for (const sub of this.getVisibleSubFields(f, value)) {
+        if (sub.required && this.isBlank(values[sub.field])) issues.push(`${label} — ${sub.label || 'selection'}`);
       }
     }
-    return missing;
+    return issues;
+  }
+
+  private getGeneralIssues(): string[] {
+    return this.getFieldIssues('general', this.template?.general?.fields);
+  }
+
+  private getScopeIssues(index: number): string[] {
+    const entry = this.getVisibleScopeSections()[index];
+    return entry ? this.getFieldIssues('scope', entry.section?.fields) : [];
   }
 
   validateGeneralFields(): boolean {
-    try {
-      if (!this.template) return false;
-      const gen = this.template.general?.fields || [];
-      for (const f of gen) {
-        if (f.required) {
-          const val = this.generalValues[f.field];
-          if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) return false;
-        }
-      }
-      // Also validate detail fields that are required conditionally
-      for (const f of gen) {
-        if (f.detailRequiredWhen && f.detailField) {
-          if (this.generalValues[f.field] === f.detailRequiredWhen) {
-            const detailVal = this.generalValues[f.detailField];
-            if (!detailVal || (typeof detailVal === 'string' && detailVal.trim() === '')) return false;
-          }
-        }
-      }
-      return true;
-    } catch (e) { return true; }
+    return !!this.template && this.getGeneralIssues().length === 0;
   }
 
   validateCurrentScopeFields(): boolean {
-    try {
-      const visible = this.getVisibleScopeSections();
-      if (!visible || visible.length === 0) return false;
-      const entry = visible[this.activeScopeIndex];
-      if (!entry || !entry.section) return false;
-      const fields = entry.section.fields || [];
-      for (const f of fields) {
-        if (f.required) {
-          const val = this.scopeValues[f.field];
-          if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) return false;
-        }
-        // If field has a detailField and the textarea is currently visible, require it
-        if (f.hasDetails && f.detailField) {
-          const selectedVal = this.scopeValues[f.field];
-          if (selectedVal !== undefined && selectedVal !== null) {
-            // Textarea is visible when alwaysShowDetails OR selected value is not the last option
-            const lastOption = f.options?.[f.options.length - 1];
-            const detailVisible = f.alwaysShowDetails || (lastOption !== undefined ? selectedVal !== lastOption : true);
-            if (detailVisible) {
-              const detailVal = this.scopeValues[f.detailField];
-              if (detailVal === undefined || detailVal === null || (typeof detailVal === 'string' && detailVal.trim() === '')) return false;
-            }
-          }
-        }
-        // In create mode: dynamic-rows fields must have at least one row with data
-        if (!this.editMode && f.type === 'dynamic-rows') {
-          const rows = this.dynamicRows[f.field] || [];
-          if (rows.length === 0) return false;
-          // Check that at least one row has at least one non-empty cell
-          const hasFilledRow = rows.some(row =>
-            Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
-          );
-          if (!hasFilledRow) return false;
-        }
+    const entry = this.getVisibleScopeSections()[this.activeScopeIndex];
+    return !!entry && this.getScopeIssues(this.activeScopeIndex).length === 0;
+  }
+
+  /** Everything that must be fixed before Submit, with the step to jump to. */
+  private computeSubmitBlockers(): SubmitBlocker[] {
+    const blockers: SubmitBlocker[] = this.getGeneralIssues()
+      .map((label) => ({ label: `General: ${label}`, step: 'general' as StepId }));
+    if (this.selectedScopes.size === 0) {
+      blockers.push({ label: 'Change Scope: select at least one scope', step: 'scope' });
+    }
+    this.getVisibleScopeSections().forEach((entry, i) => {
+      for (const label of this.getScopeIssues(i)) {
+        blockers.push({ label: `${entry.section.label}: ${label}`, step: 'details', scopeIndex: i });
       }
-      return true;
-    } catch (e) { return true; }
+    });
+    return blockers;
+  }
+
+  goToBlocker(blocker: SubmitBlocker): void {
+    this.goToStep(blocker.step);
+    if (blocker.scopeIndex !== undefined) {
+      this.activeScopeIndex = blocker.scopeIndex;
+      this.maxVisitedScopeIndex = Math.max(this.maxVisitedScopeIndex, blocker.scopeIndex);
+    }
   }
 
   toggleScope(scopeId: string): void {
@@ -1249,18 +1363,6 @@ export class TechIntakeComponent implements OnInit {
     return this._visibleScopeSectionsCache;
   }
 
-  // Banner message for edit mode — varies depending on whether an intake
-  // page has been loaded for editing or the user is still at Step 1.
-  get editModeBannerMessage(): string {
-    // Try to resolve a loaded page title from known sources
-    const page = (this.editIntakePages || []).find((p) => p.pageId === this.editPageId);
-    const title = page?.title || this.intakeTitle || '';
-    if (title && title.trim().length > 0) {
-      return `Editing: ${title}`;
-    }
-    return 'Select a release to view all editable intakes for that release';
-  }
-
 
   // Field helpers
   getFieldValue(store: 'general' | 'scope', fieldName: string): any {
@@ -1290,8 +1392,26 @@ export class TechIntakeComponent implements OnInit {
     const storeRef = store === 'general' ? this.generalValues : this.scopeValues;
     const arr = (storeRef[fieldName] = storeRef[fieldName] || []) as string[];
     const idx = arr.indexOf(option);
-    if (idx >= 0) arr.splice(idx, 1);
-    else arr.push(option);
+    if (idx >= 0) {
+      arr.splice(idx, 1);
+      return;
+    }
+    // YAML `exclusive:` option (e.g. "Not applicable") can't be combined with the others
+    const exclusive = this.findFieldDef(fieldName)?.exclusive;
+    if (exclusive) {
+      storeRef[fieldName] = option === exclusive ? [option] : [...arr.filter((o) => o !== exclusive), option];
+      return;
+    }
+    arr.push(option);
+  }
+
+  /** Top-level field definition (general or any scope section) by key. */
+  private findFieldDef(fieldName: string): any {
+    const allFields = [
+      ...(this.template?.general?.fields || []),
+      ...Object.values(this.template?.scopeDetails || {}).flatMap((s: any) => s.fields || []),
+    ];
+    return allFields.find((f: any) => f.field === fieldName);
   }
 
   isCheckboxChecked(store: 'general' | 'scope', fieldName: string, option: string): boolean {
@@ -1666,6 +1786,10 @@ export class TechIntakeComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.showDiscardModal) {
+      this.cancelDiscard();
+      return;
+    }
     if (this.showHistoryDrawer) {
       this.closeHistoryDrawer();
     }
@@ -1683,6 +1807,9 @@ export class TechIntakeComponent implements OnInit {
       this._validationTimeout = setTimeout(() => { this.noChangeMessage = null; }, 5000);
       return;
     }
+    // Block in both modes until required / invalid fields are fixed (listed on the Review step)
+    this.submitBlockers = this.computeSubmitBlockers();
+    if (this.submitBlockers.length > 0) return;
     this.isExporting = true;
     this.exportError = null;
     this.exportSuccess = null;
@@ -1771,11 +1898,11 @@ payload.step1.intakeTitle = this.intakeTitleSuffix || '';
               const data = await this.apiService.request<any>('GET', `/api/tech-intake/intake/${pageId}/pull`);
               const formData = data.formData || data;
               this.populateFormFromData(formData);
-              // Capture snapshot after pulling existing intake for editing
-              this._originalFormSnapshot = this.getFormStateSnapshot();
               this.editMode = true;
               this.editPageId = pageId;
-              this.goToStep(1);
+              this.editIntakePages = [{ pageId, title: err.error.title || '', url: err.error.url || '', lastUpdated: null, updatedBy: null }];
+              // Defaults + snapshot, back to the first step
+              this.enterForm();
             } catch (pullErr) {
               console.error('Failed to pull existing intake:', pullErr);
               this.exportError = 'An intake exists but failed to load it for editing.';
