@@ -923,7 +923,7 @@
                              (click)="$event.stopPropagation(); selectDuplicationSource(null)"
                              name="duplication-source" />
                     </td>
-                    <td colspan="3"><strong>Blank intake</strong> <span class="muted-text">— start with an empty form</span></td>
+                    <td colspan="3"><strong>Blank intake</strong><span class="muted-text">&nbsp;— start with an empty form</span></td>
                   </tr>
                   <tr *ngFor="let intake of previousIntakes"
                       [class.selected]="selectedDuplicationSource?.pageId === intake.pageId"

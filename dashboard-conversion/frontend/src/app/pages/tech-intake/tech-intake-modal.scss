@@ -224,6 +224,12 @@
     opacity: 1;
   }
 
+/* Dropdowns inside a modal render in-flow: .modal-body scrolls (overflow:auto),
+   so an absolutely positioned list gets clipped at the body/footer edge. */
+.modal-body .user-search-dropdown {
+  position: static;
+  max-height: 220px;
+}
 /* Text inputs in modals (Your name, DA team filter) match the selects */
 .form-group input[type="text"] {
   width: 100%;
