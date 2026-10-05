@@ -1,5 +1,10 @@
 .page-header {
   margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 
   h1 {
     margin: 0 0 6px;
@@ -180,149 +185,123 @@
 .section-card.hidden {
   display: none;
 }
-// ── Instructions card ─────────────────────────────────────────────────────
-.instructions-card {
-  .instructions-body {
-    padding: 4px 0 8px;
+// ── Landing: two action cards + compact steps line ───────────────────────
+.header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+.action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 28px;
+  background: #fff;
+  border: 1px solid #dfe1e6;
+  border-radius: 10px;
+  font: inherit;
+  color: #172b4d;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:hover,
+  &:focus-visible {
+    border-color: var(--bmo-primary-blue, #0075be);
+    box-shadow: 0 4px 14px rgba(9, 30, 66, 0.1);
   }
-  .instructions-intro {
-    font-size: 0.9rem;
-    color: var(--text-secondary, #44546f);
-    margin: 0 0 20px;
-    line-height: 1.6;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--bmo-grey-100, #f0f0f0);
+  &:hover .action-card-go,
+  &:focus-visible .action-card-go {
+    color: var(--bmo-primary-blue, #0075be);
+    i { transform: translateX(3px); }
   }
-  .instructions-steps {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0;
-    margin-bottom: 20px;
+}
+.action-card-icon {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #f1f2f4;
+  color: #44546f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  &--create {
+    background: #e9f2ff;
+    color: var(--bmo-primary-blue, #0075be);
   }
-  .instructions-step {
-    display: grid;
-    grid-template-columns: 36px 1fr;
-    gap: 14px;
-    align-items: start;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--bmo-grey-100, #f0f0f0);
-    &:last-child {
-      border-bottom: none;
-    }
-  }
-  .instructions-step-number {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--bmo-primary-blue, #0075be);
-    color: #fff;
-    font-size: 0.78rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 2px;
-    flex-shrink: 0;
-  }
-  .instructions-step-content {
-    font-size: 0.875rem;
-    line-height: 1.5;
-    strong {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--bmo-slate, #172b4d);
-      margin-bottom: 3px;
-    }
-    p {
-      margin: 0;
-      color: var(--text-secondary, #44546f);
-      font-size: 0.825rem;
-      line-height: 1.55;
-    }
-  }
-  .instructions-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 16px;
-    background: var(--bmo-albicant, #f7f7f7);
-    border-radius: 6px;
-    border-left: 3px solid var(--bmo-primary-blue, #0075be);
-    font-size: 0.825rem;
-    color: var(--text-secondary, #44546f);
-    line-height: 1.5;
-    i {
-      flex-shrink: 0;
-      margin-top: 2px;
-      color: var(--bmo-primary-blue, #0075be);
-      font-size: 1rem;
-    }
-    strong {
-      color: var(--bmo-slate, #172b4d);
-    }
-  }
-  .instructions-flows {
-    display: grid;
-    grid-template-columns: 1fr 1px 1fr;
-    gap: 0 28px;
-    margin-bottom: 20px;
-  }
-  .instructions-flow-divider {
-    background: var(--bmo-grey-200, #e0e0e0);
-    width: 1px;
-    align-self: stretch;
-  }
-  .instructions-flow-heading {
-    font-size: 0.875rem;
-    font-weight: 700;
-    padding: 10px 14px;
-    border-radius: 6px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    &--create {
-      background: #e3fcef;
-      color: #006644;
-    }
-    &--edit {
-      background: #deebff;
-      color: #0747a6;
-    }
-  }
-  .instructions-flow-col {
-    .instructions-steps {
-      grid-template-columns: 1fr;
-      margin-bottom: 0;
-    }
-    .instructions-step {
-      padding-left: 0;
-      padding-right: 0;
-      border-right: none;
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-  }
-  @media (max-width: 900px) {
-    .instructions-flows {
-      grid-template-columns: 1fr;
-    }
-    .instructions-flow-divider {
-      height: 1px;
-      width: 100%;
-    }
-    .instructions-step {
-      padding-left: 0 !important;
-      padding-right: 0 !important;
-      border-right: none !important;
-      border-bottom: 1px solid var(--bmo-grey-100, #f0f0f0) !important;
-      &:last-child {
-        border-bottom: none !important;
-      }
-    }
-  }
+}
+.action-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.action-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.action-card-desc {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #5e6c84;
+}
+.action-card-go {
+  margin-top: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0052cc;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  i { transition: transform 0.15s; }
+}
+.landing-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 0 4px;
+  font-size: 0.82rem;
+  color: #5e6c84;
+  strong { color: #44546f; }
+}
+.landing-steps-label {
+  font-weight: 600;
+  color: #44546f;
+}
+.landing-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.landing-step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #dfe1e6;
+  color: #172b4d;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.landing-step-sep { color: #a5adba; }
+.landing-steps-break {
+  flex-basis: 100%;
+  height: 0;
 }
 /* Apply improved form layout to existing markup used in the template
    - keep HTML unchanged but enforce labels above inputs and full-width controls

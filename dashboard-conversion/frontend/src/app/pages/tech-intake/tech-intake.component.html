@@ -1,12 +1,12 @@
 <!-- Page header -->
 <div class="card page-header">
   <div>
-    <h1>Tech Intake Export</h1>
-    <p class="subtitle">Create Confluence intake pages for release DA team onboarding</p>
+    <h1>Tech Intake</h1>
+    <p class="subtitle">Submit your team's technical intake for a release. It's reviewed in Tech Governance before you join the release.</p>
   </div>
   <div class="step-actions-right">
-    <button class="btn btn-secondary" (click)="requestCreateModal()">+ New Intake</button>
-    <button class="btn btn-secondary" (click)="requestEditModal()">✏️ Modify Existing</button>
+    <button class="btn btn-primary header-btn" (click)="requestCreateModal()"><i class="bi bi-plus-lg"></i> New Intake</button>
+    <button class="btn btn-secondary header-btn" (click)="requestEditModal()"><i class="bi bi-pencil"></i> Modify Existing</button>
   </div>
 </div>
 
@@ -744,94 +744,37 @@
 }
   <!-- closes @if (currentStep === 'review') -->
 } @else {
-  <div class="card form-card instructions-card">
-    <div class="section-header">👋 Welcome to Tech Intake</div>
-    <div class="instructions-body">
-      <p class="instructions-intro">Use this tool to create a new Confluence Tech Intake Checklist or update an existing one for your DA team's release. There are two separate flows depending on what you need — choose below to get started.</p>
-      <div class="instructions-flows">
-        <div class="instructions-flow-col">
-          <div class="instructions-flow-heading instructions-flow-heading--create">
-            <i class="bi bi-plus-circle"></i> Creating a New Intake
-          </div>
-          <div class="instructions-steps">
-            <div class="instructions-step">
-              <div class="instructions-step-number">1</div>
-              <div class="instructions-step-content">
-                <strong>Click "+ New Intake"</strong>
-                <p>A popup asks for your name, the Release, the DA Team and the Feature Name (used in the page title), then lets you start blank or duplicate one of your team's previous intakes. If an intake already exists for that combination, you'll be redirected into edit mode instead.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">2</div>
-              <div class="instructions-step-content">
-                <strong>Complete General Fields</strong>
-                <p>Fill in design links, feature toggles, API changes, technical risk level, and other release-wide details. Required fields are marked with *.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">3</div>
-              <div class="instructions-step-content">
-                <strong>Select Change Scope</strong>
-                <p>Check all areas impacted — CDB UI, CDBBOS, Akamai, ISAM, Channels, AWS Lambda, and more. Only selected scopes appear in the next step.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">4</div>
-              <div class="instructions-step-content">
-                <strong>Fill in Scope Details</strong>
-                <p>Complete the detail fields for each selected scope. Config scopes (CDB UI Config, CDBBOS Config) require at least one filled table row before you can proceed.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">5</div>
-              <div class="instructions-step-content">
-                <strong>Review and Submit</strong>
-                <p>Review a full summary of your entries then click <strong>Submit</strong> to publish a new intake page directly to the SSRELEASE Confluence space.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="instructions-flow-divider"></div>
-        <div class="instructions-flow-col">
-          <div class="instructions-flow-heading instructions-flow-heading--edit">
-            <i class="bi bi-pencil-square"></i> Editing an Existing Intake
-          </div>
-          <div class="instructions-steps">
-            <div class="instructions-step">
-              <div class="instructions-step-number">1</div>
-              <div class="instructions-step-content">
-                <strong>Click "✏️ Modify Existing"</strong>
-                <p>A popup asks for your name (recorded as the editor in the audit history) and the Release, then you choose the intake page to edit.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">2</div>
-              <div class="instructions-step-content">
-                <strong>Update Any Fields Freely</strong>
-                <p>All steps are unlocked — jump to any step and update General Fields, Change Scope, or Scope Details. Submit stays blocked until required fields are complete.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">3</div>
-              <div class="instructions-step-content">
-                <strong>Review Changes and Submit</strong>
-                <p>The Review step highlights only the fields you changed. Click <strong>Submit</strong> to push your updates to the existing Confluence page. A no-change guard prevents accidental empty submissions.</p>
-              </div>
-            </div>
-            <div class="instructions-step">
-              <div class="instructions-step-number">4</div>
-              <div class="instructions-step-content">
-                <strong>View Edit History</strong>
-                <p>After submitting, the stepper shows a <strong>View History</strong> button. Every edit is recorded with the editor's name, timestamp, and a full list of changed fields.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="instructions-note">
-        <i class="bi bi-info-circle"></i>
-        <span>All intakes are published to the <strong>SSRELEASE</strong> Confluence space. If you click <strong>+ New Intake</strong> for a Release + DA Team that already has an intake, you will be automatically redirected into edit mode.</span>
-      </div>
+  <!-- Landing: two entry points (replaces the two instruction columns) -->
+  <div class="landing">
+    <div class="landing-cards">
+      <button type="button" class="action-card" (click)="requestCreateModal()">
+        <span class="action-card-icon action-card-icon--create"><i class="bi bi-file-earmark-plus"></i></span>
+        <span class="action-card-text">
+          <span class="action-card-title">Create a new intake</span>
+          <span class="action-card-desc">Pick the release, your DA team and the feature. Start blank or copy one of your team's previous intakes.</span>
+          <span class="action-card-go">Start <i class="bi bi-arrow-right"></i></span>
+        </span>
+      </button>
+      <button type="button" class="action-card" (click)="requestEditModal()">
+        <span class="action-card-icon"><i class="bi bi-pencil"></i></span>
+        <span class="action-card-text">
+          <span class="action-card-title">Modify an existing intake</span>
+          <span class="action-card-desc">Choose a release and the intake to update. Every change is recorded in the edit history.</span>
+          <span class="action-card-go">Find intake <i class="bi bi-arrow-right"></i></span>
+        </span>
+      </button>
+    </div>
+    <div class="landing-steps">
+      <span class="landing-steps-label">Four steps:</span>
+      <span class="landing-step"><span class="landing-step-num">1</span>General</span>
+      <span class="landing-step-sep">›</span>
+      <span class="landing-step"><span class="landing-step-num">2</span>Change Scope</span>
+      <span class="landing-step-sep">›</span>
+      <span class="landing-step"><span class="landing-step-num">3</span>Scope Details</span>
+      <span class="landing-step-sep">›</span>
+      <span class="landing-step"><span class="landing-step-num">4</span>Review &amp; Submit</span>
+      <span class="landing-steps-break"></span>
+      <span>Already have an intake for that release and team? <strong>New Intake</strong> takes you straight to it.</span>
     </div>
   </div>
 }
