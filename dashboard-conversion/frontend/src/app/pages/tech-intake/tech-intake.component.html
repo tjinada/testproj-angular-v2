@@ -275,16 +275,25 @@
         <span class="sub-stepper-label">Scope Details:</span>
         @for (entry of getVisibleScopeSections(); track entry.key; let i = $index) {
           @if (i > 0) { <span class="sub-step-sep" aria-hidden="true">›</span> }
-          <button type="button" class="sub-step"
-                  [class.sub-step--done]="i < activeScopeIndex"
-                  [class.sub-step--current]="i === activeScopeIndex"
-                  [class.sub-step--locked]="!canGoToScopeIndex(i)"
-                  [attr.aria-current]="i === activeScopeIndex ? 'step' : null"
-                  [disabled]="!canGoToScopeIndex(i)"
-                  (click)="goToScopeIndex(i)">
-            @if (i < activeScopeIndex) { <i class="bi bi-check-lg"></i> }
-            <span>3.{{ i + 1 }} {{ entry.section.label }}</span>
-          </button>
+          <span class="sub-step-item">
+            <button type="button" class="sub-step"
+                    [class.sub-step--done]="isScopeVisited(entry.key) && i !== activeScopeIndex"
+                    [class.sub-step--current]="i === activeScopeIndex"
+                    [class.sub-step--locked]="!canGoToScopeIndex(i)"
+                    [class.sub-step--removable]="getVisibleScopeSections().length > 1"
+                    [attr.aria-current]="i === activeScopeIndex ? 'step' : null"
+                    [disabled]="!canGoToScopeIndex(i)"
+                    (click)="goToScopeIndex(i)">
+              @if (isScopeVisited(entry.key) && i !== activeScopeIndex) { <i class="bi bi-check-lg"></i> }
+              <span>3.{{ i + 1 }} {{ entry.section.label }}</span>
+            </button>
+            @if (getVisibleScopeSections().length > 1) {
+              <button type="button" class="sub-step-remove"
+                      [attr.aria-label]="'Remove ' + entry.section.label"
+                      [title]="'Remove ' + entry.section.label"
+                      (click)="requestRemoveScope(entry, i)"><i class="bi bi-x"></i></button>
+            }
+          </span>
         }
       </div>
     }
@@ -1012,6 +1021,26 @@
         <button class="btn btn-primary" (click)="submitEditModal()" [disabled]="editModalLoading || !editModalSelectedPageId || !selectedUser">
           {{ editModalLoading ? 'Loading...' : 'Load &amp; Edit' }}
         </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Remove a scope (× on a Scope Details pill) -->
+@if (scopeToRemove) {
+  <div class="modal-backdrop" (click)="cancelRemoveScope()"></div>
+  <div class="modal">
+    <div class="modal-dialog modal-dialog--narrow" role="dialog" aria-labelledby="remove-scope-title" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="remove-scope-title">Remove {{ scopeToRemove.label }}?</h3>
+        <button class="modal-close" aria-label="Close" (click)="cancelRemoveScope()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Its answers will be cleared. Your other scopes aren't affected.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="cancelRemoveScope()">Cancel</button>
+        <button class="btn btn-danger" (click)="confirmRemoveScope()">Remove</button>
       </div>
     </div>
   </div>

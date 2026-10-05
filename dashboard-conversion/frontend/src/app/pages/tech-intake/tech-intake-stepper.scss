@@ -123,6 +123,32 @@
     cursor: not-allowed;
   }
 }
+/* × on a scope pill: separate button, sitting inside the pill's right end */
+.sub-step-item {
+  position: relative;
+  display: inline-flex;
+}
+.sub-step--removable { padding-right: 30px; }
+.sub-step-remove {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b778c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  &:hover { background: #ffebe6; color: #bf2600; }
+  &:focus-visible { outline: 2px solid var(--bmo-primary-blue, #0075be); outline-offset: 1px; }
+}
 /* Sub-step navigation within Step 4 */
 .sub-step-nav {
   display: flex;

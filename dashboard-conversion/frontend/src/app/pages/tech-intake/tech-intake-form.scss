@@ -1063,10 +1063,14 @@
 .user-search-dropdown li.selected { background: #e8f1ff; }
 
 /* ─── Step feedback: highlighted rows + hint next to Next ───────────── */
+// Same specificity as `.form-card .field-row` (which sets padding: 14px 0) plus one class,
+// so the indent wins and the red bar never sits on top of the label text.
+.form-card .field-row.field-row--error,
 .field-row--error {
   background: #fff8f6;
   box-shadow: inset 3px 0 0 #de350b;
-  padding-left: 12px;
+  padding-left: 15px;
+  padding-right: 12px;
   border-radius: 2px;
 }
 .row-issue-note { margin-top: 6px; }

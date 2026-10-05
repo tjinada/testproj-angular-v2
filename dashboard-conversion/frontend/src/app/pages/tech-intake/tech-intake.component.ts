@@ -102,9 +102,12 @@ export class TechIntakeComponent implements OnInit {
   // Step 4 (Scope details)
   scopeValues: Record<string, any> = {};
   dynamicRows: Record<string, any[][]> = {};
-  // Step 4 sub-step tracking
+  // Scope Details sub-step tracking
   activeScopeIndex = 0;
-  maxVisitedScopeIndex = 0; // tracks highest scope index user has reached
+  // Visited sub-steps by section key (not position), so adding/removing scopes keeps progress
+  private visitedScopeKeys = new Set<string>();
+  // "Remove scope" confirmation (× on a Scope Details pill)
+  scopeToRemove: { key: string; label: string; index: number } | null = null;
 
   private _visibleScopeSectionsCache: { key: string; section: any }[] | null = null;
   private _lastScopeSnapshot = '';
@@ -1103,7 +1106,8 @@ export class TechIntakeComponent implements OnInit {
     this.submitBlockers = [];
     this.currentStep = 'general';
     this.activeScopeIndex = 0;
-    this.maxVisitedScopeIndex = 0;
+    this.visitedScopeKeys = new Set();
+    this.scopeToRemove = null;
     this.exportSuccess = null;
     this.exportError = null;
     this.postExportState = 'idle';
@@ -1148,9 +1152,18 @@ export class TechIntakeComponent implements OnInit {
       this.exportSuccess = null;
       this.postExportState = 'idle';
     }
-    if (step === 'details' && movingForward) {
-      this.activeScopeIndex = 0; // Reset to first sub-step when entering scopes
-      this.maxVisitedScopeIndex = this.editMode ? Math.max(0, this.getVisibleScopeSections().length - 1) : 0;
+    if (step === 'details') {
+      const visible = this.getVisibleScopeSections();
+      if (this.editMode) {
+        visible.forEach((s) => this.visitedScopeKeys.add(s.key)); // edit mode: every sub-step open
+      }
+      if (movingForward) {
+        // Land on the first sub-step not visited yet (a newly added scope), else the first one
+        const firstUnvisited = visible.findIndex((s) => !this.visitedScopeKeys.has(s.key));
+        this.activeScopeIndex = firstUnvisited >= 0 ? firstUnvisited : 0;
+      }
+      this.clampActiveScope();
+      this.markActiveScopeVisited();
     }
     if (step === 'review') {
       this.submitBlockers = this.computeSubmitBlockers();
@@ -1213,8 +1226,7 @@ export class TechIntakeComponent implements OnInit {
   backToLastScope(): void {
     const visible = this.getVisibleScopeSections();
     this.activeScopeIndex = Math.max(0, (visible || []).length - 1);
-    // User already visited all scopes if returning from summary — mark visited
-    this.maxVisitedScopeIndex = Math.max(this.maxVisitedScopeIndex, this.activeScopeIndex);
+    this.markActiveScopeVisited();
     this.currentStep = 'details';
   }
 
@@ -1223,7 +1235,7 @@ export class TechIntakeComponent implements OnInit {
     const visible = this.getVisibleScopeSections();
     if (this.activeScopeIndex < visible.length - 1) {
       this.activeScopeIndex++;
-      this.maxVisitedScopeIndex = Math.max(this.maxVisitedScopeIndex, this.activeScopeIndex);
+      this.markActiveScopeVisited();
     }
   }
 
@@ -1235,17 +1247,71 @@ export class TechIntakeComponent implements OnInit {
     }
   }
 
-  // Can the user click the sub-step button for `index`?
-  canGoToScopeIndex(index: number): boolean {
-    // Can only go to indices you've already visited (or the current one)
-    return index <= this.maxVisitedScopeIndex;
+  private markActiveScopeVisited(): void {
+    const entry = this.getVisibleScopeSections()[this.activeScopeIndex];
+    if (entry) this.visitedScopeKeys.add(entry.key);
   }
 
-  // Has the user reached the last scope sub-step at least once?
+  private clampActiveScope(): void {
+    const last = this.getVisibleScopeSections().length - 1;
+    this.activeScopeIndex = Math.max(0, Math.min(this.activeScopeIndex, last));
+  }
+
+  isScopeVisited(key: string): boolean {
+    return this.visitedScopeKeys.has(key);
+  }
+
+  // Can the user click the sub-step button for `index`? Visited ones (and the current one) only.
+  canGoToScopeIndex(index: number): boolean {
+    const entry = this.getVisibleScopeSections()[index];
+    return !!entry && (index === this.activeScopeIndex || this.visitedScopeKeys.has(entry.key));
+  }
+
+  // Has every selected scope's sub-step been visited at least once?
   hasCompletedAllScopes(): boolean {
     const visible = this.getVisibleScopeSections();
-    if (visible.length === 0) return false;
-    return this.maxVisitedScopeIndex >= visible.length - 1;
+    return visible.length > 0 && visible.every((s) => this.visitedScopeKeys.has(s.key));
+  }
+
+  // ─── Remove a scope from Scope Details (× on its pill) ───────────
+  requestRemoveScope(entry: { key: string; section: any }, index: number): void {
+    if (this.getVisibleScopeSections().length <= 1) return; // at least one scope is required
+    this.scopeToRemove = { key: entry.key, label: entry.section?.label || entry.key, index };
+  }
+
+  cancelRemoveScope(): void {
+    this.scopeToRemove = null;
+  }
+
+  /** Untick the scope and clear only its own answers; other scopes and progress are untouched. */
+  confirmRemoveScope(): void {
+    const target = this.scopeToRemove;
+    this.scopeToRemove = null;
+    if (!target) return;
+    const section = this.template?.scopeDetails?.[target.key];
+    if (!section) return;
+
+    this.selectedScopes.delete(section.showWhen);
+    for (const f of section.fields || []) {
+      delete this.scopeValues[f.field];
+      delete this.dynamicRows[f.field];
+      if (f.detailField) delete this.scopeValues[f.detailField];
+      delete this.scopeValues[`${f.field}_link`];
+      for (const sub of Object.values(f.conditionalFields || {}).flat() as any[]) {
+        if (sub?.field) delete this.scopeValues[sub.field];
+      }
+    }
+    delete this.scopeValues[`${target.key}_description`]; // free-text fallback for field-less scopes
+    this.applyFieldDefaults(); // re-seed "No" defaults so a later re-add starts clean
+    this.visitedScopeKeys.delete(target.key);
+    this._visibleScopeSectionsCache = null;
+
+    // Stay on the same sub-step: shift back one if an earlier pill was removed;
+    // removing the current one shows the next (or the last, via clamp)
+    if (target.index < this.activeScopeIndex) this.activeScopeIndex--;
+    this.clampActiveScope();
+    this.markActiveScopeVisited();
+    this.showStepErrors = false;
   }
 
   // Attempt to advance to a target step, showing validation feedback if blocked
@@ -1461,25 +1527,16 @@ export class TechIntakeComponent implements OnInit {
     this.goToStep(blocker.step);
     if (blocker.scopeIndex !== undefined) {
       this.activeScopeIndex = blocker.scopeIndex;
-      this.maxVisitedScopeIndex = Math.max(this.maxVisitedScopeIndex, blocker.scopeIndex);
+      this.markActiveScopeVisited();
     }
   }
 
+  /** Change Scope checkbox. Answers and visited progress are kept (re-ticking restores both). */
   toggleScope(scopeId: string): void {
     if (this.selectedScopes.has(scopeId)) this.selectedScopes.delete(scopeId);
     else this.selectedScopes.add(scopeId);
     this._visibleScopeSectionsCache = null; // Invalidate cache
-    // Reset active index if it's now out of bounds
-    const visible = this.getVisibleScopeSections();
-    if (this.activeScopeIndex >= visible.length) {
-      this.activeScopeIndex = Math.max(0, visible.length - 1);
-    }
-    // Reset visited tracking since scope list changed
-    this.maxVisitedScopeIndex = 0;
-  }
-
-  get allScopeSectionsVisited(): boolean {
-    return this.activeScopeIndex >= this.getVisibleScopeSections().length - 1;
+    this.clampActiveScope();
   }
 
   isScopeSelected(scopeId: string): boolean {
@@ -1929,6 +1986,10 @@ export class TechIntakeComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.scopeToRemove) {
+      this.cancelRemoveScope();
+      return;
+    }
     if (this.showDiscardModal) {
       this.cancelDiscard();
       return;
