@@ -197,41 +197,43 @@
 }
 @if (modalSubmitted) {
   <div class="card stepper-card">
-  <div class="stepper">
-    <button class="step-btn" [class.active]="currentStep === 'general'" [class.completed]="isStepBefore('general')" (click)="goToStep('general')">
-      <span class="step-number">1</span><span class="step-label">General</span>
-    </button>
-    <div class="step-connector" [class.active]="isStepBefore('general')"></div>
-    <button class="step-btn" [class.active]="currentStep === 'scope'" [class.completed]="isStepBefore('scope')" (click)="goToStep('scope')">
-      <span class="step-number">2</span><span class="step-label">Change Scope</span>
-    </button>
-    <div class="step-connector" [class.active]="isStepBefore('scope')"></div>
-    <button class="step-btn" [class.active]="currentStep === 'details'" [class.completed]="isStepBefore('details')" (click)="goToStep('details')">
-      <span class="step-number">3</span><span class="step-label">Scope Details{{ selectedScopes.size > 0 ? ' (' + selectedScopes.size + ')' : '' }}</span>
-    </button>
-    <div class="step-connector" [class.active]="isStepBefore('details')"></div>
-    <button class="step-btn" [class.active]="currentStep === 'review'" (click)="goToStep('review')">
-      <span class="step-number">4</span><span class="step-label">Review &amp; Submit</span>
-    </button>
-  </div>
-    @if (currentStep === 'details' && getVisibleScopeSections().length > 1) {
-    <div class="sub-stepper">
-      @for (entry of getVisibleScopeSections(); track entry.key; let i = $index) {
-        <button class="sub-step-btn"
-                [class.active]="activeScopeIndex === i"
-                [class.completed]="i < activeScopeIndex"
-                [class.locked]="!canGoToScopeIndex(i)"
-                (click)="canGoToScopeIndex(i) && (activeScopeIndex = i)"
-                [disabled]="!canGoToScopeIndex(i)">
-          <span class="sub-step-number">3.{{ i + 1 }}</span>
-          <span class="sub-step-label">{{ entry.section.label }}</span>
-        </button>
-        @if (i < getVisibleScopeSections().length - 1) {
-          <div class="sub-step-connector"></div>
+    <nav class="stepper" aria-label="Intake steps">
+      @for (step of stepList; track step.id; let i = $index) {
+        @if (i > 0) {
+          <div class="step-connector" [class.step-connector--done]="stepStatus(step.id) !== 'upcoming'" aria-hidden="true"></div>
         }
+        <button type="button" class="step"
+                [class.step--done]="stepStatus(step.id) === 'done'"
+                [class.step--current]="stepStatus(step.id) === 'current'"
+                [class.step--upcoming]="stepStatus(step.id) === 'upcoming'"
+                [attr.aria-current]="stepStatus(step.id) === 'current' ? 'step' : null"
+                [attr.aria-label]="step.label + ' (' + stepStatus(step.id) + ')'"
+                (click)="onStepClick(step.id)">
+          <span class="step-circle">
+            @if (stepStatus(step.id) === 'done') { <i class="bi bi-check-lg"></i> } @else { {{ i + 1 }} }
+          </span>
+          <span class="step-label">{{ step.label }}@if (step.id === 'details' && selectedScopes.size > 0) { ({{ selectedScopes.size }})}</span>
+        </button>
       }
-    </div>
-  }
+    </nav>
+    @if (currentStep === 'details' && getVisibleScopeSections().length > 1) {
+      <div class="sub-stepper">
+        <span class="sub-stepper-label">Scope Details:</span>
+        @for (entry of getVisibleScopeSections(); track entry.key; let i = $index) {
+          @if (i > 0) { <span class="sub-step-sep" aria-hidden="true">›</span> }
+          <button type="button" class="sub-step"
+                  [class.sub-step--done]="i < activeScopeIndex"
+                  [class.sub-step--current]="i === activeScopeIndex"
+                  [class.sub-step--locked]="!canGoToScopeIndex(i)"
+                  [attr.aria-current]="i === activeScopeIndex ? 'step' : null"
+                  [disabled]="!canGoToScopeIndex(i)"
+                  (click)="goToScopeIndex(i)">
+            @if (i < activeScopeIndex) { <i class="bi bi-check-lg"></i> }
+            <span>3.{{ i + 1 }} {{ entry.section.label }}</span>
+          </button>
+        }
+      </div>
+    }
   </div>
 
   <!-- Intake header: replaces the old Project Identity step; visible on every step -->

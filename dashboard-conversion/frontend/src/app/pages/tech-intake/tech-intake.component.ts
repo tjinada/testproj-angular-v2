@@ -1155,9 +1155,41 @@ export class TechIntakeComponent implements OnInit {
     }
   }
 
-  /** True when `step` comes before the current step (stepper "completed" styling). */
-  isStepBefore(step: StepId): boolean {
-    return STEP_ORDER.indexOf(step) < STEP_ORDER.indexOf(this.currentStep);
+  // ─── Stepper ──────────────────────────────────────────────────────
+  readonly stepList: { id: StepId; label: string }[] = [
+    { id: 'general', label: 'General' },
+    { id: 'scope', label: 'Change Scope' },
+    { id: 'details', label: 'Scope Details' },
+    { id: 'review', label: 'Review & Submit' },
+  ];
+
+  stepStatus(step: StepId): 'done' | 'current' | 'upcoming' {
+    const diff = STEP_ORDER.indexOf(step) - STEP_ORDER.indexOf(this.currentStep);
+    return diff < 0 ? 'done' : diff === 0 ? 'current' : 'upcoming';
+  }
+
+  /**
+   * Stepper click. Back (or anywhere in edit mode): go there.
+   * Forward in create mode: behaves like Next — one step on, or show what's missing.
+   */
+  onStepClick(step: StepId): void {
+    const target = STEP_ORDER.indexOf(step);
+    const current = STEP_ORDER.indexOf(this.currentStep);
+    if (this.editMode || target <= current) {
+      this.goToStep(step);
+      return;
+    }
+    if (this.currentStep === 'details' && this.activeScopeIndex < this.getVisibleScopeSections().length - 1) {
+      this.attemptNextScope(); // finish the remaining scope sub-steps first
+      return;
+    }
+    this.attemptNext(STEP_ORDER[current + 1]);
+  }
+
+  goToScopeIndex(index: number): void {
+    if (!this.canGoToScopeIndex(index)) return;
+    this.activeScopeIndex = index;
+    this.showStepErrors = false;
   }
 
   canProceedFromStep(step: StepId): boolean {

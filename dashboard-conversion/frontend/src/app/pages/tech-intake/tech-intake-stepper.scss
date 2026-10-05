@@ -1,20 +1,66 @@
-/* Stepper */
-.stepper-card { padding: 12px 16px; margin-bottom: 12px; }
-.stepper { display: flex; align-items: center; gap: 0; justify-content: center; }
-.step-btn {
-  display: flex; align-items: center; gap: 8px;
-  background: none; border: 2px solid var(--border); border-radius: 999px;
-  padding: 8px 20px; cursor: pointer; font: inherit; font-weight: 600;
-  color: var(--text-secondary); transition: all 0.2s;
+/* Stepper: one line, three states (done ✓ / current / upcoming) */
+.stepper-card { padding: 14px 24px; margin-bottom: 12px; }
+.stepper {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
 }
-.step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.step-btn.active { border-color: #2d8ad3; color: #2d8ad3; background: #f0f7ff; }
-.step-btn.completed { border-color: #4caf50; color: #4caf50; background: #f0faf0; }
-.step-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--border); color: #fff; font-size: 13px; font-weight: 700; }
-.step-btn.active .step-number { background: #2d8ad3; }
-.step-btn.completed .step-number { background: #4caf50; }
-.step-connector { width: 40px; height: 2px; background: var(--border); }
-.step-connector.active { background: #4caf50; }
+.step {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+  &:focus-visible { outline: 2px solid var(--bmo-primary-blue, #0075be); outline-offset: 2px; }
+}
+.step-circle {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+  border: 1.5px solid #8590a2;
+  color: #44546f;
+}
+.step-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #44546f;
+}
+.step--done {
+  .step-circle { background: var(--bmo-primary-blue, #0075be); border-color: var(--bmo-primary-blue, #0075be); color: #fff; font-size: 14px; }
+  .step-label { color: #172b4d; }
+}
+.step--current {
+  .step-circle { border: 2px solid var(--bmo-primary-blue, #0075be); color: var(--bmo-primary-blue, #0075be); box-shadow: 0 0 0 4px #e9f2ff; }
+  .step-label { color: #172b4d; font-weight: 700; }
+}
+.step--upcoming:hover .step-label { color: #172b4d; }
+.step-connector {
+  flex: 1 1 auto;
+  min-width: 16px;
+  height: 2px;
+  margin: 0 10px;
+  border-radius: 1px;
+  background: #c1c7d0;
+  &--done { background: var(--bmo-primary-blue, #0075be); }
+}
+/* Narrow screens: only the current step keeps its label, so it stays on one line */
+@media (max-width: 720px) {
+  .step:not(.step--current) .step-label { display: none; }
+  .stepper-card { padding: 12px 16px; }
+}
 /* Step 3 — Scope grid */
 .scope-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .scope-item {
@@ -26,81 +72,56 @@
 .scope-item.selected { border-color: #2d8ad3; background: #e8f1ff; }
 .scope-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #2d8ad3; cursor: pointer; }
 
-/* Sub-stepper for Step 4 */
+/* Scope Details sub-steps */
 .sub-stepper {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
-  flex-wrap: wrap;
-  gap: 4px;
+  border-top: 1px solid #ebecf0;
 }
-.sub-step-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  padding: 5px 14px;
-  cursor: pointer;
-  font: inherit;
+.sub-stepper-label {
+  margin-right: 4px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  transition: all 0.2s;
+  color: #6b778c;
 }
-.sub-step-btn:hover {
-  border-color: #2d8ad3;
-  background: #f8fbff;
+.sub-step-sep {
+  color: #a5adba;
+  font-size: 13px;
 }
-.sub-step-btn.active {
-  border-color: #2d8ad3;
-  color: #2d8ad3;
-  background: #f0f7ff;
-}
-.sub-step-number {
+.sub-step {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--border);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-.sub-step-btn.active .sub-step-number {
-  background: #2d8ad3;
-}
-.sub-step-btn {
-  &:disabled,
-  &.locked {
-    opacity: 0.45;
-    cursor: not-allowed;
-    pointer-events: none;
-    background: none;
-    border-color: var(--border);
-    color: var(--text-secondary);
-  }
-  &.completed {
-    border-color: #4caf50;
-    color: #4caf50;
-  }
-  &.completed .sub-step-number {
-    background: #4caf50;
-  }
-}
-.sub-step-connector {
-  width: 20px;
-  height: 1.5px;
-  background: var(--border);
-}
-.sub-step-label {
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid #c1c7d0;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: #172b4d;
   white-space: nowrap;
+  cursor: pointer;
+  i { color: var(--bmo-primary-blue, #0075be); }
+  &:hover:not(:disabled) { border-color: var(--bmo-primary-blue, #0075be); }
+  &:focus-visible { outline: 2px solid var(--bmo-primary-blue, #0075be); outline-offset: 2px; }
+  &--current {
+    background: #e9f2ff;
+    border: 1.5px solid var(--bmo-primary-blue, #0075be);
+    color: #0055cc;
+    font-weight: 700;
+  }
+  &--locked {
+    border-style: dashed;
+    border-color: #a5adba;
+    color: #44546f;
+    cursor: not-allowed;
+  }
 }
 /* Sub-step navigation within Step 4 */
 .sub-step-nav {
@@ -127,8 +148,6 @@
 
 @media (max-width: 900px) {
   .scope-grid { grid-template-columns: 1fr; }
-  .stepper { flex-wrap: wrap; justify-content: center; }
-  .step-connector { width: 20px; }
 }
 
 .history-btn {
