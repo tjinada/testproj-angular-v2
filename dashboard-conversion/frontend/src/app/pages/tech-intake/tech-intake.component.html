@@ -300,7 +300,7 @@
 <div class="card form-card">
   <div class="section-header">{{ template.general.label || 'General' }}</div>
   @for (field of template.general.fields; track field.field) {
-    <div class="field-row">
+    <div class="field-row" [id]="'field-row-' + field.field" [class.field-row--error]="hasRowIssue(field.field)">
       <div class="field-label">
           {{ field.label }}@if (field.required) { <span class="required-mark"> *</span> }
           @if (field.hint) { <div class="field-hint">{{ field.hint }}</div> }
@@ -442,12 +442,14 @@
             </div>
           }
         }
+        @if (rowIssueNote(field.field)) { <span class="field-error row-issue-note">{{ rowIssueNote(field.field) }}</span> }
       </div>
     </div>
   }
   <div class="step-actions">
     <div class="step-actions-right">
-      <button class="btn btn-primary" (click)="attemptNext('scope')" [disabled]="!canProceedFromStep('general')">Next →</button>
+      <ng-container *ngTemplateOutlet="stepHint"></ng-container>
+      <button class="btn btn-primary" (click)="attemptNext('scope')">Next →</button>
     </div>
   </div>
 </div>
@@ -469,7 +471,8 @@
     <div class="step-actions">
     <button class="btn btn-secondary" (click)="goToStep('general')">← Back</button>
     <div class="step-actions-right">
-      <button class="btn btn-primary" (click)="attemptNext('details')" [disabled]="!canProceedFromStep('scope')">Next →</button>
+      @if (!editMode && selectedScopes.size === 0) { <span class="step-hint">Select at least one scope</span> }
+      <button class="btn btn-primary" (click)="attemptNext('details')">Next →</button>
     </div>
   </div>
 </div>
@@ -493,7 +496,7 @@
         </div>
       }
       @for (field of entry.section.fields; track field.field) {
-        <div class="field-row">
+        <div class="field-row" [id]="'field-row-' + field.field" [class.field-row--error]="hasRowIssue(field.field)">
           <div class="field-label">
             {{ field.label }}@if (field.required) { <span class="required-mark"> *</span> }
             @if (field.hint) { <div class="field-hint">{{ field.hint }}</div> }
@@ -658,6 +661,7 @@
                 </div>
               }
             }
+            @if (rowIssueNote(field.field)) { <span class="field-error row-issue-note">{{ rowIssueNote(field.field) }}</span> }
           </div>
         </div>
       }
@@ -669,11 +673,14 @@
     } @else {
       <button class="btn btn-secondary" (click)="goToStep('scope')">← Back</button>
     }
-    @if (activeScopeIndex < getVisibleScopeSections().length - 1) {
-      <button class="btn btn-primary" (click)="advanceToNextScope()" [disabled]="!editMode && !validateCurrentScopeFields()">Next: 3.{{ activeScopeIndex + 2 }} {{ getVisibleScopeSections()[activeScopeIndex + 1].section.label }} →</button>
-    } @else {
-      <button class="btn btn-primary" (click)="attemptNext('review')" [disabled]="!canProceedFromStep('details')">Next →</button>
-    }
+    <div class="step-actions-right">
+      <ng-container *ngTemplateOutlet="stepHint"></ng-container>
+      @if (activeScopeIndex < getVisibleScopeSections().length - 1) {
+        <button class="btn btn-primary" (click)="attemptNextScope()">Next: 3.{{ activeScopeIndex + 2 }} {{ getVisibleScopeSections()[activeScopeIndex + 1].section.label }} →</button>
+      } @else {
+        <button class="btn btn-primary" (click)="attemptNext('review')">Next →</button>
+      }
+    </div>
   </div>
 </div>
 
@@ -829,6 +836,19 @@
   </div>
 }
 <!-- closes @if (modalSubmitted) @else instructions -->
+<!-- "N required fields left" / "Ready" hint shown next to Next (create mode) -->
+<ng-template #stepHint>
+  @if (!editMode) {
+    @if (remainingFieldCount > 0) {
+      <button type="button" class="step-hint step-hint--todo" (click)="revealStepIssues()" title="Show what's missing">
+        {{ remainingFieldCount }} required {{ remainingFieldCount === 1 ? 'field' : 'fields' }} left
+      </button>
+    } @else {
+      <span class="step-hint step-hint--ready"><i class="bi bi-check-circle-fill"></i> Ready</span>
+    }
+  }
+</ng-template>
+
 <!-- Shared "Your name" Jira user search — used by both the Create and Modify modals -->
 <ng-template #userSearchField>
   <div class="form-group">

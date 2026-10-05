@@ -33,6 +33,13 @@ export interface SubmitBlocker {
   editFeatureName?: boolean;
 }
 
+/** One missing/invalid entry, tied to the top-level field row it belongs to. */
+interface FieldIssue {
+  row: string;   // top-level field key → field-row-<row>
+  text: string;  // full message (banner, Review blockers)
+  note: string;  // short note under the row ('' when the field shows its own inline error)
+}
+
 @Component({
   selector: 'app-tech-intake',
   standalone: true,
@@ -51,6 +58,8 @@ export class TechIntakeComponent implements OnInit {
   currentStep: StepId = 'general';
   // Review-step list of missing/invalid fields that block Submit
   submitBlockers: SubmitBlocker[] = [];
+  // Set when Next is clicked on an incomplete step: highlights the missing rows
+  showStepErrors = false;
 
   // Template loaded from backend
   template: any = null;
@@ -454,6 +463,7 @@ export class TechIntakeComponent implements OnInit {
     this._originalFormSnapshot = this.getFormStateSnapshot();
     this.titleSuffixLocked = true;
     this.submitBlockers = [];
+    this.showStepErrors = false;
     this.validationMessage = null;
     this.modalSubmitted = true;
     this.currentStep = 'general';
@@ -1129,6 +1139,7 @@ export class TechIntakeComponent implements OnInit {
     // (Submit is still blocked by submitBlockers in both modes)
     if (movingForward && !this.editMode && !this.canProceedFromStep(this.currentStep)) return;
     this.currentStep = step;
+    this.showStepErrors = false; // a fresh step starts without red rows
     // Navigating away from the review/submit step should clear any export state
     if (step !== 'review') {
       this.exportError = null;
@@ -1186,6 +1197,7 @@ export class TechIntakeComponent implements OnInit {
   goToPreviousScope(): void {
     if (this.activeScopeIndex > 0) {
       this.activeScopeIndex--;
+      this.showStepErrors = false;
     }
   }
 
@@ -1215,11 +1227,8 @@ export class TechIntakeComponent implements OnInit {
       this.validationMessage = null;
       this.goToStep(targetStep);
     } else {
-      this.validationMessage = this.getValidationMessage(currentStep);
-      if (this._validationTimeout) clearTimeout(this._validationTimeout);
-      this._validationTimeout = setTimeout(() => {
-        this.validationMessage = null;
-      }, 5000);
+      this.showValidationMessage(this.getValidationMessage(currentStep));
+      this.revealStepIssues();
     }
   }
 
@@ -1277,39 +1286,106 @@ export class TechIntakeComponent implements OnInit {
     );
   }
 
-  /** Human-readable list of missing / invalid entries for a set of fields. */
-  private getFieldIssues(store: 'general' | 'scope', fields: any[] = []): string[] {
+  /**
+   * Missing / invalid entries for a set of fields.
+   * `row` is the top-level field key (the field-row to highlight), `text` the full message,
+   * `note` the short text shown under that row.
+   */
+  private getFieldIssues(store: 'general' | 'scope', fields: any[] = []): FieldIssue[] {
     const values = store === 'general' ? this.generalValues : this.scopeValues;
-    const issues: string[] = [];
+    const issues: FieldIssue[] = [];
+    const add = (row: string, text: string, note: string) => issues.push({ row, text, note });
     for (const f of fields) {
       const label = f.label || f.field;
       const value = values[f.field];
       if (f.type === 'dynamic-rows') {
-        if (!this.hasFilledRow(f.field)) issues.push(`${label} (at least one row)`);
+        if (!this.hasFilledRow(f.field)) add(f.field, `${label} (at least one row)`, 'Add at least one row');
         continue;
       }
-      if (f.required && this.isBlank(value)) issues.push(label);
-      if (f.type === 'link' && this.isInvalidLink(value)) issues.push(`${label} (must start with http:// or https://)`);
+      if (f.required && this.isBlank(value)) add(f.field, label, 'This field is required');
+      if (f.type === 'link' && this.isInvalidLink(value)) add(f.field, `${label} (must start with http:// or https://)`, '');
       if (f.type === 'radio-with-link' && this.isInvalidLink(values[`${f.field}_link`])) {
-        issues.push(`${label} link (must start with http:// or https://)`);
+        add(f.field, `${label} link (must start with http:// or https://)`, '');
       }
       if (f.detailRequired && this.isDetailVisible(f, value) && this.isBlank(values[f.detailField])) {
-        issues.push(`${label} — details`);
+        add(f.field, `${label} — details`, 'Details are required');
       }
       for (const sub of this.getVisibleSubFields(f, value)) {
-        if (sub.required && this.isBlank(values[sub.field])) issues.push(`${label} — ${sub.label || 'selection'}`);
+        if (sub.required && this.isBlank(values[sub.field])) {
+          const subLabel = sub.label || 'selection';
+          add(f.field, `${label} — ${subLabel}`, `Required: ${subLabel}`);
+        }
       }
     }
     return issues;
   }
 
+  // ─── Step-level feedback (red rows + "N required fields left") ────
+  /** Issues on the step (or scope sub-step) the user is looking at; create mode only. */
+  private getCurrentStepIssues(): FieldIssue[] {
+    if (this.editMode) return [];
+    if (this.currentStep === 'general') return this.getFieldIssues('general', this.template?.general?.fields);
+    if (this.currentStep === 'details') {
+      const entry = this.getVisibleScopeSections()[this.activeScopeIndex];
+      return entry ? this.getFieldIssues('scope', entry.section?.fields) : [];
+    }
+    return [];
+  }
+
+  /** Count shown next to Next. Counts fields (rows), not individual sub-issues. */
+  get remainingFieldCount(): number {
+    return new Set(this.getCurrentStepIssues().map((i) => i.row)).size;
+  }
+
+  /** Short note under a highlighted row (empty when the row is fine or errors aren't shown yet). */
+  rowIssueNote(row: string): string {
+    if (!this.showStepErrors) return '';
+    return this.getCurrentStepIssues()
+      .filter((i) => i.row === row && i.note)
+      .map((i) => i.note)
+      .join(' · ');
+  }
+
+  hasRowIssue(row: string): boolean {
+    return this.showStepErrors && this.getCurrentStepIssues().some((i) => i.row === row);
+  }
+
+  /** Turn on red rows and bring the first problem into view. */
+  revealStepIssues(): void {
+    this.showStepErrors = true;
+    const first = this.getCurrentStepIssues()[0];
+    if (!first) return;
+    setTimeout(() => {
+      document.getElementById(`field-row-${first.row}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  /** Scope Details sub-step Next: advance if valid, otherwise show what's missing. */
+  attemptNextScope(): void {
+    if (this.editMode || this.validateCurrentScopeFields()) {
+      this.showStepErrors = false;
+      this.advanceToNextScope();
+      return;
+    }
+    this.showValidationMessage(this.getValidationMessage('details'));
+    this.revealStepIssues();
+  }
+
+  private showValidationMessage(message: string): void {
+    this.validationMessage = message;
+    if (this._validationTimeout) clearTimeout(this._validationTimeout);
+    this._validationTimeout = setTimeout(() => {
+      this.validationMessage = null;
+    }, 5000);
+  }
+
   private getGeneralIssues(): string[] {
-    return this.getFieldIssues('general', this.template?.general?.fields);
+    return this.getFieldIssues('general', this.template?.general?.fields).map((i) => i.text);
   }
 
   private getScopeIssues(index: number): string[] {
     const entry = this.getVisibleScopeSections()[index];
-    return entry ? this.getFieldIssues('scope', entry.section?.fields) : [];
+    return entry ? this.getFieldIssues('scope', entry.section?.fields).map((i) => i.text) : [];
   }
 
   validateGeneralFields(): boolean {

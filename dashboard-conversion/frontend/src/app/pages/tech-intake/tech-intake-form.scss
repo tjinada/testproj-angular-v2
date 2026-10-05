@@ -1083,3 +1083,33 @@
 /* Type-to-filter inputs (user search, DA team) anchor their dropdown here */
 .typeahead { position: relative; }
 .user-search-dropdown li.selected { background: #e8f1ff; }
+
+/* ─── Step feedback: highlighted rows + hint next to Next ───────────── */
+.field-row--error {
+  background: #fff8f6;
+  box-shadow: inset 3px 0 0 #de350b;
+  padding-left: 12px;
+  border-radius: 2px;
+}
+.row-issue-note { margin-top: 6px; }
+.step-actions-right,
+.sub-step-nav .step-actions-right { align-items: center; }
+.step-hint {
+  font-size: 0.82rem;
+  color: #6b778c;
+  white-space: nowrap;
+}
+.step-hint--todo {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  color: #bf2600;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
+.step-hint--ready {
+  color: #216e4e;
+  i { margin-right: 4px; }
+}
