@@ -29,6 +29,8 @@ export interface SubmitBlocker {
   label: string;
   step: StepId;
   scopeIndex?: number;
+  // Fix lives in the identity bar (not a step): open the Feature Name editor
+  editFeatureName?: boolean;
 }
 
 @Component({
@@ -549,6 +551,8 @@ export class TechIntakeComponent implements OnInit {
 
   async submitCreateModal(): Promise<void> {
     if (!this.createForm.release || !this.createForm.daTeam || !this.selectedUser) return;
+    // New intakes (blank or duplicate) need a Feature Name; redirect-to-edit doesn't
+    if (!this.createModalExistingIntake && !this.createForm.titleSuffix.trim()) return;
     // Case 1: Existing intake — redirect to edit
     if (this.createModalExistingIntake) {
       this.createModalLoading = true;
@@ -925,6 +929,17 @@ export class TechIntakeComponent implements OnInit {
   /** "<release> - <boardKey>" — the fixed part of the Confluence page title */
   get pageTitlePrefix(): string {
     return [this.selectedRelease, this.jiraBoardKey].filter(Boolean).join(' - ');
+  }
+
+  // ─── Feature Name (the page-title suffix) ─────────────────────────
+  // Required for new intakes only; existing intakes may predate the rule.
+  get isFeatureNameMissing(): boolean {
+    return !this.editMode && !(this.intakeTitleSuffix || '').trim();
+  }
+
+  /** Keep the Review blocker list in sync while the name is edited in the identity bar */
+  onFeatureNameChange(): void {
+    if (this.currentStep === 'review') this.submitBlockers = this.computeSubmitBlockers();
   }
 
   // Typeahead: query Jira users via backend proxy
@@ -1308,8 +1323,13 @@ export class TechIntakeComponent implements OnInit {
 
   /** Everything that must be fixed before Submit, with the step to jump to. */
   private computeSubmitBlockers(): SubmitBlocker[] {
-    const blockers: SubmitBlocker[] = this.getGeneralIssues()
-      .map((label) => ({ label: `General: ${label}`, step: 'general' as StepId }));
+    const blockers: SubmitBlocker[] = [];
+    // Feature Name is required for new intakes only (existing intakes may predate it)
+    if (this.isFeatureNameMissing) {
+      blockers.push({ label: 'Feature Name', step: this.currentStep, editFeatureName: true });
+    }
+    blockers.push(...this.getGeneralIssues()
+      .map((label) => ({ label: `General: ${label}`, step: 'general' as StepId })));
     if (this.selectedScopes.size === 0) {
       blockers.push({ label: 'Change Scope: select at least one scope', step: 'scope' });
     }
@@ -1322,6 +1342,10 @@ export class TechIntakeComponent implements OnInit {
   }
 
   goToBlocker(blocker: SubmitBlocker): void {
+    if (blocker.editFeatureName) {
+      this.titleSuffixLocked = false;
+      return;
+    }
     this.goToStep(blocker.step);
     if (blocker.scopeIndex !== undefined) {
       this.activeScopeIndex = blocker.scopeIndex;
@@ -1643,7 +1667,7 @@ export class TechIntakeComponent implements OnInit {
     if (originalSuffix !== currentSuffix) {
       result.push({
         field: 'intakeTitleSuffix',
-        label: 'Intake Title Suffix',
+        label: 'Feature Name',
         section: 'General',
         oldValue: originalSuffix || '—',
         newValue: currentSuffix || '—',

@@ -363,6 +363,8 @@ router.post('/export', async (req: Request, res: Response) => {
 
     if (!formData.step1.daTeam) return badRequest(res, 'Body field "step1.daTeam" is required');
     if (!formData.step1.release) return badRequest(res, 'Body field "step1.release" is required');
+    // New intakes must name the feature (it's the page-title suffix). Edits via /push stay lenient.
+    if (!String(formData.step1.intakeTitle || '').trim()) return badRequest(res, 'Feature name is required');
 
     // Acquire per-release+team lock to mitigate race conditions
     // Use resolved board key (prefer jiraBoardKey, then DA team mapping)

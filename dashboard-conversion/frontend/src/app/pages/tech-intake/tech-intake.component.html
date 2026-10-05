@@ -234,49 +234,65 @@
   }
   </div>
 
-  <!-- Identity bar: replaces the old Project Identity step; visible on every step -->
-  <div class="identity-bar" [class.identity-bar--edit]="editMode">
-    @if (editMode) {
-      <span class="identity-badge"><i class="bi bi-pencil-square"></i> Edit mode</span>
-    }
-    <span class="identity-item"><span class="identity-label">Release</span>{{ selectedRelease }}</span>
-    <span class="identity-item"><span class="identity-label">DA Team</span>{{ selectedDATeam }}</span>
-    @if (jiraBoardKey) {
-      <span class="identity-item">
-        <span class="identity-label">Jira</span>
-        <a [href]="jiraBoardLink" target="_blank" rel="noopener noreferrer">{{ jiraBoardKey }} ↗</a>
-      </span>
-    }
-    <span class="identity-item identity-item--title">
-      <span class="identity-label">Page</span>
-      @if (titleSuffixLocked) {
-        <span>{{ pageTitlePrefix }}{{ intakeTitleSuffix ? ' - ' + intakeTitleSuffix : '' }}</span>
-        <button type="button" class="title-suffix-edit-btn" (click)="unlockTitleSuffix()" title="Edit title suffix">✏️</button>
-      } @else {
-        <span class="title-input-group identity-title-input">
-          <span class="title-prefix">{{ pageTitlePrefix }} -</span>
-          <input type="text" [(ngModel)]="intakeTitleSuffix" placeholder="Optional suffix" />
-        </span>
-        @if (editMode) {
-          <span class="field-hint">Renames the Confluence page on submit</span>
+  <!-- Intake header: replaces the old Project Identity step; visible on every step -->
+  <div class="intake-header" [class.intake-header--edit]="editMode">
+    <div class="intake-header-top">
+      <div class="intake-header-title">
+        @if (titleSuffixLocked) {
+          <div class="intake-header-name">
+            <span>{{ intakeTitleSuffix || 'Untitled feature' }}</span>
+            <button type="button" class="icon-btn" (click)="unlockTitleSuffix()" title="Edit feature name" aria-label="Edit feature name">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </div>
+          <div class="intake-header-page-title">{{ pageTitlePrefix }}{{ intakeTitleSuffix ? ' - ' + intakeTitleSuffix : '' }}</div>
+        } @else {
+          <div class="intake-header-rename">
+            <span class="title-input-group">
+              <span class="title-prefix">{{ pageTitlePrefix }} -</span>
+              <input type="text" [(ngModel)]="intakeTitleSuffix" (ngModelChange)="onFeatureNameChange()"
+                     (keydown.enter)="titleSuffixLocked = !isFeatureNameMissing"
+                     placeholder="Feature name" aria-label="Feature name" />
+            </span>
+            <button type="button" class="btn btn-secondary" [disabled]="isFeatureNameMissing" (click)="titleSuffixLocked = true">Done</button>
+          </div>
+          @if (isFeatureNameMissing) {
+            <span class="field-error">Feature name is required</span>
+          } @else if (editMode) {
+            <span class="field-hint">Renames the Confluence page on submit</span>
+          }
         }
+      </div>
+      <div class="intake-header-actions">
+        <span class="status-pill" [class.status-pill--edit]="editMode">{{ editMode ? 'Editing' : 'New intake' }}</span>
+        @if (editingPageUrl) {
+          <a class="header-link" [href]="editingPageUrl" target="_blank" rel="noopener noreferrer">Open in Confluence <i class="bi bi-box-arrow-up-right"></i></a>
+        }
+        @if (editMode && editHistory.length > 0) {
+          <button class="history-btn" (click)="toggleHistoryDrawer()">
+            <i class="bi bi-clock-history"></i> History ({{ editHistory.length }})
+          </button>
+        }
+      </div>
+    </div>
+    <dl class="intake-header-meta">
+      <div><dt>Release</dt><dd [title]="selectedRelease">{{ selectedRelease }}</dd></div>
+      <div><dt>DA Team</dt><dd [title]="selectedDATeam">{{ selectedDATeam }}</dd></div>
+      <div>
+        <dt>Jira board</dt>
+        <dd>
+          @if (jiraBoardKey) {
+            <a class="header-link" [href]="jiraBoardLink" target="_blank" rel="noopener noreferrer">{{ jiraBoardKey }} <i class="bi bi-box-arrow-up-right"></i></a>
+          } @else { — }
+        </dd>
+      </div>
+      @if (editMode) {
+        <div><dt>Created by</dt><dd [title]="originalCreator?.name || 'Unknown'">{{ originalCreator?.name || 'Unknown' }}</dd></div>
+        <div><dt>Editing as</dt><dd [title]="selectedUser?.displayName || ''">{{ selectedUser?.displayName }}</dd></div>
+      } @else {
+        <div><dt>Created by</dt><dd [title]="selectedUser?.displayName || ''">{{ selectedUser?.displayName }}</dd></div>
       }
-      @if (editingPageUrl) {
-        <a [href]="editingPageUrl" target="_blank" rel="noopener noreferrer">View ↗</a>
-      }
-    </span>
-    @if (editMode) {
-      <span class="identity-item"><span class="identity-label">Created by</span>{{ originalCreator?.name || 'Unknown' }}</span>
-      <span class="identity-item"><span class="identity-label">Editing as</span>{{ selectedUser?.displayName }}</span>
-    } @else {
-      <span class="identity-item"><span class="identity-label">Created by</span>{{ selectedUser?.displayName }}</span>
-    }
-    @if (editMode && editHistory.length > 0) {
-      <button class="history-btn identity-history-btn" (click)="toggleHistoryDrawer()">
-        <i class="bi bi-clock-history"></i>
-        {{ editHistory.length }} {{ editHistory.length === 1 ? 'edit' : 'edits' }} — View History
-      </button>
-    }
+    </dl>
   </div>
 
 <!-- STEP 1: General Fields -->
@@ -735,7 +751,7 @@
               <div class="instructions-step-number">1</div>
               <div class="instructions-step-content">
                 <strong>Click "+ New Intake"</strong>
-                <p>A popup asks for your name, the Release, the DA Team and an optional page title suffix, then lets you start blank or duplicate one of your team's previous intakes. If an intake already exists for that combination, you'll be redirected into edit mode instead.</p>
+                <p>A popup asks for your name, the Release, the DA Team and the Feature Name (used in the page title), then lets you start blank or duplicate one of your team's previous intakes. If an intake already exists for that combination, you'll be redirected into edit mode instead.</p>
               </div>
             </div>
             <div class="instructions-step">
@@ -887,13 +903,11 @@
             <p>An intake already exists for <strong>{{ createForm.release }}</strong> / <strong>{{ createForm.daTeam }}</strong>:</p>
             <p class="existing-title">{{ createModalExistingIntake.title }}</p>
           </div>
-          <!-- Page title (new intakes only) -->
+          <!-- Feature Name (new intakes only) — becomes the page-title suffix -->
           <div *ngIf="createForm.release && createForm.daTeam && !createModalExistingIntake && !createModalChecking" class="form-group">
-            <label for="create-title-suffix">Page Title</label>
-            <div class="title-input-group">
-              <span class="title-prefix">{{ createForm.release }} - {{ createModalBoardKey || createForm.daTeam }} -</span>
-              <input id="create-title-suffix" type="text" [(ngModel)]="createForm.titleSuffix" placeholder="Optional suffix appended to page title" />
-            </div>
+            <label for="create-feature-name">Feature Name *</label>
+            <input id="create-feature-name" type="text" [(ngModel)]="createForm.titleSuffix" placeholder="e.g. Interac e-Transfer limits" />
+            <span class="field-hint">Page title: {{ createForm.release }} - {{ createModalBoardKey || createForm.daTeam }} - {{ createForm.titleSuffix.trim() || '…' }}</span>
           </div>
           <!-- Error message -->
           <div *ngIf="createModalError" class="modal-error">{{ createModalError }}</div>
@@ -979,7 +993,7 @@
         <ng-container *ngIf="createModalState === 'results' && !createModalExistingIntake && !createModalChecking">
           <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
           <button class="btn btn-primary"
-                  [disabled]="!selectedUser || createModalLoading || duplicationInProgress"
+                  [disabled]="!selectedUser || !createForm.titleSuffix.trim() || createModalLoading || duplicationInProgress"
                   (click)="submitCreateModal()">
             {{ duplicationInProgress ? 'Loading…' : (selectedDuplicationSource ? 'Duplicate selected intake' : 'Start blank intake') }}
           </button>
