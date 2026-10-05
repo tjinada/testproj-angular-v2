@@ -68,12 +68,12 @@ general:
       label: "Page Visual Design"
       type: link
       hint: "Figma / design link"
-      placeholder: "e.g. https://www.figma.com/design/abc123/Design-Name?node-id=0-1"
+      placeholder: "e.g. https://www.figma.com/design/abc123/Design-Name?node-id=0-1 — or N/A if not applicable"
     - field: pageFlowDiagram
       label: "Page Flow Diagram (Optional)"
       type: link
       required: false
-      placeholder: "e.g. https://www.figma.com/... or Confluence link (leave blank if same as Visual Design)"
+      placeholder: "Figma or Confluence link — leave blank if same as Visual Design, N/A if not applicable"
     - field: cddSa
       label: "Code Design Document (CDD) / SA (Solution Architecture)"
       type: radio-with-link
@@ -105,11 +105,11 @@ general:
           - label: "Release toggle removing timeline?"
             field: featureToggleRemovalTimeline
             type: text
-            placeholder: "e.g. R96 or \"No plan to remove\""
+            placeholder: "e.g. R96, \"No plan to remove\", or N/A"
           - label: "Pilot toggle removing timeline?"
             field: pilotToggleRemovalTimeline
             type: text
-            placeholder: "e.g. R96 or \"No plan to remove\""
+            placeholder: "e.g. R96, \"No plan to remove\", or N/A"
         whenNo:
           - label: "Justification for no feature toggle"
             field: featureToggleJustification
@@ -174,7 +174,7 @@ general:
       options: ["Low", "Medium", "High"]
       hasDetails: true
       detailField: riskDetails
-      detailPlaceholder: "e.g. Reason for technical risk level (new feature with SSO + config changes)"
+      detailPlaceholder: "e.g. Reason for technical risk level (new feature with SSO + config changes) — or N/A"
       alwaysShowDetails: true
 step2:
   label: "Change Scope"
@@ -275,11 +275,11 @@ scopeDetails:
             - label: "New route path(s)"
               field: newRouteDetails
               type: text
-              placeholder: "e.g. /feature-name/* or MFE/module-name"
+              placeholder: "e.g. /feature-name/* or MFE/module-name — or N/A"
             - label: "Beyond App details"
               field: beyondAppDetails
               type: text
-              placeholder: "e.g. FAQ opens branch locator in in-app-browser on mobile"
+              placeholder: "e.g. FAQ opens branch locator in in-app-browser on mobile — or N/A"
       - field: codeModularization
         default: ["Not applicable"]
         exclusive: "Not applicable"

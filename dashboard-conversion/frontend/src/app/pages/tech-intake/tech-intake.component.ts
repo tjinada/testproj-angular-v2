@@ -24,6 +24,8 @@ const STEP_ORDER: StepId[] = ['general', 'scope', 'details', 'review'];
 // Releases in these states don't accept new intakes (still listed for Modify)
 const CLOSED_RELEASE_STATUSES = ['complete', 'aborted'];
 const LINK_PATTERN = /^https?:\/\//i;
+// "N/A", "n/a", "NA" — accepted in link fields (placeholders invite it for optional fields)
+const NOT_APPLICABLE_PATTERN = /^n\/?a$/i;
 
 export interface SubmitBlocker {
   label: string;
@@ -1309,7 +1311,9 @@ export class TechIntakeComponent implements OnInit {
   }
 
   isInvalidLink(value: any): boolean {
-    return !this.isBlank(value) && !LINK_PATTERN.test(String(value).trim());
+    if (this.isBlank(value)) return false;
+    const text = String(value).trim();
+    return !LINK_PATTERN.test(text) && !NOT_APPLICABLE_PATTERN.test(text);
   }
 
   private hasFilledRow(fieldName: string): boolean {

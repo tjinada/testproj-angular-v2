@@ -53,8 +53,10 @@ function renderCheckboxField(field: IntakeFieldDef, value: any): string {
 }
 
 function renderLinkValue(val: any): string {
-  const href = String(val || '');
+  const href = String(val || '').trim();
   if (!href) return '';
+  // "N/A" (or n/a, NA) is a plain answer, not a link or a Jira key
+  if (/^n\/?a$/i.test(href)) return escapeHtml(href);
   // If the value does not look like a full URL, treat it as a Jira project/board key
   // and construct the full boards URL using configured Jira/Confluence base.
   let url = href;
