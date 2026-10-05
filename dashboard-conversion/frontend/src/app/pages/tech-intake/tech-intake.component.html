@@ -834,6 +834,7 @@
         <!-- STATE: select / results — identity, release, team, title -->
         <div *ngIf="createModalState === 'select' || createModalState === 'results'">
           <ng-container *ngTemplateOutlet="userSearchField"></ng-container>
+          <div class="form-row">
           <div class="form-group">
             <label for="create-release">Release *</label>
             <select id="create-release" [(ngModel)]="createForm.release" (ngModelChange)="onCreateModalSelectionChange()">
@@ -859,6 +860,7 @@
               <span *ngIf="showTeamResults && teamSearchTerm && filteredDaTeams().length === 0" class="field-hint">No DA team matches "{{ teamSearchTerm }}"</span>
             </div>
           </div>
+          </div>
           <!-- Checking spinner -->
           <div *ngIf="createModalChecking" class="modal-checking">
             Checking…
@@ -877,54 +879,38 @@
           <!-- Error message -->
           <div *ngIf="createModalError" class="modal-error">{{ createModalError }}</div>
         </div>
-        <!-- STATE: results — start blank (default) or duplicate a previous intake -->
-        <div *ngIf="createModalState === 'results' && !createModalExistingIntake && !createModalChecking">
-          <div class="duplication-section">
-            <p class="modal-info-text">Start from:</p>
-            <div *ngIf="previousIntakesLoading" class="modal-checking">
-              Loading previous intakes…
-            </div>
-            <div *ngIf="!previousIntakesLoading" class="previous-intakes-table-wrapper">
-              <table class="previous-intakes-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th>Release</th>
-                    <th>Intake Name</th>
-                    <th>View</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr class="blank-intake-row" [class.selected]="!selectedDuplicationSource" (click)="selectDuplicationSource(null)">
-                    <td>
-                      <input type="radio"
-                             [checked]="!selectedDuplicationSource"
-                             (click)="$event.stopPropagation(); selectDuplicationSource(null)"
-                             name="duplication-source" />
-                    </td>
-                    <td colspan="3"><strong>Blank intake</strong><span class="muted-text">&nbsp;— start with an empty form</span></td>
-                  </tr>
-                  <tr *ngFor="let intake of previousIntakes"
-                      [class.selected]="selectedDuplicationSource?.pageId === intake.pageId"
-                      (click)="selectDuplicationSource(intake)">
-                    <td>
-                      <input type="radio"
-                             [checked]="selectedDuplicationSource?.pageId === intake.pageId"
-                             (click)="$event.stopPropagation(); selectDuplicationSource(intake)"
-                             name="duplication-source" />
-                    </td>
-                    <td>{{ intake.release }}</td>
-                    <td>{{ intake.title }}</td>
-                    <td>
-                      <a [href]="intake.url" target="_blank" rel="noopener" (click)="$event.stopPropagation()">View</a>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <p class="modal-info-text" *ngIf="previousIntakes.length === 0">No previous intakes found for this team.</p>
-            </div>
+        <!-- STATE: results — Start from: blank (default) or copy a previous intake -->
+        <fieldset *ngIf="createModalState === 'results' && !createModalExistingIntake && !createModalChecking" class="start-from">
+          <legend>Start from</legend>
+          <label class="start-option" [class.start-option--selected]="!selectedDuplicationSource">
+            <input type="radio" name="start-from" [checked]="!selectedDuplicationSource" (change)="selectDuplicationSource(null)" />
+            <span class="start-option-text">
+              <span class="start-option-title">Blank intake</span>
+              <span class="start-option-meta">Start with an empty form.</span>
+            </span>
+          </label>
+          <div class="start-from-subhead">
+            <span>Or copy a previous {{ createModalBoardKey || createForm.daTeam }} intake</span>
+            <span *ngIf="!previousIntakesLoading && previousIntakes.length > 0" class="start-from-count">{{ previousIntakes.length }} found</span>
           </div>
-        </div>
+          <div *ngIf="previousIntakesLoading" class="modal-checking">Loading previous intakes…</div>
+          <div *ngIf="!previousIntakesLoading && previousIntakes.length > 0" class="start-option-list">
+            <label *ngFor="let intake of previousIntakes" class="start-option"
+                   [class.start-option--selected]="selectedDuplicationSource?.pageId === intake.pageId">
+              <input type="radio" name="start-from"
+                     [checked]="selectedDuplicationSource?.pageId === intake.pageId"
+                     (change)="selectDuplicationSource(intake)" />
+              <span class="start-option-text">
+                <span class="start-option-title" [title]="intake.title">{{ intake.title }}</span>
+                <span class="start-option-meta">{{ intake.release }}<ng-container *ngIf="intake.lastUpdated"> · Updated {{ formatShortDate(intake.lastUpdated) }}</ng-container><ng-container *ngIf="intake.updatedBy"> by {{ intake.updatedBy }}</ng-container></span>
+              </span>
+              <a class="start-option-view" [href]="intake.url" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()">View <i class="bi bi-box-arrow-up-right"></i></a>
+            </label>
+          </div>
+          <div *ngIf="!previousIntakesLoading && previousIntakes.length === 0" class="start-from-empty">
+            No previous intakes for {{ createModalBoardKey || createForm.daTeam }} yet — start blank.
+          </div>
+        </fieldset>
         <!-- STATE: schema-warning -->
         <div *ngIf="createModalState === 'schema-warning'">
           <div class="schema-warning-content">

@@ -1898,6 +1898,13 @@ export class TechIntakeComponent implements OnInit {
     });
   }
 
+  /** "Sep 28, 2026" — used in the Create modal's Start-from list */
+  formatShortDate(iso: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
   formatChangeValue(val: any): string {
     if (val === null || val === undefined) return '—';
     if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : '—';
