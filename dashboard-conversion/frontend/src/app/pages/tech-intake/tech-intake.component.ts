@@ -561,7 +561,16 @@ export class TechIntakeComponent implements OnInit {
       this.createModalError = 'Failed to check for existing intakes.';
     } finally {
       this.createModalChecking = false;
+      // New intake for this release + team: the Feature Name is the next thing to fill in
+      if (this.createModalState === 'results' && !this.createModalExistingIntake && !this.createForm.titleSuffix.trim()) {
+        this.focusFeatureName();
+      }
     }
+  }
+
+  /** Move the cursor to the Create modal's Feature Name (after it has rendered). */
+  focusFeatureName(): void {
+    setTimeout(() => document.getElementById('create-feature-name')?.focus());
   }
 
   async submitCreateModal(): Promise<void> {

@@ -885,7 +885,7 @@
           <div *ngIf="createForm.release && createForm.daTeam && !createModalExistingIntake && !createModalChecking" class="form-group">
             <label for="create-feature-name">Feature Name *</label>
             <input id="create-feature-name" type="text" [(ngModel)]="createForm.titleSuffix" placeholder="e.g. Interac e-Transfer limits" />
-            <span class="field-hint">Page title: {{ createForm.release }} - {{ createModalBoardKey || createForm.daTeam }} - {{ createForm.titleSuffix.trim() || '…' }}</span>
+            <span class="field-hint">Page title: {{ createForm.release }} - {{ createModalBoardKey || createForm.daTeam }} - <ng-container *ngIf="createForm.titleSuffix.trim(); else featureNamePlaceholder">{{ createForm.titleSuffix.trim() }}</ng-container><ng-template #featureNamePlaceholder><em>your feature name</em></ng-template></span>
           </div>
           <!-- Error message -->
           <div *ngIf="createModalError" class="modal-error">{{ createModalError }}</div>
@@ -953,8 +953,12 @@
         </ng-container>
         <!-- State: results (no existing intake, showing Start-from table) -->
         <ng-container *ngIf="createModalState === 'results' && !createModalExistingIntake && !createModalChecking">
+          <button *ngIf="!createForm.titleSuffix.trim()" type="button" class="link-btn modal-footer-hint" (click)="focusFeatureName()">
+            Enter a feature name to continue
+          </button>
           <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
           <button class="btn btn-primary"
+                  [attr.title]="!createForm.titleSuffix.trim() ? 'Enter a feature name to continue' : null"
                   [disabled]="!selectedUser || !createForm.titleSuffix.trim() || createModalLoading || duplicationInProgress"
                   (click)="submitCreateModal()">
             {{ duplicationInProgress ? 'Loading…' : (selectedDuplicationSource ? 'Duplicate selected intake' : 'Start blank intake') }}

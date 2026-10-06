@@ -297,6 +297,13 @@
   border-radius: 0;
 }
 
+/* "Enter a feature name to continue" — left side of the Create modal footer */
+.modal-footer .modal-footer-hint {
+  margin-right: auto;
+  align-self: center;
+  font-size: 13px;
+}
+
 /* Discard-changes confirmation */
 .modal-dialog--narrow { width: 460px; }
 .modal-footer .btn-danger {
