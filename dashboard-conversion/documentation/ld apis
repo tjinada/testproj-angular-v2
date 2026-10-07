@@ -1,0 +1,8 @@
+curl -X POST "https://app.launchdarkly.com/api/v2/projects/$PROJ/environments/$LDENV/flags/evaluate" \
+  -H "Authorization: $LD_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "kind": "environment", "key": "QA1" }'
+
+curl -X POST ".../contexts/search" \
+  -H "Authorization: $LD_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{ "filter": "kindKey equals \"environment:QA1\"", "limit": 50 }'
