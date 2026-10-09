@@ -13,3 +13,5 @@ es.onopen = () => console.log('LD test: open');
 es.addEventListener('put',   e => console.log('LD test: put', e.data.length, 'bytes'));
 es.addEventListener('patch', e => console.log('LD test: patch', e.data));
 es.onerror = () => console.log('LD test: error, readyState', es.readyState);
+
+curl -vN -H "Accept: text/event-stream" "PASTE_URL_HERE" 2>&1 | grep -iE "issuer|event:"
