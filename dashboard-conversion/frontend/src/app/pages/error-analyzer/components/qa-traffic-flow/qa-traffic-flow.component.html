@@ -1,0 +1,200 @@
+<div class="qtf-wrapper" [class.qtf-fullscreen]="isFullscreen()">
+
+  <!-- Toolbar -->
+  <div class="qtf-toolbar">
+    <div class="qtf-toolbar-left">
+      <span class="qtf-title">CDB QA Traffic Flow</span>
+      <label class="qtf-env-label" for="qtf-env">Environment</label>
+      <select id="qtf-env" class="qtf-env-select" [value]="envId()"
+              (change)="setEnv($any($event.target).value)">
+        <option *ngFor="let e of environments" [value]="e.id">{{ e.label }}</option>
+      </select>
+    </div>
+    <div class="qtf-controls">
+      <button class="qtf-btn" (click)="zoomIn()" title="Zoom in">+</button>
+      <button class="qtf-btn" (click)="zoomOut()" title="Zoom out">&minus;</button>
+      <button class="qtf-btn" (click)="fitToScreen()" title="Fit to screen">Fit</button>
+      <button class="qtf-btn" (click)="resetView()" title="Reset view">Reset</button>
+      <button class="qtf-btn" (click)="toggleFullscreen()"
+              [title]="isFullscreen() ? 'Exit fullscreen (ESC)' : 'Fullscreen'">
+        {{ isFullscreen() ? 'Exit Fullscreen' : 'Fullscreen' }}
+      </button>
+      <span class="qtf-zoom-label">{{ (k() * 100) | number:'1.0-0' }}%</span>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="qtf-legend">
+    <span class="qtf-lg" *ngFor="let c of legend">
+      <i [style.background]="c.fill" [style.border-color]="c.stroke"></i>{{ c.label }}
+    </span>
+    <span class="qtf-lg"><span class="qtf-lg-line"></span>traffic</span>
+    <span class="qtf-lg"><span class="qtf-lg-line qtf-lg-dash"></span>legacy</span>
+    <span class="qtf-lg"><span class="qtf-lg-new">NEW</span>new for CIAM</span>
+    <span class="qtf-lg qtf-lg-hint">Click a component for details · drag to pan · scroll to zoom</span>
+  </div>
+
+  <!-- Canvas + drawer -->
+  <div class="qtf-canvas-container" [class.qtf-drawer-open]="selectedNode() !== null">
+    <svg #svgEl class="qtf-canvas"
+         (mousedown)="onMouseDown($event)"
+         (mousemove)="onMouseMove($event)"
+         (mouseup)="onMouseUp()"
+         (mouseleave)="onMouseLeave()"
+         (wheel)="onWheel($event)">
+      <defs>
+        <marker id="qtf-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280" />
+        </marker>
+        <marker id="qtf-arrow-on" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+        </marker>
+      </defs>
+
+      <g [attr.transform]="transform()">
+
+        <!-- Groups -->
+        <g *ngFor="let g of groups" class="qtf-group">
+          <rect [attr.x]="g.x" [attr.y]="g.y" [attr.width]="g.width" [attr.height]="g.height"
+                rx="10" [attr.stroke]="g.style.stroke" [attr.fill]="g.style.fill" />
+          <text [attr.x]="g.x + 12" [attr.y]="g.y + 18" [attr.fill]="g.style.stroke">{{ g.label }}</text>
+        </g>
+
+        <!-- Edges -->
+        <path *ngFor="let e of edges(); trackBy: trackEdge"
+              class="qtf-edge"
+              [class.qtf-edge-dashed]="e.dashed"
+              [class.qtf-edge-on]="isEdgeOn(e)"
+              [class.qtf-faded]="isEdgeFaded(e)"
+              [attr.d]="e.d"
+              [attr.marker-end]="isEdgeOn(e) ? 'url(#qtf-arrow-on)' : 'url(#qtf-arrow)'"
+              fill="none" />
+
+        <!-- Edge labels: step badge + path pill, centred as a pair -->
+        <ng-container *ngFor="let e of edges(); trackBy: trackEdge">
+          <g *ngIf="e.labelAt && (e.label || e.steps)" [class.qtf-faded]="isEdgeFaded(e)">
+            <g *ngIf="e.steps" class="qtf-step">
+              <rect [attr.x]="pillStartX(e)" [attr.y]="e.labelAt[1] - 10"
+                    [attr.width]="stepWidth(e.steps)" height="20" rx="10" />
+              <text [attr.x]="pillStartX(e) + stepWidth(e.steps) / 2" [attr.y]="e.labelAt[1] + 3.5"
+                    text-anchor="middle">{{ e.steps }}</text>
+            </g>
+            <g *ngIf="e.label" class="qtf-elabel">
+              <rect [attr.x]="pillStartX(e) + (e.steps ? stepWidth(e.steps) + 4 : 0)" [attr.y]="e.labelAt[1] - 10"
+                    [attr.width]="pillWidth(e.label)" height="20" rx="10" />
+              <text [attr.x]="pillStartX(e) + (e.steps ? stepWidth(e.steps) + 4 : 0) + pillWidth(e.label) / 2"
+                    [attr.y]="e.labelAt[1] + 3.5" text-anchor="middle">{{ e.label }}</text>
+            </g>
+          </g>
+        </ng-container>
+
+        <!-- Nodes -->
+        <g *ngFor="let n of nodes(); trackBy: trackNode"
+           class="qtf-node"
+           [class.qtf-node-selected]="selectedNodeId() === n.id"
+           [class.qtf-node-legacy]="n.legacy"
+           [class.qtf-faded]="isNodeFaded(n.id)"
+           [attr.transform]="'translate(' + n.x + ',' + n.y + ')'"
+           (click)="onNodeClick(n, $event)">
+          <title>{{ n.label }}{{ n.hosts.length ? ' — ' + n.hosts.join(', ') : '' }}</title>
+          <rect class="qtf-node-rect" [attr.width]="n.width" [attr.height]="n.height" rx="8"
+                [attr.fill]="n.style.fill" [attr.stroke]="n.style.stroke" />
+          <g *ngIf="n.isNew" class="qtf-new">
+            <rect [attr.x]="n.width - 52" y="-10" width="46" height="20" rx="10" />
+            <text [attr.x]="n.width - 29" y="4" text-anchor="middle">NEW</text>
+          </g>
+          <text class="qtf-node-label" [attr.x]="n.width / 2" [attr.y]="n.height / 2 - (subLine(n) ? 12 : 4)"
+                text-anchor="middle" [attr.fill]="n.style.ink">{{ n.label }}</text>
+          <text class="qtf-node-host" [class.qtf-unset]="!n.hosts.length"
+                [attr.x]="n.width / 2" [attr.y]="n.height / 2 + (subLine(n) ? 6 : 14)"
+                text-anchor="middle">{{ hostLine(n) }}</text>
+          <text *ngIf="subLine(n)" class="qtf-node-sub" [class.qtf-has-ep]="n.endpointCount > 0"
+                [attr.x]="n.width / 2" [attr.y]="n.height / 2 + 24" text-anchor="middle">{{ subLine(n) }}</text>
+        </g>
+      </g>
+    </svg>
+
+    <!-- Bottom drawer -->
+    <div class="qtf-drawer" *ngIf="selectedNode() as node">
+      <div class="qtf-drawer-header">
+        <span class="qtf-drawer-title">{{ node.label }}</span>
+        <div class="qtf-drawer-badges">
+          <span class="qtf-badge" [style.background]="node.style.fill" [style.color]="node.style.ink"
+                [style.border-color]="node.style.stroke">{{ node.style.label }}</span>
+          <span *ngIf="node.isNew" class="qtf-badge qtf-badge-new">New for CIAM</span>
+          <span *ngIf="node.legacy" class="qtf-badge qtf-badge-legacy">Legacy</span>
+          <span *ngIf="node.endpointCount" class="qtf-badge qtf-badge-count">{{ node.endpointCount }} endpoints</span>
+        </div>
+        <button class="qtf-drawer-close" (click)="closeDetails()">&times;</button>
+      </div>
+
+      <div class="qtf-drawer-body">
+        <!-- Details -->
+        <div class="qtf-drawer-col-main">
+          <div class="qtf-meta-item">
+            <span class="qtf-meta-label">Host{{ node.hosts.length > 1 ? 's' : '' }}</span>
+            <span *ngIf="node.hosts.length; else hostUnset" class="qtf-meta-value qtf-mono">
+              <span *ngFor="let h of node.hosts" class="qtf-host-line">{{ h }}</span>
+            </span>
+            <ng-template #hostUnset><span class="qtf-none">not set for {{ env().label }}</span></ng-template>
+          </div>
+          <div class="qtf-meta-item" *ngIf="node.sub">
+            <span class="qtf-meta-label">Role</span>
+            <span class="qtf-meta-value">{{ node.sub }}</span>
+          </div>
+          <div class="qtf-meta-item">
+            <span class="qtf-meta-label">Receives from</span>
+            <span class="qtf-meta-value">{{ receivesFrom().join(', ') || '—' }}</span>
+          </div>
+          <div class="qtf-meta-item">
+            <span class="qtf-meta-label">Calls</span>
+            <span class="qtf-meta-value">{{ calls().join(', ') || '—' }}</span>
+          </div>
+        </div>
+
+        <!-- Endpoints -->
+        <div class="qtf-drawer-col-detail">
+          <div class="qtf-section-header" (click)="toggleEndpoints()">
+            <span class="qtf-section-toggle">{{ endpointsOpen() ? '▾' : '▸' }}</span>
+            <span class="qtf-section-label">Endpoints ({{ node.endpointCount }})</span>
+          </div>
+
+          <span *ngIf="!node.endpointCount" class="qtf-none">No endpoints catalogued for this component yet.</span>
+
+          <ng-container *ngIf="node.endpointCount && endpointsOpen()">
+            <div class="qtf-ep-tools">
+              <input class="qtf-ep-filter" type="text" placeholder="Filter paths or notes…"
+                     [value]="filter()" (input)="onFilterInput($event)" />
+              <span class="qtf-ep-count">
+                {{ filter().trim() ? filteredCount() + ' of ' + node.endpointCount : node.endpointCount + ' total' }}
+              </span>
+            </div>
+
+            <div class="qtf-ep-list">
+              <div class="qtf-ep-row qtf-ep-head">
+                <span>Method</span><span>Path</span><span>Notes</span><span></span>
+              </div>
+              <ng-container *ngFor="let g of filteredGroups(); trackBy: trackGroup">
+                <div class="qtf-ep-group">{{ g.title }}</div>
+                <div *ngFor="let ep of g.endpoints; trackBy: trackEndpoint"
+                     class="qtf-ep-row"
+                     [class.qtf-ep-copied]="copiedPath() === ep.path"
+                     (click)="copyPath(ep.path)" title="Click to copy">
+                  <span class="qtf-method" [attr.data-method]="ep.method">{{ ep.method }}</span>
+                  <span class="qtf-ep-path"><ng-container *ngFor="let p of highlight(ep.path)"><mark
+                    *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span>
+                  <span class="qtf-ep-notes"><ng-container *ngFor="let p of highlight(ep.notes)"><mark
+                    *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span>
+                  <span class="qtf-ep-copy">{{ copiedPath() === ep.path ? 'copied' : 'copy' }}</span>
+                </div>
+              </ng-container>
+              <div *ngIf="!filteredCount()" class="qtf-ep-empty">No endpoints match “{{ filter() }}”.</div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

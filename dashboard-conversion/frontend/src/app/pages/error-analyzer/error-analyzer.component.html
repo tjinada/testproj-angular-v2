@@ -170,7 +170,38 @@
 
   <!-- Tab: Traffic Flow ────────────────────────────────────────────── -->
   <div [hidden]="activeTab !== 'traffic'" class="tab-panel" role="tabpanel">
-    <app-traffic-flow [sharedParams]="trafficParams"></app-traffic-flow>
+    <div class="tf-views" role="tablist" aria-label="Traffic Flow view">
+      <button type="button" class="tf-view" role="tab"
+              [attr.aria-selected]="trafficView === 'sim'"
+              [class.tf-view-active]="trafficView === 'sim'"
+              (click)="setTrafficView('sim')">
+        <span class="tf-view-icon">&#8644;</span>
+        <span class="tf-view-text">
+          <span class="tf-view-title">Production Traffic Simulator<span class="tf-view-tag tf-view-tag-prod">PROD</span></span>
+          <span class="tf-view-desc">BCC/SCC outage &amp; failover scenarios: GTM picks, live.txt, pool monitors, new vs existing users.</span>
+        </span>
+      </button>
+      <button type="button" class="tf-view" role="tab"
+              [attr.aria-selected]="trafficView === 'qa'"
+              [class.tf-view-active]="trafficView === 'qa'"
+              (click)="setTrafficView('qa')">
+        <span class="tf-view-icon">&#9707;</span>
+        <span class="tf-view-text">
+          <span class="tf-view-title">CDB QA Traffic Flow<span class="tf-view-tag tf-view-tag-qa">QA</span></span>
+          <span class="tf-view-desc">CIAM sign-in path through Akamai, APIC, CDBBOS and downstream. Click a component to see its endpoints.</span>
+        </span>
+      </button>
+    </div>
+
+    <div [hidden]="trafficView !== 'sim'">
+      <app-traffic-flow [sharedParams]="trafficParams"></app-traffic-flow>
+    </div>
+    <div [hidden]="trafficView !== 'qa'">
+      <app-qa-traffic-flow
+        [sharedParams]="trafficParams"
+        [active]="activeTab === 'traffic' && trafficView === 'qa'">
+      </app-qa-traffic-flow>
+    </div>
   </div>
 
   <!-- Tab: Akamai Rules ────────────────────────────────────────────── -->

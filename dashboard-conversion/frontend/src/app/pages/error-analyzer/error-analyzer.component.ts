@@ -12,6 +12,7 @@ import { EndpointResultsTableComponent } from './components/endpoint-results-tab
 import { ComponentResultsTableComponent } from './components/component-results-table/component-results-table.component';
 import { CallerResultsTableComponent } from './components/caller-results-table/caller-results-table.component';
 import { TrafficFlowComponent } from './components/traffic-flow/traffic-flow.component';
+import { QaTrafficFlowComponent } from './components/qa-traffic-flow/qa-traffic-flow.component';
 import { AkamaiRulesComponent } from './components/akamai-rules/akamai-rules.component';
 import { DashboardLinksComponent } from './components/dashboard-links/dashboard-links.component';
 import { buildFlowGraph, FlowNode } from './components/flow-diagram/flow-layout';
@@ -24,10 +25,13 @@ type TabId = 'trace' | 'opensearch' | 'traffic' | 'akamai-rules' | 'monitoring';
 /** Accepted values of the ?tab= query param. */
 const TAB_IDS: TabId[] = ['trace', 'opensearch', 'traffic', 'akamai-rules', 'monitoring'];
 
+/** Which view the Traffic Flow tab shows (?view=). */
+type TrafficView = 'sim' | 'qa';
+
 @Component({
   selector: 'app-error-analyzer',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent, TrafficFlowComponent, AkamaiRulesComponent, DashboardLinksComponent],
+  imports: [CommonModule, FormsModule, SearchComponent, TraceResultsComponent, TraceResultsTableComponent, SessionResultsComponent, TokenSetupComponent, OpenSearchLogSearchComponent, EndpointResultsTableComponent, ComponentResultsTableComponent, CallerResultsTableComponent, TrafficFlowComponent, QaTrafficFlowComponent, AkamaiRulesComponent, DashboardLinksComponent],
   templateUrl: './error-analyzer.component.html',
   styleUrls: ['./error-analyzer.component.scss']
 })
@@ -54,6 +58,9 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   /** Query params handed to the Traffic Flow tab so shared scenario links restore. */
   trafficParams: Record<string, string> | null = null;
+
+  /** Traffic Flow tab view: production simulator (default) or CDB QA flow. */
+  trafficView: TrafficView = 'sim';
 
   /** Pre-fill for the search bar built from a shared trace link (?trace_id=...). */
   searchSeed: SearchSeed | null = null;
@@ -114,6 +121,9 @@ export class ErrorAnalyzerComponent implements OnInit {
       const tab = qp['tab'] as TabId;
       if (TAB_IDS.includes(tab)) {
         this.activeTab = tab;
+      }
+      if (qp['view'] === 'qa') {
+        this.trafficView = 'qa';
       }
     }
 
@@ -183,6 +193,16 @@ export class ErrorAnalyzerComponent implements OnInit {
 
   setTab(tab: TabId): void {
     this.activeTab = tab;
+  }
+
+  /** Merges so a QA env or simulator params already in the URL survive. */
+  setTrafficView(view: TrafficView): void {
+    this.trafficView = view;
+    this.router.navigate([], {
+      queryParams: { tab: 'traffic', view },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
 
   // ── Token modal handlers ───────────────────────────────────────────
