@@ -1,0 +1,19 @@
+Criteria (match all):
+
+Hostname is one of green.www.olb-qa4.dev.bmo.com
+Path matches one of /setcookie, case-insensitive
+Request Method is GET
+
+Behaviors, in this order:
+
+Set Variable
+Variable: PMUSER_MOBILE_ENV
+Create Value From: Extract, Extract Location: Query String, Parameter Name: value
+Operation: Substitute, Regex [^A-Za-z0-9._-], Replacement (empty), Global Substitution Yes
+Set Response Cookie
+Cookie Name x-bmo-env-mobile, Type Fixed Value, Value {{user.PMUSER_MOBILE_ENV}}
+Use Default Domain No, Domain bmo.com
+Use Default Path No, Path /
+Expires On Browser Close, SameSite None, Secure Yes, HttpOnly No
+Caching: No Store
+Construct Response: Enabled, Response Code 200, Body {"x-bmo-env-mobile":"{{user.PMUSER_MOBILE_ENV}}"}
