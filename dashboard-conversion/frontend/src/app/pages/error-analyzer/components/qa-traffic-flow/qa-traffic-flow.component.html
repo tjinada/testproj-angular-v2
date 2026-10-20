@@ -125,7 +125,7 @@
                 [style.border-color]="node.style.stroke">{{ node.style.label }}</span>
           <span *ngIf="node.isNew" class="qtf-badge qtf-badge-new">New for CIAM</span>
           <span *ngIf="node.legacy" class="qtf-badge qtf-badge-legacy">Legacy</span>
-          <span *ngIf="node.endpointCount" class="qtf-badge qtf-badge-count">{{ node.endpointCount }} endpoints</span>
+          <span *ngIf="node.endpointCount" class="qtf-badge qtf-badge-count">{{ node.endpointCount }} endpoint{{ node.endpointCount === 1 ? '' : 's' }}</span>
         </div>
         <button class="qtf-drawer-close" (click)="closeDetails()">&times;</button>
       </div>

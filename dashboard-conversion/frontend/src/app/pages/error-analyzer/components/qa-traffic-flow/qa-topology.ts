@@ -153,39 +153,3 @@ export const QA_EDGES: QaEdge[] = [
   { from: 'awsgw', to: 'awsl', points: [[1810, 166], [1918, 166]] },
   { from: 'awsl', to: 'dcgw', points: [[2160, 166], [2775, 166], [2775, 331]] }
 ];
-
-/** Placeholder rows until the real lists are filled in. */
-function placeholders(prefix: string, count: number, method: string): QaEndpoint[] {
-  return Array.from({ length: count }, (_, i) => ({
-    method,
-    path: `${prefix}placeholder-${String(i + 1).padStart(2, '0')}`
-  }));
-}
-
-/**
- * Endpoint catalogue per node. Same code is deployed to every QA environment,
- * so this is shared; an environment overrides a node's list only where it differs.
- * TODO: replace placeholders with the real endpoint lists.
- */
-export const QA_SHARED_ENDPOINTS: Record<string, QaEndpointGroup[]> = {
-  spa: [
-    { title: 'CIAM', endpoints: [
-      { method: 'GET',  path: '/isvaop/oauth2/authorize', notes: 'Steps 1 & 5 · 401 then 200 + code' },
-      { method: 'POST', path: '/isvaop/oauth2/token', notes: 'Step 7 · code + PKCE verifier + DPoP' },
-      { method: 'GET',  path: '/login/cdb/ciam_mfe.js', notes: 'Step 2 · Authenticator MFE bundle' },
-      { method: 'GET',  path: '/banking/digital/ciam-callback', notes: 'Step 6 · redirect target' }
-    ] },
-    { title: 'CDB (via Akamai GSS rules)', endpoints: [
-      { method: 'POST', path: '/api/cdb-ui/contact-handler/session/initCDBSession', notes: 'Step 8 · creates CDB session' },
-      ...placeholders('/api/cdb/', 8, 'GET')
-    ] }
-  ],
-  bos: [
-    { title: '/banking/services', endpoints: [
-      { method: 'POST', path: '/banking/services/csgcb/session/initISAMSession', notes: 'Legacy ISAM session' },
-      ...placeholders('/banking/services/', 49, 'POST')
-    ] }
-  ],
-  sss1: [{ title: '/api/cdb/<bian>/', endpoints: placeholders('/api/cdb/<bian>/', 15, 'GET') }],
-  sss2: [{ title: '/api/<bian>/', endpoints: placeholders('/api/<bian>/', 15, 'GET') }]
-};

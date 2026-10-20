@@ -12,9 +12,10 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
-  QA_CANVAS, QA_CATEGORIES, QA_EDGES, QA_GROUPS, QA_NODES, QA_SHARED_ENDPOINTS,
+  QA_CANVAS, QA_CATEGORIES, QA_EDGES, QA_GROUPS, QA_NODES,
   QaCategoryStyle, QaEdge, QaEndpoint, QaEndpointGroup, QaNode, edgeId
 } from './qa-topology';
+import { QA_SHARED_ENDPOINTS } from './qa-endpoints';
 import { DEFAULT_QA_ENV, QA_ENVIRONMENTS, QaEnvProfile } from './qa-environments';
 
 /** A node resolved against the selected environment. */
@@ -269,7 +270,8 @@ export class QaTrafficFlowComponent implements OnChanges {
   }
 
   subLine(node: QaNodeView): string {
-    const parts = [node.sub, node.endpointCount ? `${node.endpointCount} endpoints ▸` : '']
+    const n = node.endpointCount;
+    const parts = [node.sub, n ? `${n} endpoint${n === 1 ? '' : 's'} ▸` : '']
       .filter(Boolean);
     return parts.join(' · ');
   }
