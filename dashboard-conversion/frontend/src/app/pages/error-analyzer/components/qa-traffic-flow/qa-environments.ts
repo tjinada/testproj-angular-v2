@@ -47,7 +47,6 @@ export const QA_ENVIRONMENTS: QaEnvProfile[] = [
       awsl:  ['ca-central-1']
     },
     edgeLabels: {
-      'spa>mfe': 'qa2.auth.bmo.com/*',
       'gss>apic': '/api5/cdb/*'
     }
   }
