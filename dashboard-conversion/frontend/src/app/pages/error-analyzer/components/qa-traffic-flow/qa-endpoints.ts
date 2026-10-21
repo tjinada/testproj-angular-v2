@@ -1,7 +1,11 @@
+import { QA_ROUTES } from './qa-topology';
 import type { QaEndpoint, QaEndpointGroup } from './qa-topology';
 
 /** [METHOD] /path [notes] — the path stops at whitespace, ',' or '|'. */
 const LINE = /^(?:([A-Za-z]+)[\s,|]+)?(\/[^\s,|]*)(?:[\s,|]+(.*))?$/;
+
+/** '# Title @route-id' — the optional tag names the QA_ROUTES route these calls travel. */
+const HEADING = /^#+\s*(.*?)(?:\s+@([\w-]+))?\s*$/;
 
 /** Leading list markers Copilot tends to add anyway: '- ', '* ', '• ', '1. ', '1) '. */
 const LIST_MARKER = /^(?:[-*•]|\d+[.)])\s+/;
@@ -16,7 +20,9 @@ export function endpoints(text: string): QaEndpointGroup[] {
     if (!line || line.startsWith('//')) return;
 
     if (line.startsWith('#')) {
-      current = { title: line.replace(/^#+\s*/, '') || 'Endpoints', endpoints: [] };
+      const [, title, route] = HEADING.exec(line)!;
+      current = { title: title || 'Endpoints', endpoints: [] };
+      if (route) current.route = route;
       groups.push(current);
       return;
     }
@@ -51,18 +57,22 @@ export function endpoints(text: string): QaEndpointGroup[] {
  * CDBBOS -> Midtier) are declared once and reused, so they cannot drift.
  * Paste one endpoint per line under a heading: [METHOD] /path | notes
  * (method is optional, defaults to ANY). Headings with no lines are hidden.
+ *
+ * Routes: tag a heading '@route-id' (a QA_ROUTES id) to say where its calls go.
+ * SPA groups need no tag: CWH APIC decides from the path (see qa-rewrites.ts).
+ * Untagged groups on other boxes trace to that box only.
  */
 
 const BOS_TO_SSS_CDB = endpoints(`
-  # CDBBOS → SSS /api/cdb (Channels)
+  # CDBBOS → SSS /api/cdb (Channels) @cdbbos-channels
 `);
 
 const BOS_TO_SSS_API = endpoints(`
-  # CDBBOS → SSS /api (DigitalCore)
+  # CDBBOS → SSS /api (DigitalCore) @cdbbos-digitalcore
 `);
 
 const BOS_TO_MIDTIER = endpoints(`
-  # CDBBOS → Midtier
+  # CDBBOS → Midtier @cdbbos-midtier
 `);
 
 /**
@@ -72,11 +82,15 @@ const BOS_TO_MIDTIER = endpoints(`
  */
 export const QA_SHARED_ENDPOINTS: Record<string, QaEndpointGroup[]> = {
   spa: endpoints(`
-    # CIAM
+    # CIAM · IdP @signin-idp
+
+    # CIAM · MFE bundle @signin-mfe
 
     # CDB (via Akamai GSS rules)
 
     # /banking/services → CDBBOS
+
+    # Legacy ISAM @legacy-isam
   `),
 
   bos: [
@@ -96,3 +110,9 @@ export const QA_SHARED_ENDPOINTS: Record<string, QaEndpointGroup[]> = {
   sss2: BOS_TO_SSS_API,
   mid: BOS_TO_MIDTIER
 };
+
+// Catch route-tag typos early.
+const ROUTE_IDS = new Set(QA_ROUTES.map(r => r.id));
+for (const g of Object.values(QA_SHARED_ENDPOINTS).flat()) {
+  if (g.route && !ROUTE_IDS.has(g.route)) console.warn(`[qa-endpoints] "${g.title}": unknown route @${g.route}`);
+}

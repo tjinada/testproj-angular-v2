@@ -10,6 +10,27 @@
         <option *ngFor="let e of environments" [value]="e.id">{{ e.label }}</option>
       </select>
     </div>
+    <div class="qtf-search">
+      <input class="qtf-search-input" type="text" placeholder="Find endpoint or paste a URL…" autocomplete="off"
+             [value]="query()" (input)="onSearchInput($event)" (focus)="searchOpen.set(true)"
+             (keydown)="onSearchKey($event)" />
+      <div class="qtf-results" *ngIf="searchOpen() && query().trim().length >= 3">
+        <div *ngFor="let t of results()" class="qtf-result" (click)="traceEndpoint(t)">
+          <div class="qtf-result-top">
+            <span class="qtf-method" [attr.data-method]="t.endpoint.method">{{ t.endpoint.method }}</span>
+            <span class="qtf-ep-path">{{ t.endpoint.path }}</span>
+            <span *ngIf="t.dest" class="qtf-chip" [style.background]="t.dest.style.fill"
+                  [style.color]="t.dest.style.ink" [style.border-color]="t.dest.style.stroke">{{ t.dest.label }}</span>
+          </div>
+          <div class="qtf-result-sub">
+            {{ nodeLabel(t.owner) }} · {{ t.group }}<ng-container *ngIf="t.to && t.to !== t.key"> · → <span class="qtf-mono">{{ t.to }}</span></ng-container>
+          </div>
+        </div>
+        <div *ngIf="!results().length" class="qtf-result-none">
+          No catalogued endpoint matches. Try fewer segments, or paste the full URL.
+        </div>
+      </div>
+    </div>
     <div class="qtf-controls">
       <button class="qtf-btn" (click)="zoomIn()" title="Zoom in">+</button>
       <button class="qtf-btn" (click)="zoomOut()" title="Zoom out">&minus;</button>
@@ -31,7 +52,27 @@
     <span class="qtf-lg"><span class="qtf-lg-line"></span>traffic</span>
     <span class="qtf-lg"><span class="qtf-lg-line qtf-lg-dash"></span>legacy</span>
     <span class="qtf-lg"><span class="qtf-lg-new">NEW</span>new for CIAM</span>
-    <span class="qtf-lg qtf-lg-hint">Click a component for details · drag to pan · scroll to zoom</span>
+    <span class="qtf-lg qtf-lg-hint">Click a component for routes into it · search or click an endpoint to trace it</span>
+  </div>
+
+  <!-- Traced endpoint -->
+  <div class="qtf-trace" *ngIf="traceView() as tv">
+    <div class="qtf-trace-top">
+      <span class="qtf-trace-label">Trace</span>
+      <span class="qtf-method" [attr.data-method]="tv.trace.endpoint.method">{{ tv.trace.endpoint.method }}</span>
+      <code class="qtf-trace-path">{{ tv.trace.endpoint.path }}</code>
+      <span *ngIf="tv.trace.endpoint.notes" class="qtf-trace-notes">{{ tv.trace.endpoint.notes }}</span>
+      <button class="qtf-btn qtf-trace-clear" (click)="clearTrace()">Clear</button>
+    </div>
+    <div class="qtf-trace-chain">
+      {{ tv.chain.join('  →  ') }}<span *ngIf="tv.routeLabel" class="qtf-trace-route">{{ tv.routeLabel }}</span>
+    </div>
+    <div class="qtf-trace-hops">
+      <span *ngFor="let h of tv.hops; let last = last">
+        {{ h.label }} <code *ngIf="h.path">{{ h.path }}</code> <i *ngIf="h.note">{{ h.note }}</i>
+        <span *ngIf="!last" class="qtf-trace-sep">·</span>
+      </span>
+    </div>
   </div>
 
   <!-- Canvas + drawer -->
@@ -152,6 +193,11 @@
             <span class="qtf-meta-label">Calls</span>
             <span class="qtf-meta-value">{{ calls().join(', ') || '—' }}</span>
           </div>
+          <div class="qtf-rule" *ngIf="node.id === cwhNode">
+            <span class="qtf-meta-label">Rewrite rule</span>
+            <code>/api/cdb/&lt;domain&gt;/&lt;rest&gt;</code> → <code>&lt;base&gt;/&lt;rest&gt;</code> for listed paths (to CDBBOS).
+            Any other <code>/api/cdb/*</code> goes on unchanged to SSS <code>/api/cdb</code> → Channels AWS.
+          </div>
         </div>
 
         <!-- Endpoints -->
@@ -174,20 +220,26 @@
 
             <div class="qtf-ep-list">
               <div class="qtf-ep-row qtf-ep-head">
-                <span>Method</span><span>Path</span><span>Notes</span><span></span>
+                <span>Method</span><span>Path</span><span>Notes</span><span>Goes to</span><span></span>
               </div>
               <ng-container *ngFor="let g of filteredGroups(); trackBy: trackGroup">
                 <div class="qtf-ep-group">{{ g.title }}</div>
-                <div *ngFor="let ep of g.endpoints; trackBy: trackEndpoint"
+                <div *ngFor="let t of g.rows; trackBy: trackEndpoint"
                      class="qtf-ep-row"
-                     [class.qtf-ep-copied]="copiedPath() === ep.path"
-                     (click)="copyPath(ep.path)" title="Click to copy">
-                  <span class="qtf-method" [attr.data-method]="ep.method">{{ ep.method }}</span>
-                  <span class="qtf-ep-path"><ng-container *ngFor="let p of highlight(ep.path)"><mark
+                     [class.qtf-ep-traced]="isTraced(t)"
+                     [class.qtf-ep-copied]="copiedPath() === t.endpoint.path"
+                     (click)="traceEndpoint(t, true)" title="Click to trace">
+                  <span class="qtf-method" [attr.data-method]="t.endpoint.method">{{ t.endpoint.method }}</span>
+                  <span class="qtf-ep-path"><ng-container *ngFor="let p of highlight(t.endpoint.path)"><mark
+                    *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container>
+                    <span *ngIf="t.to && t.to !== t.key" class="qtf-ep-to">→ <ng-container *ngFor="let p of highlight(t.to)"><mark
+                      *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span></span>
+                  <span class="qtf-ep-notes"><ng-container *ngFor="let p of highlight(t.endpoint.notes)"><mark
                     *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span>
-                  <span class="qtf-ep-notes"><ng-container *ngFor="let p of highlight(ep.notes)"><mark
-                    *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span>
-                  <span class="qtf-ep-copy">{{ copiedPath() === ep.path ? 'copied' : 'copy' }}</span>
+                  <span><span *ngIf="t.dest" class="qtf-chip" [style.background]="t.dest.style.fill"
+                    [style.color]="t.dest.style.ink" [style.border-color]="t.dest.style.stroke">{{ t.dest.label }}</span></span>
+                  <span class="qtf-ep-copy" (click)="copyPath(t.endpoint.path); $event.stopPropagation()"
+                        title="Copy path">{{ copiedPath() === t.endpoint.path ? 'copied' : 'copy' }}</span>
                 </div>
               </ng-container>
               <div *ngIf="!filteredCount()" class="qtf-ep-empty">No endpoints match “{{ filter() }}”.</div>
