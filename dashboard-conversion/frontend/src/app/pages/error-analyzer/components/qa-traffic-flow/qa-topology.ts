@@ -80,19 +80,35 @@ export interface QaEndpointGroup {
   endpoints: QaEndpoint[];
 }
 
+/** One step of a route: a node id, or parallel nodes such as both web servers. */
+export type QaStage = string | string[];
+
+/** A real request path through the estate, SPA first. Drives the click highlight. */
+export interface QaRoute {
+  id: string;
+  stages: QaStage[];
+}
+
 /** Key used by environment overrides for an edge. */
 export function edgeId(e: Pick<QaEdge, 'from' | 'to'>): string {
   return `${e.from}>${e.to}`;
 }
 
-/** Bounding box of the drawing, used by Fit. */
-export const QA_CANVAS = { x: 20, y: 70, width: 3160, height: 770 };
+export function stageIds(stage: QaStage): string[] {
+  return Array.isArray(stage) ? stage : [stage];
+}
 
+/** Bounding box of the drawing, used by Fit. */
+export const QA_CANVAS = { x: 20, y: 70, width: 2780, height: 770 };
+
+/** Drawn in order, so outer groups come before the groups inside them. */
 export const QA_GROUPS: QaGroup[] = [
-  { id: 'akamai',  label: 'Akamai',            category: 'edge',   x: 320,  y: 140, width: 300, height: 470 },
-  { id: 'cdb',     label: 'CDB',               category: 'onprem', x: 1010, y: 236, width: 790, height: 276 },
-  { id: 'cwh',     label: 'AWS (CWH)',         category: 'aws',    x: 1540, y: 86,  width: 650, height: 144 },
-  { id: 'digital', label: 'DigitalCore (AWS)', category: 'aws',    x: 2640, y: 296, width: 520, height: 156 }
+  { id: 'akamai',   label: 'Akamai',       category: 'edge',    x: 320,  y: 140, width: 300, height: 470 },
+  { id: 'cdb',      label: 'CDB',          category: 'onprem',  x: 1010, y: 236, width: 790, height: 276 },
+  { id: 'sss',      label: 'SSS V2 APIC',  category: 'gateway', x: 1840, y: 236, width: 260, height: 300 },
+  { id: 'aws',      label: 'AWS',          category: 'aws',     x: 2185, y: 110, width: 590, height: 500 },
+  { id: 'channels', label: 'Channels AWS', category: 'aws',     x: 2195, y: 140, width: 570, height: 170 },
+  { id: 'digital',  label: 'DigitalCore',  category: 'aws',     x: 2195, y: 380, width: 570, height: 200 }
 ];
 
 export const QA_NODES: QaNode[] = [
@@ -107,14 +123,15 @@ export const QA_NODES: QaNode[] = [
   { id: 'web1',  label: 'CDB web server 1',     category: 'onprem',   x: 1300, y: 262, width: 200, height: 78, group: 'cdb', sub: 'IHS' },
   { id: 'web2',  label: 'CDB web server 2',     category: 'onprem',   x: 1300, y: 410, width: 200, height: 78, group: 'cdb', sub: 'IHS' },
   { id: 'bos',   label: 'CDBBOS ×2',            category: 'onprem',   x: 1570, y: 320, width: 200, height: 110, group: 'cdb', sub: 'WAS' },
-  { id: 'sss1',  label: 'SSS V2 APIC',          category: 'gateway',  x: 1830, y: 333, width: 210, height: 84, sub: '/api/cdb/<bian>/' },
-  { id: 'mid',   label: 'Midtier',              category: 'service',  x: 1830, y: 560, width: 210, height: 84 },
-  { id: 'chan',  label: 'Channel Services',     category: 'service',  x: 2110, y: 333, width: 210, height: 84, sub: 'OpenShift' },
-  { id: 'sss2',  label: 'SSS V2 APIC',          category: 'gateway',  x: 2390, y: 333, width: 210, height: 84, sub: '/api/<bian>/' },
-  { id: 'dcgw',  label: 'DC AWS API Gateway',   category: 'aws',      x: 2670, y: 333, width: 210, height: 84, group: 'digital' },
-  { id: 'dcl',   label: 'DC AWS Lambdas',       category: 'aws',      x: 2930, y: 333, width: 200, height: 84, group: 'digital' },
-  { id: 'awsgw', label: 'AWS API Gateway',      category: 'aws',      x: 1570, y: 120, width: 240, height: 90, group: 'cwh', isNew: true },
-  { id: 'awsl',  label: 'AWS Lambdas',          category: 'aws',      x: 1920, y: 120, width: 240, height: 90, group: 'cwh', isNew: true }
+  { id: 'mid',   label: 'Midtier',              category: 'service',  x: 1570, y: 600, width: 200, height: 84 },
+  // SSS V2 APIC path lanes: sss2 = /api, sss1 = /api/cdb
+  { id: 'sss2',  label: 'SSS V2 · /api',        category: 'gateway',  x: 1860, y: 270, width: 220, height: 84, group: 'sss', sub: '/api/<bian>/' },
+  { id: 'sss1',  label: 'SSS V2 · /api/cdb',    category: 'gateway',  x: 1860, y: 430, width: 220, height: 84, group: 'sss', sub: '/api/cdb/<bian>/' },
+  { id: 'chan',  label: 'Channel Services',     category: 'service',  x: 1860, y: 600, width: 220, height: 84, sub: 'OpenShift' },
+  { id: 'awsgw', label: 'AWS API Gateway',      category: 'aws',      x: 2215, y: 180, width: 240, height: 92, group: 'channels', isNew: true },
+  { id: 'awsl',  label: 'AWS Lambdas',          category: 'aws',      x: 2505, y: 180, width: 240, height: 92, group: 'channels', isNew: true },
+  { id: 'dcgw',  label: 'DC AWS API Gateway',   category: 'aws',      x: 2215, y: 440, width: 240, height: 84, group: 'digital' },
+  { id: 'dcl',   label: 'DC AWS Lambdas',       category: 'aws',      x: 2505, y: 440, width: 240, height: 84, group: 'digital' }
 ];
 
 export const QA_EDGES: QaEdge[] = [
@@ -139,17 +156,50 @@ export const QA_EDGES: QaEdge[] = [
   { from: 'f5', to: 'web2', points: [[1230, 385], [1265, 385], [1265, 449], [1298, 449]] },
   { from: 'web1', to: 'bos', points: [[1500, 301], [1535, 301], [1535, 355], [1568, 355]] },
   { from: 'web2', to: 'bos', points: [[1500, 449], [1535, 449], [1535, 395], [1568, 395]] },
+  // CWH APIC -> SSS /api lane
+  { from: 'apic', to: 'sss2', points: [[960, 166], [1960, 166], [1960, 268]], label: '/api/*', labelAt: [1460, 166] },
   // CDBBOS -> downstream
-  { from: 'bos', to: 'sss1', points: [[1770, 375], [1828, 375]], label: '/api/cdb/*', labelAt: [1799, 375] },
-  { from: 'bos', to: 'mid', points: [[1710, 430], [1710, 602], [1828, 602]] },
-  { from: 'bos', to: 'sss2', points: [[1710, 320], [1710, 262], [2495, 262], [2495, 331]],
-    label: '/api/*', labelAt: [2100, 262] },
-  { from: 'sss1', to: 'chan', points: [[2040, 375], [2108, 375]], label: '/api/cdb/*', labelAt: [2074, 375] },
-  { from: 'chan', to: 'sss2', points: [[2320, 375], [2388, 375]], label: '/api/*', labelAt: [2354, 375] },
-  { from: 'sss2', to: 'dcgw', points: [[2600, 375], [2668, 375]], label: '/api/*', labelAt: [2634, 375] },
-  { from: 'dcgw', to: 'dcl', points: [[2880, 375], [2928, 375]] },
-  // CWH AWS branch
-  { from: 'apic', to: 'awsgw', points: [[960, 166], [1568, 166]] },
-  { from: 'awsgw', to: 'awsl', points: [[1810, 166], [1918, 166]] },
-  { from: 'awsl', to: 'dcgw', points: [[2160, 166], [2775, 166], [2775, 331]] }
+  { from: 'bos', to: 'sss2', points: [[1770, 340], [1858, 340]], label: '/api/*', labelAt: [1810, 340] },
+  { from: 'bos', to: 'sss1', points: [[1770, 405], [1820, 405], [1820, 472], [1858, 472]],
+    label: '/api/cdb/*', labelAt: [1820, 440] },
+  { from: 'bos', to: 'mid', points: [[1670, 430], [1670, 598]] },
+  { from: 'sss1', to: 'chan', points: [[1970, 514], [1970, 598]], label: '/api/cdb/*', labelAt: [1970, 566] },
+  { from: 'chan', to: 'sss2', points: [[2080, 642], [2125, 642], [2125, 332], [2082, 332]],
+    label: '/api/*', labelAt: [2125, 520] },
+  // SSS /api -> AWS
+  { from: 'sss2', to: 'awsgw', points: [[2080, 290], [2150, 290], [2150, 226], [2213, 226]] },
+  { from: 'sss2', to: 'dcgw', points: [[2080, 310], [2170, 310], [2170, 482], [2213, 482]],
+    label: '/api/*', labelAt: [2170, 420] },
+  { from: 'awsgw', to: 'awsl', points: [[2455, 226], [2503, 226]] },
+  { from: 'awsl', to: 'dcgw', points: [[2625, 272], [2625, 345], [2335, 345], [2335, 438]] },
+  { from: 'dcgw', to: 'dcl', points: [[2455, 482], [2503, 482]] }
 ];
+
+const TO_CDBBOS: QaStage[] = ['spa', 'gss', 'apic', 'f5', ['web1', 'web2'], 'bos'];
+
+/**
+ * Clicking a node lights every route through it, from the SPA up to that node.
+ * Listed explicitly because the shared SSS /api lane makes plain graph
+ * reachability over-highlight (e.g. CDBBOS would light up for Channels AWS).
+ */
+export const QA_ROUTES: QaRoute[] = [
+  { id: 'signin-mfe',           stages: ['spa', 'mfe', 'ns'] },
+  { id: 'signin-idp',           stages: ['spa', 'mfe', 'idp'] },
+  { id: 'legacy-isam',          stages: ['spa', 'gss', 'isam', 'f5', ['web1', 'web2'], 'bos'] },
+  { id: 'cwh-channels-aws',     stages: ['spa', 'gss', 'apic', 'sss2', 'awsgw', 'awsl', 'dcgw', 'dcl'] },
+  { id: 'cdbbos-midtier',       stages: [...TO_CDBBOS, 'mid'] },
+  { id: 'cdbbos-digitalcore',   stages: [...TO_CDBBOS, 'sss2', 'dcgw', 'dcl'] },
+  { id: 'cdbbos-channels-dc',   stages: [...TO_CDBBOS, 'sss1', 'chan', 'sss2', 'dcgw', 'dcl'] }
+];
+
+// Catch route typos early: every consecutive pair of stages must be a drawn edge.
+const DRAWN = new Set(QA_EDGES.map(edgeId));
+for (const r of QA_ROUTES) {
+  r.stages.slice(1).forEach((stage, i) => {
+    for (const from of stageIds(r.stages[i])) {
+      for (const to of stageIds(stage)) {
+        if (!DRAWN.has(edgeId({ from, to }))) console.warn(`[qa-topology] route ${r.id}: no edge ${from}>${to}`);
+      }
+    }
+  });
+}

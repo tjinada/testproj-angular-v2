@@ -45,6 +45,26 @@ export function endpoints(text: string): QaEndpointGroup[] {
   return groups.filter(g => g.endpoints.length > 0);
 }
 
+/*
+ * Each list is what that component CALLS, grouped by where the call goes.
+ * Lists shared between a caller and the box it calls (CDBBOS -> SSS lanes,
+ * CDBBOS -> Midtier) are declared once and reused, so they cannot drift.
+ * Paste one endpoint per line under a heading: [METHOD] /path | notes
+ * (method is optional, defaults to ANY). Headings with no lines are hidden.
+ */
+
+const BOS_TO_SSS_CDB = endpoints(`
+  # CDBBOS → SSS /api/cdb (Channels)
+`);
+
+const BOS_TO_SSS_API = endpoints(`
+  # CDBBOS → SSS /api (DigitalCore)
+`);
+
+const BOS_TO_MIDTIER = endpoints(`
+  # CDBBOS → Midtier
+`);
+
 /**
  * Shared across every QA environment (same code is deployed everywhere).
  * An environment overrides a node's list in qa-environments.ts only where it differs.
@@ -53,25 +73,26 @@ export function endpoints(text: string): QaEndpointGroup[] {
 export const QA_SHARED_ENDPOINTS: Record<string, QaEndpointGroup[]> = {
   spa: endpoints(`
     # CIAM
-    GET  /isvaop/oauth2/authorize       | Steps 1 & 5 · 401 then 200 + code
-    POST /isvaop/oauth2/token           | Step 7 · code + PKCE verifier + DPoP
-    GET  /login/cdb/ciam_mfe.js         | Step 2 · Authenticator MFE bundle
-    GET  /banking/digital/ciam-callback | Step 6 · redirect target
 
     # CDB (via Akamai GSS rules)
-    POST /api/cdb-ui/contact-handler/session/initCDBSession | Step 8 · creates CDB session
+
+    # /banking/services → CDBBOS
   `),
 
-  bos: endpoints(`
-    # /banking/services
-    POST /banking/services/csgcb/session/initISAMSession | Legacy ISAM session
-  `),
+  bos: [
+    ...BOS_TO_SSS_CDB,
+    ...BOS_TO_SSS_API,
+    ...BOS_TO_MIDTIER,
+    ...endpoints(`
+      # CDBBOS → HUB / CGSG
 
-  sss1: endpoints(`
-    # /api/cdb/<bian>/
-  `),
+      # CDBBOS → DIAS cheque images
 
-  sss2: endpoints(`
-    # /api/<bian>/
-  `)
+      # CDBBOS → RSA adaptive authentication
+    `)
+  ],
+
+  sss1: BOS_TO_SSS_CDB,
+  sss2: BOS_TO_SSS_API,
+  mid: BOS_TO_MIDTIER
 };

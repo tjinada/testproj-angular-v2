@@ -12,8 +12,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
-  QA_CANVAS, QA_CATEGORIES, QA_EDGES, QA_GROUPS, QA_NODES,
-  QaCategoryStyle, QaEdge, QaEndpoint, QaEndpointGroup, QaNode, edgeId
+  QA_CANVAS, QA_CATEGORIES, QA_EDGES, QA_GROUPS, QA_NODES, QA_ROUTES,
+  QaCategoryStyle, QaEdge, QaEndpoint, QaEndpointGroup, QaNode, edgeId, stageIds
 } from './qa-topology';
 import { QA_SHARED_ENDPOINTS } from './qa-endpoints';
 import { DEFAULT_QA_ENV, QA_ENVIRONMENTS, QaEnvProfile } from './qa-environments';
@@ -110,26 +110,26 @@ export class QaTrafficFlowComponent implements OnChanges {
   });
 
   /**
-   * Selected node plus every node on any route into it (walks edges backwards
-   * to the SPA). Downstream callees are deliberately excluded. Null when
-   * nothing is selected.
+   * Nodes and edge ids lit for the selected node: each QA_ROUTES route through
+   * it, from the SPA up to that node. Downstream callees are deliberately
+   * excluded. Null when nothing is selected.
    */
-  private upstreamIds = computed<Set<string> | null>(() => {
+  private highlight = computed<{ nodes: Set<string>; edges: Set<string> } | null>(() => {
     const id = this.selectedNodeId();
     if (!id) return null;
-    const edges = this.edges();
-    const ids = new Set([id]);
-    const queue = [id];
-    while (queue.length) {
-      const current = queue.shift()!;
-      for (const e of edges) {
-        if (e.to === current && !ids.has(e.from)) {
-          ids.add(e.from);
-          queue.push(e.from);
+    const nodes = new Set([id]);
+    const edges = new Set<string>();
+    for (const route of QA_ROUTES) {
+      const at = route.stages.findIndex(s => stageIds(s).includes(id));
+      for (let i = 0; i < at; i++) {
+        const next = i + 1 === at ? [id] : stageIds(route.stages[i + 1]);
+        for (const from of stageIds(route.stages[i])) {
+          nodes.add(from);
+          next.forEach(to => edges.add(edgeId({ from, to })));
         }
       }
     }
-    return ids;
+    return { nodes, edges };
   });
 
   receivesFrom = computed(() => this.linkedLabels('in'));
@@ -198,14 +198,14 @@ export class QaTrafficFlowComponent implements OnChanges {
   }
 
   isNodeFaded(id: string): boolean {
-    const set = this.upstreamIds();
-    return !!set && !set.has(id);
+    const lit = this.highlight();
+    return !!lit && !lit.nodes.has(id);
   }
 
-  /** On a route into the selected node: both ends are upstream of (or are) it. */
+  /** On a route into the selected node. */
   isEdgeOn(e: QaEdgeView): boolean {
-    const set = this.upstreamIds();
-    return !!set && set.has(e.from) && set.has(e.to);
+    const lit = this.highlight();
+    return !!lit && lit.edges.has(e.id);
   }
 
   isEdgeFaded(e: QaEdgeView): boolean {
