@@ -114,7 +114,7 @@ export class QaTrafficFlowComponent implements OnChanges {
    * it, from the SPA up to that node. Downstream callees are deliberately
    * excluded. Null when nothing is selected.
    */
-  private highlight = computed<{ nodes: Set<string>; edges: Set<string> } | null>(() => {
+  private litRoutes = computed<{ nodes: Set<string>; edges: Set<string> } | null>(() => {
     const id = this.selectedNodeId();
     if (!id) return null;
     const nodes = new Set([id]);
@@ -198,13 +198,13 @@ export class QaTrafficFlowComponent implements OnChanges {
   }
 
   isNodeFaded(id: string): boolean {
-    const lit = this.highlight();
+    const lit = this.litRoutes();
     return !!lit && !lit.nodes.has(id);
   }
 
   /** On a route into the selected node. */
   isEdgeOn(e: QaEdgeView): boolean {
-    const lit = this.highlight();
+    const lit = this.litRoutes();
     return !!lit && lit.edges.has(e.id);
   }
 
