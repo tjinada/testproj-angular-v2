@@ -18,6 +18,7 @@ import {
 import { QA_SHARED_ENDPOINTS } from './qa-endpoints';
 import { DEFAULT_QA_ENV, QA_ENVIRONMENTS, QaEnvProfile } from './qa-environments';
 import { CWH_NODE, CWH_PASSTHROUGH_NODE, CWH_REWRITES, CWH_ROUTES, cwhRoute, normalizePath } from './qa-rewrites';
+import { CDBBOS_FANOUT, FANOUT_LANES, FANOUT_NODE, QaFanoutCall } from './qa-fanout';
 
 /**
  * One catalogued call and how it travels. Drawer rows, search hits and the
@@ -51,7 +52,16 @@ export interface QaNodeView extends QaNode {
   endpointCount: number;
 }
 
-interface TraceHop { label: string; path?: string; note?: string; }
+/** One step in the trace panel: the box, what it does, and the path at that point. */
+interface TraceHop { box: string; action: string; path?: string; tag?: string; }
+
+/** A call CDBBOS makes for the traced operation. */
+interface FanoutRow { trace: QaTrace; conditional: boolean; }
+
+/** A CDBBOS operation that makes the traced call, and the client call behind it. */
+interface TriggerRow { op: string; conditional: boolean; client?: QaTrace; }
+
+type Lit = { nodes: Set<string>; edges: Set<string> };
 
 /** An edge resolved against the selected environment. */
 export interface QaEdgeView extends QaEdge {
@@ -96,6 +106,8 @@ export class QaTrafficFlowComponent implements OnChanges {
   searchOpen = signal(false);
   /** The endpoint being traced; its whole route is lit. */
   trace = signal<QaTrace | null>(null);
+  /** Trace panel details shown; starts as one line and stays as the user left it. */
+  traceOpen = signal(false);
 
   tx = signal(0);
   ty = signal(0);
@@ -152,6 +164,21 @@ export class QaTrafficFlowComponent implements OnChanges {
   /** Client calls CWH passes on unchanged to SSS /api/cdb. */
   private passThrough = computed(() => this.catalogue().filter(t => t.route === CWH_ROUTES.passThrough));
 
+  /**
+   * CDBBOS's own catalogued calls, most specific first, for matching a fan-out call
+   * to its route. Bare lane prefixes (/api, /api/cdb) are too broad to count.
+   */
+  private fanoutTargets = computed(() => {
+    const lanes = new Set(FANOUT_LANES.map(([prefix]) => prefix.replace(/\/$/, '')));
+    return this.catalogue()
+      .filter(t => t.owner === FANOUT_NODE && !lanes.has(t.key))
+      .sort((a, b) => b.key.length - a.key.length);
+  });
+
+  /** Every CDBBOS operation's calls, resolved to routes once. */
+  private fanoutRows = computed(() => new Map([...CDBBOS_FANOUT].map(([op, f]) =>
+    [op, f.calls.map(c => ({ trace: this.fanoutCall(c), conditional: c.conditional }))] as [string, FanoutRow[]])));
+
   nodes = computed<QaNodeView[]>(() => {
     const env = this.env();
     const absent = new Set(env.absent ?? []);
@@ -195,12 +222,16 @@ export class QaTrafficFlowComponent implements OnChanges {
   });
 
   /**
-   * Nodes and edge ids to light. A traced endpoint lights its whole route;
-   * otherwise a selected box lights every route into it (upstream only).
+   * Nodes and edge ids to light. A traced endpoint lights its whole route, plus the
+   * routes of every call CDBBOS makes for it; otherwise a selected box lights every
+   * route into it (upstream only).
    */
-  private lit = computed<{ nodes: Set<string>; edges: Set<string> } | null>(() => {
+  private lit = computed<Lit | null>(() => {
     const t = this.trace();
-    if (t) return this.wholeRoute(t);
+    if (t) {
+      const all = [t, ...(this.fanoutOf(t)?.rows.map(r => r.trace) ?? [])].map(x => this.wholeRoute(x));
+      return { nodes: new Set(all.flatMap(l => [...l.nodes])), edges: new Set(all.flatMap(l => [...l.edges])) };
+    }
     const id = this.selectedNodeId();
     return id ? this.routesInto(id) : null;
   });
@@ -249,29 +280,68 @@ export class QaTrafficFlowComponent implements OnChanges {
       .map(([, t]) => t);
   });
 
-  /** The trace bar: boxes along the route and the path at each gateway. */
+  /**
+   * The trace panel: numbered hops with the path at each gateway, plus what CDBBOS
+   * calls next (client calls into CDBBOS) or what triggers the call (CDBBOS calls).
+   */
   traceView = computed(() => {
     const t = this.trace();
     if (!t) return null;
     const route = QA_ROUTES.find(r => r.id === t.route);
-    const label = (id: string) => QA_NODES.find(n => n.id === id)?.label ?? id;
-    const chain = route
-      ? route.stages.map(s => stageIds(s).map(label).join(' / '))
-      : [label(t.owner)];
-
-    const hops: TraceHop[] = [{ label: t.owner === CWH_NODE ? 'CWH APIC receives' : `${label(t.owner)} sends`, path: t.key }];
+    const stages = route ? route.stages.map(s => stageIds(s)[0]) : [];
     const viaCwh = t.route === CWH_ROUTES.cdbbos || t.route === CWH_ROUTES.passThrough;
+    const dest = t.dest?.label ?? '';
+    const cwh = this.nodeLabel(CWH_NODE);
+
+    const hops: TraceHop[] = [t.owner === CWH_NODE
+      ? { box: cwh, action: 'receives', path: t.key, tag: 'caller not catalogued' }
+      : { box: this.nodeLabel(t.owner), action: 'sends', path: t.key }];
+
     // What Akamai forwards to CWH, from the environment's label on that edge (e.g. /api5/cdb/*).
-    const akamai = this.edges().find(e => e.to === CWH_NODE)?.label?.replace(/\/\*$/, '');
-    if (viaCwh && t.owner !== CWH_NODE && akamai && !akamai.includes('{') && t.key.startsWith('/api/cdb/')) {
-      hops.push({ label: 'Akamai → CWH', path: akamai + t.key.slice('/api/cdb'.length) });
+    const intoCwh = this.edges().find(e => e.to === CWH_NODE);
+    const akamai = intoCwh?.label?.replace(/\/\*$/, '');
+    if (viaCwh && intoCwh && akamai && !akamai.includes('{') && t.owner !== CWH_NODE && t.key.startsWith('/api/cdb/')) {
+      hops.push({ box: this.nodeLabel(intoCwh.from), action: `→ ${cwh}`,
+                  path: akamai + t.key.slice('/api/cdb'.length), tag: this.env().label });
     }
-    if (t.to && t.to !== t.key) hops.push({ label: 'CWH → CDBBOS', path: t.to });
-    if (t.route === CWH_ROUTES.passThrough) {
-      hops.push({ label: 'CWH → SSS /api/cdb', path: t.key, note: 'unchanged' },
-                { label: 'SSS → Channels AWS', note: 'target not mapped' });
+
+    if (t.route === CWH_ROUTES.cdbbos && t.to) {
+      hops.push({ box: cwh, action: `→ ${dest}`, path: t.to, tag: t.to !== t.key ? 'rewritten' : undefined });
+    } else if (t.route === CWH_ROUTES.passThrough) {
+      const lane = this.nodeLabel(CWH_PASSTHROUGH_NODE);
+      hops.push({ box: cwh, action: `→ ${lane}`, path: t.key, tag: 'unchanged' },
+                { box: lane, action: `→ ${dest}`, tag: 'target not mapped' });
+    } else if (route) {
+      // The box after the caller: a gateway lane passes the call on; otherwise it serves it.
+      const next = stages[stages.indexOf(t.owner) + 1];
+      const nextNode = QA_NODES.find(n => n.id === next);
+      if (nextNode?.category === 'gateway' && next !== stages[stages.length - 1]) {
+        hops.push({ box: nextNode.label, action: `→ ${dest}`, tag: 'target not mapped' });
+      } else if (dest) {
+        hops.push({ box: dest, action: 'serves it' });
+      }
     }
-    return { trace: t, chain, routeLabel: route?.label, hops };
+
+    const fanout = this.fanoutOf(t);
+    const fanoutText = !fanout ? ''
+      : fanout.missing ? 'calls not traced'
+      : fanout.rows.length ? `${fanout.rows.length} downstream call${fanout.rows.length === 1 ? '' : 's'}`
+      : 'no HTTP calls';
+    if (fanout) {
+      hops.push({ box: this.nodeLabel(FANOUT_NODE), action: fanout.rows.length ? `calls ${fanout.rows.length} →` : fanoutText,
+                  tag: fanout.missing ? 'not in the CDBBOS trace' : undefined });
+    }
+    // A call CDBBOS makes (from its own lists or a fan-out row): who triggers it.
+    const fromCdbbos = !viaCwh && stages.includes(FANOUT_NODE) && stages.indexOf(FANOUT_NODE) <= stages.indexOf(t.owner);
+    const triggers = t.owner === FANOUT_NODE || fromCdbbos ? this.triggersOf(t) : null;
+
+    const summary = [
+      `${hops.length} hop${hops.length === 1 ? '' : 's'}`,
+      fanoutText,
+      triggers ? `triggered by ${triggers.length}` : ''
+    ].filter(Boolean).join(' · ');
+
+    return { trace: t, routeLabel: route?.label, hops, fanout, triggers, summary };
   });
 
   constructor(private router: Router, private hostEl: ElementRef<HTMLElement>) {}
@@ -384,6 +454,10 @@ export class QaTrafficFlowComponent implements OnChanges {
     this.query.set('');
   }
 
+  toggleTrace(): void {
+    this.traceOpen.update(v => !v);
+  }
+
   isTraced(t: QaTrace): boolean {
     const current = this.trace();
     return !!current && current.key === t.key && current.route === t.route;
@@ -425,6 +499,38 @@ export class QaTrafficFlowComponent implements OnChanges {
       route: r ? r.id : null,
       dest: dest ? { label: dest.label, style: QA_CATEGORIES[dest.category] } : null
     };
+  }
+
+  /**
+   * What CDBBOS calls for a traced call that ends at CDBBOS (keyed by the path CDBBOS
+   * receives). Null when the trace doesn't end at CDBBOS.
+   */
+  private fanoutOf(t: QaTrace): { rows: FanoutRow[]; other: string[]; missing: boolean } | null {
+    const route = QA_ROUTES.find(r => r.id === t.route);
+    const last = route ? stageIds(route.stages[route.stages.length - 1]) : [];
+    if (!last.includes(FANOUT_NODE) || t.owner === FANOUT_NODE) return null;
+    const op = t.to ?? t.key;
+    const f = CDBBOS_FANOUT.get(op);
+    return { rows: this.fanoutRows().get(op) ?? [], other: f?.other ?? [], missing: !f };
+  }
+
+  /** A fan-out call as a trace: its route comes from the CDBBOS list entry it matches. */
+  private fanoutCall(call: QaFanoutCall): QaTrace {
+    const p = normalizePath(call.path);
+    const hit = this.fanoutTargets().find(t => p === t.key || p.startsWith(t.key + '/'));
+    const route = hit?.route ?? FANOUT_LANES.find(([prefix]) => p.startsWith(prefix))?.[1] ?? null;
+    return { ...this.makeTrace(FANOUT_NODE, hit?.group ?? 'CDBBOS outbound', call, route), key: hit?.key ?? p };
+  }
+
+  /** CDBBOS operations that make the traced call, with the client call behind each. */
+  private triggersOf(t: QaTrace): TriggerRow[] {
+    const clientFor = new Map(this.catalogue().filter(c => c.to && c.route === CWH_ROUTES.cdbbos).map(c => [c.to!, c]));
+    const rows: TriggerRow[] = [];
+    for (const [op, calls] of this.fanoutRows()) {
+      const hit = calls.find(r => r.trace.key === t.key);
+      if (hit) rows.push({ op, conditional: hit.conditional, client: clientFor.get(op) });
+    }
+    return rows;
   }
 
   /** Outside fullscreen the drawer opens below the canvas — nudge it into view. */

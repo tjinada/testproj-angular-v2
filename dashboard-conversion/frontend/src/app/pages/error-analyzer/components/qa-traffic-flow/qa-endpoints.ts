@@ -10,10 +10,20 @@ const HEADING = /^#+\s*(.*?)(?:\s+@([\w-]+))?\s*$/;
 /** Leading list markers Copilot tends to add anyway: '- ', '* ', '• ', '1. ', '1) '. */
 const LIST_MARKER = /^(?:[-*•]|\d+[.)])\s+/;
 
+/** One "[METHOD] /path | notes" line, or null if it isn't one. */
+export function endpointLine(line: string): QaEndpoint | null {
+  const m = LINE.exec(line.trim().replace(LIST_MARKER, ''));
+  if (!m) return null;
+  const ep: QaEndpoint = { method: (m[1] ?? 'ANY').toUpperCase(), path: m[2] };
+  const notes = (m[3] ?? '').replace(/^[\s,|]+/, '').trim();
+  if (notes) ep.notes = notes;
+  return ep;
+}
+
 export function endpoints(text: string): QaEndpointGroup[] {
   const groups: QaEndpointGroup[] = [];
-  const seen = new Set<string>();
   let current: QaEndpointGroup | null = null;
+  let seen = new Set<string>();   // per group: the same call may sit under several groups
 
   text.split(/\r?\n/).forEach((raw, i) => {
     const line = raw.trim();
@@ -24,18 +34,15 @@ export function endpoints(text: string): QaEndpointGroup[] {
       current = { title: title || 'Endpoints', endpoints: [] };
       if (route) current.route = route;
       groups.push(current);
+      seen = new Set();
       return;
     }
 
-    const m = LINE.exec(line.replace(LIST_MARKER, ''));
-    if (!m) {
+    const ep = endpointLine(line);
+    if (!ep) {
       console.warn(`[qa-endpoints] line ${i + 1} skipped, expected "METHOD /path | notes": ${line}`);
       return;
     }
-
-    const ep: QaEndpoint = { method: (m[1] ?? 'ANY').toUpperCase(), path: m[2] };
-    const notes = (m[3] ?? '').replace(/^[\s,|]+/, '').trim();
-    if (notes) ep.notes = notes;
 
     const key = `${ep.method} ${ep.path}`;
     if (seen.has(key)) return;

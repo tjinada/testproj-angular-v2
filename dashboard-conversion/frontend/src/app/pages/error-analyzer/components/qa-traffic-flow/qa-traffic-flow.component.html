@@ -55,23 +55,74 @@
     <span class="qtf-lg qtf-lg-hint">Click a component for routes into it · search or click an endpoint to trace it</span>
   </div>
 
-  <!-- Traced endpoint -->
+  <!-- Traced endpoint: one line; expands to hops + what CDBBOS calls / what triggers it -->
   <div class="qtf-trace" *ngIf="traceView() as tv">
-    <div class="qtf-trace-top">
+    <div class="qtf-trace-head">
+      <button class="qtf-trace-toggle" (click)="toggleTrace()" [title]="traceOpen() ? 'Collapse' : 'Expand'">
+        {{ traceOpen() ? '▾' : '▸' }}
+      </button>
       <span class="qtf-trace-label">Trace</span>
       <span class="qtf-method" [attr.data-method]="tv.trace.endpoint.method">{{ tv.trace.endpoint.method }}</span>
-      <code class="qtf-trace-path">{{ tv.trace.endpoint.path }}</code>
+      <code class="qtf-trace-path" [title]="tv.trace.endpoint.path">{{ tv.trace.endpoint.path }}</code>
       <span *ngIf="tv.trace.endpoint.notes" class="qtf-trace-notes">{{ tv.trace.endpoint.notes }}</span>
-      <button class="qtf-btn qtf-trace-clear" (click)="clearTrace()">Clear</button>
+      <span *ngIf="tv.routeLabel" class="qtf-trace-route">{{ tv.routeLabel }}</span>
+      <button class="qtf-trace-summary" (click)="toggleTrace()">
+        {{ tv.summary }} — {{ traceOpen() ? 'hide' : 'show' }}
+      </button>
+      <button class="qtf-btn" (click)="clearTrace()">Clear</button>
     </div>
-    <div class="qtf-trace-chain">
-      {{ tv.chain.join('  →  ') }}<span *ngIf="tv.routeLabel" class="qtf-trace-route">{{ tv.routeLabel }}</span>
-    </div>
-    <div class="qtf-trace-hops">
-      <span *ngFor="let h of tv.hops; let last = last">
-        {{ h.label }} <code *ngIf="h.path">{{ h.path }}</code> <i *ngIf="h.note">{{ h.note }}</i>
-        <span *ngIf="!last" class="qtf-trace-sep">·</span>
-      </span>
+
+    <div *ngIf="traceOpen()" class="qtf-trace-body" [class.qtf-trace-single]="!tv.fanout && !tv.triggers">
+      <div class="qtf-hops">
+        <div *ngFor="let h of tv.hops" class="qtf-hop">
+          <span class="qtf-hop-box">{{ h.box }}</span>
+          <span class="qtf-hop-action">{{ h.action }}</span>
+          <span class="qtf-hop-path">
+            <code *ngIf="h.path" [title]="h.path">{{ h.path }}</code>
+            <span *ngIf="h.tag" class="qtf-hop-tag">{{ h.tag }}</span>
+          </span>
+        </div>
+      </div>
+
+      <div *ngIf="tv.fanout as f" class="qtf-trace-side">
+        <div class="qtf-trace-sec">
+          <span class="qtf-trace-sec-title">
+            {{ f.rows.length ? 'Then calls ' + f.rows.length : (f.missing ? 'Operation not in the CDBBOS trace' : 'Makes no HTTP calls') }}
+          </span>
+          <span class="qtf-trace-sec-sub">static source trace · click a call to trace it</span>
+        </div>
+        <div *ngIf="f.rows.length" class="qtf-trace-list">
+          <div *ngFor="let r of f.rows" class="qtf-trace-row" (click)="traceEndpoint(r.trace, true)"
+               [title]="r.trace.endpoint.notes ?? ''">
+            <span class="qtf-method" [attr.data-method]="r.trace.endpoint.method">{{ r.trace.endpoint.method }}</span>
+            <code [title]="r.trace.endpoint.path">{{ r.trace.endpoint.path }}</code>
+            <span><span *ngIf="r.trace.dest" class="qtf-chip" [style.background]="r.trace.dest.style.fill"
+              [style.color]="r.trace.dest.style.ink" [style.border-color]="r.trace.dest.style.stroke">{{ r.trace.dest.label }}</span></span>
+            <span class="qtf-trace-cond">{{ r.conditional ? 'conditional' : '' }}</span>
+          </div>
+        </div>
+        <div *ngIf="f.other.length" class="qtf-trace-other">
+          <b>Not on the diagram:</b> {{ f.other.join(' · ') }}
+        </div>
+      </div>
+
+      <div *ngIf="tv.triggers as tr" class="qtf-trace-side">
+        <div class="qtf-trace-sec">
+          <span class="qtf-trace-sec-title">Triggered by {{ tr.length }} CDBBOS operation{{ tr.length === 1 ? '' : 's' }}</span>
+          <span class="qtf-trace-sec-sub">static source trace · click to trace the client call</span>
+        </div>
+        <div *ngIf="tr.length" class="qtf-trace-list">
+          <div *ngFor="let r of tr" class="qtf-trace-row qtf-trace-row-trigger" [class.qtf-trace-row-dead]="!r.client"
+               (click)="r.client && traceEndpoint(r.client)">
+            <code [title]="r.op">{{ r.op }}</code>
+            <span class="qtf-trace-from">
+              <ng-container *ngIf="r.client; else noClient">← {{ nodeLabel(r.client.owner) }} <code>{{ r.client.endpoint.path }}</code></ng-container>
+              <ng-template #noClient><i>no client call catalogued</i></ng-template>
+            </span>
+            <span class="qtf-trace-cond">{{ r.conditional ? 'conditional' : '' }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
