@@ -292,6 +292,10 @@ $mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
 .qtf-ep-row:hover { background: #f8fafc; }
+
+/* Channel Services / AWS drawers: method, path → service path, service (no notes column) */
+.qtf-ep-list-services .qtf-ep-row { grid-template-columns: 58px minmax(0, 1fr) minmax(0, 0.45fr) 44px; }
+.qtf-ep-list-services .qtf-ep-notes { display: none; }
 .qtf-ep-row:last-child { border-bottom: none; }
 
 .qtf-ep-head {

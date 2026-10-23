@@ -197,10 +197,12 @@ export const QA_ROUTES: QaRoute[] = [
   { id: 'legacy-isam',        label: 'Legacy ISAM → CDBBOS',                     stages: ['spa', 'gss', 'isam', 'f5', ['web1', 'web2'], 'bos'] },
   { id: 'cwh-cdbbos',         label: 'CWH → CDBBOS',                             stages: TO_CDBBOS },
   { id: 'cwh-channels-aws',   label: 'CWH → SSS /api/cdb → Channels AWS',        stages: TO_CHANNELS_AWS },
+  { id: 'cwh-channel-services', label: 'CWH → SSS /api/cdb → Channel Services',  stages: ['spa', 'gss', 'apic', 'sss1', 'chan'] },
   { id: 'channels-aws-dc',    label: 'Channels AWS → DigitalCore',               stages: [...TO_CHANNELS_AWS, 'dcgw', 'dcl'] },
   { id: 'cdbbos-midtier',     label: 'CDBBOS → Midtier',                         stages: [...TO_CDBBOS, 'mid'] },
   { id: 'cdbbos-digitalcore', label: 'CDBBOS → SSS /api → DigitalCore',          stages: [...TO_CDBBOS, 'sss2', 'dcgw', 'dcl'] },
   { id: 'cdbbos-channels',    label: 'CDBBOS → SSS /api/cdb → Channel Services', stages: [...TO_CDBBOS, 'sss1', 'chan'] },
+  { id: 'cdbbos-channels-aws', label: 'CDBBOS → SSS /api/cdb → Channels AWS',    stages: [...TO_CDBBOS, 'sss1', 'awsgw', 'awsl'] },
   { id: 'cdbbos-channels-dc', label: 'Channel Services → DigitalCore',           stages: [...TO_CDBBOS, 'sss1', 'chan', 'sss2', 'dcgw', 'dcl'] }
 ];
 

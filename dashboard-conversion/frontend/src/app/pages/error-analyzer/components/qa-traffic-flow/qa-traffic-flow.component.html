@@ -75,7 +75,7 @@
     <div *ngIf="traceOpen()" class="qtf-trace-body" [class.qtf-trace-single]="!tv.fanout && !tv.triggers">
       <div class="qtf-hops">
         <div *ngFor="let h of tv.hops" class="qtf-hop">
-          <span class="qtf-hop-box">{{ h.box }}</span>
+          <span class="qtf-hop-box" [title]="h.box">{{ h.box }}</span>
           <span class="qtf-hop-action">{{ h.action }}</span>
           <span class="qtf-hop-path">
             <code *ngIf="h.path" [title]="h.path">{{ h.path }}</code>
@@ -269,9 +269,10 @@
               </span>
             </div>
 
-            <div class="qtf-ep-list">
+            <div class="qtf-ep-list" [class.qtf-ep-list-services]="serviceNodes.has(node.id)">
               <div class="qtf-ep-row qtf-ep-head">
-                <span>Method</span><span>Path</span><span>Notes</span><span>Goes to</span><span></span>
+                <span>Method</span><span>Path</span><span class="qtf-ep-notes">Notes</span>
+                <span>{{ serviceNodes.has(node.id) ? 'Service' : 'Goes to' }}</span><span></span>
               </div>
               <ng-container *ngFor="let g of filteredGroups(); trackBy: trackGroup">
                 <div class="qtf-ep-group">{{ g.title }}</div>
@@ -284,7 +285,8 @@
                   <span class="qtf-ep-path"><ng-container *ngFor="let p of highlight(t.endpoint.path)"><mark
                     *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container>
                     <span *ngIf="t.to && t.to !== t.key" class="qtf-ep-to">→ <ng-container *ngFor="let p of highlight(t.to)"><mark
-                      *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span></span>
+                      *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span>
+                    <span *ngIf="t.channel" class="qtf-ep-to">→ {{ t.channel.target }}</span></span>
                   <span class="qtf-ep-notes"><ng-container *ngFor="let p of highlight(t.endpoint.notes)"><mark
                     *ngIf="p.hit">{{ p.text }}</mark><ng-container *ngIf="!p.hit">{{ p.text }}</ng-container></ng-container></span>
                   <span><span *ngIf="t.dest" class="qtf-chip" [style.background]="t.dest.style.fill"

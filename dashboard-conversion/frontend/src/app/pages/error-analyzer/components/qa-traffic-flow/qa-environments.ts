@@ -1,4 +1,5 @@
 import type { QaEndpointGroup } from './qa-topology';
+import { QaChannelRoute, SIT2_CHANNEL_ROUTES } from './qa-channel-routes';
 
 /**
  * Per-environment values for the CDB QA traffic flow. Everything that differs
@@ -19,12 +20,15 @@ export interface QaEnvProfile {
   endpoints?: Record<string, QaEndpointGroup[]>;
   /** Node ids that don't exist in this environment. */
   absent?: string[];
+  /** SSS /api/cdb routing to microservices (APIC config for this environment's SIT). */
+  channelRoutes?: QaChannelRoute[];
 }
 
 export const QA_ENVIRONMENTS: QaEnvProfile[] = [
   {
     id: 'qa5',
     label: 'QA5',
+    channelRoutes: SIT2_CHANNEL_ROUTES,
     hosts: {
       spa:   ['www.olb-gss-qa56.dev.bmo.com'],
       gss:   ['QA56 · /api/cdb/* → /api5/cdb/*'],

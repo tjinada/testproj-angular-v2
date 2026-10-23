@@ -19,6 +19,11 @@ import { QA_SHARED_ENDPOINTS } from './qa-endpoints';
 import { DEFAULT_QA_ENV, QA_ENVIRONMENTS, QaEnvProfile } from './qa-environments';
 import { CWH_NODE, CWH_PASSTHROUGH_NODE, CWH_REWRITES, CWH_ROUTES, cwhRoute, normalizePath } from './qa-rewrites';
 import { CDBBOS_FANOUT, FANOUT_LANES, FANOUT_NODE, QaFanoutCall } from './qa-fanout';
+import { CDBBOS_CHANNEL_ROUTE, CHANNEL_LANE_ROUTES, CHANNEL_PLATFORM_NODES, matchChannelRoute } from './qa-channel-routes';
+
+/** Routes a client call can end up on when CWH passes it through to SSS /api/cdb. */
+const PASS_THROUGH = new Set([CWH_ROUTES.passThrough, ...Object.values(CHANNEL_LANE_ROUTES[CWH_ROUTES.passThrough] ?? {})]);
+const isPassThrough = (t: { route: string | null }) => !!t.route && PASS_THROUGH.has(t.route);
 
 /**
  * One catalogued call and how it travels. Drawer rows, search hits and the
@@ -35,8 +40,10 @@ export interface QaTrace {
   route: string | null;
   /** Path after the CWH rewrite, when there is one. */
   to?: string;
-  /** Box that serves it (last stage of the route). */
+  /** Box that serves it (last stage of the route), or the microservice when known. */
   dest: { label: string; style: QaCategoryStyle } | null;
+  /** Microservice SSS /api/cdb sends it to, and the path that service receives. */
+  channel?: { service: string; host: string; platform: string; target: string };
 }
 
 export interface QaGroupView {
@@ -95,6 +102,8 @@ export class QaTrafficFlowComponent implements OnChanges {
   readonly groups = QA_GROUPS.map(g => ({ ...g, style: QA_CATEGORIES[g.category] }));
   readonly legend = Object.values(QA_CATEGORIES);
   readonly cwhNode = CWH_NODE;
+  /** Boxes whose drawer lists SSS /api/cdb routes (method, path, service — no notes). */
+  readonly serviceNodes = new Set(Object.values(CHANNEL_PLATFORM_NODES));
 
   envId = signal(DEFAULT_QA_ENV);
   selectedNodeId = signal<string | null>(null);
@@ -148,7 +157,7 @@ export class QaTrafficFlowComponent implements OnChanges {
 
   /** What CWH APIC receives, grouped by where it sends it. */
   private cwhGroups = computed<QaGroupView[]>(() => {
-    const viaCwh = this.catalogue().filter(t => t.route === CWH_ROUTES.cdbbos || t.route === CWH_ROUTES.passThrough);
+    const viaCwh = this.catalogue().filter(t => t.route === CWH_ROUTES.cdbbos || isPassThrough(t));
     const byKey = new Map(viaCwh.map(t => [t.key, t]));
     const byBase = new Map<string, QaTrace[]>();
     for (const r of CWH_REWRITES) {
@@ -157,12 +166,30 @@ export class QaTrafficFlowComponent implements OnChanges {
     }
     return [
       ...[...byBase].map(([base, rows]) => ({ title: `→ CDBBOS · ${base}`, rows })),
-      { title: '→ SSS /api/cdb → Channels AWS · path unchanged', rows: this.passThrough() }
+      { title: '→ SSS /api/cdb · path unchanged', rows: this.passThrough() }
     ];
   });
 
   /** Client calls CWH passes on unchanged to SSS /api/cdb. */
-  private passThrough = computed(() => this.catalogue().filter(t => t.route === CWH_ROUTES.passThrough));
+  private passThrough = computed(() => this.catalogue().filter(isPassThrough));
+
+  /**
+   * SSS /api/cdb routes for the box each platform sits in, sorted by service. Rows show
+   * method, path (with the service path under it) and the service chip.
+   */
+  private channelGroups = computed(() => {
+    const byNode = new Map<string, QaGroupView[]>();
+    const routes = [...(this.env().channelRoutes ?? [])].sort((a, b) => a.service.localeCompare(b.service));
+    for (const r of routes) {
+      const node = CHANNEL_PLATFORM_NODES[r.platform];
+      if (!node) continue;
+      if (!byNode.has(node)) byNode.set(node, [{ title: 'SSS /api/cdb routes', rows: [] }]);
+      // Traced as the CDBBOS call it is; the table lists what CDBBOS sends to SSS /api/cdb.
+      byNode.get(node)![0].rows.push(
+        this.makeTrace(FANOUT_NODE, 'SSS /api/cdb routes', { method: r.method, path: r.from }, CDBBOS_CHANNEL_ROUTE));
+    }
+    return byNode;
+  });
 
   /**
    * CDBBOS's own catalogued calls, most specific first, for matching a fan-out call
@@ -185,10 +212,11 @@ export class QaTrafficFlowComponent implements OnChanges {
     return QA_NODES.filter(n => !absent.has(n.id)).map(n => {
       const own = (this.ownGroups().get(n.id) ?? [])
         .map(g => ({ title: g.title, rows: g.endpoints.map(ep => this.toTrace(n, g, ep)) }));
-      const derived: QaGroupView[] =
-        n.id === CWH_NODE ? this.cwhGroups()
-        : n.id === CWH_PASSTHROUGH_NODE ? [{ title: 'From CWH APIC · path unchanged', rows: this.passThrough() }]
-        : [];
+      const derived: QaGroupView[] = [
+        ...(n.id === CWH_NODE ? this.cwhGroups() : []),
+        ...(n.id === CWH_PASSTHROUGH_NODE ? [{ title: 'From CWH APIC · path unchanged', rows: this.passThrough() }] : []),
+        ...(this.channelGroups().get(n.id) ?? [])
+      ];
       const endpointGroups = [...own, ...derived].filter(g => g.rows.length > 0);
       return {
         ...n,
@@ -289,13 +317,18 @@ export class QaTrafficFlowComponent implements OnChanges {
     if (!t) return null;
     const route = QA_ROUTES.find(r => r.id === t.route);
     const stages = route ? route.stages.map(s => stageIds(s)[0]) : [];
-    const viaCwh = t.route === CWH_ROUTES.cdbbos || t.route === CWH_ROUTES.passThrough;
+    const viaCwh = t.route === CWH_ROUTES.cdbbos || isPassThrough(t);
     const dest = t.dest?.label ?? '';
     const cwh = this.nodeLabel(CWH_NODE);
+    // Leaving an SSS lane: the microservice and the path it receives, when the routing table knows.
+    const laneHops = (lane: string): TraceHop[] => t.channel
+      ? [{ box: lane, action: `→ ${this.nodeLabel(CHANNEL_PLATFORM_NODES[t.channel.platform] ?? '')}` },
+         { box: t.channel.service, action: 'receives', path: t.channel.target, tag: t.channel.platform }]
+      : [{ box: lane, action: `→ ${dest}`, tag: 'target not mapped' }];
 
     const hops: TraceHop[] = [t.owner === CWH_NODE
       ? { box: cwh, action: 'receives', path: t.key, tag: 'caller not catalogued' }
-      : { box: this.nodeLabel(t.owner), action: 'sends', path: t.key }];
+      : { box: this.nodeLabel(t.owner), action: 'sends', path: normalizePath(t.endpoint.path) }];
 
     // What Akamai forwards to CWH, from the environment's label on that edge (e.g. /api5/cdb/*).
     const intoCwh = this.edges().find(e => e.to === CWH_NODE);
@@ -307,16 +340,15 @@ export class QaTrafficFlowComponent implements OnChanges {
 
     if (t.route === CWH_ROUTES.cdbbos && t.to) {
       hops.push({ box: cwh, action: `→ ${dest}`, path: t.to, tag: t.to !== t.key ? 'rewritten' : undefined });
-    } else if (t.route === CWH_ROUTES.passThrough) {
+    } else if (isPassThrough(t)) {
       const lane = this.nodeLabel(CWH_PASSTHROUGH_NODE);
-      hops.push({ box: cwh, action: `→ ${lane}`, path: t.key, tag: 'unchanged' },
-                { box: lane, action: `→ ${dest}`, tag: 'target not mapped' });
+      hops.push({ box: cwh, action: `→ ${lane}`, path: t.key, tag: 'unchanged' }, ...laneHops(lane));
     } else if (route) {
       // The box after the caller: a gateway lane passes the call on; otherwise it serves it.
       const next = stages[stages.indexOf(t.owner) + 1];
       const nextNode = QA_NODES.find(n => n.id === next);
       if (nextNode?.category === 'gateway' && next !== stages[stages.length - 1]) {
-        hops.push({ box: nextNode.label, action: `→ ${dest}`, tag: 'target not mapped' });
+        hops.push(...laneHops(nextNode.label));
       } else if (dest) {
         hops.push({ box: dest, action: 'serves it' });
       }
@@ -490,14 +522,19 @@ export class QaTrafficFlowComponent implements OnChanges {
   }
 
   private makeTrace(owner: string, group: string, endpoint: QaEndpoint, route: string | null, to?: string): QaTrace {
-    const r = route ? QA_ROUTES.find(x => x.id === route) : undefined;
+    // A call entering SSS /api/cdb lands wherever this environment's routing table says.
+    const lane = route ? CHANNEL_LANE_ROUTES[route] : undefined;
+    const hit = lane ? matchChannelRoute(this.env().channelRoutes ?? [], endpoint.path) : null;
+    const finalRoute = hit ? lane?.[hit.route.platform] ?? route : route;
+    const r = finalRoute ? QA_ROUTES.find(x => x.id === finalRoute) : undefined;
     const destId = r ? stageIds(r.stages[r.stages.length - 1])[0] : owner;
     const dest = QA_NODES.find(n => n.id === destId);
     return {
       owner, group, endpoint, to,
       key: normalizePath(endpoint.path),
       route: r ? r.id : null,
-      dest: dest ? { label: dest.label, style: QA_CATEGORIES[dest.category] } : null
+      dest: dest ? { label: hit ? hit.route.service : dest.label, style: QA_CATEGORIES[dest.category] } : null,
+      ...(hit ? { channel: { service: hit.route.service, host: hit.route.host, platform: hit.route.platform, target: hit.target } } : {})
     };
   }
 
