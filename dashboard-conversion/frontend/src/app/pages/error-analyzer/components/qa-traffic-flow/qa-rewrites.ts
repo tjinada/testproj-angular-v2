@@ -33,6 +33,16 @@ export function normalizePath(input: string): string {
   return path.length > 1 ? path.replace(/\/+$/, '') : path;
 }
 
+/**
+ * A catalogued path as a regex: '*' and '{name}' segments match any one segment.
+ * With prefix, it also matches longer paths under it.
+ */
+export function pathPattern(pattern: string, prefix = false): RegExp {
+  const segments = pattern.split('/').map(s =>
+    s === '*' || /^\{[^}]+\}$/.test(s) ? '[^/]+' : s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp('^' + segments.join('/') + (prefix ? '(?=/|$)' : '$'));
+}
+
 function rewrites(text: string): QaRewrite[] {
   const out: QaRewrite[] = [];
   let base = '';

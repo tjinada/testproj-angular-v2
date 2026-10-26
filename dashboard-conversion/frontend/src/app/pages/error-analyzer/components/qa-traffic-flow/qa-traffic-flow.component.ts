@@ -17,9 +17,9 @@ import {
 } from './qa-topology';
 import { QA_SHARED_ENDPOINTS } from './qa-endpoints';
 import { DEFAULT_QA_ENV, QA_ENVIRONMENTS, QaEnvProfile } from './qa-environments';
-import { CWH_NODE, CWH_PASSTHROUGH_NODE, CWH_REWRITES, CWH_ROUTES, cwhRoute, normalizePath } from './qa-rewrites';
+import { CWH_NODE, CWH_PASSTHROUGH_NODE, CWH_REWRITES, CWH_ROUTES, cwhRoute, normalizePath, pathPattern } from './qa-rewrites';
 import { CDBBOS_FANOUT, FANOUT_LANES, FANOUT_NODE, QaFanoutCall } from './qa-fanout';
-import { CDBBOS_CHANNEL_ROUTE, CHANNEL_LANE_ROUTES, CHANNEL_PLATFORM_NODES, matchChannelRoute } from './qa-channel-routes';
+import { CDBBOS_CHANNEL_ROUTE, CHANNEL_LANE_ROUTES, CHANNEL_PLATFORM_NODES, laneOf, matchChannelRoute } from './qa-channel-routes';
 
 /** Routes a client call can end up on when CWH passes it through to SSS /api/cdb. */
 const PASS_THROUGH = new Set([CWH_ROUTES.passThrough, ...Object.values(CHANNEL_LANE_ROUTES[CWH_ROUTES.passThrough] ?? {})]);
@@ -36,6 +36,8 @@ export interface QaTrace {
   endpoint: QaEndpoint;
   /** Normalised path, for matching. */
   key: string;
+  /** For a CDBBOS fan-out call: the key of the CDBBOS list entry it falls under. */
+  entry?: string;
   /** QA_ROUTES id; null traces the owner box only. */
   route: string | null;
   /** Path after the CWH rewrite, when there is one. */
@@ -285,18 +287,21 @@ export class QaTrafficFlowComponent implements OnChanges {
   /**
    * Search hits, best first: exact path; then a catalogued path that a longer pasted
    * one starts with (most specific wins); then anything containing the text.
+   * '*' and '{name}' segments in catalogued paths match any one segment.
    */
   results = computed<QaTrace[]>(() => {
     const raw = this.query().trim().toLowerCase();
     if (raw.length < 3) return [];
     const q = normalizePath(raw);
+    const is = (p: string) => !!p && pathPattern(p).test(q);
+    const under = (p: string) => !!p && pathPattern(p, true).test(q);
     const scored: [number, QaTrace][] = [];
     for (const t of this.catalogue()) {
       const key = t.key.toLowerCase();
       const to = (t.to ?? '').toLowerCase();
       let score = 0;
-      if (key === q || to === q) score = 3;
-      else if ((key.split('/').length > 3 && q.startsWith(key + '/')) || (to && q.startsWith(to + '/'))) {
+      if (is(key) || is(to)) score = 3;
+      else if ((key.split('/').length > 3 && under(key)) || under(to)) {
         score = 2 + Math.max(key.length, to.length) / 1e4;
       } else if (key.includes(q) || to.includes(q) || (t.endpoint.notes ?? '').toLowerCase().includes(raw)) {
         score = 1;
@@ -359,7 +364,7 @@ export class QaTrafficFlowComponent implements OnChanges {
     const fanoutText = !fanout ? ''
       : fanout.missing ? 'calls not traced'
       : fanout.rows.length ? `${fanout.rows.length} downstream call${fanout.rows.length === 1 ? '' : 's'}`
-      : 'no HTTP calls';
+      : 'no HTTP calls catalogued';
     if (fanout) {
       hops.push({ box: this.nodeLabel(FANOUT_NODE), action: fanout.rows.length ? `calls ${fanout.rows.length} →` : fanoutText,
                   tag: fanout.missing ? 'not in the CDBBOS trace' : undefined });
@@ -493,7 +498,8 @@ export class QaTrafficFlowComponent implements OnChanges {
 
   isTraced(t: QaTrace): boolean {
     const current = this.trace();
-    return !!current && current.key === t.key && current.route === t.route;
+    // A traced fan-out call also marks the CDBBOS list entry it falls under.
+    return !!current && (current.key === t.key || current.entry === t.key) && current.route === t.route;
   }
 
   onSearchInput(event: Event): void {
@@ -524,7 +530,7 @@ export class QaTrafficFlowComponent implements OnChanges {
 
   private makeTrace(owner: string, group: string, endpoint: QaEndpoint, route: string | null, to?: string): QaTrace {
     // A call entering SSS /api/cdb lands wherever this environment's routing table says.
-    const lane = route ? CHANNEL_LANE_ROUTES[route] : undefined;
+    const lane = route ? laneOf(route) : undefined;
     const hit = lane ? matchChannelRoute(this.env().channelRoutes ?? [], endpoint.path) : null;
     const finalRoute = hit ? lane?.[hit.route.platform] ?? route : route;
     const r = finalRoute ? QA_ROUTES.find(x => x.id === finalRoute) : undefined;
@@ -552,20 +558,26 @@ export class QaTrafficFlowComponent implements OnChanges {
     return { rows: this.fanoutRows().get(op) ?? [], other: f?.other ?? [], missing: !f };
   }
 
-  /** A fan-out call as a trace: its route comes from the CDBBOS list entry it matches. */
+  /**
+   * A fan-out call as a trace: its route comes from the CDBBOS list entry it matches.
+   * It keeps its own full path as its key, so two calls under one entry stay distinct.
+   */
   private fanoutCall(call: QaFanoutCall): QaTrace {
     const p = normalizePath(call.path);
-    const hit = this.fanoutTargets().find(t => p === t.key || p.startsWith(t.key + '/'));
+    const hit = this.fanoutTargets().find(t => pathPattern(t.key, true).test(p));
     const route = hit?.route ?? FANOUT_LANES.find(([prefix]) => p.startsWith(prefix))?.[1] ?? null;
-    return { ...this.makeTrace(FANOUT_NODE, hit?.group ?? 'CDBBOS outbound', call, route), key: hit?.key ?? p };
+    return { ...this.makeTrace(FANOUT_NODE, hit?.group ?? 'CDBBOS outbound', call, route), ...(hit ? { entry: hit.key } : {}) };
   }
 
-  /** CDBBOS operations that make the traced call, with the client call behind each. */
+  /**
+   * CDBBOS operations that make the traced call, with the client call behind each.
+   * A traced CDBBOS list entry collects the calls that fall under it.
+   */
   private triggersOf(t: QaTrace): TriggerRow[] {
     const clientFor = new Map(this.catalogue().filter(c => c.to && c.route === CWH_ROUTES.cdbbos).map(c => [c.to!, c]));
     const rows: TriggerRow[] = [];
     for (const [op, calls] of this.fanoutRows()) {
-      const hit = calls.find(r => r.trace.key === t.key);
+      const hit = calls.find(r => r.trace.key === t.key || r.trace.entry === t.key);
       if (hit) rows.push({ op, conditional: hit.conditional, client: clientFor.get(op) });
     }
     return rows;

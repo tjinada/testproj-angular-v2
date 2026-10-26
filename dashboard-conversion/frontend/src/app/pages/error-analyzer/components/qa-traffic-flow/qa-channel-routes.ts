@@ -13,7 +13,7 @@
  *
  * DO NOT paste backticks (`) or '${' — this is a template literal.
  */
-import { normalizePath } from './qa-rewrites';
+import { normalizePath, pathPattern } from './qa-rewrites';
 
 export interface QaChannelRoute {
   service: string;
@@ -72,16 +72,18 @@ export function channelRoutes(text: string): QaChannelRoute[] {
   return out;
 }
 
-/** '{name}' segments in a route match any single segment. */
-const prefixPattern = (from: string) =>
-  new RegExp('^' + from.split('/').map(s => /^\{.+\}$/.test(s) ? '[^/]+' : s.replace(/[.*+?^$()|[\]\\]/g, '\\$&')).join('/') + '(?=/|$)');
+/** The lane a route belongs to: the route a call enters it on, or one it resolved to. */
+export function laneOf(route: string): Record<string, string> | undefined {
+  return CHANNEL_LANE_ROUTES[route]
+    ?? Object.values(CHANNEL_LANE_ROUTES).find(lane => Object.values(lane).includes(route));
+}
 
 /** The most specific route for a path, and the path the target receives. */
 export function matchChannelRoute(routes: QaChannelRoute[], path: string): { route: QaChannelRoute; target: string } | null {
   const p = normalizePath(path);
   let best: { route: QaChannelRoute; target: string } | null = null;
   for (const route of routes) {
-    const m = prefixPattern(route.from).exec(p);
+    const m = pathPattern(route.from, true).exec(p);
     if (m && (!best || route.from.length > best.route.from.length)) {
       best = { route, target: route.to.replace(/\/$/, '') + p.slice(m[0].length) };
     }

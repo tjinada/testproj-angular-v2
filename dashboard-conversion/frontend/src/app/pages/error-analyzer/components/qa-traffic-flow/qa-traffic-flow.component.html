@@ -90,7 +90,7 @@
       <div *ngIf="tv.fanout as f" class="qtf-trace-side">
         <div class="qtf-trace-sec">
           <span class="qtf-trace-sec-title">
-            {{ f.rows.length ? 'Then calls ' + f.rows.length : (f.missing ? 'Operation not in the CDBBOS trace' : 'Makes no HTTP calls') }}
+            {{ f.rows.length ? 'Then calls ' + f.rows.length : (f.missing ? 'Operation not in the CDBBOS trace' : 'No HTTP calls catalogued') }}
           </span>
           <span class="qtf-trace-sec-sub">static source trace · click a call to trace it</span>
         </div>
