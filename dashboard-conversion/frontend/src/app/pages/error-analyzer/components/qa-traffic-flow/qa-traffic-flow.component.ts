@@ -12,7 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
-  QA_CANVAS, QA_CATEGORIES, QA_EDGES, QA_GROUPS, QA_NODES, QA_ROUTES,
+  QA_CANVAS, QA_CATEGORIES, QA_EDGES, QA_GROUPS, QA_NODES, QA_ROUTES, QA_ZONES,
   QaCategoryStyle, QaEdge, QaEndpoint, QaEndpointGroup, QaNode, edgeId, stageIds
 } from './qa-topology';
 import { QA_SHARED_ENDPOINTS } from './qa-endpoints';
@@ -99,6 +99,7 @@ export class QaTrafficFlowComponent implements OnChanges {
   @ViewChild('svgEl', { static: false }) svgEl?: ElementRef<SVGSVGElement>;
 
   readonly environments = QA_ENVIRONMENTS;
+  readonly zones = QA_ZONES;
   readonly groups = QA_GROUPS.map(g => ({ ...g, style: QA_CATEGORIES[g.category] }));
   readonly legend = Object.values(QA_CATEGORIES);
   readonly cwhNode = CWH_NODE;
@@ -651,6 +652,10 @@ export class QaTrafficFlowComponent implements OnChanges {
 
   stepWidth(steps: string): number {
     return Math.max(20, steps.length * 6 + 12);
+  }
+
+  badgeWidth(badge: string): number {
+    return badge.length * 6.4 + 14;
   }
 
   /** Left x of the step badge; the label pill follows it, centred as a pair. */

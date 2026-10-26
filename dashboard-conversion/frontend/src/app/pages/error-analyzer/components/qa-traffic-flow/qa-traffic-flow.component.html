@@ -51,6 +51,9 @@
     </span>
     <span class="qtf-lg"><span class="qtf-lg-line"></span>traffic</span>
     <span class="qtf-lg"><span class="qtf-lg-line qtf-lg-dash"></span>legacy</span>
+    <span class="qtf-lg" *ngFor="let z of zones">
+      <i class="qtf-lg-zone" [style.border-color]="z.color"></i>{{ z.label }} zone
+    </span>
     <span class="qtf-lg"><span class="qtf-lg-new">NEW</span>new for CIAM</span>
     <span class="qtf-lg qtf-lg-hint">Click a component for routes into it · search or click an endpoint to trace it</span>
   </div>
@@ -147,6 +150,13 @@
 
       <g [attr.transform]="transform()">
 
+        <!-- Zones -->
+        <g *ngFor="let z of zones" class="qtf-zone">
+          <rect [attr.x]="z.x" [attr.y]="z.y" [attr.width]="z.width" [attr.height]="z.height"
+                rx="14" [attr.stroke]="z.color" [attr.fill]="z.color" />
+          <text [attr.x]="z.x + 14" [attr.y]="z.y + 22" [attr.fill]="z.color">{{ z.label.toUpperCase() }}</text>
+        </g>
+
         <!-- Groups -->
         <g *ngFor="let g of groups" class="qtf-group">
           <rect [attr.x]="g.x" [attr.y]="g.y" [attr.width]="g.width" [attr.height]="g.height"
@@ -197,6 +207,10 @@
             <rect [attr.x]="n.width - 52" y="-10" width="46" height="20" rx="10" />
             <text [attr.x]="n.width - 29" y="4" text-anchor="middle">NEW</text>
           </g>
+          <g *ngIf="n.badge" class="qtf-host-badge">
+            <rect x="6" y="-10" [attr.width]="badgeWidth(n.badge)" height="20" rx="10" />
+            <text [attr.x]="6 + badgeWidth(n.badge) / 2" y="4" text-anchor="middle">{{ n.badge.toUpperCase() }}</text>
+          </g>
           <text class="qtf-node-label" [attr.x]="n.width / 2" [attr.y]="n.height / 2 - (subLine(n) ? 12 : 4)"
                 text-anchor="middle" [attr.fill]="n.style.ink">{{ n.label }}</text>
           <text class="qtf-node-host" [class.qtf-unset]="!n.hosts.length"
@@ -215,6 +229,7 @@
         <div class="qtf-drawer-badges">
           <span class="qtf-badge" [style.background]="node.style.fill" [style.color]="node.style.ink"
                 [style.border-color]="node.style.stroke">{{ node.style.label }}</span>
+          <span *ngIf="node.badge" class="qtf-badge qtf-badge-host">Hosted in {{ node.badge }}</span>
           <span *ngIf="node.isNew" class="qtf-badge qtf-badge-new">New for CIAM</span>
           <span *ngIf="node.legacy" class="qtf-badge qtf-badge-legacy">Legacy</span>
           <span *ngIf="node.endpointCount" class="qtf-badge qtf-badge-count">{{ node.endpointCount }} endpoint{{ node.endpointCount === 1 ? '' : 's' }}</span>

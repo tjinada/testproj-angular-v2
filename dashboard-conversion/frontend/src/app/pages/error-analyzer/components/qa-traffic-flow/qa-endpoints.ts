@@ -93,6 +93,8 @@ export const QA_SHARED_ENDPOINTS: Record<string, QaEndpointGroup[]> = {
 
     # CIAM · MFE bundle @signin-mfe
 
+    # CIAM · callback @spa-wem
+
     # CDB (via Akamai GSS rules)
 
     # /banking/services → CDBBOS

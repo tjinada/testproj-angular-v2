@@ -35,6 +35,7 @@ export const QA_ENVIRONMENTS: QaEnvProfile[] = [
       mfe:   ['qa2.auth.bmo.com/*'],
       ns:    ['qa2.auth.bmo.com'],
       idp:   ['bmonsori-mobileidp-sit2.bmofg.com'],
+      wem:   ['bmonsori-qawem3-harrismycfo.dev.bmo.com'],
       apic:  ['bmonsori-apisit.bmo.com'],
       isam:  ['retailcanapi-sit2.bmofg.com'],
       f5:    ['www.olb-qa5.dev.bmo.com'],

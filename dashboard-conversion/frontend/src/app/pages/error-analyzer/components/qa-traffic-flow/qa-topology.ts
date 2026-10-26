@@ -43,6 +43,18 @@ export interface QaNode {
   legacy?: boolean;
   /** Short role line under the hostname. */
   sub?: string;
+  /** Where the box is hosted, shown as a pill, e.g. 'NetStorage'. */
+  badge?: string;
+}
+
+/** Hosting zone: a coloured outline around the boxes that live in it. */
+export interface QaZone {
+  label: string;
+  color: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface QaGroup {
@@ -107,28 +119,37 @@ export function stageIds(stage: QaStage): string[] {
 /** Bounding box of the drawing, used by Fit. */
 export const QA_CANVAS = { x: 10, y: 70, width: 2790, height: 770 };
 
+/** Drawn under the groups. Midtier sits outside every zone. */
+export const QA_ZONES: QaZone[] = [
+  { label: 'CWH Web', color: '#1E3A8A', x: 700,  y: 88,  width: 825, height: 740 },
+  { label: 'CWH App', color: '#0F766E', x: 1545, y: 250, width: 250, height: 210 },
+  { label: 'SSS V2',  color: '#B45309', x: 1830, y: 200, width: 300, height: 510 },
+  { label: 'AWS',     color: '#534AB7', x: 2185, y: 100, width: 590, height: 510 }
+];
+
 /** Drawn in order, so outer groups come before the groups inside them. */
 export const QA_GROUPS: QaGroup[] = [
   { id: 'akamai',   label: 'Akamai',       category: 'edge',    x: 320,  y: 140, width: 300, height: 470 },
-  { id: 'cdb',      label: 'CDB',          category: 'onprem',  x: 1010, y: 236, width: 790, height: 276 },
+  { id: 'cdb',      label: 'CDB web tier', category: 'onprem',  x: 1020, y: 236, width: 495, height: 276 },
   { id: 'sss',      label: 'SSS V2 APIC',  category: 'gateway', x: 1840, y: 236, width: 260, height: 300 },
-  { id: 'aws',      label: 'AWS',          category: 'aws',     x: 2185, y: 110, width: 590, height: 500 },
   { id: 'channels', label: 'Channels AWS', category: 'aws',     x: 2195, y: 140, width: 570, height: 170 },
   { id: 'digital',  label: 'DigitalCore',  category: 'aws',     x: 2195, y: 380, width: 570, height: 200 }
 ];
 
 export const QA_NODES: QaNode[] = [
   { id: 'spa',   label: 'CDB SPA',              category: 'client',   x: 40,   y: 360, width: 190, height: 92 },
-  { id: 'gss',   label: 'GSS rules',            category: 'edge',     x: 350,  y: 190, width: 240, height: 84, group: 'akamai' },
+  { id: 'gss',   label: 'CDB Akamai ruleset',   category: 'edge',     x: 350,  y: 190, width: 240, height: 84, group: 'akamai' },
   { id: 'mfe',   label: 'CIAM MFE rules',       category: 'edge',     x: 350,  y: 340, width: 240, height: 84, group: 'akamai', isNew: true },
-  { id: 'ns',    label: 'NetStorage',           category: 'edge',     x: 350,  y: 490, width: 240, height: 84, group: 'akamai', isNew: true, sub: 'Authenticator MFE' },
-  { id: 'idp',   label: 'CIAM Identity Server', category: 'identity', x: 370,  y: 720, width: 220, height: 92, isNew: true, sub: 'OAuth2 / OIDC' },
+  { id: 'ns',    label: 'CIAM Auth SPA',        category: 'edge',     x: 350,  y: 490, width: 240, height: 84, group: 'akamai', isNew: true,
+    badge: 'NetStorage', sub: 'login · register · reset · recover' },
+  { id: 'idp',   label: 'CIAM Identity Server', category: 'identity', x: 720,  y: 700, width: 220, height: 92, isNew: true, sub: 'OAuth2 / OIDC' },
+  { id: 'wem',   label: 'WEM',                  category: 'onprem',   x: 1040, y: 600, width: 270, height: 78, sub: 'hosts CDB SPA' },
   { id: 'apic',  label: 'CWH APIC',             category: 'gateway',  x: 720,  y: 120, width: 240, height: 92, isNew: true },
   { id: 'isam',  label: 'Legacy ISAM',          category: 'identity', x: 720,  y: 520, width: 210, height: 84, legacy: true },
   { id: 'f5',    label: 'F5 LTM',               category: 'onprem',   x: 1040, y: 330, width: 190, height: 84, group: 'cdb' },
   { id: 'web1',  label: 'CDB web server 1',     category: 'onprem',   x: 1300, y: 262, width: 200, height: 78, group: 'cdb', sub: 'IHS' },
   { id: 'web2',  label: 'CDB web server 2',     category: 'onprem',   x: 1300, y: 410, width: 200, height: 78, group: 'cdb', sub: 'IHS' },
-  { id: 'bos',   label: 'CDBBOS ×2',            category: 'onprem',   x: 1570, y: 320, width: 200, height: 110, group: 'cdb', sub: 'WAS' },
+  { id: 'bos',   label: 'CDBBOS ×2',            category: 'onprem',   x: 1570, y: 320, width: 200, height: 110, sub: 'WAS' },
   { id: 'mid',   label: 'Midtier',              category: 'service',  x: 1570, y: 600, width: 200, height: 84 },
   // SSS V2 APIC path lanes: sss1 = /api/cdb (top, fed by CWH and CDBBOS), sss2 = /api
   { id: 'sss1',  label: 'SSS V2 · /api/cdb',    category: 'gateway',  x: 1860, y: 270, width: 220, height: 84, group: 'sss', sub: '/api/cdb/<bian>/' },
@@ -148,9 +169,11 @@ export const QA_EDGES: QaEdge[] = [
   { from: 'spa', to: 'mfe', points: [[230, 382], [348, 382]] },
   // Akamai internal / out
   { from: 'mfe', to: 'ns', points: [[470, 424], [470, 488]],
-    label: 'GET /login/cdb/ciam_mfe.js', labelAt: [470, 456] },
-  { from: 'mfe', to: 'idp', points: [[350, 410], [335, 410], [335, 766], [368, 766]],
+    label: '/login|enrollment|forgot*/cdb/*', labelAt: [470, 456] },
+  { from: 'mfe', to: 'idp', points: [[350, 410], [335, 410], [335, 746], [718, 746]],
     label: '/isvaop/oauth2/* · /aac/sps/apiauthsvc/*', labelAt: [335, 660] },
+  { from: 'gss', to: 'wem', points: [[590, 262], [665, 262], [665, 640], [1038, 640]],
+    label: '/banking/digital/*', labelAt: [866, 640] },
   { from: 'gss', to: 'apic', points: [[590, 215], [655, 215], [655, 166], [718, 166]],
     label: '/api{n}/cdb/*', steps: '8', labelAt: [655, 190] },
   { from: 'gss', to: 'isam', points: [[590, 250], [675, 250], [675, 562], [718, 562]],
@@ -194,6 +217,7 @@ const TO_CHANNELS_AWS: QaStage[] = ['spa', 'gss', 'apic', 'sss1', 'awsgw', 'awsl
 export const QA_ROUTES: QaRoute[] = [
   { id: 'signin-mfe',         label: 'Sign-in · MFE bundle',                     stages: ['spa', 'mfe', 'ns'] },
   { id: 'signin-idp',         label: 'Sign-in · CIAM IdP',                       stages: ['spa', 'mfe', 'idp'] },
+  { id: 'spa-wem',            label: 'CDB Akamai ruleset → WEM (CDB SPA)',       stages: ['spa', 'gss', 'wem'] },
   { id: 'legacy-isam',        label: 'Legacy ISAM → CDBBOS',                     stages: ['spa', 'gss', 'isam', 'f5', ['web1', 'web2'], 'bos'] },
   { id: 'cwh-cdbbos',         label: 'CWH → CDBBOS',                             stages: TO_CDBBOS },
   { id: 'cwh-channels-aws',   label: 'CWH → SSS /api/cdb → Channels AWS',        stages: TO_CHANNELS_AWS },

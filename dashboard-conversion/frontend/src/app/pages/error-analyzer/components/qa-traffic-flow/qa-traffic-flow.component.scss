@@ -84,6 +84,7 @@ $mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 .qtf-lg i { width: 12px; height: 10px; border: 1px solid; border-radius: 2px; display: inline-block; }
 .qtf-lg-line { width: 18px; border-top: 1.75px solid #6b7280; display: inline-block; }
 .qtf-lg-dash { border-top-style: dashed; }
+.qtf-lg i.qtf-lg-zone { width: 14px; border: 2px dashed; border-radius: 3px; background: transparent; }
 .qtf-lg-new { font-size: 9px; font-weight: 700; color: #fff; background: #D85A30; border-radius: 8px; padding: 1px 6px; }
 .qtf-lg-hint { margin-left: auto; font-style: italic; }
 
@@ -118,6 +119,12 @@ $mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 .qtf-canvas:active { cursor: grabbing; }
 
 /* SVG elements */
+.qtf-zone rect { stroke-width: 2.25; stroke-dasharray: 12 6; fill-opacity: 0.05; }
+.qtf-zone text { font: 800 13px $sans; letter-spacing: 0.08em; pointer-events: none; }
+
+.qtf-host-badge rect { fill: #334155; }
+.qtf-host-badge text { font: 700 9px $sans; fill: #ffffff; letter-spacing: 0.5px; pointer-events: none; }
+
 .qtf-group rect { stroke-width: 1.25; stroke-dasharray: 7 4; fill-opacity: 0.35; }
 .qtf-group text { font: 600 12px $sans; pointer-events: none; }
 
@@ -187,6 +194,7 @@ $mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
 .qtf-badge-new { background: #fde3d9; color: #993C1D; }
 .qtf-badge-legacy { background: #f3f4f6; color: #6b7280; }
+.qtf-badge-host { background: #334155; color: #ffffff; border-color: #334155; }
 .qtf-badge-count { background: #dbeafe; color: #1e40af; }
 
 .qtf-drawer-close {
