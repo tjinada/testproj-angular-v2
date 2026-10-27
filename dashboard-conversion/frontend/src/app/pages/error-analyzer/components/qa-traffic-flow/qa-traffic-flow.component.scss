@@ -67,27 +67,6 @@ $mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   text-align: right;
 }
 
-/* Legend */
-.qtf-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px;
-  padding: 6px 16px 8px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fcfcfd;
-  font-size: 11px;
-  color: #6b7280;
-}
-
-.qtf-lg { display: inline-flex; align-items: center; gap: 5px; }
-.qtf-lg i { width: 12px; height: 10px; border: 1px solid; border-radius: 2px; display: inline-block; }
-.qtf-lg-line { width: 18px; border-top: 1.75px solid #6b7280; display: inline-block; }
-.qtf-lg-dash { border-top-style: dashed; }
-.qtf-lg i.qtf-lg-zone { width: 14px; border: 2px dashed; border-radius: 3px; background: transparent; }
-.qtf-lg-new { font-size: 9px; font-weight: 700; color: #fff; background: #D85A30; border-radius: 8px; padding: 1px 6px; }
-.qtf-lg-hint { margin-left: auto; font-style: italic; }
-
 /* Canvas — same dotted background as flow-diagram */
 .qtf-canvas-container {
   position: relative;
@@ -129,7 +108,6 @@ $mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 .qtf-group text { font: 600 12px $sans; pointer-events: none; }
 
 .qtf-edge { stroke: #6b7280; stroke-width: 1.75; transition: stroke 0.15s, opacity 0.2s; }
-.qtf-edge-dashed { stroke-dasharray: 6 5; }
 .qtf-edge-on { stroke: #2563eb; stroke-width: 2.25; }
 
 .qtf-elabel rect { fill: #ffffff; stroke: #d1d5db; }

@@ -44,20 +44,6 @@
     </div>
   </div>
 
-  <!-- Legend -->
-  <div class="qtf-legend">
-    <span class="qtf-lg" *ngFor="let c of legend">
-      <i [style.background]="c.fill" [style.border-color]="c.stroke"></i>{{ c.label }}
-    </span>
-    <span class="qtf-lg"><span class="qtf-lg-line"></span>traffic</span>
-    <span class="qtf-lg"><span class="qtf-lg-line qtf-lg-dash"></span>legacy</span>
-    <span class="qtf-lg" *ngFor="let z of zones">
-      <i class="qtf-lg-zone" [style.border-color]="z.color"></i>{{ z.label }} zone
-    </span>
-    <span class="qtf-lg"><span class="qtf-lg-new">NEW</span>new for CIAM</span>
-    <span class="qtf-lg qtf-lg-hint">Click a component for routes into it · search or click an endpoint to trace it</span>
-  </div>
-
   <!-- Traced endpoint: one line; expands to hops + what CDBBOS calls / what triggers it -->
   <div class="qtf-trace" *ngIf="traceView() as tv">
     <div class="qtf-trace-head">
@@ -167,7 +153,6 @@
         <!-- Edges -->
         <path *ngFor="let e of edges(); trackBy: trackEdge"
               class="qtf-edge"
-              [class.qtf-edge-dashed]="e.dashed"
               [class.qtf-edge-on]="isEdgeOn(e)"
               [class.qtf-faded]="isEdgeFaded(e)"
               [attr.d]="e.d"

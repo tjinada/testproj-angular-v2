@@ -103,7 +103,6 @@ export class QaTrafficFlowComponent implements OnChanges {
   readonly environments = QA_ENVIRONMENTS;
   readonly zones = QA_ZONES;
   readonly groups = QA_GROUPS.map(g => ({ ...g, style: QA_CATEGORIES[g.category] }));
-  readonly legend = Object.values(QA_CATEGORIES);
   readonly cwhNode = CWH_NODE;
   /** Boxes whose drawer lists SSS /api/cdb routes (method, path, service — no notes). */
   readonly serviceNodes = new Set(Object.values(CHANNEL_PLATFORM_NODES));

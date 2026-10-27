@@ -78,7 +78,6 @@ export interface QaEdge {
   steps?: string;
   /** Centre of the label pill(s). Required when label or steps is set. */
   labelAt?: [number, number];
-  dashed?: boolean;
 }
 
 export interface QaEndpoint {
@@ -117,7 +116,7 @@ export function stageIds(stage: QaStage): string[] {
 }
 
 /** Bounding box of the drawing, used by Fit. */
-export const QA_CANVAS = { x: 10, y: 70, width: 2790, height: 770 };
+export const QA_CANVAS = { x: -20, y: 70, width: 2820, height: 770 };
 
 /** Drawn under the groups. Midtier sits outside every zone. */
 export const QA_ZONES: QaZone[] = [
@@ -164,7 +163,7 @@ export const QA_NODES: QaNode[] = [
 export const QA_EDGES: QaEdge[] = [
   // Client -> Akamai
   { from: 'spa', to: 'gss', points: [[135, 360], [135, 232], [348, 232]],
-    label: '/api/cdb/* · /banking/services/*', steps: '8', labelAt: [135, 296] },
+    label: '/api/cdb/* · /banking/{services,digital}/*', steps: '8', labelAt: [135, 296] },
   // No label: the CIAM MFE rules box already shows the host, and the hop is too short for a pill.
   { from: 'spa', to: 'mfe', points: [[230, 382], [348, 382]] },
   // Akamai internal / out
@@ -177,11 +176,11 @@ export const QA_EDGES: QaEdge[] = [
   { from: 'gss', to: 'apic', points: [[590, 215], [655, 215], [655, 166], [718, 166]],
     label: '/api{n}/cdb/*', steps: '8', labelAt: [655, 190] },
   { from: 'gss', to: 'isam', points: [[590, 250], [675, 250], [675, 562], [718, 562]],
-    label: '/banking/services/csgcb/session/initISAMSession', labelAt: [675, 470], dashed: true },
+    label: '/banking/services/csgcb/session/initISAMSession', labelAt: [675, 470] },
   // Gateways -> CDB
   { from: 'apic', to: 'f5', points: [[900, 212], [900, 372], [1038, 372]],
     label: '/banking/services/*', steps: '8', labelAt: [900, 300] },
-  { from: 'isam', to: 'f5', points: [[930, 562], [985, 562], [985, 400], [1038, 400]], dashed: true },
+  { from: 'isam', to: 'f5', points: [[930, 562], [985, 562], [985, 400], [1038, 400]] },
   { from: 'f5', to: 'web1', points: [[1230, 360], [1265, 360], [1265, 301], [1298, 301]] },
   { from: 'f5', to: 'web2', points: [[1230, 385], [1265, 385], [1265, 449], [1298, 449]] },
   { from: 'web1', to: 'bos', points: [[1500, 301], [1535, 301], [1535, 355], [1568, 355]] },
