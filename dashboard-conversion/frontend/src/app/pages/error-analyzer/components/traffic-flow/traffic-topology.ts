@@ -8,6 +8,8 @@ export interface SiteFacts {
   ltmVip: string;
   /** Legacy ISAM front door. Note the .bmofg.com domain, not .bmo.com. */
   isamLtm: string;
+  /** ISAM IdP (mobile IdP) front door, behind GTM-ISAM. Structural only. */
+  idpLtm: string;
 }
 
 export const SITE_IDS: SiteId[] = ['BCC', 'SCC'];
@@ -18,14 +20,16 @@ export const SITES: Record<SiteId, SiteFacts> = {
     extGtm: 'bos-www13.bmo.com',
     ltmHost: 'bmonsori-www13.bmo.com',
     ltmVip: '(198.96.174.25)',
-    isamLtm: 'retailcanapi-prodbcc.bmofg.com'
+    isamLtm: 'retailcanapi-prodbcc.bmofg.com',
+    idpLtm: 'bmonsori-mobileidp-www1.bmofg.com'
   },
   SCC: {
     apicFs: 'bmonsori-apissccprod.bmo.com',
     extGtm: 'bos-www12.bmo.com',
     ltmHost: 'bmonsori-www12.bmo.com',
     ltmVip: '(142.43.171.25)',
-    isamLtm: 'retailcanapi-prodscc.bmofg.com'
+    isamLtm: 'retailcanapi-prodscc.bmofg.com',
+    idpLtm: 'bmonsori-mobileidp-www2.bmofg.com'
   }
 };
 
@@ -42,6 +46,10 @@ export const APIC_INSTANCES = 3;
 export const WEB_SERVERS = 2;
 export const APP_SERVERS = 6;
 export const WGA_INSTANCES = 6;
+export const IDP_WGA_INSTANCES = 4;
+
+/** GTM fronting authentication.bmo.com/aac/*, in front of the ISAM IdP LTMs. */
+export const ISAM_GTM_HOSTNAME = 'isam.prod.ciam.akadns.net';
 
 /*
  * Environment facts, not operator controls. These describe how the estate is
@@ -148,7 +156,7 @@ export function nodeLabel(id: string): string {
     ltm: 'BOS LTM',
     web: 'BOS Web',
     app: 'BOS App',
-    isamltm: 'ISAM LTM',
+    isamltm: 'ISAM Legacy LTM',
     wga: 'ISAM WGA'
   };
   const name = tier[parts[0]] ?? parts[0];

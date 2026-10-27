@@ -2,8 +2,8 @@ import type {
   Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
-  APIC_INSTANCES, APP_SERVERS, NAME_SERVERS, SITES, SITE_COOKIE_NAME, SITE_IDS,
-  TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
+  APIC_INSTANCES, APP_SERVERS, IDP_WGA_INSTANCES, ISAM_GTM_HOSTNAME, NAME_SERVERS,
+  SITES, SITE_COOKIE_NAME, SITE_IDS, TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
 } from './traffic-topology';
 
 /** A laid-out box on the diagram. */
@@ -90,22 +90,31 @@ const ROW = {
   gtm: 195, cloudlet: 330, apicFs: 445, apic: 545,
   extGtm: 625, ltm: 765, web: 885, app: 995
 };
-const SITE_X: Record<SiteId, number> = { BCC: 560, SCC: 1000 };
+const SITE_X: Record<SiteId, number> = { BCC: 860, SCC: 1300 };
 
 /**
- * ISAM columns sit outboard of the BOS columns, as on the architecture diagram.
- * The ISAM LTM shares the APIC FS row and the WGA tier shares the APIC instance
- * row, so the two authentication front doors read side by side.
+ * Legacy ISAM columns sit outboard of the BOS columns, as on the architecture
+ * diagram. The ISAM Legacy LTM shares the APIC FS row and the WGA tier shares
+ * the APIC instance row, so the two authentication front doors read side by side.
  */
-const ISAM_X: Record<SiteId, number> = { BCC: 200, SCC: 1360 };
+const ISAM_X: Record<SiteId, number> = { BCC: 500, SCC: 1660 };
+
+/**
+ * ISAM IdP columns sit outboard of the legacy ISAM columns, on the same rows.
+ * Structural only: nothing in the resolver routes through them yet.
+ */
+const IDP_X: Record<SiteId, number> = { BCC: 200, SCC: 1960 };
 
 /** Vertical run of the /banking/services rails, threaded between the columns. */
-const RAIL_X: Record<SiteId, number> = { BCC: 371, SCC: 1188 };
+const RAIL_X: Record<SiteId, number> = { BCC: 671, SCC: 1488 };
 
 /** Horizontal run of the csgcb leg to the far site, below the cloudlet. */
 const CSGCB_RAIL_Y = 420;
 
-const CANVAS = { width: 1560, height: 1105 };
+/** Horizontal run of the GTM-ISAM legs, just below the Akamai lane. */
+const ISAM_GTM_RAIL_Y = 310;
+
+const CANVAS = { width: 2160, height: 1105 };
 
 type Geom = { x: number; y: number; width: number; height: number };
 
@@ -115,26 +124,32 @@ function line(text: string, bold = false) { return { text, bold }; }
 function baseNodes(res: Resolution): Record<string, any> {
   const n: Record<string, any> = {};
 
-  n['client'] = { x: 710, y: 20, width: 140, height: 44, outline: true,
+  n['client'] = { x: 1010, y: 20, width: 140, height: 44, outline: true,
     lines: [line('CDB UI', true)] };
 
-  n['gtm-bos'] = { x: 415, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+  n['gtm-bos'] = { x: 715, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
     lines: [line('GTM-CDB-BOS', true), line('www1.bmo.com/banking/services/*'),
       line('Liveness: /banking/live.txt'), line('Stickiness: cdbbossiteId'),
       line(res.gtmDistribution.bos, true)] };
 
-  n['gtm-api'] = { x: 855, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+  n['gtm-api'] = { x: 1155, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
     lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'),
       line('wlb.apis.olbb.akadns.net'), line('Liveness: TCP on port 443'),
       line('Stickiness: cdbbossiteId'), line(res.gtmDistribution.api, true)] };
 
-  n['cloudlet'] = { x: 590, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
+  // Structural only: static 50/50, no site-pick pills, never on a taken path.
+  n['gtm-isam'] = { x: 1595, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+    lines: [line('GTM-ISAM', true), line('authentication.bmo.com/aac/*'),
+      line(ISAM_GTM_HOSTNAME), line('Liveness: /pics/mobileidp.gif'),
+      line('Stickiness: apidc'), line('50/50', true)] };
+
+  n['cloudlet'] = { x: 890, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
     lines: [line('cloudlet Configuration', true), line('Set x-bmo-env=blue or Green'),
       line('Set x-api-key=pr1_key or pr2_key')] };
 
   // The csgcb entry point. Drawn on every path so the estate reads whole, but
   // only on the taken path when the request is actually csgcb.
-  n['akamai-prop'] = { x: 60, y: ROW.cloudlet, width: 280, height: 66,
+  n['akamai-prop'] = { x: 360, y: ROW.cloudlet, width: 280, height: 66,
     outline: true, radius: 33,
     lines: [line('Property Configuration', true),
       line(`if ${SITE_COOKIE_NAME} = BCC/SCC`),
@@ -143,13 +158,33 @@ function baseNodes(res: Resolution): Record<string, any> {
   return n;
 }
 
-/** Adds the per-site legacy ISAM column: ISAM LTM and its WGA instances. */
+/**
+ * Adds the per-site ISAM IdP column: IdP LTM and its WGA instances. Ids are
+ * idpltm-* / idpwga-*, which TOGGLEABLE_NODE deliberately does not match.
+ */
+function idpNodes(all: Record<string, any>): void {
+  SITE_IDS.forEach(site => {
+    const cx = IDP_X[site];
+
+    all[`idpltm-${site}`] = { x: cx - 125, y: ROW.apicFs, width: 250, height: 66,
+      lines: [line(`ISAM IdP LTM (${site})`, true), line('bmonsori-'),
+        line(SITES[site].idpLtm.replace('bmonsori-', ''))] };
+
+    for (let i = 1; i <= IDP_WGA_INSTANCES; i++) {
+      all[`idpwga-${site}-${i}`] = { x: cx - 101 + (i - 1) * 52, y: ROW.apic,
+        width: 46, height: 54,
+        lines: [line('ISAM'), line('WGA'), line(`#${i}`)] };
+    }
+  });
+}
+
+/** Adds the per-site legacy ISAM column: ISAM Legacy LTM and its WGA instances. */
 function isamNodes(all: Record<string, any>): void {
   SITE_IDS.forEach(site => {
     const cx = ISAM_X[site];
 
     all[`isamltm-${site}`] = { x: cx - 125, y: ROW.apicFs, width: 250, height: 66,
-      lines: [line(`ISAM LTM (${site})`, true), line(SITES[site].isamLtm),
+      lines: [line(`ISAM Legacy LTM (${site})`, true), line(SITES[site].isamLtm),
         line('no health check — cookie bound')] };
 
     for (let i = 1; i <= WGA_INSTANCES; i++) {
@@ -251,14 +286,28 @@ function wgaRail(all: Record<string, Geom>, site: SiteId): string {
   return `M${sx} ${first.y + first.height} V${ltm.y + 20} H${ex}`;
 }
 
+/**
+ * GTM-ISAM to a site's IdP LTM. Orthogonal, running just below the Akamai lane
+ * and outboard of every other column, so it clears the cloudlet and property
+ * boxes.
+ */
+function isamGtmRail(all: Record<string, Geom>, site: SiteId): string {
+  const g = all['gtm-isam'], t = all[`idpltm-${site}`];
+  const sx = g.x + g.width / 2, tx = t.x + t.width / 2;
+  return `M${sx} ${g.y + g.height} V${ISAM_GTM_RAIL_Y} H${tx} V${t.y}`;
+}
+
 /** Every structural edge, drawn dim underneath the taken path. */
 function baseEdgePairs(): [string, string][] {
   const pairs: [string, string][] = [
-    ['client', 'gtm-bos'], ['client', 'gtm-api'],
+    ['client', 'gtm-bos'], ['client', 'gtm-api'], ['client', 'gtm-isam'],
     ['gtm-bos', 'cloudlet'], ['gtm-api', 'cloudlet']
   ];
   SITE_IDS.forEach(s => {
     pairs.push(['cloudlet', `apicfs-${s}`]);
+    for (let i = 1; i <= IDP_WGA_INSTANCES; i++) {
+      pairs.push([`idpltm-${s}`, `idpwga-${s}-${i}`]);
+    }
     for (let i = 1; i <= WGA_INSTANCES; i++) {
       pairs.push([`isamltm-${s}`, `wga-${s}-${i}`]);
     }
@@ -279,10 +328,11 @@ function baseLabels(state: SimState, res: Resolution): TfLabel[] {
   const labels: TfLabel[] = [
     { x: RAIL_X.BCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
     { x: RAIL_X.SCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
-    { x: 965, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' },
+    { x: 1265, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' },
     // Sits right of the CWH Web lane title and above the trap alert, in the
-    // gap between the property-rule box and the ISAM LTM row.
-    { x: 210, y: CSGCB_RAIL_Y - 6, text: '/banking/services/csgcb', kind: 'edge' }
+    // gap between the property-rule box and the ISAM Legacy LTM row.
+    { x: 510, y: CSGCB_RAIL_Y - 6, text: '/banking/services/csgcb', kind: 'edge' },
+    { x: 1460, y: 72, text: 'authentication.bmo.com/aac/*', kind: 'edge' }
   ];
 
   /*
@@ -353,9 +403,9 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
 }
 
 const LANES: TfLane[] = [
-  { x: 40, y: 100, width: 1480, height: 196, title: 'Akamai' },
-  { x: 40, y: 400, width: 1480, height: 555, title: 'CWH Web' },
-  { x: 40, y: 965, width: 1480, height: 120, title: 'CWH app' }
+  { x: 40, y: 100, width: 2080, height: 196, title: 'Akamai' },
+  { x: 40, y: 400, width: 2080, height: 555, title: 'CWH Web' },
+  { x: 40, y: 965, width: 2080, height: 120, title: 'CWH app' }
 ];
 
 type PathMap = Record<string, { hop: number; state: Severity }>;
@@ -389,6 +439,7 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
   if (!res) { throw new Error('buildTrafficGraph: frame has no resolution to render'); }
 
   const geom = baseNodes(res);
+  idpNodes(geom);
   isamNodes(geom);
   siteNodes(geom, state);
 
@@ -410,7 +461,8 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
   const baseRail = (d: string): TfEdge => ({ d, kind: 'base', flow: null });
   edges.push(baseRail(clientPropPath(geom)));
   SITE_IDS.forEach(s => edges.push(
-    baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s))
+    baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s)),
+    baseRail(isamGtmRail(geom, s))
   ));
 
   // Taken edges, deduped by geometry. The context pass runs first so that any
