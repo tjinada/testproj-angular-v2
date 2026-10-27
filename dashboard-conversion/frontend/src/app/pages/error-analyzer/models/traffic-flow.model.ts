@@ -4,8 +4,11 @@
  * 'csgcb' is /banking/services/csgcb. It is post-auth, so it always carries a
  * cdbbossiteId, never queries a GTM, and never passes through the cloudlet —
  * legacy ISAM has no blue/green instances, so there is no env header to set.
+ *
+ * 'idp' is authentication.bmo.com/aac/* through GTM-ISAM to the ISAM IdP LTM.
+ * Its affinity cookie is apidc, independent of cdbbossiteId.
  */
-export type TrafficPath = 'banking' | 'api' | 'csgcb';
+export type TrafficPath = 'banking' | 'api' | 'csgcb' | 'idp';
 
 /** Whether the request already carries stickiness cookies. */
 export type SessionKind = 'new' | 'existing';
@@ -23,8 +26,8 @@ export type LivenessState = 'present' | 'renamed';
  */
 export type PoolMonitor = 'live' | 'tcp';
 
-/** The two Akamai GTMs. Each has its own 50/50 pick for cookie-less requests. */
-export type GtmId = 'bos' | 'api';
+/** The Akamai GTMs. Each has its own 50/50 pick for cookie-less requests. */
+export type GtmId = 'bos' | 'api' | 'isam';
 
 /** Everything the operator can vary. Serialised into the shareable link. */
 export interface SimState {
@@ -48,7 +51,11 @@ export interface SimState {
    * Defaults to `site` when absent, so single-request manual mode is unchanged.
    */
   jsessionSite?: SiteId;
+  /** apidc value carried into the idp call. Absent means unpinned. */
+  idpSite?: SiteId;
   live: Record<SiteId, LivenessState>;
+  /** ISAM IdP liveness object per site. Drives GTM-ISAM health only. */
+  idpLive: Record<SiteId, LivenessState>;
   /** BOS LTM pool monitor (DACT-104). */
   ltmMonitor: PoolMonitor;
   /** EXT GTM pool monitor. Decides whether a renamed object drains the API path. */
@@ -129,16 +136,18 @@ export interface Resolution {
 }
 
 /** The estate half of SimState — everything a request does not carry. */
-export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite'>;
+export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite' | 'idpSite'>;
 
 /**
  * What one user carries between requests. cdbbossiteId and the JSESSIONID
- * origin are tracked separately because a failover pulls them apart.
+ * origin are tracked separately because a failover pulls them apart. apidc is
+ * independent of both: auth on one site and app calls on the other is fine.
  */
 export interface UserSession {
   cookie: SiteId | null;
   jsSite: SiteId | null;
   jsServer: number | null;
+  idpCookie: SiteId | null;
 }
 
 /**
@@ -157,6 +166,12 @@ export interface Scenario {
   blurb: string;
   /** Applied to the healthy default before the first step runs. */
   base?: (env: EnvState) => void;
+  /**
+   * Applied after the existing user is pinned, before the first step. For
+   * changes that should land on someone already holding their cookies —
+   * otherwise the pin would simply route around them.
+   */
+  afterPin?: (env: EnvState) => void;
   steps: JourneyStep[];
 }
 
@@ -196,6 +211,8 @@ export interface ScenarioConfig {
    * property rule wins and no GTM is consulted.
    */
   site: SiteId;
+  /** Which site GTM-ISAM's 50/50 answers when the auth call arrives without apidc. */
+  idpSite: SiteId;
   /** What breaks. Independent of `site`, so the healthy-site control works. */
   outageSite: SiteId;
   outageType: OutageType;
@@ -212,29 +229,33 @@ export interface EstateOverrides {
   down: Record<string, true>;
   ltmMonitor: PoolMonitor;
   extGtmMonitor: PoolMonitor;
+  /** ISAM IdP liveness object per site. Editable mid-journey. */
+  idpLive: Record<SiteId, LivenessState>;
 }
 
 /**
- * The three calls a user action makes, in the order the app fires them.
+ * The four calls a user action makes, in the order the app fires them.
  *
- * Sign-in is the only one that decides anything: it arrives unpinned, so its
- * GTM answer is what gets stamped into cdbbossiteId. The other two inherit it.
+ * Sign-in arrives unpinned, so its GTM answer is what gets stamped into
+ * cdbbossiteId. 'idp' (authentication.bmo.com) follows it and decides apidc
+ * the same way, through GTM-ISAM. The other two inherit cdbbossiteId.
  *
  * 'trailing' is whichever of /api/cdb or /banking/services is not carrying
  * sign-in. It is cookie-bound and decides nothing.
  */
-export type CallKind = 'signin' | 'isam' | 'trailing';
+export type CallKind = 'signin' | 'idp' | 'isam' | 'trailing';
 
-export const CALL_SEQUENCE: CallKind[] = ['signin', 'isam', 'trailing'];
+export const CALL_SEQUENCE: CallKind[] = ['signin', 'idp', 'isam', 'trailing'];
 
 /** One cohort's answer for the call a frame is showing. */
 export interface CallResult {
   cohort: Cohort;
   call: CallKind;
   /**
-   * Null when an earlier call stopped the sequence. Only a failed sign-in does
-   * this — a failed initISAMSession still lets /banking/services be shown, so
-   * the consequence is visible.
+   * Null when an earlier call stopped the sequence. A failed sign-in or a
+   * failed authentication.bmo.com call does this — the app cannot continue
+   * without auth. A failed initISAMSession still lets /banking/services be
+   * shown, so the consequence is visible.
    */
   state: SimState | null;
   resolution: Resolution | null;

@@ -51,6 +51,20 @@ export const IDP_WGA_INSTANCES = 4;
 /** GTM fronting authentication.bmo.com/aac/*, in front of the ISAM IdP LTMs. */
 export const ISAM_GTM_HOSTNAME = 'isam.prod.ciam.akadns.net';
 
+/**
+ * The ISAM IdP affinity cookie. Stamped from GTM-ISAM's answer on the first
+ * auth call; once set, the request is pinned to that site's IdP LTM and the
+ * GTM is not consulted. Independent of cdbbossiteId — auth on one site and app
+ * calls on the other is a supported state.
+ */
+export const IDP_COOKIE_NAME = 'apidc';
+
+/**
+ * GTM-ISAM's liveness object. It only drives GTM-ISAM health: the IdP LTM has
+ * no pool monitor on it, so renaming it never rejects pinned traffic.
+ */
+export const IDP_LIVENESS = '/pics/mobileidp.gif';
+
 /*
  * Environment facts, not operator controls. These describe how the estate is
  * actually configured; change them here when the configuration changes rather
@@ -129,7 +143,7 @@ export const ISAM_SHARES_SITE_COOKIE = true;
  * appliances are a sync group answering identically for the same wide IPs,
  * which makes a single-appliance outage unobservable from the request path.
  */
-export const TOGGLEABLE_NODE = /^(apicfs|apic|ltm|web|app|isamltm|wga)-/;
+export const TOGGLEABLE_NODE = /^(apicfs|apic|ltm|web|app|isamltm|wga|idpltm|idpwga)-/;
 
 /** Starting scenario: healthy estate, existing session pinned to BCC. */
 export function defaultSimState(): SimState {
@@ -137,9 +151,10 @@ export function defaultSimState(): SimState {
     path: 'api',
     session: 'existing',
     site: 'BCC',
-    gtmPick: { bos: 'BCC', api: 'BCC' },
+    gtmPick: { bos: 'BCC', api: 'BCC', isam: 'BCC' },
     jsession: 1,
     live: { BCC: 'present', SCC: 'present' },
+    idpLive: { BCC: 'present', SCC: 'present' },
     ltmMonitor: 'live',
     extGtmMonitor: 'live',
     down: {}
@@ -157,7 +172,9 @@ export function nodeLabel(id: string): string {
     web: 'BOS Web',
     app: 'BOS App',
     isamltm: 'ISAM Legacy LTM',
-    wga: 'ISAM WGA'
+    wga: 'ISAM WGA',
+    idpltm: 'ISAM IdP LTM',
+    idpwga: 'ISAM IdP WGA'
   };
   const name = tier[parts[0]] ?? parts[0];
   return `${name} ${parts[1] ?? ''}${parts[2] ? ' #' + parts[2] : ''}`.trim();

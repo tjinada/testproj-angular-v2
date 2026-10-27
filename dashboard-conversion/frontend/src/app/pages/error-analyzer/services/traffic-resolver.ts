@@ -11,6 +11,10 @@ import {
   APIC_INSTANCES,
   APP_SERVERS,
   COOKIE_BYPASSES_GTM,
+  IDP_COOKIE_NAME,
+  IDP_LIVENESS,
+  IDP_WGA_INSTANCES,
+  ISAM_GTM_HOSTNAME,
   ISAM_SHARES_SITE_COOKIE,
   SESSION_REPLICATED,
   SITES,
@@ -49,6 +53,17 @@ const webUp = (s: SimState, site: SiteId) => membersUp(s, 'web', site, WEB_SERVE
 const appUp = (s: SimState, site: SiteId) => membersUp(s, 'app', site, APP_SERVERS);
 const apicUp = (s: SimState, site: SiteId) => membersUp(s, 'apic', site, APIC_INSTANCES);
 const wgaUp = (s: SimState, site: SiteId) => membersUp(s, 'wga', site, WGA_INSTANCES);
+const idpWgaUp = (s: SimState, site: SiteId) => membersUp(s, 'idpwga', site, IDP_WGA_INSTANCES);
+
+/** The IdP front door can physically serve: LTM in service with a WGA behind it. */
+function idpReachable(s: SimState, site: SiteId): boolean {
+  return !s.down[`idpltm-${site}`] && idpWgaUp(s, site).length > 0;
+}
+
+/** Site health as GTM-ISAM sees it: reachable, and the liveness object present. */
+function idpHealthy(s: SimState, site: SiteId): boolean {
+  return idpReachable(s, site) && s.idpLive[site] === 'present';
+}
 
 /** Akamai's API GTM watches a TCP:443 check against the APIC farm. */
 function apicHealthy(s: SimState, site: SiteId): boolean {
@@ -123,7 +138,10 @@ export function resolveTraffic(state: SimState): Resolution {
     if (h.SCC) { return '100% → SCC'; }
     return 'no healthy DC';
   };
-  const gtmDistribution = { api: distribution(apiHealth), bos: distribution(bosHealth) };
+  const idpHealth = { BCC: idpHealthy(state, 'BCC'), SCC: idpHealthy(state, 'SCC') };
+  const gtmDistribution = {
+    api: distribution(apiHealth), bos: distribution(bosHealth), isam: distribution(idpHealth)
+  };
 
   // Which site each GTM actually answers with. The operator's pick only stands
   // while both datacentres pass; otherwise health decides for it.
@@ -135,7 +153,8 @@ export function resolveTraffic(state: SimState): Resolution {
   };
   const gtmAnswer = {
     api: answer(apiHealth, state.gtmPick.api),
-    bos: answer(bosHealth, state.gtmPick.bos)
+    bos: answer(bosHealth, state.gtmPick.bos),
+    isam: answer(idpHealth, state.gtmPick.isam)
   };
 
   // EXT GTM legs: each answers with its own VIP unless its site fails the check.
@@ -165,6 +184,82 @@ export function resolveTraffic(state: SimState): Resolution {
     stampedSite = site;
     stampedCookie = `${SITE_COOKIE_NAME}=<env>-${site}`;
   };
+
+  // ---- authentication.bmo.com: its own GTM, its own cookie ----------------
+  if (state.path === 'idp') {
+    const idpPinned: SiteId | null = existing ? state.idpSite ?? null : null;
+    const stampIdp = (site: SiteId) => {
+      stampedSite = site;
+      stampedCookie = `${IDP_COOKIE_NAME}=${site}`;
+    };
+
+    step(['client'], 'Client',
+      'Request <b>authentication.bmo.com/aac/*</b>. ' +
+      (idpPinned
+        ? `Carries <b>${IDP_COOKIE_NAME}</b> pinning <b>${idpPinned}</b>.`
+        : `No <b>${IDP_COOKIE_NAME}</b> yet.`));
+
+    let site: SiteId;
+    if (idpPinned) {
+      site = idpPinned;
+      const renamed = state.idpLive[site] !== 'present';
+      step(['gtm-isam'], 'Akamai edge',
+        `Valid <b>${IDP_COOKIE_NAME}</b> → pinned to <b>${SITES[site].idpLtm}</b>. ` +
+        `GTM-ISAM and its <b>${IDP_LIVENESS}</b> check are never consulted.` +
+        (renamed
+          ? ` The liveness object is renamed on ${site}, but nothing on this path reads it.`
+          : ''),
+        renamed ? 'warn' : 'ok');
+    } else {
+      const pick = state.gtmPick.isam;
+      const answered = gtmAnswer.isam;
+      const overridden = answered !== null && answered !== pick;
+      step(['gtm-isam'], 'Akamai GTM-ISAM',
+        answered === null
+          ? `No ${IDP_COOKIE_NAME} → <b>${ISAM_GTM_HOSTNAME}</b> resolves, but no site passes <b>${IDP_LIVENESS}</b>.`
+          : overridden
+            ? `No ${IDP_COOKIE_NAME} → ISAM-${pick} fails <b>${IDP_LIVENESS}</b>, so the GTM answers ` +
+              `<b>100% ${answered}</b> and the 50/50 is overridden. The edge stamps <b>${IDP_COOKIE_NAME}</b> from the answer.`
+            : `No ${IDP_COOKIE_NAME} → the 50/50 lands on <b>${answered}</b>; the edge stamps ` +
+              `<b>${IDP_COOKIE_NAME}</b> from the answer.`,
+        answered === null ? 'bad' : overridden ? 'warn' : 'ok');
+      if (answered === null) {
+        return done('DOWN503',
+          'GTM-ISAM has no healthy datacentre, so authentication cannot be served and the app stops here.',
+          '503', { pinnedSite: pick, breakAt: 'gtm-isam' });
+      }
+      site = answered;
+    }
+    stampIdp(site);
+
+    // Only a pinned request can reach a dead site: the GTM would have routed
+    // a cookie-less one away from it.
+    if (!idpReachable(state, site)) {
+      const ltmOut = !!state.down[`idpltm-${site}`];
+      return done('DOWN503',
+        `${IDP_COOKIE_NAME} pinned ${site} and the ${site} ISAM IdP ` +
+        (ltmOut ? 'LTM is out of service' : 'WGA tier is empty') +
+        '. The cookie bypasses GTM-ISAM, so there is no failover — auth fails and the app stops here.',
+        '503', { pinnedSite: site, breakAt: `idpltm-${site}` });
+    }
+
+    step([`idpltm-${site}`], `ISAM IdP LTM (${site})`,
+      `VIP <b>${SITES[site].idpLtm}</b> → IdP WGA tier.`);
+    step(idpWgaUp(state, site).map(i => `idpwga-${site}-${i}`), `ISAM IdP WGA (${site})`,
+      'Authentication served.');
+
+    const drainedIdp = !!idpPinned && state.idpLive[site] !== 'present';
+    const idpKey: OutcomeKey = drainedIdp ? 'DRAINED' : idpPinned ? 'OK' : 'NEW';
+    const idpWhy = drainedIdp
+      ? `${IDP_COOKIE_NAME} pins ${site}, so the renamed ${IDP_LIVENESS} is never read. Auth is still ` +
+        'served on the site being drained — it bleeds rather than cuts.'
+      : idpPinned
+        ? `${IDP_COOKIE_NAME} pins ${site} and the IdP tier is healthy. Independent of ${SITE_COOKIE_NAME} — ` +
+          'auth and app calls on different sites is fine.'
+        : `No ${IDP_COOKIE_NAME}. GTM-ISAM assigns ${site} and the edge stamps ${IDP_COOKIE_NAME}=${site}.`;
+
+    return done(idpKey, idpWhy, '200 OK', { pinnedSite: site });
+  }
 
   const urlPath = api ? '/api/cdb' : csgcb ? '/banking/services/csgcb' : '/banking/services/*';
 

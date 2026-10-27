@@ -13,17 +13,18 @@ import { defaultSimState } from '../components/traffic-flow/traffic-topology';
 export function callPaths(c: ScenarioConfig): Record<CallKind, TrafficPath> {
   return {
     signin: c.signinPath,
+    idp: 'idp',
     isam: 'csgcb',
     trailing: c.signinPath === 'api' ? 'banking' : 'api'
   };
 }
 
 function emptyUser(): UserSession {
-  return { cookie: null, jsSite: null, jsServer: null };
+  return { cookie: null, jsSite: null, jsServer: null, idpCookie: null };
 }
 
 function baseEnv(): EnvState {
-  const { path, session, site, jsession, jsessionSite, ...env } = defaultSimState();
+  const { path, session, site, jsession, jsessionSite, idpSite, ...env } = defaultSimState();
   return env;
 }
 
@@ -36,17 +37,20 @@ function baseEnv(): EnvState {
 function toSimState(
   env: EnvState, user: UserSession, path: TrafficPath, fallbackSite: SimState['site']
 ): SimState {
-  const existing = user.cookie !== null;
+  // The auth call is pinned by apidc, not cdbbossiteId.
+  const existing = path === 'idp' ? user.idpCookie !== null : user.cookie !== null;
   return {
     ...env,
     down: { ...env.down },
     live: { ...env.live },
+    idpLive: { ...env.idpLive },
     gtmPick: { ...env.gtmPick },
     path,
     session: existing || path === 'csgcb' ? 'existing' : 'new',
     site: user.cookie ?? fallbackSite,
     jsession: user.jsServer ?? 1,
-    jsessionSite: user.jsSite ?? undefined
+    jsessionSite: user.jsSite ?? undefined,
+    idpSite: user.idpCookie ?? undefined
   };
 }
 
@@ -68,7 +72,12 @@ function toSimState(
  */
 function carry(user: UserSession, call: CallKind, r: Resolution): UserSession {
   let next = user;
-  if (r.stampedSite) { next = { ...next, cookie: r.stampedSite }; }
+  // The auth call stamps apidc; every other call stamps cdbbossiteId.
+  if (r.stampedSite) {
+    next = call === 'idp'
+      ? { ...next, idpCookie: r.stampedSite }
+      : { ...next, cookie: r.stampedSite };
+  }
   const served = r.outcome.severity !== 'bad';
   if (call === 'signin' && served && r.bosSite && r.appServer) {
     next = { ...next, jsSite: r.bosSite, jsServer: r.appServer };
@@ -86,9 +95,9 @@ interface CohortPass {
 /**
  * Runs the full sequence for one cohort against the current estate.
  *
- * A failed sign-in stops everything: no session means the UI never gets as far
- * as the other two calls. A failed initISAMSession does not — /banking/services
- * is still resolved and shown, so the knock-on is visible.
+ * A failed sign-in or a failed authentication.bmo.com call stops everything:
+ * without auth the app goes no further. A failed initISAMSession does not —
+ * /banking/services is still resolved and shown, so the knock-on is visible.
  */
 function runPass(
   env: EnvState, start: UserSession, cohort: Cohort, gtmSite: SimState['site'],
@@ -109,9 +118,9 @@ function runPass(
     const resolution = resolveTraffic(state);
     results[call] = { cohort, call, state, resolution, skipped: false };
 
-    if (call === 'signin') {
-      signin = resolution;
-      if (resolution.outcome.severity === 'bad') { stopped = true; }
+    if (call === 'signin') { signin = resolution; }
+    if ((call === 'signin' || call === 'idp') && resolution.outcome.severity === 'bad') {
+      stopped = true;
     }
 
     user = carry(user, call, resolution);
@@ -121,7 +130,7 @@ function runPass(
 }
 
 /**
- * Folds a scenario into three frames per stage — one per call. Pure: rebuilt
+ * Folds a scenario into one frame per call per stage. Pure: rebuilt
  * from a clean base every time, so jumping to a frame is the same code path as
  * playing up to it.
  *
@@ -146,6 +155,7 @@ export function runJourney(scenario: Scenario, c: ScenarioConfig): JourneyFrame[
   // frame. Otherwise the first stage has nobody holding a cookie and the
   // "existing" user behaves like a new arrival.
   user = runPass(env, emptyUser(), 'existing', gtmSite, paths).user;
+  scenario.afterPin?.(env);
 
   for (const step of scenario.steps) {
     step.apply?.(env);

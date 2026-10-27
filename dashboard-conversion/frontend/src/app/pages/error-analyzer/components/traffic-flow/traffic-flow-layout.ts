@@ -2,7 +2,8 @@ import type {
   Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
-  APIC_INSTANCES, APP_SERVERS, IDP_WGA_INSTANCES, ISAM_GTM_HOSTNAME, NAME_SERVERS,
+  APIC_INSTANCES, APP_SERVERS, IDP_COOKIE_NAME, IDP_LIVENESS, IDP_WGA_INSTANCES,
+  ISAM_GTM_HOSTNAME, NAME_SERVERS,
   SITES, SITE_COOKIE_NAME, SITE_IDS, TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
 } from './traffic-topology';
 
@@ -101,7 +102,7 @@ const ISAM_X: Record<SiteId, number> = { BCC: 500, SCC: 1660 };
 
 /**
  * ISAM IdP columns sit outboard of the legacy ISAM columns, on the same rows.
- * Structural only: nothing in the resolver routes through them yet.
+ * Reached from GTM-ISAM by the authentication.bmo.com call.
  */
 const IDP_X: Record<SiteId, number> = { BCC: 200, SCC: 1960 };
 
@@ -137,11 +138,10 @@ function baseNodes(res: Resolution): Record<string, any> {
       line('wlb.apis.olbb.akadns.net'), line('Liveness: TCP on port 443'),
       line('Stickiness: cdbbossiteId'), line(res.gtmDistribution.api, true)] };
 
-  // Structural only: static 50/50, no site-pick pills, never on a taken path.
   n['gtm-isam'] = { x: 1595, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
     lines: [line('GTM-ISAM', true), line('authentication.bmo.com/aac/*'),
-      line(ISAM_GTM_HOSTNAME), line('Liveness: /pics/mobileidp.gif'),
-      line('Stickiness: apidc'), line('50/50', true)] };
+      line(ISAM_GTM_HOSTNAME), line(`Liveness: ${IDP_LIVENESS}`),
+      line(`Stickiness: ${IDP_COOKIE_NAME}`), line(res.gtmDistribution.isam, true)] };
 
   n['cloudlet'] = { x: 890, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
     lines: [line('cloudlet Configuration', true), line('Set x-bmo-env=blue or Green'),
@@ -158,10 +158,7 @@ function baseNodes(res: Resolution): Record<string, any> {
   return n;
 }
 
-/**
- * Adds the per-site ISAM IdP column: IdP LTM and its WGA instances. Ids are
- * idpltm-* / idpwga-*, which TOGGLEABLE_NODE deliberately does not match.
- */
+/** Adds the per-site ISAM IdP column: IdP LTM and its WGA instances. */
 function idpNodes(all: Record<string, any>): void {
   SITE_IDS.forEach(site => {
     const cx = IDP_X[site];
@@ -378,13 +375,17 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
   const pills: TfPill[] = [];
   const spec: { gtm: GtmId; node: string }[] = [
     { gtm: 'bos', node: 'gtm-bos' },
-    { gtm: 'api', node: 'gtm-api' }
+    { gtm: 'api', node: 'gtm-api' },
+    { gtm: 'isam', node: 'gtm-isam' }
   ];
+  const fronts: Record<GtmId, Resolution['path'][]> = {
+    bos: ['banking', 'csgcb'], api: ['api'], isam: ['idp']
+  };
   spec.forEach(({ gtm, node }) => {
     const g = geom[node];
     if (!g) { return; }
     // Only the GTM fronting the current path takes part in this request.
-    const inPath = (gtm === 'api') === (res.path === 'api');
+    const inPath = fronts[gtm].includes(res.path);
     const overridden = !res.gtmDistribution[gtm].startsWith('50/50');
     const answered = res.gtmAnswer[gtm];
     SITE_IDS.forEach((site, i) => {
@@ -491,7 +492,9 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
               ? csgcbPath(geom, b.slice('isamltm-'.length) as SiteId)
               : a.startsWith('wga-') && b.startsWith('ltm-')
                 ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
-                : curve(geom[a], geom[b]);
+                : a === 'gtm-isam' && b.startsWith('idpltm-')
+                  ? isamGtmRail(geom, b.slice('idpltm-'.length) as SiteId)
+                  : curve(geom[a], geom[b]);
         taken.set(d, { d, kind, flow });
       }));
     }

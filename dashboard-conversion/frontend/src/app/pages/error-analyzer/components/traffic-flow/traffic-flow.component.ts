@@ -2,13 +2,20 @@ import { ChangeDetectionStrategy, Component, Input, OnInit, computed, signal } f
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  CallKind, CallResult, Cohort, EstateOverrides, JourneyFrame, OutageType, PoolMonitor,
-  RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
+  CallKind, CallResult, Cohort, EstateOverrides, JourneyFrame, LivenessState, OutageType,
+  PoolMonitor, RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { callPaths, runJourney } from '../../services/traffic-scenario-runner';
 import { DEFAULT_CONFIG, buildScenario } from './traffic-scenarios';
 import { buildTrafficGraph, TfNode, TfPill } from './traffic-flow-layout';
 import { SITE_IDS, nodeLabel } from './traffic-topology';
+
+function defaultOverrides(): EstateOverrides {
+  return {
+    down: {}, ltmMonitor: 'live', extGtmMonitor: 'live',
+    idpLive: { BCC: 'present', SCC: 'present' }
+  };
+}
 
 @Component({
   selector: 'app-traffic-flow',
@@ -27,7 +34,7 @@ export class TrafficFlowComponent implements OnInit {
   config = signal<ScenarioConfig>({ ...DEFAULT_CONFIG });
 
   /** Rail-owned estate settings. Survive every journey regeneration. */
-  overrides = signal<EstateOverrides>({ down: {}, ltmMonitor: 'live', extGtmMonitor: 'live' });
+  overrides = signal<EstateOverrides>(defaultOverrides());
 
   stepIndex = signal(0);
   /** Which user the diagram shows. One at a time — never overlaid. */
@@ -54,12 +61,13 @@ export class TrafficFlowComponent implements OnInit {
     return this.frames().filter(x => x.label === f.label);
   });
 
-  /** Two cards, always. Each lists the whole three-call sequence. */
+  /** Two cards, always. Each lists the whole call sequence. */
   cards = computed(() => (['new', 'existing'] as Cohort[]).map(c => {
     const at = (call: CallKind) => this.stageResults()
       .find(f => f.call === call)?.results.find(r => r.cohort === c) ?? null;
 
     const signin = at('signin');
+    const idp = at('idp');
     const isam = at('isam');
     const trailing = at('trailing');
     const sr = signin?.resolution ?? null;
@@ -67,6 +75,10 @@ export class TrafficFlowComponent implements OnInit {
 
     const fresh = !st || st.session === 'new';
     const jsInSite = fresh ? null : st!.jsessionSite ?? st!.site;
+
+    // apidc is independent of cdbbossiteId, so it is read off the auth call.
+    const idpIn = idp?.state?.session === 'existing' ? idp.state.idpSite ?? 'none' : 'none';
+    const idpOut = idp?.resolution?.stampedSite ?? idpIn;
 
     return {
       cohort: c,
@@ -80,8 +92,9 @@ export class TrafficFlowComponent implements OnInit {
         : (fresh ? 'none' : `${jsInSite} #${st!.jsession}`),
       // Cookie and session on different sites is what breaks the next call.
       jsSplit: !!sr?.bosSite && !!sr?.stampedSite && sr.bosSite !== sr.stampedSite,
-      signin, isam, trailing,
-      severity: [signin, isam, trailing]
+      idpIn, idpOut,
+      signin, idp, isam, trailing,
+      severity: [signin, idp, isam, trailing]
         .some(r => r?.resolution?.outcome.severity === 'bad') ? 'bad' : 'ok'
     };
   }));
@@ -110,16 +123,16 @@ export class TrafficFlowComponent implements OnInit {
     this.config().signinPath === 'api' ? 'GTM-CDB-API' : 'GTM-CDB-BOS');
 
   callLabel(call: CallKind): string {
-    const p = this.paths()[call];
-    const base = p === 'csgcb' ? 'initISAMSession'
-      : p === 'api' ? '/api/cdb' : '/banking/services';
+    if (this.paths()[call] === 'idp') { return 'authentication.bmo.com/aac/*'; }
+    const base = this.callShort(call);
     return call === 'signin' ? `${base} SigninRequestManager` : base;
   }
 
   /** Short form for the step chips, which have no room for the servlet. */
   callShort(call: CallKind): string {
     const p = this.paths()[call];
-    return p === 'csgcb' ? 'initISAMSession' : p === 'api' ? '/api/cdb' : '/banking/services';
+    return p === 'idp' ? 'authentication.bmo.com'
+      : p === 'csgcb' ? 'initISAMSession' : p === 'api' ? '/api/cdb' : '/banking/services';
   }
 
   /**
@@ -166,9 +179,10 @@ export class TrafficFlowComponent implements OnInit {
   shareLink = computed(() => {
     const c = this.config(), o = this.overrides();
     const q = new URLSearchParams({
-      tab: 'traffic', sp: c.signinPath, site: c.site, os: c.outageSite,
+      tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, os: c.outageSite,
       ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
-      ltm: o.ltmMonitor, xgtm: o.extGtmMonitor, who: this.cohort()
+      ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
+      idlb: o.idpLive.BCC, idls: o.idpLive.SCC, who: this.cohort()
     });
     const off = Object.keys(o.down);
     if (off.length) { q.set('off', off.join(',')); }
@@ -186,6 +200,7 @@ export class TrafficFlowComponent implements OnInit {
     const c: ScenarioConfig = { ...DEFAULT_CONFIG };
     if (p['sp'] === 'api' || p['sp'] === 'banking') { c.signinPath = p['sp']; }
     if (p['site'] === 'BCC' || p['site'] === 'SCC') { c.site = p['site']; }
+    if (p['isite'] === 'BCC' || p['isite'] === 'SCC') { c.idpSite = p['isite']; }
     if (p['os'] === 'BCC' || p['os'] === 'SCC') { c.outageSite = p['os']; }
     if (['none', 'planned', 'unplanned', 'apic'].includes(p['ot'])) {
       c.outageType = p['ot'] as OutageType;
@@ -195,9 +210,11 @@ export class TrafficFlowComponent implements OnInit {
     }
     this.config.set(c);
 
-    const o: EstateOverrides = { down: {}, ltmMonitor: 'live', extGtmMonitor: 'live' };
+    const o = defaultOverrides();
     if (p['ltm'] === 'live' || p['ltm'] === 'tcp') { o.ltmMonitor = p['ltm']; }
     if (p['xgtm'] === 'live' || p['xgtm'] === 'tcp') { o.extGtmMonitor = p['xgtm']; }
+    if (p['idlb'] === 'renamed') { o.idpLive.BCC = 'renamed'; }
+    if (p['idls'] === 'renamed') { o.idpLive.SCC = 'renamed'; }
     (p['off'] ?? '').split(',').filter(Boolean).forEach(id => { o.down[id] = true; });
     this.overrides.set(o);
 
@@ -212,9 +229,10 @@ export class TrafficFlowComponent implements OnInit {
     const off = Object.keys(o.down);
     this.router.navigate([], {
       queryParams: {
-        tab: 'traffic', sp: c.signinPath, site: c.site, os: c.outageSite,
+        tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, os: c.outageSite,
         ot: c.outageType, rec: c.recovery, step: this.activeIndex(),
         ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
+        idlb: o.idpLive.BCC, idls: o.idpLive.SCC,
         off: off.length ? off.join(',') : null,
         who: this.cohort()
       },
@@ -232,7 +250,11 @@ export class TrafficFlowComponent implements OnInit {
   }
 
   private setOverrides(mutate: (o: EstateOverrides) => void): void {
-    const next: EstateOverrides = { ...this.overrides(), down: { ...this.overrides().down } };
+    const next: EstateOverrides = {
+      ...this.overrides(),
+      down: { ...this.overrides().down },
+      idpLive: { ...this.overrides().idpLive }
+    };
     mutate(next);
     this.overrides.set(next);
     this.syncUrl();
@@ -241,7 +263,13 @@ export class TrafficFlowComponent implements OnInit {
   // ---- rail controls -------------------------------------------------------
 
   setSite(v: SiteId): void { this.setConfig(c => { c.site = v; }); }
+  setIdpSite(v: SiteId): void { this.setConfig(c => { c.idpSite = v; }); }
   setOutageSite(v: SiteId): void { this.setConfig(c => { c.outageSite = v; }); }
+
+  /** Editable mid-journey, like the pool monitors. */
+  setIdpLive(site: SiteId, v: LivenessState): void {
+    this.setOverrides(o => { o.idpLive[site] = v; });
+  }
   setRecovery(v: RecoveryOrder): void { this.setConfig(c => { c.recovery = v; }); }
 
   setOutageType(v: OutageType): void {
@@ -281,12 +309,12 @@ export class TrafficFlowComponent implements OnInit {
   }
 
   /**
-   * The GTM pick is derived from the user's site, so the pills are a shortcut
-   * to that control rather than an independent one.
+   * The pills are shortcuts to the rail controls: GTM-ISAM's to its own pick,
+   * the CDB GTMs' to the user's site.
    */
   clickPill(pill: TfPill): void {
     if (!pill.active) { return; }
-    this.setSite(pill.site);
+    if (pill.gtm === 'isam') { this.setIdpSite(pill.site); } else { this.setSite(pill.site); }
   }
 
   resetOutages(): void { this.setOverrides(o => { o.down = {}; }); }

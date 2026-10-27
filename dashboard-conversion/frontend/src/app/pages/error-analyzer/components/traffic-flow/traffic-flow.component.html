@@ -19,10 +19,13 @@
       <ol class="tf-seq">
         <li><b class="tf-f-signin">{{ callLabel('signin') }}</b>
           <small>sets cdbbossiteId and JSESSIONID</small></li>
+        <li><b>{{ callLabel('idp') }}</b>
+          <small>sets apidc via GTM-ISAM</small></li>
         <li><b>{{ callLabel('isam') }}</b></li>
         <li><b>{{ callLabel('trailing') }}</b></li>
       </ol>
-      <p class="tf-hint">Calls 2 and 3 are cookie-bound and decide nothing.</p>
+      <p class="tf-hint">If sign-in or the auth call fails, the app stops there. Calls 3 and 4
+        are cookie-bound and decide nothing.</p>
     </div>
 
     <div class="tf-group">
@@ -36,6 +39,16 @@
         </div>
         <p class="tf-hint">The 50/50 on sign-in. Applies only when unpinned &mdash; once
           cdbbossiteId is set, the Akamai property rule wins.</p>
+      </div>
+
+      <div class="tf-field">
+        <label>GTM-ISAM lands on</label>
+        <div class="tf-seg">
+          <button type="button" *ngFor="let s of siteIds"
+            [attr.aria-pressed]="config().idpSite === s" (click)="setIdpSite(s)">{{ s }}</button>
+        </div>
+        <p class="tf-hint">The 50/50 on the first auth call. Once apidc is set, the user
+          sticks to that ISAM &mdash; independent of cdbbossiteId.</p>
       </div>
 
       <div class="tf-field">
@@ -107,6 +120,21 @@
     </div>
 
     <div class="tf-group">
+      <h3>ISAM IdP liveness <span class="tf-live">live</span></h3>
+      <div class="tf-field" *ngFor="let s of siteIds">
+        <label>{{ s }} /pics/mobileidp.gif</label>
+        <div class="tf-seg">
+          <button type="button" [attr.aria-pressed]="overrides().idpLive[s] === 'present'"
+            (click)="setIdpLive(s, 'present')">present</button>
+          <button type="button" [attr.aria-pressed]="overrides().idpLive[s] === 'renamed'"
+            (click)="setIdpLive(s, 'renamed')">renamed</button>
+        </div>
+      </div>
+      <p class="tf-hint">Drives GTM-ISAM health only. New users move to the other site;
+        users already holding apidc keep hitting this one.</p>
+    </div>
+
+    <div class="tf-group">
       <h3>Out of service</h3>
       <p class="tf-oos" *ngIf="outOfService().length; else allUp">
         <span *ngFor="let n of outOfService()">{{ n }}<br></span>
@@ -140,15 +168,23 @@
             *ngIf="c.jsOut !== c.jsIn"> &rarr; {{ c.jsOut }}</ng-container></span>
         </span>
 
-        <span class="tf-row" *ngFor="let r of [c.signin, c.isam, c.trailing]">
+        <span class="tf-row">
+          <span class="tf-k">apidc</span>
+          <span class="tf-v">{{ c.idpIn }}<ng-container
+            *ngIf="c.idpOut !== c.idpIn"> &rarr; {{ c.idpOut }}</ng-container></span>
+        </span>
+
+        <span class="tf-row" *ngFor="let r of [c.signin, c.idp, c.isam, c.trailing]">
           <ng-container *ngIf="r">
             <span class="tf-k" [class.tf-f-signin]="r.call === 'signin'">
               {{ callShort(r.call) }}</span>
             <span class="tf-v tf-t-skip" *ngIf="r.skipped">not attempted</span>
             <span class="tf-v" *ngIf="!r.skipped && r.resolution"
               [ngClass]="'tf-t-' + r.resolution.outcome.severity">
-              {{ r.resolution.http }}<ng-container *ngIf="r.resolution.bosSite">
-              &middot; {{ r.resolution.bosSite }}</ng-container>
+              {{ r.resolution.http }}<ng-container *ngIf="r.call === 'idp'; else bosSiteTpl">
+              &middot; {{ r.resolution.pinnedSite }}</ng-container>
+              <ng-template #bosSiteTpl><ng-container *ngIf="r.resolution.bosSite">
+              &middot; {{ r.resolution.bosSite }}</ng-container></ng-template>
             </span>
           </ng-container>
         </span>
