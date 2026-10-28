@@ -109,48 +109,65 @@ select {
   font: inherit; font-size: 12px; color: $blue; padding: 6px 8px;
 }
 
-/* ---- step strip ----------------------------------------------------------- */
+/* ---- step strip ----------------------------------------------------------
+   The journey is the main navigation, so it reads at a glance: a dark stage tag,
+   large call chips, and the active call filled in the current-call violet. */
 .tf-steps {
-  display: flex; align-items: center; gap: 6px; overflow-x: auto;
-  padding: 6px 12px; border-bottom: 1px solid $line; background: $panel;
+  display: flex; align-items: center; gap: 8px; overflow-x: auto;
+  padding: 10px 12px; background: #fff;
+  border-bottom: 2px solid $line; box-shadow: 0 2px 6px rgba(15, 23, 42, .05);
+  /* Keeps a scrolled-to chip clear of the pinned arrows. */
+  scroll-padding-inline: 64px;
 }
 
 .tf-stage, .tf-chip, .tf-arrow { flex: 0 0 auto; }
 
 .tf-stage {
-  font-size: 10.5px; font-weight: 700; color: $muted; text-transform: uppercase;
-  letter-spacing: .04em; white-space: nowrap; padding: 0 4px 0 6px;
-  max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+  font-size: 12px; font-weight: 800; color: #fff; background: #1f2937;
+  text-transform: uppercase; letter-spacing: .05em; white-space: nowrap;
+  padding: 6px 11px; border-radius: 6px;
+  max-width: 420px; overflow: hidden; text-overflow: ellipsis;
 
-  & ~ .tf-stage { border-left: 1px solid #cbd5e1; margin-left: 4px; padding-left: 10px; }
+  & ~ .tf-stage { margin-left: 10px; }
 }
-.tf-change { color: $warn; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.tf-change { color: #fcd34d; text-transform: none; letter-spacing: 0; font-weight: 600; }
 
 .tf-chip {
-  appearance: none; display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; background: #fff;
+  appearance: none; display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 12px; background: #fff;
   cursor: pointer; white-space: nowrap;
-  font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 11.5px; color: $ink;
+  font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 13px; font-weight: 600; color: $ink;
 
-  &:hover { border-color: #ddd6fe; }
-  &.tf-on { border-color: $f-current; box-shadow: inset 0 0 0 1px $f-current; }
+  &:hover { border-color: $f-current; background: #faf7ff; }
+  &.tf-on {
+    background: $f-current; border-color: $f-current; color: #fff;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, .35);
+  }
 }
 .tf-n {
-  width: 17px; height: 17px; border-radius: 50%; background: #e2e8f0; color: #334155;
-  font: 700 10px/17px system-ui, sans-serif; text-align: center;
-  .tf-chip.tf-on & { background: $f-current; color: #fff; }
+  width: 22px; height: 22px; border-radius: 50%; background: #e2e8f0; color: #1f2937;
+  font: 800 11.5px/22px system-ui, sans-serif; text-align: center;
+  .tf-chip.tf-on & { background: #fff; color: $f-current; }
 }
 .tf-dot {
-  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  width: 11px; height: 11px; border-radius: 50%; display: inline-block;
   &.tf-dot-ok { background: $ok; }
   &.tf-dot-warn { background: $warn; }
   &.tf-dot-bad { background: $bad; }
   &.tf-dot-skip { background: #cbd5e1; }
+  /* A white ring keeps the status colours readable on the violet active chip. */
+  .tf-chip.tf-on & { box-shadow: 0 0 0 2px #fff; }
 }
 .tf-arrow {
-  appearance: none; border: 0; background: none; cursor: pointer;
-  font-size: 18px; color: $muted; padding: 0 4px;
+  appearance: none; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;
+  font-size: 20px; line-height: 1; color: $ink; padding: 4px 10px; border-radius: 8px;
+  /* Pinned to the ends, so they stay reachable when an outage journey scrolls. */
+  position: sticky; z-index: 1;
+
+  &:hover:not(:disabled) { border-color: $f-current; color: $f-current; }
   &:disabled { opacity: .3; cursor: default; }
+  &:first-child { left: 0; box-shadow: 6px 0 6px -2px #fff; }
+  &:last-child { right: 0; box-shadow: -6px 0 6px -2px #fff; }
 }
 
 /* ---- canvas and overlays -------------------------------------------------- */
@@ -220,6 +237,29 @@ select {
 
 .tf-sitepill-g { pointer-events: none; }
 .tf-sitepill-t { font-size: 9.5px; font-weight: 800; text-anchor: middle; letter-spacing: .04em; }
+
+/* In-box monitor switch. Visually unlike the live.txt chip on purpose. The
+   label carries a white halo so it reads on both full and dimmed boxes. */
+.tf-sw-k {
+  font-size: 10px; font-weight: 700; fill: #1f2937;
+  stroke: #fff; stroke-width: 3px; paint-order: stroke;
+}
+.tf-sw-o {
+  cursor: pointer;
+  rect { fill: #fff; stroke: #94a3b8; stroke-width: 1; }
+  text { font-size: 10px; font-weight: 600; fill: #475569; text-anchor: middle; }
+  &:hover rect { stroke: $blue; }
+
+  &.tf-sw-on {
+    cursor: default;
+    rect { fill: $blue; stroke: $blue-dk; }
+    text { fill: #fff; }
+  }
+}
+/* TCP is a change from production, so the active option turns amber. */
+.tf-sw-changed .tf-sw-o.tf-sw-on {
+  rect { fill: $warn; stroke: #7c2d12; }
+}
 
 /* ---- trace drawer --------------------------------------------------------- */
 .tf-drawer {

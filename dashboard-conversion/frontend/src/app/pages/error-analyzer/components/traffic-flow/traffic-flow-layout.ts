@@ -17,6 +17,8 @@ export interface TfNode {
   height: number;
   /** Text lines; `bold` drives the heavier first line. */
   lines: { text: string; bold: boolean }[];
+  /** Height reserved at the bottom for an in-box switch; text centres above it. */
+  footer: number;
   /** White fill with dark text (edge tiers) vs solid blue (infrastructure). */
   outline: boolean;
   ellipse: boolean;
@@ -104,6 +106,14 @@ export interface TfChip {
   changed: boolean;
   /** Owned by the outage scenario, so not editable here. */
   locked: boolean;
+  /**
+   * 'chip' straddles the box edge and flips on click. 'switch' sits inside the
+   * box with both options visible — used for the monitors, so a monitor choice
+   * never looks like the live.txt file state.
+   */
+  style: 'chip' | 'switch';
+  /** The two values a switch offers, in display order. Empty for chips. */
+  options: string[];
 }
 
 export interface TfGraph {
@@ -120,7 +130,7 @@ export interface TfGraph {
 /** Vertical rhythm, transcribed from the architecture diagram. */
 const ROW = {
   gtm: 195, cloudlet: 330, apicFs: 445, apic: 545,
-  extGtm: 625, ltm: 765, web: 885, app: 995
+  extGtm: 625, ltm: 785, web: 925, app: 1035
 };
 const SITE_X: Record<SiteId, number> = { BCC: 860, SCC: 1300 };
 
@@ -155,7 +165,7 @@ const SPA_RAIL_Y = 436;
 /** Where the SPA rail drops into an APIC FS box, offset from the cloudlet edge. */
 const SPA_RAIL_DROP = 40;
 
-const CANVAS = { width: 2500, height: 1105 };
+const CANVAS = { width: 2500, height: 1145 };
 
 type Geom = { x: number; y: number; width: number; height: number };
 
@@ -258,11 +268,11 @@ function siteNodes(all: Record<string, any>): void {
     }
 
     // The monitor is shown and set by the chip on this box, not a text line.
-    all[`extgtm-${site}`] = { x: cx - 125, y: ROW.extGtm, width: 250, height: 116, warn: true,
+    all[`extgtm-${site}`] = { x: cx - 125, y: ROW.extGtm, width: 250, height: 140, footer: 30, warn: true,
       lines: [line('EXT GTM (DNS)', true), line(facts.extGtm),
         ...NAME_SERVERS.map(s => line(s))] };
 
-    all[`ltm-${site}`] = { x: cx - 125, y: ROW.ltm, width: 250, height: 92,
+    all[`ltm-${site}`] = { x: cx - 125, y: ROW.ltm, width: 250, height: 116, footer: 30,
       lines: [line('BOS LTM (Local traffic', true), line(`manager) (${site})`, true),
         line('CWH-WEB'), line(facts.ltmHost), line(facts.ltmVip)] };
 
@@ -422,9 +432,9 @@ function baseLabels(res: Resolution): TfLabel[] {
 
   SITE_IDS.forEach(s => {
     const split = res.extGtmSplit[s];
-    // Below the monitor chip, in the gap above the BOS LTM.
+    // In the gap between the EXT GTM and the BOS LTM.
     labels.push({
-      x: SITE_X[s] + 26, y: ROW.extGtm + 136, text: split.own,
+      x: SITE_X[s] + 26, y: ROW.extGtm + 154, text: split.own,
       kind: split.own === '100%' ? 'edge' : 'alert'
     });
     // Both crossover labels point inward, and the columns sit closer together
@@ -432,7 +442,7 @@ function baseLabels(res: Resolution): TfLabel[] {
     // on the gap being wider than the text.
     labels.push({
       x: SITE_X[s] + (s === 'BCC' ? 150 : -210),
-      y: ROW.extGtm + (s === 'BCC' ? 136 : 152),
+      y: ROW.extGtm + (s === 'BCC' ? 154 : 170),
       text: split.cross,
       kind: split.cross.startsWith('0%') ? 'edge' : 'alert'
     });
@@ -455,24 +465,26 @@ function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boo
   const mon = (m: SimState['ltmMonitor']) => (m === 'tcp' ? 'TCP' : 'live.txt');
   const onBox = (g: Geom, width: number) =>
     ({ x: g.x + g.width / 2 - width / 2, y: g.y + g.height - CHIP_H / 2, width });
+  // A switch sits in the box's footer; its label is drawn to the left of x.
+  const inBox = (g: Geom) => ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - 25, width: 120 });
+  const monitor = { style: 'switch' as const, options: ['live.txt', 'TCP'], locked: false };
+  const chip = { style: 'chip' as const, options: [] };
 
   SITE_IDS.forEach(site => {
-    chips.push({ kind: 'extgtm', site, ...onBox(geom[`extgtm-${site}`], 170),
-      label: 'monitor', value: mon(state.extGtmMonitor),
-      changed: state.extGtmMonitor !== 'live', locked: false });
+    chips.push({ kind: 'extgtm', site, ...inBox(geom[`extgtm-${site}`]), ...monitor,
+      label: 'monitor', value: mon(state.extGtmMonitor), changed: state.extGtmMonitor !== 'live' });
 
-    chips.push({ kind: 'ltm', site, ...onBox(geom[`ltm-${site}`], 170),
-      label: 'pool', value: mon(state.ltmMonitor),
-      changed: state.ltmMonitor !== 'live', locked: false });
+    chips.push({ kind: 'ltm', site, ...inBox(geom[`ltm-${site}`]), ...monitor,
+      label: 'pool monitor', value: mon(state.ltmMonitor), changed: state.ltmMonitor !== 'live' });
 
-    chips.push({ kind: 'idplive', site, ...onBox(geom[`idpltm-${site}`], 190),
+    chips.push({ kind: 'idplive', site, ...onBox(geom[`idpltm-${site}`], 190), ...chip,
       label: 'mobileidp.gif', value: state.idpLive[site],
       changed: state.idpLive[site] !== 'present', locked: false });
 
     // live.txt is served by IHS, so the chip spans the pair of web servers.
     const w1 = geom[`web-${site}-1`], w2 = geom[`web-${site}-${WEB_SERVERS}`];
     const webs = { x: w1.x, y: w1.y, width: w2.x + w2.width - w1.x, height: w1.height };
-    chips.push({ kind: 'live', site, ...onBox(webs, 200),
+    chips.push({ kind: 'live', site, ...onBox(webs, 200), ...chip,
       label: '/banking/', value: state.live[site] === 'present' ? 'live.txt' : 'dead.txt',
       changed: state.live[site] !== 'present', locked: liveLocked });
   });
@@ -515,8 +527,8 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
 
 const LANES: TfLane[] = [
   { x: 40, y: 100, width: 2420, height: 196, title: 'Akamai' },
-  { x: 40, y: 400, width: 2420, height: 555, title: 'CWH Web' },
-  { x: 40, y: 965, width: 2420, height: 120, title: 'CWH app' }
+  { x: 40, y: 400, width: 2420, height: 595, title: 'CWH Web' },
+  { x: 40, y: 1005, width: 2420, height: 120, title: 'CWH app' }
 ];
 
 type PathMap = Record<string, { hop: number; state: Severity }>;
@@ -645,6 +657,7 @@ export function buildTrafficGraph(
       outline: !!g.outline,
       ellipse: !!g.ellipse,
       radius: g.radius ?? 3,
+      footer: g.footer ?? 0,
       warn: !!g.warn && !off,
       toggleable: TOGGLEABLE_NODE.test(id),
       hop: hit && !off ? hit.hop : null,
