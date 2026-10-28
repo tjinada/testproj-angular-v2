@@ -130,8 +130,8 @@
             [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.width" [attr.height]="n.height"
             [attr.rx]="n.radius"></rect>
 
-          <!-- Site colour strip on the left edge: BCC blue, SCC magenta. -->
-          <rect *ngIf="n.site && !n.ellipse" [ngClass]="'tf-strip tf-strip-' + n.site"
+          <!-- Site colour strip on the left edge: BCC blue, SCC yellow. -->
+          <rect *ngIf="n.site && !n.head && !n.ellipse" [ngClass]="'tf-strip tf-strip-' + n.site"
             [attr.x]="n.x + 1" [attr.y]="n.y + 1" width="6" [attr.height]="n.height - 2" rx="2"></rect>
 
           <text *ngFor="let ln of n.lines; let i = index"
@@ -167,6 +167,16 @@
           <rect [attr.x]="p.x" [attr.y]="p.y" [attr.width]="p.width"
             [attr.height]="p.height" rx="9"></rect>
           <text [attr.x]="p.x + p.width / 2" [attr.y]="p.y + 13">{{ p.site }}</text>
+        </g>
+
+        <!-- Site pills on tier heads, above the nodes so they read even when dimmed. -->
+        <g *ngFor="let n of g.nodes" class="tf-sitepill-g">
+          <ng-container *ngIf="n.head && n.site">
+            <rect [ngClass]="'tf-sitepill tf-sitepill-' + n.site" [attr.x]="n.x + n.width / 2 - 19"
+              [attr.y]="n.y - 8" width="38" height="16" rx="8"></rect>
+            <text [ngClass]="'tf-sitepill-t tf-sitepill-t-' + n.site" [attr.x]="n.x + n.width / 2"
+              [attr.y]="n.y + 4">{{ n.site }}</text>
+          </ng-container>
         </g>
 
         <!-- Setting chips sit above the nodes so they stay full-strength on dimmed boxes. -->

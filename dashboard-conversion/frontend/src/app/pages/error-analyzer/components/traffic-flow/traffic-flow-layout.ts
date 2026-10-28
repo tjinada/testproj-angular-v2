@@ -31,8 +31,14 @@ export interface TfNode {
   isBreak: boolean;
   /** Which call travels here, for the cohort on the diagram. */
   flow: FlowTag | null;
-  /** Data centre the box belongs to, for the site colour strip. Null for shared tiers. */
+  /** Data centre the box belongs to. Null for shared tiers. */
   site: SiteId | null;
+  /**
+   * Tier head (APIC FS, EXT GTM, BOS LTM, ISAM LTMs): carries the site as a pill
+   * on its top edge instead of "(BCC)" in the title. Instance boxes under it get
+   * a colour strip only.
+   */
+  head: boolean;
 }
 
 /**
@@ -418,7 +424,7 @@ function baseLabels(res: Resolution): TfLabel[] {
     const split = res.extGtmSplit[s];
     // Below the monitor chip, in the gap above the BOS LTM.
     labels.push({
-      x: SITE_X[s] + 8, y: ROW.extGtm + 136, text: split.own,
+      x: SITE_X[s] + 26, y: ROW.extGtm + 136, text: split.own,
       kind: split.own === '100%' ? 'edge' : 'alert'
     });
     // Both crossover labels point inward, and the columns sit closer together
@@ -435,6 +441,9 @@ function baseLabels(res: Resolution): TfLabel[] {
 }
 
 const CHIP_H = 20;
+
+/** Tier heads, which carry a site pill. */
+const HEAD_NODE = /^(apicfs|extgtm|ltm|isamltm|idpltm)-/;
 
 /**
  * Setting chips, each straddling the bottom edge of the box it configures.
@@ -624,10 +633,15 @@ export function buildTrafficGraph(
     const hit = hitFor(id);
     const off = !!state.down[id];
     const tag = off ? null : tagAt(id);
+    const site = (id.match(/-(BCC|SCC)(?:-|$)/)?.[1] as SiteId | undefined) ?? null;
+    const head = !!site && HEAD_NODE.test(id);
     return {
       id,
       x: g.x, y: g.y, width: g.width, height: g.height,
-      lines: g.lines,
+      // The pill names the site, so the title does not repeat it.
+      lines: head
+        ? g.lines.map((l: { text: string; bold: boolean }) => ({ ...l, text: l.text.replace(` (${site})`, '') }))
+        : g.lines,
       outline: !!g.outline,
       ellipse: !!g.ellipse,
       radius: g.radius ?? 3,
@@ -638,7 +652,8 @@ export function buildTrafficGraph(
       outOfService: off,
       isBreak: currentRes?.breakAt === id,
       flow: tag,
-      site: (id.match(/-(BCC|SCC)(?:-|$)/)?.[1] as SiteId | undefined) ?? null
+      site,
+      head
     };
   });
 

@@ -14,8 +14,13 @@ $f-current: #7c3aed;
 $f-context: #64748b;
 
 /* Data-centre colours. Deliberately not red or green, which mean broken and
-   healthy, and not violet or amber, which mean this call and changed. */
-$sites: (BCC: #0079c1, SCC: #db2777);
+   healthy, and not violet, which means this call.
+   fill: pills, toggle, strips, swatches · ink: site text on white ·
+   on: text drawn on the fill (yellow needs dark text). */
+$sites: (
+  BCC: (fill: #0079c1, ink: #0079c1, on: #fff),
+  SCC: (fill: #facc15, ink: #a16207, on: #422006)
+);
 
 /* ---- frame: the diagram takes whatever the toolbar and strip leave ------- */
 :host { display: block; background: #fff; }
@@ -181,29 +186,40 @@ select {
 .tf-lg-site i { width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
 
 /* ---- site colours ---------------------------------------------------------- */
-@each $site, $col in $sites {
-  /* Text naming a site: overlay values, call site. */
-  .tf-s-#{$site} { color: $col; font-weight: 700; }
+@each $site, $c in $sites {
+  $fill: map-get($c, fill);
+  $ink: map-get($c, ink);
+  $on: map-get($c, on);
 
-  .tf-lg-#{$site} i { background: $col; }
+  /* Text naming a site: overlay values, call site. */
+  .tf-s-#{$site} { color: $ink; font-weight: 700; }
+
+  .tf-lg-#{$site} i { background: $fill; }
 
   /* Outage-site toggle. */
-  .tf-seg button.tf-site-#{$site}[aria-pressed='true'] { background: $col; }
+  .tf-seg button.tf-site-#{$site}[aria-pressed='true'] { background: $fill; color: $on; }
 
-  /* Left-edge strip on every per-site box. The white edge keeps BCC blue
-     readable against the navy and violet box fills. */
-  .tf-strip-#{$site} { fill: $col; stroke: #fff; stroke-width: 1.2; }
+  /* Left-edge strip on every per-site box. The white edge keeps it readable
+     against the navy and violet box fills. */
+  .tf-strip-#{$site} { fill: $fill; stroke: #fff; stroke-width: 1.2; }
+
+  /* Site pill on tier heads. */
+  .tf-sitepill-#{$site} { fill: $fill; stroke: #fff; stroke-width: 1.5; }
+  .tf-sitepill-t-#{$site} { fill: $on; }
 
   /* GTM pills: site-coloured outline, site-coloured fill when selected. */
   .tf-pill.tf-site-#{$site} {
-    rect { stroke: $col; }
-    text { fill: $col; }
+    rect { stroke: $ink; }
+    text { fill: $ink; }
     &.tf-pill-on {
-      rect { fill: $col; stroke: $col; }
-      text { fill: #fff; }
+      rect { fill: $fill; stroke: $ink; }
+      text { fill: $on; }
     }
   }
 }
+
+.tf-sitepill-g { pointer-events: none; }
+.tf-sitepill-t { font-size: 9.5px; font-weight: 800; text-anchor: middle; letter-spacing: .04em; }
 
 /* ---- trace drawer --------------------------------------------------------- */
 .tf-drawer {
