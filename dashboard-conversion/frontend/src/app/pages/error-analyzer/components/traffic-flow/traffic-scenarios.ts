@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG: ScenarioConfig = {
   signinPath: 'api',
   site: 'BCC',
   idpSite: 'BCC',
+  spaSite: 'BCC',
   outageSite: 'BCC',
   outageType: 'none',
   recovery: 'none'
@@ -129,9 +130,9 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
   const recovery = recoveryStages(c);
   const steps: JourneyStep[] = [];
 
-  // Every step is one user action: sign-in, the authentication.bmo.com call,
-  // initISAMSession and the trailing call. An estate change rides on the step
-  // it precedes rather than taking a frame of its own.
+  // Every step is one user action: sign-in, authentication.bmo.com,
+  // apis.bmo.com, initISAMSession and the trailing call. An estate change rides
+  // on the step it precedes rather than taking a frame of its own.
   // No "before the outage" frame — the pinned user is established silently by
   // the runner, so the first step is the first thing that actually changes.
   if (stages.length === 0) {
@@ -148,7 +149,7 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
 
   const same = c.site === c.outageSite;
   return {
-    id: `${c.site}-${c.idpSite}-${c.outageType}-${c.outageSite}-${c.recovery}`,
+    id: `${c.site}-${c.idpSite}-${c.spaSite}-${c.outageType}-${c.outageSite}-${c.recovery}`,
     title: `${OUTAGE_TITLE[c.outageType]}${c.outageType === 'none' ? '' : ` on ${c.outageSite}`}`,
     blurb: c.outageType === 'none'
       ? `A healthy estate with the user on ${c.site}. Click any box to take it out of service.`
@@ -158,7 +159,7 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
     // The user's own site is the GTM's answer while both sites are healthy.
     // Rail-owned settings are applied here so they survive every regeneration.
     base: env => {
-      env.gtmPick = { bos: c.site, api: c.site, isam: c.idpSite };
+      env.gtmPick = { bos: c.site, api: c.site, isam: c.idpSite, spa: c.spaSite };
       env.ltmMonitor = o.ltmMonitor;
       env.extGtmMonitor = o.extGtmMonitor;
       Object.keys(o.down).forEach(id => { env.down[id] = true; });

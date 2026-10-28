@@ -139,8 +139,11 @@ export function resolveTraffic(state: SimState): Resolution {
     return 'no healthy DC';
   };
   const idpHealth = { BCC: idpHealthy(state, 'BCC'), SCC: idpHealthy(state, 'SCC') };
+  // GTM-Auth-SPA-API is the same akadns property as GTM-CDB-API, so it shares
+  // the APIC TCP:443 health; only its 50/50 pick is its own.
   const gtmDistribution = {
-    api: distribution(apiHealth), bos: distribution(bosHealth), isam: distribution(idpHealth)
+    api: distribution(apiHealth), bos: distribution(bosHealth),
+    isam: distribution(idpHealth), spa: distribution(apiHealth)
   };
 
   // Which site each GTM actually answers with. The operator's pick only stands
@@ -154,7 +157,8 @@ export function resolveTraffic(state: SimState): Resolution {
   const gtmAnswer = {
     api: answer(apiHealth, state.gtmPick.api),
     bos: answer(bosHealth, state.gtmPick.bos),
-    isam: answer(idpHealth, state.gtmPick.isam)
+    isam: answer(idpHealth, state.gtmPick.isam),
+    spa: answer(apiHealth, state.gtmPick.spa)
   };
 
   // EXT GTM legs: each answers with its own VIP unless its site fails the check.
@@ -259,6 +263,44 @@ export function resolveTraffic(state: SimState): Resolution {
         : `No ${IDP_COOKIE_NAME}. GTM-ISAM assigns ${site} and the edge stamps ${IDP_COOKIE_NAME}=${site}.`;
 
     return done(idpKey, idpWhy, '200 OK', { pinnedSite: site });
+  }
+
+  // ---- apis.bmo.com from the CIAM Auth SPAs: no cookie, GTM every time ---
+  if (state.path === 'spaapi') {
+    step(['ciam-spa'], 'CIAM Auth SPA',
+      'Request <b>apis.bmo.com/api/*</b> (e.g. client-data-encryption-key/get). No affinity ' +
+      'cookie — the property has no stickiness rule for apis.bmo.com.');
+
+    const pick = state.gtmPick.spa;
+    const answered = gtmAnswer.spa;
+    const overridden = answered !== null && answered !== pick;
+    step(['gtm-spa'], 'Akamai GTM-Auth-SPA-API',
+      answered === null
+        ? 'TCP:443 fails against the APIC farm on <b>both</b> sites.'
+        : overridden
+          ? `TCP:443 fails against APIC-${pick}, so the GTM answers <b>100% ${answered}</b>. ` +
+            'With no cookie to pin it, every user fails over — existing ones included.'
+          : `The 50/50 lands on <b>${answered}</b>. Nothing is stamped, so the next call gets its own answer.`,
+      answered === null ? 'bad' : overridden ? 'warn' : 'ok');
+
+    if (answered === null) {
+      return done('DOWN503',
+        'The APIC farm is out of service on both sites, so GTM-Auth-SPA-API has no healthy ' +
+        'datacentre. Login cannot continue.',
+        '503', { pinnedSite: pick, breakAt: 'gtm-spa' });
+    }
+
+    step([`apicfs-${answered}`], `APIC FS (${answered})`,
+      `Routes into the ${answered} APIC farm — <b>${SITES[answered].apicFs}</b>.`);
+    step(apicUp(state, answered).map(i => `apic-${answered}-${i}`), `APIC inst (${answered})`,
+      'API served.');
+
+    return done('OK',
+      overridden
+        ? `APIC-${pick} is down, so the GTM sent this call to ${answered}. No cookie means no pin to ` +
+          'hold it on the dead site — the failover just works.'
+        : `No affinity cookie. GTM-Auth-SPA-API answers ${answered} for this request only.`,
+      '200 OK', { pinnedSite: answered, apicSite: answered });
   }
 
   const urlPath = api ? '/api/cdb' : csgcb ? '/banking/services/csgcb' : '/banking/services/*';

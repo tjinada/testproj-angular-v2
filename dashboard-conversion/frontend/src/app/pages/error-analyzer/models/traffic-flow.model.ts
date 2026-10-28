@@ -7,8 +7,12 @@
  *
  * 'idp' is authentication.bmo.com/aac/* through GTM-ISAM to the ISAM IdP LTM.
  * Its affinity cookie is apidc, independent of cdbbossiteId.
+ *
+ * 'spaapi' is apis.bmo.com/api/* from the CIAM Auth SPAs, through
+ * GTM-Auth-SPA-API to APIC. It carries no affinity cookie: the property has no
+ * stickiness rule for apis.bmo.com, so every request is answered by the GTM.
  */
-export type TrafficPath = 'banking' | 'api' | 'csgcb' | 'idp';
+export type TrafficPath = 'banking' | 'api' | 'csgcb' | 'idp' | 'spaapi';
 
 /** Whether the request already carries stickiness cookies. */
 export type SessionKind = 'new' | 'existing';
@@ -27,7 +31,7 @@ export type LivenessState = 'present' | 'renamed';
 export type PoolMonitor = 'live' | 'tcp';
 
 /** The Akamai GTMs. Each has its own 50/50 pick for cookie-less requests. */
-export type GtmId = 'bos' | 'api' | 'isam';
+export type GtmId = 'bos' | 'api' | 'isam' | 'spa';
 
 /** Everything the operator can vary. Serialised into the shareable link. */
 export interface SimState {
@@ -213,6 +217,8 @@ export interface ScenarioConfig {
   site: SiteId;
   /** Which site GTM-ISAM's 50/50 answers when the auth call arrives without apidc. */
   idpSite: SiteId;
+  /** Which site GTM-Auth-SPA-API's 50/50 answers. No cookie, so every call. */
+  spaSite: SiteId;
   /** What breaks. Independent of `site`, so the healthy-site control works. */
   outageSite: SiteId;
   outageType: OutageType;
@@ -234,28 +240,33 @@ export interface EstateOverrides {
 }
 
 /**
- * The four calls a user action makes, in the order the app fires them.
+ * The calls a user action makes, in the order the app fires them.
  *
  * Sign-in arrives unpinned, so its GTM answer is what gets stamped into
  * cdbbossiteId. 'idp' (authentication.bmo.com) follows it and decides apidc
- * the same way, through GTM-ISAM. The other two inherit cdbbossiteId.
+ * the same way, through GTM-ISAM. 'spaapi' (apis.bmo.com, still during login)
+ * has no cookie and is answered fresh by GTM-Auth-SPA-API every time. The last
+ * two inherit cdbbossiteId.
  *
  * 'trailing' is whichever of /api/cdb or /banking/services is not carrying
  * sign-in. It is cookie-bound and decides nothing.
  */
-export type CallKind = 'signin' | 'idp' | 'isam' | 'trailing';
+export type CallKind = 'signin' | 'idp' | 'spaapi' | 'isam' | 'trailing';
 
-export const CALL_SEQUENCE: CallKind[] = ['signin', 'idp', 'isam', 'trailing'];
+export const CALL_SEQUENCE: CallKind[] = ['signin', 'idp', 'spaapi', 'isam', 'trailing'];
+
+/** Calls the app cannot continue without. A failure stops the sequence. */
+export const BLOCKING_CALLS: CallKind[] = ['signin', 'idp', 'spaapi'];
 
 /** One cohort's answer for the call a frame is showing. */
 export interface CallResult {
   cohort: Cohort;
   call: CallKind;
   /**
-   * Null when an earlier call stopped the sequence. A failed sign-in or a
-   * failed authentication.bmo.com call does this — the app cannot continue
-   * without auth. A failed initISAMSession still lets /banking/services be
-   * shown, so the consequence is visible.
+   * Null when an earlier call stopped the sequence. Any failed BLOCKING_CALLS
+   * entry does this — the app cannot continue without login. A failed
+   * initISAMSession still lets /banking/services be shown, so the consequence
+   * is visible.
    */
   state: SimState | null;
   resolution: Resolution | null;

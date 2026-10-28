@@ -68,6 +68,7 @@ export class TrafficFlowComponent implements OnInit {
 
     const signin = at('signin');
     const idp = at('idp');
+    const spaapi = at('spaapi');
     const isam = at('isam');
     const trailing = at('trailing');
     const sr = signin?.resolution ?? null;
@@ -93,8 +94,8 @@ export class TrafficFlowComponent implements OnInit {
       // Cookie and session on different sites is what breaks the next call.
       jsSplit: !!sr?.bosSite && !!sr?.stampedSite && sr.bosSite !== sr.stampedSite,
       idpIn, idpOut,
-      signin, idp, isam, trailing,
-      severity: [signin, idp, isam, trailing]
+      calls: [signin, idp, spaapi, isam, trailing],
+      severity: [signin, idp, spaapi, isam, trailing]
         .some(r => r?.resolution?.outcome.severity === 'bad') ? 'bad' : 'ok'
     };
   }));
@@ -123,16 +124,32 @@ export class TrafficFlowComponent implements OnInit {
     this.config().signinPath === 'api' ? 'GTM-CDB-API' : 'GTM-CDB-BOS');
 
   callLabel(call: CallKind): string {
-    if (this.paths()[call] === 'idp') { return 'authentication.bmo.com/aac/*'; }
-    const base = this.callShort(call);
-    return call === 'signin' ? `${base} SigninRequestManager` : base;
+    const p = this.paths()[call];
+    if (p === 'idp') { return 'authentication.bmo.com/aac/*'; }
+    if (p === 'spaapi') { return 'apis.bmo.com/api/*'; }
+    return this.callShort(call);
   }
 
-  /** Short form for the step chips, which have no room for the servlet. */
+  /**
+   * Short form for the step chips and cards. Sign-in keeps its servlet name so
+   * the first call reads as the request it is, on either path.
+   */
   callShort(call: CallKind): string {
     const p = this.paths()[call];
-    return p === 'idp' ? 'authentication.bmo.com'
-      : p === 'csgcb' ? 'initISAMSession' : p === 'api' ? '/api/cdb' : '/banking/services';
+    if (p === 'idp') { return 'authentication.bmo.com'; }
+    if (p === 'spaapi') { return 'apis.bmo.com'; }
+    if (p === 'csgcb') { return 'initISAMSession'; }
+    const base = p === 'api' ? '/api/cdb' : '/banking/services';
+    return call === 'signin' ? `${base}/SignInRequestManager` : base;
+  }
+
+  /** The site that served a call, as shown on the cards. */
+  callSite(r: CallResult): SiteId | null {
+    const res = r.resolution;
+    if (!res) { return null; }
+    if (r.call === 'idp') { return res.pinnedSite; }
+    if (r.call === 'spaapi') { return res.apicSite; }
+    return res.bosSite;
   }
 
   /**
@@ -179,8 +196,8 @@ export class TrafficFlowComponent implements OnInit {
   shareLink = computed(() => {
     const c = this.config(), o = this.overrides();
     const q = new URLSearchParams({
-      tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, os: c.outageSite,
-      ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
+      tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, ssite: c.spaSite,
+      os: c.outageSite, ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
       ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
       idlb: o.idpLive.BCC, idls: o.idpLive.SCC, who: this.cohort()
     });
@@ -201,6 +218,7 @@ export class TrafficFlowComponent implements OnInit {
     if (p['sp'] === 'api' || p['sp'] === 'banking') { c.signinPath = p['sp']; }
     if (p['site'] === 'BCC' || p['site'] === 'SCC') { c.site = p['site']; }
     if (p['isite'] === 'BCC' || p['isite'] === 'SCC') { c.idpSite = p['isite']; }
+    if (p['ssite'] === 'BCC' || p['ssite'] === 'SCC') { c.spaSite = p['ssite']; }
     if (p['os'] === 'BCC' || p['os'] === 'SCC') { c.outageSite = p['os']; }
     if (['none', 'planned', 'unplanned', 'apic'].includes(p['ot'])) {
       c.outageType = p['ot'] as OutageType;
@@ -229,8 +247,8 @@ export class TrafficFlowComponent implements OnInit {
     const off = Object.keys(o.down);
     this.router.navigate([], {
       queryParams: {
-        tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, os: c.outageSite,
-        ot: c.outageType, rec: c.recovery, step: this.activeIndex(),
+        tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, ssite: c.spaSite,
+        os: c.outageSite, ot: c.outageType, rec: c.recovery, step: this.activeIndex(),
         ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
         idlb: o.idpLive.BCC, idls: o.idpLive.SCC,
         off: off.length ? off.join(',') : null,
@@ -240,12 +258,16 @@ export class TrafficFlowComponent implements OnInit {
     });
   }
 
-  /** Config edits rebuild the journey, so playback restarts from the top. */
-  private setConfig(mutate: (c: ScenarioConfig) => void): void {
+  /**
+   * Config edits rebuild the journey, so playback normally restarts from the
+   * top. A GTM pick passes keepStep: it changes answers, not the frame count,
+   * so the operator stays on the call they were looking at.
+   */
+  private setConfig(mutate: (c: ScenarioConfig) => void, keepStep = false): void {
     const next = { ...this.config() };
     mutate(next);
     this.config.set(next);
-    this.stepIndex.set(0);
+    if (!keepStep) { this.stepIndex.set(0); }
     this.syncUrl();
   }
 
@@ -262,8 +284,9 @@ export class TrafficFlowComponent implements OnInit {
 
   // ---- rail controls -------------------------------------------------------
 
-  setSite(v: SiteId): void { this.setConfig(c => { c.site = v; }); }
-  setIdpSite(v: SiteId): void { this.setConfig(c => { c.idpSite = v; }); }
+  setSite(v: SiteId): void { this.setConfig(c => { c.site = v; }, true); }
+  setIdpSite(v: SiteId): void { this.setConfig(c => { c.idpSite = v; }, true); }
+  setSpaSite(v: SiteId): void { this.setConfig(c => { c.spaSite = v; }, true); }
   setOutageSite(v: SiteId): void { this.setConfig(c => { c.outageSite = v; }); }
 
   /** Editable mid-journey, like the pool monitors. */
@@ -309,12 +332,14 @@ export class TrafficFlowComponent implements OnInit {
   }
 
   /**
-   * The pills are shortcuts to the rail controls: GTM-ISAM's to its own pick,
-   * the CDB GTMs' to the user's site.
+   * The pills are shortcuts to the rail controls: GTM-ISAM and
+   * GTM-Auth-SPA-API to their own picks, the CDB GTMs to the user's site.
    */
   clickPill(pill: TfPill): void {
     if (!pill.active) { return; }
-    if (pill.gtm === 'isam') { this.setIdpSite(pill.site); } else { this.setSite(pill.site); }
+    if (pill.gtm === 'isam') { this.setIdpSite(pill.site); }
+    else if (pill.gtm === 'spa') { this.setSpaSite(pill.site); }
+    else { this.setSite(pill.site); }
   }
 
   resetOutages(): void { this.setOverrides(o => { o.down = {}; }); }

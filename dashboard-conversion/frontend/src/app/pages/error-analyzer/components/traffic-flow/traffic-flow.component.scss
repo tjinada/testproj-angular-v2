@@ -338,6 +338,9 @@ $amber: #f2a900;
 .tf-e-taken { stroke: $blue; stroke-width: 3; fill: none; }
 .tf-e-crossover { stroke: $warn; stroke-width: 3; fill: none; stroke-dasharray: 8 4; }
 .tf-e-broken { stroke: $bad; stroke-width: 3; fill: none; }
+/* MFE load relationship (CDB UI → CIAM Auth SPA), not a request hop. */
+.tf-e-mfe { stroke: #64748b; stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
+.tf-e-mfe.tf-f-current { stroke-width: 2.4; }
 
 .tf-l-edge { font-size: 9.5px; fill: #4b5563; }
 .tf-l-alert { font-size: 9.5px; fill: $bad; font-weight: 600; }

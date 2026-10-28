@@ -65,6 +65,13 @@ export const IDP_COOKIE_NAME = 'apidc';
  */
 export const IDP_LIVENESS = '/pics/mobileidp.gif';
 
+/**
+ * GTM fronting apis.bmo.com/api/* for the CIAM Auth SPAs. Same akadns name as
+ * GTM-CDB-API, so it shares that TCP:443 check against the APIC farms, but
+ * with no affinity cookie in front of it every request gets its own answer.
+ */
+export const AUTH_SPA_API_HOSTNAME = 'wlb.apis.olbb.akadns.net';
+
 /*
  * Environment facts, not operator controls. These describe how the estate is
  * actually configured; change them here when the configuration changes rather
@@ -151,7 +158,7 @@ export function defaultSimState(): SimState {
     path: 'api',
     session: 'existing',
     site: 'BCC',
-    gtmPick: { bos: 'BCC', api: 'BCC', isam: 'BCC' },
+    gtmPick: { bos: 'BCC', api: 'BCC', isam: 'BCC', spa: 'BCC' },
     jsession: 1,
     live: { BCC: 'present', SCC: 'present' },
     idpLive: { BCC: 'present', SCC: 'present' },

@@ -2,7 +2,7 @@ import type {
   CallKind, CallResult, Cohort, EnvState, JourneyFrame, Resolution, Scenario,
   ScenarioConfig, SimState, TrafficPath, UserSession
 } from '../models/traffic-flow.model';
-import { CALL_SEQUENCE } from '../models/traffic-flow.model';
+import { BLOCKING_CALLS, CALL_SEQUENCE } from '../models/traffic-flow.model';
 import { resolveTraffic } from './traffic-resolver';
 import { defaultSimState } from '../components/traffic-flow/traffic-topology';
 
@@ -14,6 +14,7 @@ export function callPaths(c: ScenarioConfig): Record<CallKind, TrafficPath> {
   return {
     signin: c.signinPath,
     idp: 'idp',
+    spaapi: 'spaapi',
     isam: 'csgcb',
     trailing: c.signinPath === 'api' ? 'banking' : 'api'
   };
@@ -37,8 +38,10 @@ function baseEnv(): EnvState {
 function toSimState(
   env: EnvState, user: UserSession, path: TrafficPath, fallbackSite: SimState['site']
 ): SimState {
-  // The auth call is pinned by apidc, not cdbbossiteId.
-  const existing = path === 'idp' ? user.idpCookie !== null : user.cookie !== null;
+  // The auth call is pinned by apidc, not cdbbossiteId. apis.bmo.com carries
+  // no affinity cookie at all, so it always arrives unpinned.
+  const existing = path === 'spaapi' ? false
+    : path === 'idp' ? user.idpCookie !== null : user.cookie !== null;
   return {
     ...env,
     down: { ...env.down },
@@ -85,7 +88,7 @@ function carry(user: UserSession, call: CallKind, r: Resolution): UserSession {
   return next;
 }
 
-/** One cohort's walk through the three calls at a single point in the outage. */
+/** One cohort's walk through the call sequence at a single point in the outage. */
 interface CohortPass {
   results: Record<CallKind, CallResult>;
   signin: Resolution;
@@ -95,8 +98,8 @@ interface CohortPass {
 /**
  * Runs the full sequence for one cohort against the current estate.
  *
- * A failed sign-in or a failed authentication.bmo.com call stops everything:
- * without auth the app goes no further. A failed initISAMSession does not —
+ * A failed login call (sign-in, authentication.bmo.com or apis.bmo.com) stops
+ * everything: the app goes no further. A failed initISAMSession does not —
  * /banking/services is still resolved and shown, so the knock-on is visible.
  */
 function runPass(
@@ -119,7 +122,7 @@ function runPass(
     results[call] = { cohort, call, state, resolution, skipped: false };
 
     if (call === 'signin') { signin = resolution; }
-    if ((call === 'signin' || call === 'idp') && resolution.outcome.severity === 'bad') {
+    if (BLOCKING_CALLS.includes(call) && resolution.outcome.severity === 'bad') {
       stopped = true;
     }
 
