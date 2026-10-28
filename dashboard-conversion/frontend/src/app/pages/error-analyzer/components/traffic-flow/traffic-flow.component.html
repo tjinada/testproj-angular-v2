@@ -1,255 +1,103 @@
-<div class="tf-layout" *ngIf="graph() as g">
+<div class="tf-app" *ngIf="graph() as g" [class.tf-fs]="fullscreen()">
 
-  <!-- Control rail -->
-  <aside class="tf-rail">
-    <div class="tf-group">
-      <h3>Sign-in path</h3>
-      <div class="tf-seg tf-seg-stack">
+  <!-- Toolbar: scenario-level choices only. Everything else lives on the diagram. -->
+  <header class="tf-bar">
+    <div class="tf-grp" title="SignInRequestManager arrives unpinned, so whichever GTM answers it decides cdbbossiteId. Selecting a path also sets both pool monitors to match.">
+      <span class="tf-lbl">Sign-in</span>
+      <div class="tf-seg">
         <button type="button" [attr.aria-pressed]="config().signinPath === 'api'"
-          (click)="setSigninPath('api')">/api/cdb
-          <small>today &mdash; GTM-CDB-API on TCP:443, both monitors on live.txt</small></button>
+          (click)="setSigninPath('api')">/api/cdb</button>
         <button type="button" [attr.aria-pressed]="config().signinPath === 'banking'"
-          (click)="setSigninPath('banking')">/banking/services
-          <small>proposed &mdash; GTM-CDB-BOS on live.txt, both monitors on TCP</small></button>
+          (click)="setSigninPath('banking')">/banking/services</button>
       </div>
-      <p class="tf-hint">SigninRequestManager arrives unpinned, so whichever GTM answers it
-        decides what goes into <code>cdbbossiteId</code>. Selecting a path also sets the pool
-        monitors to match &mdash; change them below to take the package apart.</p>
-
-      <ol class="tf-seq">
-        <li><b class="tf-f-signin">{{ callLabel('signin') }}</b>
-          <small>sets cdbbossiteId and JSESSIONID</small></li>
-        <li><b>{{ callLabel('idp') }}</b>
-          <small>sets apidc via GTM-ISAM</small></li>
-        <li><b>{{ callLabel('spaapi') }}</b>
-          <small>no cookie &mdash; GTM-Auth-SPA-API answers every time</small></li>
-        <li><b>{{ callLabel('isam') }}</b></li>
-        <li><b>{{ callLabel('trailing') }}</b></li>
-      </ol>
-      <p class="tf-hint">Calls 1&ndash;3 are login: if one fails, the app stops there.
-        Calls 4 and 5 are cookie-bound and decide nothing.</p>
     </div>
 
-    <div class="tf-group">
-      <h3>Flow</h3>
-
-      <div class="tf-field">
-        <label>{{ decidingGtm() }} lands on</label>
-        <div class="tf-seg">
-          <button type="button" *ngFor="let s of siteIds"
-            [attr.aria-pressed]="config().site === s" (click)="setSite(s)">{{ s }}</button>
-        </div>
-        <p class="tf-hint">The 50/50 on sign-in. Applies only when unpinned &mdash; once
-          cdbbossiteId is set, the Akamai property rule wins.</p>
-      </div>
-
-      <div class="tf-field">
-        <label>GTM-ISAM lands on</label>
-        <div class="tf-seg">
-          <button type="button" *ngFor="let s of siteIds"
-            [attr.aria-pressed]="config().idpSite === s" (click)="setIdpSite(s)">{{ s }}</button>
-        </div>
-        <p class="tf-hint">The 50/50 on the first auth call. Once apidc is set, the user
-          sticks to that ISAM &mdash; independent of cdbbossiteId.</p>
-      </div>
-
-      <div class="tf-field">
-        <label>GTM-Auth-SPA-API lands on</label>
-        <div class="tf-seg">
-          <button type="button" *ngFor="let s of siteIds"
-            [attr.aria-pressed]="config().spaSite === s" (click)="setSpaSite(s)">{{ s }}</button>
-        </div>
-        <p class="tf-hint">No stickiness on apis.bmo.com, so this applies to every call,
-          new and existing users alike. APIC health overrides it.</p>
-      </div>
-
-      <div class="tf-field">
-        <label>Outage</label>
-        <div class="tf-seg tf-seg-stack">
-          <button type="button" [attr.aria-pressed]="config().outageType === 'none'"
-            (click)="setOutageType('none')">None
-            <small>Healthy &mdash; click boxes to explore</small></button>
-          <button type="button" [attr.aria-pressed]="config().outageType === 'planned'"
-            (click)="setOutageType('planned')">Planned CDBBOS
-            <small>live.txt off, then JVMs</small></button>
-          <button type="button" [attr.aria-pressed]="config().outageType === 'unplanned'"
-            (click)="setOutageType('unplanned')">Unplanned CDBBOS
-            <small>JVMs, then live.txt, then IHS</small></button>
-          <button type="button" [attr.aria-pressed]="config().outageType === 'apic'"
-            (click)="setOutageType('apic')">APIC outage
-            <small>LTM and all instances</small></button>
-        </div>
-      </div>
-
-      <div class="tf-field" *ngIf="config().outageType !== 'none'">
-        <label>Outage site</label>
-        <div class="tf-seg">
+    <div class="tf-grp">
+      <span class="tf-lbl">Outage</span>
+      <select (change)="setOutageType($any($event.target).value)" aria-label="Outage scenario">
+        <option *ngFor="let t of outageTypes" [value]="t.value"
+          [selected]="config().outageType === t.value">{{ t.label }}</option>
+      </select>
+      <ng-container *ngIf="!outageNone()">
+        <div class="tf-seg" title="Which site the outage hits">
           <button type="button" *ngFor="let s of siteIds"
             [attr.aria-pressed]="config().outageSite === s" (click)="setOutageSite(s)">{{ s }}</button>
         </div>
-        <p class="tf-hint" *ngIf="config().site !== config().outageSite">
-          The user is on {{ config().site }} while {{ config().outageSite }} fails &mdash;
-          the control case.</p>
-      </div>
+        <select (change)="setRecovery($any($event.target).value)" aria-label="Recovery">
+          <option value="none" [selected]="config().recovery === 'none'">Don't recover</option>
+          <option value="jvm-then-ihs" [selected]="config().recovery === 'jvm-then-ihs'">
+            {{ recoveryOrderMatters() ? 'JVMs, then IHS' : 'Recover' }}</option>
+          <option *ngIf="recoveryOrderMatters()" value="ihs-then-jvm"
+            [selected]="config().recovery === 'ihs-then-jvm'">IHS, then JVMs</option>
+        </select>
+      </ng-container>
+    </div>
 
-      <div class="tf-field" *ngIf="config().outageType !== 'none'">
-        <label>Recovery</label>
-        <div class="tf-seg tf-seg-stack">
-          <button type="button" [attr.aria-pressed]="config().recovery === 'none'"
-            (click)="setRecovery('none')">Don't recover</button>
-          <button type="button" [attr.aria-pressed]="config().recovery === 'jvm-then-ihs'"
-            (click)="setRecovery('jvm-then-ihs')">{{ recoveryOrderMatters()
-              ? 'JVMs, then IHS' : 'Recover' }}</button>
-          <button type="button" *ngIf="recoveryOrderMatters()"
-            [attr.aria-pressed]="config().recovery === 'ihs-then-jvm'"
-            (click)="setRecovery('ihs-then-jvm')">IHS, then JVMs</button>
-        </div>
+    <div class="tf-sp"></div>
+
+    <div class="tf-grp">
+      <span class="tf-lbl">View as</span>
+      <div class="tf-seg">
+        <button type="button" [attr.aria-pressed]="cohort() === 'new'"
+          (click)="setCohort('new')">New user</button>
+        <button type="button" [attr.aria-pressed]="cohort() === 'existing'"
+          (click)="setCohort('existing')">Existing user</button>
       </div>
     </div>
 
-    <div class="tf-group">
-      <h3>Pool monitors <span class="tf-live">live</span></h3>
-      <div class="tf-field">
-        <label>EXT GTM (DNS)</label>
-        <div class="tf-seg">
-          <button type="button" [attr.aria-pressed]="overrides().extGtmMonitor === 'live'"
-            (click)="setExtGtmMonitor('live')">live.txt</button>
-          <button type="button" [attr.aria-pressed]="overrides().extGtmMonitor === 'tcp'"
-            (click)="setExtGtmMonitor('tcp')">httpd TCP</button>
-        </div>
-      </div>
-      <div class="tf-field">
-        <label>BOS LTM</label>
-        <div class="tf-seg">
-          <button type="button" [attr.aria-pressed]="overrides().ltmMonitor === 'live'"
-            (click)="setLtmMonitor('live')">live.txt</button>
-          <button type="button" [attr.aria-pressed]="overrides().ltmMonitor === 'tcp'"
-            (click)="setLtmMonitor('tcp')">httpd TCP</button>
-        </div>
-      </div>
-      <p class="tf-hint">Editable mid-journey &mdash; comparing them is the point.
-        DACT-104 is the LTM row.</p>
-    </div>
-
-    <div class="tf-group">
-      <h3>ISAM IdP liveness <span class="tf-live">live</span></h3>
-      <div class="tf-field" *ngFor="let s of siteIds">
-        <label>{{ s }} /pics/mobileidp.gif</label>
-        <div class="tf-seg">
-          <button type="button" [attr.aria-pressed]="overrides().idpLive[s] === 'present'"
-            (click)="setIdpLive(s, 'present')">present</button>
-          <button type="button" [attr.aria-pressed]="overrides().idpLive[s] === 'renamed'"
-            (click)="setIdpLive(s, 'renamed')">renamed</button>
-        </div>
-      </div>
-      <p class="tf-hint">Drives GTM-ISAM health only. New users move to the other site;
-        users already holding apidc keep hitting this one.</p>
-    </div>
-
-    <div class="tf-group">
-      <h3>Out of service</h3>
-      <p class="tf-oos" *ngIf="outOfService().length; else allUp">
-        <span *ngFor="let n of outOfService()">{{ n }}<br></span>
-      </p>
-      <ng-template #allUp><p class="tf-hint">Everything is in service.</p></ng-template>
-      <button type="button" class="tf-btn-secondary" (click)="resetOutages()">
-        Clear manual outages
+    <div class="tf-ovr">
+      <button type="button" class="tf-ibtn" [attr.aria-pressed]="overridesOpen()"
+        (click)="toggleOverrides()" title="Things you've changed from the production defaults">
+        Overrides
+        <span class="tf-badge" [class.tf-badge-zero]="!overrideList().length">{{ overrideList().length }}</span>
       </button>
-    </div>
-  </aside>
-
-  <main class="tf-main">
-
-    <!-- Two cards, always. Selecting one puts that user on the diagram. -->
-    <div class="tf-cards">
-      <button type="button" class="tf-card" *ngFor="let c of cards()"
-        [ngClass]="'tf-sev-' + c.severity"
-        [class.tf-selected]="cohort() === c.cohort"
-        (click)="setCohort(c.cohort)">
-        <span class="tf-who">{{ c.title }}</span>
-
-        <span class="tf-row">
-          <span class="tf-k">cdbbossiteId</span>
-          <span class="tf-v">{{ c.cookieIn }}<ng-container
-            *ngIf="c.cookieOut !== c.cookieIn"> &rarr; {{ c.cookieOut }}</ng-container></span>
-        </span>
-
-        <span class="tf-row">
-          <span class="tf-k">JSESSIONID</span>
-          <span class="tf-v" [class.tf-t-warn]="c.jsSplit">{{ c.jsIn }}<ng-container
-            *ngIf="c.jsOut !== c.jsIn"> &rarr; {{ c.jsOut }}</ng-container></span>
-        </span>
-
-        <span class="tf-row">
-          <span class="tf-k">apidc</span>
-          <span class="tf-v">{{ c.idpIn }}<ng-container
-            *ngIf="c.idpOut !== c.idpIn"> &rarr; {{ c.idpOut }}</ng-container></span>
-        </span>
-
-        <span class="tf-row" *ngFor="let r of c.calls">
-          <ng-container *ngIf="r">
-            <span class="tf-k" [class.tf-f-signin]="r.call === 'signin'">
-              {{ callShort(r.call) }}</span>
-            <span class="tf-v tf-t-skip" *ngIf="r.skipped">not attempted</span>
-            <span class="tf-v" *ngIf="!r.skipped && r.resolution"
-              [ngClass]="'tf-t-' + r.resolution.outcome.severity">
-              {{ r.resolution.http }}<ng-container *ngIf="callSite(r) as site">
-              &middot; {{ site }}</ng-container>
-            </span>
-          </ng-container>
-        </span>
-      </button>
-    </div>
-
-    <!-- Steps: stages, each holding the three calls. -->
-    <div class="tf-tl-head">
-      <h2>{{ config().outageType === 'none' ? 'Steps' : 'Outage &amp; recovery steps' }}</h2>
-      <span class="tf-of">Call {{ activeIndex() + 1 }} of {{ frames().length }}</span>
-    </div>
-
-    <div class="tf-tl">
-      <div class="tf-stage" *ngFor="let st of stages()">
-        <div class="tf-stage-h">
-          <span class="tf-change" *ngIf="st.change">{{ st.change }}</span>
-          <span class="tf-stage-l">{{ st.label }}</span>
-        </div>
-        <div class="tf-calls">
-          <div class="tf-step" *ngFor="let e of st.frames"
-            [class.tf-on]="e.i === activeIndex()" (click)="goToStep(e.i)">
-            <span class="tf-n">{{ e.f.callIndex }}</span>
-            <span class="tf-cn" [class.tf-f-signin]="e.f.call === 'signin'">
-              {{ callShort(e.f.call) }}</span>
-            <span class="tf-chips">
-              <span *ngFor="let r of e.f.results" class="tf-chip"
-                [ngClass]="r.skipped ? 'tf-sev-skip'
-                  : 'tf-sev-' + (r.resolution ? r.resolution.outcome.severity : 'ok')">
-                {{ r.skipped ? '—' : r.resolution ? r.resolution.http : '' }}
-              </span>
-            </span>
+      <ng-container *ngIf="overridesOpen()">
+        <div class="tf-backdrop" (click)="toggleOverrides()"></div>
+        <div class="tf-menu" role="dialog" aria-label="Overrides">
+          <p class="tf-menu-empty" *ngIf="!overrideList().length">
+            Nothing overridden &mdash; this is production.</p>
+          <div class="tf-menu-row" *ngFor="let it of overrideList()"
+            (mouseenter)="hover(it.nodeIds)" (mouseleave)="clearHover()">
+            <span>{{ it.label }}</span>
+            <button type="button" class="tf-undo" (click)="undoOverride(it)" title="Undo">&#8634;</button>
           </div>
+          <button type="button" class="tf-link" *ngIf="overrideList().length"
+            (click)="resetOverrides()">Reset all</button>
         </div>
-      </div>
+      </ng-container>
     </div>
 
-    <div class="tf-graph-bar">
-      <h3 class="tf-sec-h">Traffic flow</h3>
-      <div class="tf-legend">
-        <span class="tf-lg tf-lg-current"><i></i>{{ callLabel(activeFrame().call) }}
-          &mdash; this call</span>
-        <span class="tf-lg tf-lg-context"><i></i>/api/cdb &mdash; what pinned it</span>
-      </div>
-      <div class="tf-mini">
-        <button type="button" [attr.aria-pressed]="zoom() === 'fit'"
-          (click)="setZoom('fit')">Fit</button>
-        <button type="button" [attr.aria-pressed]="zoom() === 'full'"
-          (click)="setZoom('full')">100%</button>
-      </div>
-    </div>
+    <button type="button" class="tf-ibtn" [attr.aria-pressed]="traceOpen()" (click)="toggleTrace()">
+      &#9776; Trace</button>
+    <button type="button" class="tf-ibtn" [attr.aria-pressed]="fullscreen()" (click)="toggleFullscreen()"
+      [title]="fullscreen() ? 'Exit full screen' : 'Full screen'">
+      {{ fullscreen() ? '✕ Exit full screen' : '⛶ Full screen' }}</button>
+    <button type="button" class="tf-ibtn" (click)="copyLink()" title="Copy shareable link">
+      {{ linkCopied() ? 'Copied' : '🔗' }}</button>
+  </header>
 
-    <div class="tf-graph-card">
-      <svg [attr.viewBox]="'0 0 ' + g.width + ' ' + g.height"
-        [style.width]="zoom() === 'fit' ? '100%' : g.width + 'px'"
-        role="img" aria-label="CDB traffic flow">
+  <!-- Step strip: one chip per call, two dots each (new user, existing user). -->
+  <nav class="tf-steps" aria-label="Calls">
+    <button type="button" class="tf-arrow" (click)="goToStep(activeIndex() - 1)"
+      [disabled]="activeIndex() === 0" aria-label="Previous call">&#8249;</button>
+    <ng-container *ngFor="let st of stages()">
+      <span class="tf-stage" [title]="st.change ?? ''">
+        {{ st.label }}<span class="tf-change" *ngIf="st.change"> &middot; {{ st.change }}</span>
+      </span>
+      <button type="button" class="tf-chip" *ngFor="let e of st.frames"
+        [class.tf-on]="e.i === activeIndex()" (click)="goToStep(e.i)" [title]="chipTitle(e.f)">
+        <span class="tf-n">{{ e.f.callIndex }}</span>{{ callShort(e.f.call) }}
+        <span class="tf-dot" *ngFor="let r of e.f.results" [ngClass]="'tf-dot-' + dotClass(r)"></span>
+      </button>
+    </ng-container>
+    <button type="button" class="tf-arrow" (click)="goToStep(activeIndex() + 1)"
+      [disabled]="activeIndex() === frames().length - 1" aria-label="Next call">&#8250;</button>
+  </nav>
+
+  <div class="tf-main">
+    <div class="tf-canvas">
+      <svg [attr.viewBox]="'20 0 ' + (g.width - 40) + ' ' + g.height"
+        preserveAspectRatio="xMidYMid meet" role="img" aria-label="CDB traffic flow">
 
         <g *ngFor="let lane of g.lanes">
           <rect class="tf-lane" [attr.x]="lane.x" [attr.y]="lane.y"
@@ -311,43 +159,77 @@
         <g *ngFor="let p of g.pills" class="tf-pill"
           [class.tf-pill-on]="p.selected" [class.tf-pill-off]="!p.active"
           (click)="clickPill(p)">
+          <title>{{ pillTitle(p) }}</title>
           <rect [attr.x]="p.x" [attr.y]="p.y" [attr.width]="p.width"
             [attr.height]="p.height" rx="9"></rect>
           <text [attr.x]="p.x + p.width / 2" [attr.y]="p.y + 13">{{ p.site }}</text>
         </g>
+
+        <!-- Setting chips sit above the nodes so they stay full-strength on dimmed boxes. -->
+        <g *ngFor="let c of g.chips" class="tf-ec"
+          [class.tf-ec-changed]="c.changed" [class.tf-ec-locked]="c.locked"
+          (click)="toggleChip(c)">
+          <title>{{ c.locked ? 'Set by the outage scenario' : 'Click to flip' }}</title>
+          <rect [attr.x]="c.x" [attr.y]="c.y" [attr.width]="c.width" height="20" rx="10"></rect>
+          <text class="tf-ec-k" [attr.x]="c.x + 12" [attr.y]="c.y + 14">{{ c.label }}</text>
+          <text class="tf-ec-v" text-anchor="end" [attr.x]="c.x + c.width - 12"
+            [attr.y]="c.y + 14">{{ c.value }} {{ c.locked ? '🔒' : '⇄' }}</text>
+        </g>
       </svg>
+
+      <div class="tf-ov tf-hint">Pills: GTM pick &middot; chips: settings &middot; box: out of service</div>
+
+      <!-- This call, this user. -->
+      <div class="tf-ov tf-result" *ngIf="selected() as sel">
+        <div class="tf-result-h">
+          <ng-container *ngIf="sel.skipped || !sel.resolution; else served">
+            <span class="tf-pill-s tf-sev-skip">&mdash;</span> not attempted
+          </ng-container>
+          <ng-template #served>
+            <span class="tf-pill-s" [ngClass]="'tf-sev-' + sel.resolution!.outcome.severity">
+              {{ sel.resolution!.http }}</span>
+            {{ callShort(sel.call) }}<ng-container *ngIf="callSite(sel) as site"> &middot; {{ site }}</ng-container>
+          </ng-template>
+        </div>
+        <div class="tf-kv" *ngIf="cookies() as ck">
+          <span class="tf-k">cdbbossiteId</span>
+          <span class="tf-v">{{ ck.site.in }}<ng-container *ngIf="ck.site.out !== ck.site.in"> &rarr; {{ ck.site.out }}</ng-container></span>
+          <span class="tf-k">JSESSIONID</span>
+          <span class="tf-v" [class.tf-t-warn]="ck.jsSplit">{{ ck.js.in }}<ng-container *ngIf="ck.js.out !== ck.js.in"> &rarr; {{ ck.js.out }}</ng-container></span>
+          <span class="tf-k">apidc</span>
+          <span class="tf-v">{{ ck.apidc.in }}<ng-container *ngIf="ck.apidc.out !== ck.apidc.in"> &rarr; {{ ck.apidc.out }}</ng-container></span>
+        </div>
+      </div>
+
+      <div class="tf-ov tf-legend">
+        <span class="tf-lg tf-lg-current"><i></i>this call</span>
+        <span class="tf-lg tf-lg-context"><i></i>sign-in that pinned it</span>
+        <span class="tf-lg tf-lg-mfe"><i></i>MFE load</span>
+      </div>
     </div>
 
-    <div class="tf-graph-bar">
-      <h3 class="tf-sec-h">Decision trace</h3>
-      <span class="tf-trace-who">{{ cohort() === 'new' ? 'New user' : 'Existing user' }}
-        &middot; {{ callLabel(activeFrame().call) }}</span>
-    </div>
-
-    <ng-container *ngIf="selected() as sel">
-      <p class="tf-flow-why" *ngIf="sel.skipped">
-        Sign-in failed, so this call was never made.
-      </p>
-      <ng-container *ngIf="!sel.skipped && sel.resolution as r">
-        <p class="tf-flow-h">{{ r.http }} &mdash; {{ r.outcome.title }}</p>
-        <p class="tf-flow-why">{{ r.outcome.why }}</p>
-        <div class="tf-trace">
+    <!-- Decision trace, on demand. -->
+    <aside class="tf-drawer" *ngIf="traceOpen()">
+      <div class="tf-drawer-h">
+        <b>Decision trace &middot; {{ cohort() === 'new' ? 'New user' : 'Existing user' }}</b>
+        <button type="button" class="tf-x" (click)="toggleTrace()" aria-label="Close trace">&#10005;</button>
+      </div>
+      <div class="tf-drawer-b" *ngIf="selected() as sel">
+        <p class="tf-flow-why" *ngIf="sel.skipped">An earlier login call failed, so this call was never made.</p>
+        <ng-container *ngIf="!sel.skipped && sel.resolution as r">
+          <p class="tf-flow-h">{{ r.http }} &mdash; {{ r.outcome.title }}</p>
+          <p class="tf-flow-why">{{ r.outcome.why }}</p>
           <div class="tf-tr" *ngFor="let s of r.steps; let i = index"
             [ngClass]="'tf-tr-' + s.state" [class.tf-linked]="isStepHovered(s.ids)"
             (mouseenter)="hover(s.ids)" (mouseleave)="clearHover()">
             <div class="tf-tr-n">{{ i + 1 }}</div>
-            <div class="tf-tr-w">{{ s.where }}</div>
-            <div class="tf-tr-y" [innerHTML]="s.what"></div>
+            <div>
+              <div class="tf-tr-w">{{ s.where }}</div>
+              <div class="tf-tr-y" [innerHTML]="s.what"></div>
+            </div>
           </div>
-        </div>
-      </ng-container>
-    </ng-container>
-
-    <div class="tf-linkbar">
-      <input type="text" readonly [value]="shareLink()" aria-label="Shareable scenario link" />
-      <button type="button" class="tf-btn" (click)="copyLink()">
-        {{ linkCopied() ? 'Copied' : 'Copy link' }}
-      </button>
-    </div>
-  </main>
+        </ng-container>
+      </div>
+    </aside>
+  </div>
 </div>

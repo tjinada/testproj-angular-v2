@@ -1,7 +1,60 @@
 import type {
-  EnvState, EstateOverrides, JourneyStep, Scenario, ScenarioConfig, SiteId
+  EnvState, JourneyStep, LivenessState, Overrides, PoolMonitor, Scenario, ScenarioConfig, SiteId
 } from '../../models/traffic-flow.model';
-import { APIC_INSTANCES, APP_SERVERS, WEB_SERVERS } from './traffic-topology';
+import {
+  APIC_INSTANCES, APP_SERVERS, IDP_LIVENESS, SITE_IDS, WEB_SERVERS, nodeLabel
+} from './traffic-topology';
+
+/** Production defaults: nothing overridden. */
+export function defaultOverrides(): Overrides {
+  return {
+    down: {}, ltmMonitor: 'live', extGtmMonitor: 'live',
+    idpLive: { BCC: 'present', SCC: 'present' },
+    live: { BCC: 'present', SCC: 'present' }
+  };
+}
+
+/** One way the estate differs from production, as listed under Overrides. */
+export type OverrideItem =
+  | { kind: 'down'; id: string; label: string; nodeIds: string[] }
+  | { kind: 'extgtm' | 'ltm'; label: string; nodeIds: string[] }
+  | { kind: 'idplive' | 'live'; site: SiteId; label: string; nodeIds: string[] };
+
+/**
+ * Everything the operator has changed from the production defaults. live.txt
+ * only counts when no outage is selected, because only then is it applied.
+ * `nodeIds` are the boxes to highlight when the row is hovered.
+ */
+export function listOverrides(o: Overrides, outageNone: boolean): OverrideItem[] {
+  const items: OverrideItem[] = [];
+  const both = (tier: string) => SITE_IDS.map(s => `${tier}-${s}`);
+  const mon = (m: PoolMonitor) => (m === 'tcp' ? 'TCP' : 'live.txt');
+
+  if (o.extGtmMonitor !== 'live') {
+    items.push({ kind: 'extgtm', label: `EXT GTM monitor → ${mon(o.extGtmMonitor)}`, nodeIds: both('extgtm') });
+  }
+  if (o.ltmMonitor !== 'live') {
+    items.push({ kind: 'ltm', label: `BOS LTM pool → ${mon(o.ltmMonitor)}`, nodeIds: both('ltm') });
+  }
+  SITE_IDS.forEach(site => {
+    if (o.idpLive[site] !== 'present') {
+      items.push({ kind: 'idplive', site, label: `${site} ${IDP_LIVENESS.split('/').pop()} → renamed`,
+        nodeIds: [`idpltm-${site}`] });
+    }
+    if (outageNone && o.live[site] !== 'present') {
+      items.push({ kind: 'live', site, label: `${site} /banking/live.txt → dead.txt`,
+        nodeIds: [`web-${site}-1`, `web-${site}-2`] });
+    }
+  });
+  Object.keys(o.down).forEach(id => {
+    items.push({ kind: 'down', id, label: `${nodeLabel(id)} out of service`, nodeIds: [id] });
+  });
+  return items;
+}
+
+/** The value a chip flips to. */
+export const flipLiveness = (v: LivenessState): LivenessState => (v === 'present' ? 'renamed' : 'present');
+export const flipMonitor = (v: PoolMonitor): PoolMonitor => (v === 'live' ? 'tcp' : 'live');
 
 /** Opens healthy on BCC, with sign-in where it lives today. */
 export const DEFAULT_CONFIG: ScenarioConfig = {
@@ -35,11 +88,6 @@ const apic = (env: EnvState, site: SiteId, down: boolean) => {
     else { delete env.down[`apic-${site}-${i}`]; }
   }
 };
-
-/** The primary path this journey exercises. csgcb rides alongside it. */
-export function primaryLabel(): string {
-  return '/api/cdb';
-}
 
 /**
  * The outage stages. Order of operations is the whole point:
@@ -112,7 +160,7 @@ function recoveryStages(c: ScenarioConfig): { label: string; apply: (e: EnvState
 }
 
 const OUTAGE_TITLE: Record<string, string> = {
-  none: 'Healthy estate',
+  none: 'Normal',
   planned: 'Planned CDBBOS drain',
   unplanned: 'Unplanned CDBBOS outage',
   apic: 'APIC outage'
@@ -125,10 +173,11 @@ const OUTAGE_TITLE: Record<string, string> = {
  * Every stage is followed by a request pair, so each frame answers "who is
  * broken right now" rather than only showing the end state.
  */
-export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
+export function buildScenario(c: ScenarioConfig, o: Overrides): Scenario {
   const stages = outageStages(c);
   const recovery = recoveryStages(c);
   const steps: JourneyStep[] = [];
+  const outageNone = c.outageType === 'none';
 
   // Every step is one user action: sign-in, authentication.bmo.com,
   // apis.bmo.com, initISAMSession and the trailing call. An estate change rides
@@ -136,7 +185,9 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
   // No "before the outage" frame — the pinned user is established silently by
   // the runner, so the first step is the first thing that actually changes.
   if (stages.length === 0) {
-    steps.push({ label: 'Healthy estate' });
+    // "Normal" stops being true once anything is overridden, so say so.
+    const n = listOverrides(o, outageNone).length;
+    steps.push({ label: n ? `Normal + ${n} override${n > 1 ? 's' : ''}` : 'Normal' });
   }
 
   stages.forEach((stage, i) => {
@@ -151,22 +202,27 @@ export function buildScenario(c: ScenarioConfig, o: EstateOverrides): Scenario {
   return {
     id: `${c.site}-${c.idpSite}-${c.spaSite}-${c.outageType}-${c.outageSite}-${c.recovery}`,
     title: `${OUTAGE_TITLE[c.outageType]}${c.outageType === 'none' ? '' : ` on ${c.outageSite}`}`,
-    blurb: c.outageType === 'none'
-      ? `A healthy estate with the user on ${c.site}. Click any box to take it out of service.`
+    blurb: outageNone
+      ? `Normal running with the user on ${c.site}. Click any box to take it out of service.`
       : same
         ? `The user belongs to ${c.site}, which is the site going down.`
         : `The user belongs to ${c.site} while ${c.outageSite} goes down — the control case.`,
     // The user's own site is the GTM's answer while both sites are healthy.
-    // Rail-owned settings are applied here so they survive every regeneration.
+    // Overrides are applied here so they survive every regeneration.
     base: env => {
       env.gtmPick = { bos: c.site, api: c.site, isam: c.idpSite, spa: c.spaSite };
       env.ltmMonitor = o.ltmMonitor;
       env.extGtmMonitor = o.extGtmMonitor;
       Object.keys(o.down).forEach(id => { env.down[id] = true; });
     },
-    // The IdP liveness toggle is a drain: it lands on users already holding
-    // apidc, so they keep hitting the drained site while new users move away.
-    afterPin: env => { env.idpLive = { ...o.idpLive }; },
+    // Both liveness toggles are drains: they land on users already holding
+    // their cookie, so those users keep hitting the drained site while new
+    // users move away. live.txt is only applied with no outage selected —
+    // otherwise the planned/unplanned stages own it.
+    afterPin: env => {
+      env.idpLive = { ...o.idpLive };
+      if (outageNone) { env.live = { ...o.live }; }
+    },
     steps
   };
 }

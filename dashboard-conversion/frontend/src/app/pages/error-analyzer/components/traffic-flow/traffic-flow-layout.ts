@@ -77,12 +77,34 @@ export interface TfPill {
   active: boolean;
 }
 
+/** Which override a chip flips. Monitors are one setting across both sites. */
+export type ChipKind = 'extgtm' | 'ltm' | 'idplive' | 'live';
+
+/**
+ * A setting toggle drawn on the box it configures. Rendered above the nodes so
+ * it stays clickable at full opacity even when its box is dimmed.
+ */
+export interface TfChip {
+  kind: ChipKind;
+  site: SiteId;
+  x: number;
+  y: number;
+  width: number;
+  label: string;
+  value: string;
+  /** Differs from the production default. */
+  changed: boolean;
+  /** Owned by the outage scenario, so not editable here. */
+  locked: boolean;
+}
+
 export interface TfGraph {
   nodes: TfNode[];
   edges: TfEdge[];
   labels: TfLabel[];
   lanes: TfLane[];
   pills: TfPill[];
+  chips: TfChip[];
   width: number;
   height: number;
 }
@@ -213,7 +235,7 @@ function isamNodes(all: Record<string, any>): void {
 }
 
 /** Adds the per-site column: APIC FS, APIC instances, EXT GTM, LTM, web, app. */
-function siteNodes(all: Record<string, any>, state: SimState): void {
+function siteNodes(all: Record<string, any>): void {
   SITE_IDS.forEach(site => {
     const cx = SITE_X[site];
     const facts = SITES[site];
@@ -227,9 +249,9 @@ function siteNodes(all: Record<string, any>, state: SimState): void {
         width: 100, height: 46, warn: true, lines: [line(`APIC inst #${i}`)] };
     }
 
+    // The monitor is shown and set by the chip on this box, not a text line.
     all[`extgtm-${site}`] = { x: cx - 125, y: ROW.extGtm, width: 250, height: 116, warn: true,
       lines: [line('EXT GTM (DNS)', true), line(facts.extGtm),
-        line(`monitor: ${state.extGtmMonitor === 'live' ? '/banking/live.txt' : 'httpd TCP'}`, true),
         ...NAME_SERVERS.map(s => line(s))] };
 
     all[`ltm-${site}`] = { x: cx - 125, y: ROW.ltm, width: 250, height: 92,
@@ -364,7 +386,7 @@ function baseEdgePairs(): [string, string][] {
 }
 
 /** Static annotations carried over from the architecture diagram. */
-function baseLabels(state: SimState, res: Resolution): TfLabel[] {
+function baseLabels(res: Resolution): TfLabel[] {
   const labels: TfLabel[] = [
     { x: RAIL_X.BCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
     { x: RAIL_X.SCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
@@ -392,8 +414,9 @@ function baseLabels(state: SimState, res: Resolution): TfLabel[] {
 
   SITE_IDS.forEach(s => {
     const split = res.extGtmSplit[s];
+    // Below the monitor chip, in the gap above the BOS LTM.
     labels.push({
-      x: SITE_X[s] + 8, y: ROW.extGtm + 118, text: split.own,
+      x: SITE_X[s] + 8, y: ROW.extGtm + 136, text: split.own,
       kind: split.own === '100%' ? 'edge' : 'alert'
     });
     // Both crossover labels point inward, and the columns sit closer together
@@ -405,14 +428,44 @@ function baseLabels(state: SimState, res: Resolution): TfLabel[] {
       text: split.cross,
       kind: split.cross.startsWith('0%') ? 'edge' : 'alert'
     });
-    if (state.live[s] !== 'present') {
-      labels.push({
-        x: SITE_X[s] - 150, y: ROW.web - 8,
-        text: '/banking/live.txt → dead.txt', kind: 'alert'
-      });
-    }
   });
   return labels;
+}
+
+const CHIP_H = 20;
+
+/**
+ * Setting chips, each straddling the bottom edge of the box it configures.
+ * Values come from the frame's state, so a live.txt rename made by an outage
+ * stage shows up here as the journey plays, locked.
+ */
+function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boolean): TfChip[] {
+  const chips: TfChip[] = [];
+  const mon = (m: SimState['ltmMonitor']) => (m === 'tcp' ? 'TCP' : 'live.txt');
+  const onBox = (g: Geom, width: number) =>
+    ({ x: g.x + g.width / 2 - width / 2, y: g.y + g.height - CHIP_H / 2, width });
+
+  SITE_IDS.forEach(site => {
+    chips.push({ kind: 'extgtm', site, ...onBox(geom[`extgtm-${site}`], 170),
+      label: 'monitor', value: mon(state.extGtmMonitor),
+      changed: state.extGtmMonitor !== 'live', locked: false });
+
+    chips.push({ kind: 'ltm', site, ...onBox(geom[`ltm-${site}`], 170),
+      label: 'pool', value: mon(state.ltmMonitor),
+      changed: state.ltmMonitor !== 'live', locked: false });
+
+    chips.push({ kind: 'idplive', site, ...onBox(geom[`idpltm-${site}`], 190),
+      label: 'mobileidp.gif', value: state.idpLive[site],
+      changed: state.idpLive[site] !== 'present', locked: false });
+
+    // live.txt is served by IHS, so the chip spans the pair of web servers.
+    const w1 = geom[`web-${site}-1`], w2 = geom[`web-${site}-${WEB_SERVERS}`];
+    const webs = { x: w1.x, y: w1.y, width: w2.x + w2.width - w1.x, height: w1.height };
+    chips.push({ kind: 'live', site, ...onBox(webs, 200),
+      label: '/banking/', value: state.live[site] === 'present' ? 'live.txt' : 'dead.txt',
+      changed: state.live[site] !== 'present', locked: liveLocked });
+  });
+  return chips;
 }
 
 /** Site-pick chips, centred low inside each GTM oval. */
@@ -473,9 +526,14 @@ function traversal(res: Resolution): PathMap {
  * When a call was skipped because sign-in failed, there is no current path and
  * only the sign-in context renders.
  *
+ * `liveLocked` marks the live.txt chips read-only while an outage scenario
+ * owns live.txt.
+ *
  * Pure: geometry only.
  */
-export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): TfGraph {
+export function buildTrafficGraph(
+  frame: JourneyFrame, cohort: Cohort = 'new', liveLocked = false
+): TfGraph {
   const state = frame.state;
   const mine = frame.results.find(r => r.cohort === cohort) ?? null;
   const currentRes = mine && !mine.skipped ? mine.resolution : null;
@@ -488,7 +546,7 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
   const geom = baseNodes(res);
   idpNodes(geom);
   isamNodes(geom);
-  siteNodes(geom, state);
+  siteNodes(geom);
 
   const currentPath = currentRes ? traversal(currentRes) : {};
   // The sign-in trace is context only when it is not itself the current call.
@@ -584,9 +642,10 @@ export function buildTrafficGraph(frame: JourneyFrame, cohort: Cohort = 'new'): 
   return {
     nodes,
     edges,
-    labels: baseLabels(state, res),
+    labels: baseLabels(res),
     lanes: LANES,
     pills: buildPills(state, res, geom),
+    chips: buildChips(state, geom, liveLocked),
     width: CANVAS.width,
     height: CANVAS.height
   };

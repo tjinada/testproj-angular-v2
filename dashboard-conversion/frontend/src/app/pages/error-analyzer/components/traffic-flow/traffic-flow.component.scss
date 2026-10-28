@@ -10,320 +10,202 @@ $ok: #1a7f4b;
 $warn: #b45309;
 $bad: #b91c1c;
 $amber: #f2a900;
+$f-current: #7c3aed;
+$f-context: #64748b;
 
-.tf-layout {
+/* ---- frame: the diagram takes whatever the toolbar and strip leave ------- */
+:host { display: block; background: #fff; }
+
+.tf-app {
   display: grid;
-  grid-template-columns: 264px 1fr;
-  gap: 20px;
-  align-items: start;
-
-  @media (max-width: 980px) { grid-template-columns: 1fr; }
-}
-
-.tf-rail {
+  grid-template-rows: auto auto 1fr;
+  height: calc(100vh - 220px);
+  min-height: 620px;
   border: 1px solid $line;
   border-radius: 6px;
-  padding: 13px 13px 15px;
-  background: $panel;
+  overflow: hidden;
+  background: #fff;
 
-  h3 {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: $muted;
-    font-weight: 700;
-    margin: 0 0 8px;
-  }
+  &.tf-fs { height: 100vh; min-height: 0; border: 0; border-radius: 0; }
 }
 
-.tf-group {
-  padding-bottom: 11px;
-  margin-bottom: 11px;
-  border-bottom: 1px solid $line;
-
-  &:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+/* ---- toolbar -------------------------------------------------------------- */
+.tf-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 8px 12px; border-bottom: 1px solid $line;
 }
 
-.tf-field {
-  margin-bottom: 8px;
+.tf-grp { display: flex; align-items: center; gap: 6px; }
+.tf-sp { flex: 1; }
 
-  &:last-child { margin-bottom: 0; }
-
-  label {
-    display: block;
-    font-size: 11.5px;
-    color: $muted;
-    margin-bottom: 3px;
-  }
+.tf-lbl {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: $muted;
 }
 
 .tf-seg {
-  display: flex;
-  border: 1px solid $line;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #fff;
+  display: inline-flex; border: 1px solid #cbd5e1; border-radius: 5px; overflow: hidden;
 
   button {
-    flex: 1;
-    appearance: none;
-    border: none;
-    background: #fff;
-    cursor: pointer;
-    font: inherit;
-    font-size: 11.5px;
-    padding: 5px 3px;
-    color: $muted;
-    border-right: 1px solid $line;
-    white-space: nowrap;
+    appearance: none; border: 0; background: #fff; cursor: pointer;
+    font: inherit; font-size: 12px; padding: 5px 10px; color: #374151; white-space: nowrap;
 
-    &:last-child { border-right: none; }
+    & + button { border-left: 1px solid #cbd5e1; }
     &[aria-pressed='true'] { background: $blue; color: #fff; font-weight: 600; }
-    &:focus-visible { outline: 2px solid $blue-dk; outline-offset: -2px; z-index: 1; }
-
-    &:disabled {
-      cursor: default;
-      opacity: 0.45;
-      &[aria-pressed='true'] { background: $muted; }
-    }
-  }
-
-  &.tf-seg-narrow button { font-size: 11px; padding: 5px 0; }
-  &.tf-seg-danger button[aria-pressed='true'] { background: $bad; }
-
-  /* Stacked segments carry descriptive labels, so they must wrap. The nowrap
-     on .tf-seg button suits BCC/SCC but clips anything longer. */
-  &.tf-seg-stack {
-    flex-direction: column;
-
-    button {
-      border-right: none;
-      border-bottom: 1px solid $line;
-      text-align: left;
-      padding: 6px 9px;
-      white-space: normal;
-      line-height: 1.35;
-
-      &:last-child { border-bottom: none; }
-
-      small {
-        display: block;
-        white-space: normal;
-        font-size: 10px;
-        font-weight: 400;
-        color: $muted;
-        margin-top: 1px;
-      }
-
-      &[aria-pressed='true'] small { color: #d8ebf8; }
-    }
+    &:focus-visible { outline: 2px solid $blue-dk; outline-offset: -2px; }
   }
 }
 
-.tf-site-row {
-  display: grid;
-  grid-template-columns: 32px 1fr;
-  gap: 7px;
-  align-items: center;
-  margin-bottom: 6px;
+select {
+  font: inherit; font-size: 12px; padding: 4px 6px;
+  border: 1px solid #cbd5e1; border-radius: 5px; background: #fff;
 }
 
-.tf-site-tag { font-size: 11px; font-weight: 700; color: $muted; }
+.tf-ibtn {
+  appearance: none; border: 1px solid #cbd5e1; background: #fff; border-radius: 5px;
+  padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 
-.tf-hint {
-  font-size: 11px;
-  color: $muted;
-  line-height: 1.35;
-  margin: 6px 0 0;
+  &[aria-pressed='true'] { border-color: $blue; color: $blue; background: #eff6ff; }
+  &:focus-visible { outline: 2px solid $blue-dk; outline-offset: 1px; }
 }
 
-.tf-offlist {
-  font-size: 11px;
-  color: $bad;
-  margin: 6px 0 0;
-  word-break: break-word;
+.tf-badge {
+  background: $warn; color: #fff; border-radius: 8px;
+  font-size: 10px; font-weight: 700; padding: 0 6px; line-height: 16px;
+  &.tf-badge-zero { background: #e5e7eb; color: $muted; }
 }
 
-.tf-btn-secondary {
-  appearance: none;
-  border: 1px solid $line;
-  background: #fff;
-  font: inherit;
-  font-size: 11.5px;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: $ink;
-  margin-top: 8px;
-  width: 100%;
+/* Overrides dropdown */
+.tf-ovr { position: relative; }
+.tf-backdrop { position: fixed; inset: 0; z-index: 19; }
+.tf-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 320px;
+  background: #fff; border: 1px solid $line; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, .12); padding: 6px;
+}
+.tf-menu-empty { margin: 6px 8px; font-size: 12px; color: $muted; }
+.tf-menu-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px; border-radius: 5px; font-size: 12.5px;
+  &:hover { background: #fff8e8; }
+}
+.tf-undo {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  font-size: 15px; color: $muted; padding: 0 2px;
+  &:hover { color: $blue; }
+}
+.tf-link {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12px; color: $blue; padding: 6px 8px;
 }
 
-.tf-outcome {
-  display: flex;
-  align-items: flex-start;
-  gap: 11px;
-  border: 1px solid $line;
-  border-left-width: 4px;
-  border-radius: 5px;
-  padding: 11px 14px;
-  margin-bottom: 14px;
-  background: #fff;
-}
-
-.tf-outcome-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  margin-top: 6px;
-  flex: 0 0 auto;
-}
-
-.tf-outcome-title { font-weight: 700; font-size: 15px; margin: 0 0 1px; }
-.tf-outcome-why { font-size: 12.5px; color: $muted; margin: 0; }
-
-.tf-outcome-meta {
-  margin-left: auto;
-  text-align: right;
-  font-size: 11px;
-  color: $muted;
-  white-space: nowrap;
-}
-
-@each $name, $col in (ok: $ok, warn: $warn, bad: $bad) {
-  .tf-sev-#{$name} {
-    border-left-color: $col;
-    .tf-outcome-dot { background: $col; }
-    .tf-outcome-title { color: $col; }
-  }
-}
-
-.tf-sec-h {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: $muted;
-  font-weight: 700;
-  margin: 0 0 8px;
-}
-
-.tf-graph-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 7px;
-
-  .tf-sec-h { margin: 0; flex: 1; }
-}
-
-.tf-mini {
-  display: flex;
-  border: 1px solid $line;
-  border-radius: 4px;
-  overflow: hidden;
-
-  button {
-    appearance: none;
-    border: none;
-    background: #fff;
-    font: inherit;
-    font-size: 11px;
-    padding: 4px 10px;
-    cursor: pointer;
-    color: $muted;
-    border-right: 1px solid $line;
-
-    &:last-child { border-right: none; }
-    &[aria-pressed='true'] { background: $blue; color: #fff; font-weight: 600; }
-  }
-}
-
-.tf-graph-card {
-  border: 1px solid $line;
-  border-radius: 6px;
-  background: #fff;
-  padding: 4px;
-  margin-bottom: 16px;
-  overflow: auto;
-
-  svg { display: block; }
-}
-
-/* Scenario playback */
-.tf-manual {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-
-  &:disabled { opacity: 0.5; }
-}
-
-.tf-scenario { margin-bottom: 8px; }
-
-.tf-scenario-play {
-  appearance: none;
-  width: 100%;
-  text-align: left;
-  border: 1px solid $line;
-  background: #fff;
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: $ink;
-  padding: 7px 9px;
-  border-radius: 4px;
-  cursor: pointer;
-
-  &:hover { border-color: $blue; }
-  &.tf-scenario-on { background: $blue; border-color: $blue-dk; color: #fff; }
-}
-
+/* ---- step strip ----------------------------------------------------------- */
 .tf-steps {
-  list-style: none;
-  margin: 10px 0 8px;
-  padding: 0;
-  border: 1px solid $line;
-  border-radius: 4px;
-  overflow: hidden;
-
-  li {
-    display: grid;
-    grid-template-columns: 20px 1fr;
-    gap: 8px;
-    align-items: start;
-    padding: 7px 9px;
-    font-size: 11.5px;
-    color: $muted;
-    border-bottom: 1px solid $line;
-    cursor: pointer;
-
-    &:last-child { border-bottom: none; }
-    &:hover { background: #fff8e8; }
-    &.tf-step-on { background: #eef4fc; color: $ink; font-weight: 600; }
-  }
+  display: flex; align-items: center; gap: 6px; overflow-x: auto;
+  padding: 6px 12px; border-bottom: 1px solid $line; background: $panel;
 }
 
-.tf-step-n {
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  background: $muted;
-  color: #fff;
-  font-size: 9.5px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 1px;
+.tf-stage, .tf-chip, .tf-arrow { flex: 0 0 auto; }
 
-  .tf-step-on & { background: $blue; }
-  .tf-step-env & { background: $warn; }
-  .tf-step-bad & { background: $bad; }
+.tf-stage {
+  font-size: 10.5px; font-weight: 700; color: $muted; text-transform: uppercase;
+  letter-spacing: .04em; white-space: nowrap; padding: 0 4px 0 6px;
+  max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+
+  & ~ .tf-stage { border-left: 1px solid #cbd5e1; margin-left: 4px; padding-left: 10px; }
+}
+.tf-change { color: $warn; text-transform: none; letter-spacing: 0; font-weight: 600; }
+
+.tf-chip {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; background: #fff;
+  cursor: pointer; white-space: nowrap;
+  font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 11.5px; color: $ink;
+
+  &:hover { border-color: #ddd6fe; }
+  &.tf-on { border-color: $f-current; box-shadow: inset 0 0 0 1px $f-current; }
+}
+.tf-n {
+  width: 17px; height: 17px; border-radius: 50%; background: #e2e8f0; color: #334155;
+  font: 700 10px/17px system-ui, sans-serif; text-align: center;
+  .tf-chip.tf-on & { background: $f-current; color: #fff; }
+}
+.tf-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  &.tf-dot-ok { background: $ok; }
+  &.tf-dot-warn { background: $warn; }
+  &.tf-dot-bad { background: $bad; }
+  &.tf-dot-skip { background: #cbd5e1; }
+}
+.tf-arrow {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  font-size: 18px; color: $muted; padding: 0 4px;
+  &:disabled { opacity: .3; cursor: default; }
 }
 
-.tf-step-l { line-height: 1.35; }
+/* ---- canvas and overlays -------------------------------------------------- */
+.tf-main { display: flex; min-height: 0; }
+.tf-canvas { position: relative; flex: 1; min-width: 0; }
+.tf-canvas svg { display: block; width: 100%; height: 100%; }
 
-/* Diagram primitives */
+.tf-ov {
+  position: absolute; background: rgba(255, 255, 255, .94);
+  border: 1px solid $line; border-radius: 8px; box-shadow: 0 2px 10px rgba(15, 23, 42, .08);
+}
+.tf-hint { right: 12px; top: 10px; padding: 4px 9px; font-size: 11px; color: $muted; }
+
+.tf-result { left: 12px; bottom: 12px; padding: 9px 12px; min-width: 240px; }
+.tf-result-h { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 6px; }
+.tf-pill-s {
+  font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px; color: #fff;
+  &.tf-sev-ok { background: $ok; }
+  &.tf-sev-warn { background: $warn; }
+  &.tf-sev-bad { background: $bad; }
+  &.tf-sev-skip { background: #cbd5e1; color: $ink; }
+}
+.tf-kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 12px; }
+.tf-k { color: $muted; }
+.tf-v { font-family: ui-monospace, Consolas, Menlo, monospace; }
+.tf-t-warn { color: $warn; font-weight: 700; }
+
+.tf-legend { right: 12px; bottom: 12px; padding: 6px 10px; display: flex; gap: 14px; font-size: 11px; color: $muted; }
+.tf-lg i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: 2px; }
+.tf-lg-current i { background: $f-current; }
+.tf-lg-context i { background-image: repeating-linear-gradient(90deg, $f-context 0 5px, transparent 5px 9px); }
+.tf-lg-mfe i { height: 2px; background-image: repeating-linear-gradient(90deg, $f-context 0 6px, transparent 6px 10px); }
+
+/* ---- trace drawer --------------------------------------------------------- */
+.tf-drawer {
+  width: 360px; flex: 0 0 auto; border-left: 1px solid $line; background: #fff;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.tf-drawer-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid $line; font-size: 13px;
+}
+.tf-x { appearance: none; border: 0; background: none; font-size: 15px; color: $muted; cursor: pointer; }
+.tf-drawer-b { padding: 12px 14px; overflow: auto; }
+
+.tf-flow-h { font-weight: 700; margin: 0 0 4px; font-size: 13px; color: $f-current; }
+.tf-flow-why { font-size: 12.5px; color: #374151; line-height: 1.45; margin: 0 0 10px; }
+
+.tf-tr {
+  display: grid; grid-template-columns: 22px 1fr; gap: 8px;
+  padding: 8px 4px; border-top: 1px solid $line; font-size: 12.5px; cursor: pointer;
+
+  &:hover, &.tf-linked { background: #fff8e8; }
+  &.tf-tr-bad { .tf-tr-n { background: $bad; } .tf-tr-y { color: $bad; } }
+  &.tf-tr-warn .tf-tr-n { background: $warn; }
+}
+.tf-tr-n {
+  width: 20px; height: 20px; border-radius: 50%; background: $blue; color: #fff;
+  font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.tf-tr-w { font-weight: 600; }
+.tf-tr-y { color: #374151; }
+
+/* ---- diagram primitives (unchanged) --------------------------------------- */
 .tf-lane { fill: none; stroke: #9ca3af; stroke-width: 1.2; stroke-dasharray: 7 5; }
 .tf-lane-t { font-size: 14px; font-weight: 700; fill: #374151; }
 
@@ -339,7 +221,7 @@ $amber: #f2a900;
 .tf-e-crossover { stroke: $warn; stroke-width: 3; fill: none; stroke-dasharray: 8 4; }
 .tf-e-broken { stroke: $bad; stroke-width: 3; fill: none; }
 /* MFE load relationship (CDB UI → CIAM Auth SPA), not a request hop. */
-.tf-e-mfe { stroke: #64748b; stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
+.tf-e-mfe { stroke: $f-context; stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
 .tf-e-mfe.tf-f-current { stroke-width: 2.4; }
 
 .tf-l-edge { font-size: 9.5px; fill: #4b5563; }
@@ -370,101 +252,18 @@ $amber: #f2a900;
     .tf-nt { fill: #f3f4f6; }
   }
 
+  /* A hovered override row or trace step lifts its box out of the dim. */
+  &.tf-linked { opacity: 1; }
   &.tf-linked .tf-box,
   &.tf-linked .tf-outline { stroke: $amber; stroke-width: 4; }
 }
 
-/* Decision trace */
-.tf-trace { border: 1px solid $line; border-radius: 6px; overflow: hidden; }
-
-.tf-tr {
-  display: grid;
-  grid-template-columns: 28px 152px 1fr;
-  gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid $line;
-  cursor: pointer;
-  font-size: 12.5px;
-
-  &:last-child { border-bottom: none; }
-  &:hover, &.tf-linked { background: #fff8e8; }
-
-  &.tf-tr-bad {
-    .tf-tr-n { background: $bad; }
-    .tf-tr-y { color: $bad; }
-  }
-  &.tf-tr-warn .tf-tr-n { background: $warn; }
-}
-
-.tf-tr-n {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: $blue;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 1px;
-}
-
-.tf-tr-w { font-weight: 600; }
-.tf-tr-y { color: #374151; }
-
-/* Share link */
-.tf-linkbar {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 14px;
-
-  input {
-    flex: 1;
-    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
-    font-size: 11px;
-    padding: 7px 9px;
-    border: 1px solid $line;
-    border-radius: 4px;
-    color: $muted;
-    background: $panel;
-  }
-}
-
-.tf-btn {
-  appearance: none;
-  border: none;
-  background: $blue;
-  color: #fff;
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  white-space: nowrap;
-
-  &:hover { background: $blue-dk; }
-  &:focus-visible { outline: 2px solid $blue-dk; outline-offset: 2px; }
-}
-
-/* GTM site-pick pills, rendered inside the ovals */
+/* GTM site-pick pills, rendered inside the ovals. Always clickable. */
 .tf-pill {
   cursor: pointer;
 
-  rect {
-    fill: #fff;
-    stroke: $muted;
-    stroke-width: 1.2;
-  }
-
-  text {
-    font-size: 10.5px;
-    font-weight: 700;
-    fill: $muted;
-    text-anchor: middle;
-  }
+  rect { fill: #fff; stroke: $muted; stroke-width: 1.2; }
+  text { font-size: 10.5px; font-weight: 700; fill: $muted; text-anchor: middle; }
 
   &:hover rect { stroke: $blue; }
 
@@ -473,22 +272,41 @@ $amber: #f2a900;
     text { fill: #fff; }
   }
 
-  /* Cookie bypassed the GTM, or health has overridden the split. */
+  /* Not in play on this call: still settable, just quiet. */
   &.tf-pill-off {
-    cursor: default;
-    opacity: 0.4;
-
-    &:hover rect { stroke: $muted; }
+    opacity: 0.45;
+    &:hover { opacity: 0.8; }
     &.tf-pill-on rect { fill: $muted; stroke: $muted; }
   }
 }
-/* ---- call encoding ------------------------------------------------------
+
+/* Setting chips on the boxes they configure. */
+.tf-ec {
+  cursor: pointer;
+
+  rect { fill: #fff; stroke: $blue; stroke-width: 1.4; filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .18)); }
+  text { font-size: 10.5px; font-weight: 600; }
+  .tf-ec-k { fill: $muted; font-weight: 500; }
+  .tf-ec-v { fill: $blue; }
+
+  &:hover rect { stroke-width: 2.2; }
+
+  &.tf-ec-changed {
+    rect { stroke: $warn; fill: #fffbeb; }
+    .tf-ec-v { fill: $warn; }
+  }
+
+  &.tf-ec-locked {
+    cursor: not-allowed;
+    rect { stroke-dasharray: 4 3; }
+    &:hover rect { stroke-width: 1.4; }
+  }
+}
+
+/* ---- call encoding ---------------------------------------------------------
    The current call is a saturated hue at full weight. The sign-in that pinned
    it is neutral and dashed — it is background, not a peer, so it takes no hue
    of its own and cannot be confused with the live path. */
-$f-current: #7c3aed;
-$f-context: #64748b;
-
 .tf-f-current .tf-box { fill: $f-current; stroke: $f-current; stroke-width: 2.4px; }
 .tf-f-current .tf-outline { stroke: $f-current; stroke-width: 2.4px; }
 .tf-f-current .tf-nt { fill: #fff; }
@@ -501,127 +319,3 @@ $f-context: #64748b;
 
 path.tf-f-current { stroke: $f-current; }
 path.tf-f-context { stroke: $f-context; stroke-dasharray: 6 5; opacity: .5; }
-
-/* Sign-in gets its accent in the rail and card labels only. */
-.tf-f-signin { color: $f-current; }
-
-.tf-legend { display: flex; gap: 14px; font-size: 11px; color: $muted; }
-.tf-lg i {
-  display: inline-block; width: 18px; height: 3px; border-radius: 2px;
-  margin-right: 5px; vertical-align: 2px;
-}
-.tf-lg-current i { background: $f-current; }
-.tf-lg-context i {
-  background-image: repeating-linear-gradient(90deg, $f-context 0 5px, transparent 5px 9px);
-}
-
-.tf-trace-who {
-  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  padding: 2px 7px; border-radius: 3px; border: 1px solid $f-current; color: $f-current;
-}
-
-/* Fixed call sequence, shown in the rail. */
-.tf-seq {
-  margin: 0; padding-left: 16px; font-size: 11px; line-height: 1.6;
-  b { font-weight: 700; }
-  small { display: block; color: $muted; font-size: 10px; }
-}
-
-/* ---- user cards. Two, always; selecting one puts it on the diagram. ------- */
-.tf-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-@media (max-width: 900px) { .tf-cards { grid-template-columns: 1fr; } }
-
-.tf-card {
-  appearance: none; text-align: left; cursor: pointer; background: #fff;
-  border: 1px solid $line; border-radius: 6px;
-  padding: 11px 13px; display: flex; flex-direction: column; gap: 5px; font: inherit;
-
-  &:hover { border-color: $blue; }
-  /* Selected means "on the diagram" — always exactly one. */
-  &.tf-selected { border-color: $blue; box-shadow: 0 0 0 2px rgba(0, 117, 190, .18); }
-  &.tf-sev-bad.tf-selected { border-color: $bad; box-shadow: 0 0 0 2px rgba(185, 28, 28, .15); }
-}
-
-.tf-who {
-  font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
-  color: $ink; margin-bottom: 2px;
-}
-.tf-row { display: grid; grid-template-columns: 108px 1fr; gap: 8px; align-items: baseline; }
-.tf-k { font-size: 10.5px; color: $muted; font-weight: 600; }
-.tf-k.tf-f-signin { color: $f-current; }
-.tf-v { font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
-.tf-t-ok { color: $ok; } .tf-t-warn { color: $warn; } .tf-t-bad { color: $bad; font-weight: 700; }
-.tf-note { font-size: 11px; color: $muted; line-height: 1.35; margin-top: 2px; }
-
-.tf-live {
-  font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
-  color: $ok; border: 1px solid #b7e0c8; background: #eefaf2;
-  border-radius: 3px; padding: 1px 5px; margin-left: 6px;
-}
-.tf-oos { font-size: 11px; color: $bad; line-height: 1.6; margin: 0 0 8px; }
-
-/* ---- steps: stages, each holding the three calls ------------------------- */
-.tf-tl {
-  display: flex; gap: 10px; border: 1px solid $line; border-radius: 6px; background: #fff;
-  overflow-x: auto; padding: 10px; margin-bottom: 18px;
-}
-
-.tf-stage {
-  flex: 0 0 auto; min-width: 300px; border: 1px solid $line; border-radius: 5px; overflow: hidden;
-}
-.tf-stage-h {
-  padding: 6px 9px; background: $panel; border-bottom: 1px solid $line;
-  display: flex; flex-direction: column; gap: 2px;
-}
-.tf-stage-l { font-size: 10px; font-weight: 700; color: $muted; text-transform: uppercase; }
-.tf-change {
-  font-size: 10.5px; font-weight: 700; color: $warn; line-height: 1.3;
-  display: flex; gap: 5px;
-  &::before {
-    content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 2px;
-    background: $amber; margin-top: 3px;
-  }
-}
-
-.tf-calls { display: flex; }
-.tf-step {
-  flex: 1; border-right: 1px solid $line; padding: 7px 8px; cursor: pointer;
-  display: flex; flex-direction: column; gap: 4px; background: #fff;
-  &:last-child { border-right: 0; }
-  &:hover { background: #faf7ff; }
-  &.tf-on { background: #f6f0ff; box-shadow: inset 0 -3px 0 $f-current; }
-}
-.tf-n {
-  width: 16px; height: 16px; border-radius: 50%; background: $muted; color: #fff;
-  font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;
-  .tf-step.tf-on & { background: $f-current; }
-}
-.tf-cn { font-size: 10px; font-family: ui-monospace, Menlo, monospace; line-height: 1.25; }
-
-.tf-chips { display: flex; gap: 4px; flex-wrap: wrap; }
-.tf-chip {
-  font-size: 9.5px; font-weight: 700; border-radius: 3px; padding: 1px 5px;
-  font-family: ui-monospace, Menlo, monospace;
-  &.tf-sev-ok { background: #eefaf2; color: $ok; }
-  &.tf-sev-warn { background: #fff8ec; color: $warn; }
-  &.tf-sev-bad { background: #fdecec; color: $bad; }
-  &.tf-sev-skip { background: #f3f4f6; color: $muted; }
-}
-
-.tf-t-skip { color: $muted; font-style: italic; }
-
-.tf-tl-head {
-  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
-  h2 {
-    font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
-    color: $muted; margin: 0; font-weight: 700;
-  }
-}
-.tf-of { font-size: 11px; color: $muted; }
-
-/* ---- trace headers ------------------------------------------------------- */
-.tf-flow-h {
-  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-  font-size: 12px; font-weight: 700; margin: 14px 0 4px; color: $f-current;
-}
-.tf-flow-why { font-size: 11.5px; color: #374151; line-height: 1.45; margin: 0 0 8px; }

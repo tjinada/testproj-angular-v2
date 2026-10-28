@@ -226,17 +226,22 @@ export interface ScenarioConfig {
 }
 
 /**
- * Estate settings the rail keeps control of during playback. The monitors stay
- * editable mid-journey on purpose — comparing live.txt against a TCP check is
- * the whole reason the flip exists — and manual out-of-service toggles let the
- * healthy ('none') outage double as free-form exploration.
+ * What the operator has changed by hand from the production defaults. Set from
+ * the chips on the diagram and box clicks, and survive every journey
+ * regeneration. Editable mid-journey on purpose — comparing live.txt against a
+ * TCP check is the whole reason the flip exists.
  */
-export interface EstateOverrides {
+export interface Overrides {
   down: Record<string, true>;
   ltmMonitor: PoolMonitor;
   extGtmMonitor: PoolMonitor;
-  /** ISAM IdP liveness object per site. Editable mid-journey. */
+  /** ISAM IdP liveness object per site. */
   idpLive: Record<SiteId, LivenessState>;
+  /**
+   * BOS live.txt per site. Only applied when no outage scenario is selected —
+   * the planned and unplanned stages own it otherwise.
+   */
+  live: Record<SiteId, LivenessState>;
 }
 
 /**
