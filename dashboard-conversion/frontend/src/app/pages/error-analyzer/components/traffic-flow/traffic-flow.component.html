@@ -20,7 +20,7 @@
       </select>
       <ng-container *ngIf="!outageNone()">
         <div class="tf-seg" title="Which site the outage hits">
-          <button type="button" *ngFor="let s of siteIds"
+          <button type="button" *ngFor="let s of siteIds" [ngClass]="'tf-site-' + s"
             [attr.aria-pressed]="config().outageSite === s" (click)="setOutageSite(s)">{{ s }}</button>
         </div>
         <select (change)="setRecovery($any($event.target).value)" aria-label="Recovery">
@@ -130,6 +130,10 @@
             [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.width" [attr.height]="n.height"
             [attr.rx]="n.radius"></rect>
 
+          <!-- Site colour strip on the left edge: BCC blue, SCC magenta. -->
+          <rect *ngIf="n.site && !n.ellipse" [ngClass]="'tf-strip tf-strip-' + n.site"
+            [attr.x]="n.x + 1" [attr.y]="n.y + 1" width="6" [attr.height]="n.height - 2" rx="2"></rect>
+
           <text *ngFor="let ln of n.lines; let i = index"
             [ngClass]="{ 'tf-nt': true, 'tf-nt-b': ln.bold, 'tf-nt-dark': n.outline }"
             [attr.x]="n.x + n.width / 2"
@@ -156,7 +160,7 @@
             [attr.y]="n.y + n.height + 18">&#10005;</text>
         </g>
 
-        <g *ngFor="let p of g.pills" class="tf-pill"
+        <g *ngFor="let p of g.pills" class="tf-pill" [ngClass]="'tf-site-' + p.site"
           [class.tf-pill-on]="p.selected" [class.tf-pill-off]="!p.active"
           (click)="clickPill(p)">
           <title>{{ pillTitle(p) }}</title>
@@ -188,16 +192,22 @@
           <ng-template #served>
             <span class="tf-pill-s" [ngClass]="'tf-sev-' + sel.resolution!.outcome.severity">
               {{ sel.resolution!.http }}</span>
-            {{ callShort(sel.call) }}<ng-container *ngIf="callSite(sel) as site"> &middot; {{ site }}</ng-container>
+            {{ callShort(sel.call) }}<ng-container *ngIf="callSite(sel) as site"> &middot;
+              <span [ngClass]="siteClass(site)">{{ site }}</span></ng-container>
           </ng-template>
         </div>
         <div class="tf-kv" *ngIf="cookies() as ck">
           <span class="tf-k">cdbbossiteId</span>
-          <span class="tf-v">{{ ck.site.in }}<ng-container *ngIf="ck.site.out !== ck.site.in"> &rarr; {{ ck.site.out }}</ng-container></span>
+          <span class="tf-v"><span [ngClass]="siteClass(ck.site.in)">{{ ck.site.in }}</span><ng-container
+            *ngIf="ck.site.out !== ck.site.in"> &rarr; <span [ngClass]="siteClass(ck.site.out)">{{ ck.site.out }}</span></ng-container></span>
           <span class="tf-k">JSESSIONID</span>
-          <span class="tf-v" [class.tf-t-warn]="ck.jsSplit">{{ ck.js.in }}<ng-container *ngIf="ck.js.out !== ck.js.in"> &rarr; {{ ck.js.out }}</ng-container></span>
+          <span class="tf-v" [title]="ck.jsSplit ? 'Session and cookie on different sites' : ''"><span
+            [ngClass]="siteClass(ck.js.in)">{{ ck.js.in }}</span><ng-container
+            *ngIf="ck.js.out !== ck.js.in"> &rarr; <span [ngClass]="siteClass(ck.js.out)">{{ ck.js.out }}</span></ng-container><span
+            class="tf-t-warn" *ngIf="ck.jsSplit"> &#9888; split</span></span>
           <span class="tf-k">apidc</span>
-          <span class="tf-v">{{ ck.apidc.in }}<ng-container *ngIf="ck.apidc.out !== ck.apidc.in"> &rarr; {{ ck.apidc.out }}</ng-container></span>
+          <span class="tf-v"><span [ngClass]="siteClass(ck.apidc.in)">{{ ck.apidc.in }}</span><ng-container
+            *ngIf="ck.apidc.out !== ck.apidc.in"> &rarr; <span [ngClass]="siteClass(ck.apidc.out)">{{ ck.apidc.out }}</span></ng-container></span>
         </div>
       </div>
 
@@ -205,6 +215,8 @@
         <span class="tf-lg tf-lg-current"><i></i>this call</span>
         <span class="tf-lg tf-lg-context"><i></i>sign-in that pinned it</span>
         <span class="tf-lg tf-lg-mfe"><i></i>MFE load</span>
+        <span class="tf-lg tf-lg-site tf-lg-BCC"><i></i>BCC</span>
+        <span class="tf-lg tf-lg-site tf-lg-SCC"><i></i>SCC</span>
       </div>
     </div>
 

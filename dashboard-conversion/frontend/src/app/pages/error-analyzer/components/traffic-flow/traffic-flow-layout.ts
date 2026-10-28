@@ -31,6 +31,8 @@ export interface TfNode {
   isBreak: boolean;
   /** Which call travels here, for the cohort on the diagram. */
   flow: FlowTag | null;
+  /** Data centre the box belongs to, for the site colour strip. Null for shared tiers. */
+  site: SiteId | null;
 }
 
 /**
@@ -635,7 +637,8 @@ export function buildTrafficGraph(
       state: hit && !off ? hit.state : null,
       outOfService: off,
       isBreak: currentRes?.breakAt === id,
-      flow: tag
+      flow: tag,
+      site: (id.match(/-(BCC|SCC)(?:-|$)/)?.[1] as SiteId | undefined) ?? null
     };
   });
 

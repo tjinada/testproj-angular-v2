@@ -13,6 +13,10 @@ $amber: #f2a900;
 $f-current: #7c3aed;
 $f-context: #64748b;
 
+/* Data-centre colours. Deliberately not red or green, which mean broken and
+   healthy, and not violet or amber, which mean this call and changed. */
+$sites: (BCC: #0079c1, SCC: #db2777);
+
 /* ---- frame: the diagram takes whatever the toolbar and strip leave ------- */
 :host { display: block; background: #fff; }
 
@@ -174,6 +178,32 @@ select {
 .tf-lg-current i { background: $f-current; }
 .tf-lg-context i { background-image: repeating-linear-gradient(90deg, $f-context 0 5px, transparent 5px 9px); }
 .tf-lg-mfe i { height: 2px; background-image: repeating-linear-gradient(90deg, $f-context 0 6px, transparent 6px 10px); }
+.tf-lg-site i { width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+
+/* ---- site colours ---------------------------------------------------------- */
+@each $site, $col in $sites {
+  /* Text naming a site: overlay values, call site. */
+  .tf-s-#{$site} { color: $col; font-weight: 700; }
+
+  .tf-lg-#{$site} i { background: $col; }
+
+  /* Outage-site toggle. */
+  .tf-seg button.tf-site-#{$site}[aria-pressed='true'] { background: $col; }
+
+  /* Left-edge strip on every per-site box. The white edge keeps BCC blue
+     readable against the navy and violet box fills. */
+  .tf-strip-#{$site} { fill: $col; stroke: #fff; stroke-width: 1.2; }
+
+  /* GTM pills: site-coloured outline, site-coloured fill when selected. */
+  .tf-pill.tf-site-#{$site} {
+    rect { stroke: $col; }
+    text { fill: $col; }
+    &.tf-pill-on {
+      rect { fill: $col; stroke: $col; }
+      text { fill: #fff; }
+    }
+  }
+}
 
 /* ---- trace drawer --------------------------------------------------------- */
 .tf-drawer {
@@ -272,11 +302,10 @@ select {
     text { fill: #fff; }
   }
 
-  /* Not in play on this call: still settable, just quiet. */
+  /* Not in play on this call: still settable, just quiet. Keeps its site colour. */
   &.tf-pill-off {
     opacity: 0.45;
     &:hover { opacity: 0.8; }
-    &.tf-pill-on rect { fill: $muted; stroke: $muted; }
   }
 }
 

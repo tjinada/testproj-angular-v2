@@ -169,6 +169,11 @@ export class TrafficFlowComponent implements OnInit {
     return res.bosSite;
   }
 
+  /** Site colour class for any text that names a data centre. */
+  siteClass(v: string | null | undefined): string {
+    return v?.includes('SCC') ? 'tf-s-SCC' : v?.includes('BCC') ? 'tf-s-BCC' : '';
+  }
+
   /** Status dot for one cohort's result on a step chip. */
   dotClass(r: CallResult): string {
     return r.skipped ? 'skip' : r.resolution?.outcome.severity ?? 'ok';
