@@ -1,0 +1,75 @@
+curl -X POST "https://app.launchdarkly.com/api/v2/projects/$PROJ/environments/$LDENV/flags/evaluate" \
+  -H "Authorization: $LD_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "kind": "environment", "key": "QA1" }'
+
+curl -X POST ".../contexts/search" \
+  -H "Authorization: $LD_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{ "filter": "kindKey equals \"environment:QA1\"", "limit": 50 }'
+
+
+const es = new EventSource('PASTE_URL_HERE');
+es.onopen = () => console.log('LD test: open');
+es.addEventListener('put',   e => console.log('LD test: put', e.data.length, 'bytes'));
+es.addEventListener('patch', e => console.log('LD test: patch', e.data));
+es.onerror = () => console.log('LD test: error, readyState', es.readyState);
+
+curl -vN -H "Accept: text/event-stream" "PASTE_URL_HERE" 2>&1 | grep -iE "issuer|event:"
+
+
+### What this enables
+ 
+Any context attribute can be used as a condition in a flag's targeting rules. For example:
+ 
+- **By CDB QA env:** turn a feature on in QA5 only → rule on `environment.key`
+- **By release:** enable a feature from release 95.0.0 onward → rule on `application.releaseVersion` (semver operators)
+- **By platform/channel:** web only, or OLB only → rule on `application.platform` / `application.channel`
+- **By user:** enable for a specific test user → rule on `user.key`
+ 
+---
+ 
+## Handling CDB QA Envs within the LD QA Environment
+ 
+All CDB QA environments share the single LD **QA** environment, so per-env behaviour is controlled with targeting rules on the `environment` context kind.
+ 
+Recommended pattern (**exception list**):
+ 
+1. Set the flag's default rule to the value most QA envs should get (e.g. `true`).
+2. Add the env keys that should differ (e.g. `QA3`, `QA12`) as individual targets serving the other value (`false`).
+ 
+This keeps flags manageable across a large number of QA envs — you only list the exceptions, not every environment.
+ 
+> Environment keys must match the CDB env name exactly, with standard casing (`QA5`, not `qa5`).
+ 
+---
+ 
+## Flags
+ 
+[image-20261029-200106.png]
+ 
+### Example flag response
+ 
+Below is the payload the CDB UI receives from LD for the context above. Each top-level key is a flag key.
+ 
+```json
+{
+  "ALERTS":                { "flagVersion": 2,  "trackEvents": false, "value": false,         "variation": 1, "version": 133 },
+  "BENEFITS_HUB":          { "flagVersion": 38, "trackEvents": false, "value": true,          "variation": 0, "version": 133 },
+  "CDB_KILL_SWITCH":       { "flagVersion": 2,  "trackEvents": false, "value": false,         "variation": 1, "version": 133 },
+  "CLICK_TO_PAY":          { "flagVersion": 31, "trackEvents": false, "value": true,          "variation": 0, "version": 133 },
+  "MOBILE_QR_CODE":        { "flagVersion": 65, "trackEvents": false, "value": true,          "variation": 0, "version": 133 },
+  "bdc-role":              { "flagVersion": 5,  "trackEvents": false, "value": false,         "variation": 1, "version": 133 },
+  "channels_allow_budget": { "flagVersion": 2,  "trackEvents": false, "value": "MBA,MBW,OLB", "variation": 1, "version": 133 },
+  "role_allow_budget":     { "flagVersion": 2,  "trackEvents": false, "value": "variation 2", "variation": 1, "version": 133 }
+}
+```
+ 
+### Response fields
+ 
+| Field | Meaning |
+|---|---|
+| `value` | The evaluated flag value the app should use (boolean, string, etc.) |
+| `variation` | Index of the variation served (0 = first variation defined on the flag) |
+| `flagVersion` | Version of this flag's config; increments each time the flag is changed |
+| `version` | Version of the overall LD environment data at evaluation time |
+| `trackEvents` | Whether detailed evaluation events are sent back to LD for this flag |
