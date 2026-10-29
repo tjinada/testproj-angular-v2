@@ -130,7 +130,7 @@ export interface TfGraph {
 /** Vertical rhythm, transcribed from the architecture diagram. */
 const ROW = {
   gtm: 195, cloudlet: 330, apicFs: 445, apic: 545,
-  extGtm: 625, ltm: 785, web: 925, app: 1035
+  extGtm: 625, ltm: 785, web: 925, app: 1065
 };
 const SITE_X: Record<SiteId, number> = { BCC: 860, SCC: 1300 };
 
@@ -169,7 +169,7 @@ const SPA_RAIL_DROP = 40;
  * SSS V2 and AWS rows, below CWH app. Lit by the downstream calls CDBBOS and
  * CWH APIC make once a request is served.
  */
-const SSS_ROW = { gss: 1170, f5: 1320, apic: 1440, ocp: 1590, aws: 1745 };
+const SSS_ROW = { gss: 1200, f5: 1350, apic: 1470, ocp: 1620, aws: 1775 };
 
 /** AWS: one gateway, with its Lambdas stacked to its right. */
 const AWS_GW_X = 930;
@@ -182,7 +182,7 @@ const SSS_X: Record<SiteId, number> = { BCC: 600, SCC: 1560 };
 const SSS_APIC_HALF = 230;
 const SSS_PATH_DX = 115;
 
-const CANVAS = { width: 2500, height: 1900 };
+const CANVAS = { width: 2500, height: 1930 };
 
 type Geom = { x: number; y: number; width: number; height: number };
 
@@ -240,12 +240,14 @@ function idpNodes(all: Record<string, any>): void {
   SITE_IDS.forEach(site => {
     const cx = IDP_X[site];
 
-    all[`idpltm-${site}`] = { x: cx - 125, y: ROW.apicFs, width: 250, height: 66,
+    // Taller than its neighbours to hold the mobileidp.gif switch in its footer.
+    all[`idpltm-${site}`] = { x: cx - 125, y: ROW.apicFs, width: 250, height: 96, footer: 30,
       lines: [line(`ISAM IdP LTM (${site})`, true), line('bmonsori-'),
         line(SITES[site].idpLtm.replace('bmonsori-', ''))] };
 
+    // A row lower than the other WGA tiers, below the taller IdP LTM.
     for (let i = 1; i <= IDP_WGA_INSTANCES; i++) {
-      all[`idpwga-${site}-${i}`] = { x: cx - 101 + (i - 1) * 52, y: ROW.apic,
+      all[`idpwga-${site}-${i}`] = { x: cx - 101 + (i - 1) * 52, y: ROW.apic + 30,
         width: 46, height: 54,
         lines: [line('ISAM'), line('WGA'), line(`#${i}`)] };
     }
@@ -294,7 +296,8 @@ function siteNodes(all: Record<string, any>): void {
         line('CWH-WEB'), line(facts.ltmHost), line(facts.ltmVip)] };
 
     for (let i = 1; i <= WEB_SERVERS; i++) {
-      all[`web-${site}-${i}`] = { x: cx - 132 + (i - 1) * 145, y: ROW.web, width: 120, height: 54,
+      // Footer holds the site's live.txt switch.
+      all[`web-${site}-${i}`] = { x: cx - 132 + (i - 1) * 145, y: ROW.web, width: 120, height: 84, footer: 30,
         lines: [line('BOS Web'), line(`Server ${i} (${site})`)] };
     }
     for (let i = 1; i <= APP_SERVERS; i++) {
@@ -607,24 +610,20 @@ function baseLabels(res: Resolution): TfLabel[] {
   return labels;
 }
 
-const CHIP_H = 20;
-
 /** Tier heads, which carry a site pill. */
 const HEAD_NODE = /^(apicfs|extgtm|ltm|isamltm|idpltm|sssf5|sssapic)-/;
 
 /**
  * Setting switches, drawn on the box they configure with both options visible.
- * Monitors sit inside their box; liveness objects straddle its bottom edge.
+ * Each sits in its box's footer. live.txt appears on both web boxes of a site.
  * Values come from the frame's state, so a live.txt rename made by an outage
  * stage shows up here as the journey plays, locked.
  */
 function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boolean): TfChip[] {
   const chips: TfChip[] = [];
   const mon = (m: SimState['ltmMonitor']) => (m === 'tcp' ? 'TCP' : 'live.txt');
-  // Label is drawn to the left of x. inBox sits in the footer; onEdge straddles the bottom edge.
-  const inBox = (g: Geom) => ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - 25, width: 120 });
-  const onEdge = (g: Geom, width: number) =>
-    ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - CHIP_H / 2, width });
+  // A switch sits in the box's footer; its label is drawn to the left of x.
+  const inBox = (g: Geom, width = 120) => ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - 25, width });
   const monitor = { options: ['live.txt', 'TCP'], locked: false };
 
   SITE_IDS.forEach(site => {
@@ -634,16 +633,20 @@ function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boo
     chips.push({ kind: 'ltm', site, ...inBox(geom[`ltm-${site}`]), ...monitor,
       label: 'pool monitor', value: mon(state.ltmMonitor), changed: state.ltmMonitor !== 'live' });
 
-    chips.push({ kind: 'idplive', site, ...onEdge(geom[`idpltm-${site}`], 130),
+    chips.push({ kind: 'idplive', site, ...inBox(geom[`idpltm-${site}`], 130),
       options: ['present', 'renamed'], label: 'mobileidp.gif', value: state.idpLive[site],
       changed: state.idpLive[site] !== 'present', locked: false });
 
-    // live.txt is served by IHS, so the switch sits under the pair of web servers.
-    const w1 = geom[`web-${site}-1`], w2 = geom[`web-${site}-${WEB_SERVERS}`];
-    const webs = { x: w1.x, y: w1.y, width: w2.x + w2.width - w1.x, height: w1.height };
-    chips.push({ kind: 'live', site, ...onEdge(webs, 120),
-      options: ['live.txt', 'dead.txt'], label: '/banking/', value: state.live[site] === 'present' ? 'live.txt' : 'dead.txt',
-      changed: state.live[site] !== 'present', locked: liveLocked });
+    // live.txt is one setting per site, served by both IHS servers. Each web box
+    // shows it, and flipping either flips the site, so the pair always agree.
+    // No label: the options name the file.
+    for (let i = 1; i <= WEB_SERVERS; i++) {
+      const w = geom[`web-${site}-${i}`];
+      // Starts right of the site colour strip on the box's left edge.
+      chips.push({ kind: 'live', site, ...inBox(w, 104), x: w.x + 11,
+        options: ['live.txt', 'dead.txt'], label: '', value: state.live[site] === 'present' ? 'live.txt' : 'dead.txt',
+        changed: state.live[site] !== 'present', locked: liveLocked });
+    }
   });
   return chips;
 }
@@ -688,10 +691,10 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
 
 const LANES: TfLane[] = [
   { x: 40, y: 100, width: 2420, height: 196, title: 'Akamai' },
-  { x: 40, y: 400, width: 2420, height: 595, title: 'CWH Web' },
-  { x: 40, y: 1005, width: 2420, height: 120, title: 'CWH app' },
-  { x: 40, y: 1140, width: 2420, height: 580, title: 'SSS V2' },
-  { x: 40, y: 1735, width: 2420, height: 145, title: 'AWS' }
+  { x: 40, y: 400, width: 2420, height: 625, title: 'CWH Web' },
+  { x: 40, y: 1035, width: 2420, height: 120, title: 'CWH app' },
+  { x: 40, y: 1170, width: 2420, height: 580, title: 'SSS V2' },
+  { x: 40, y: 1765, width: 2420, height: 145, title: 'AWS' }
 ];
 
 type PathMap = Record<string, { hop: number; state: Severity }>;
