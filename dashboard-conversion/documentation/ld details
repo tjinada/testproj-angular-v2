@@ -17,40 +17,132 @@ es.onerror = () => console.log('LD test: error, readyState', es.readyState);
 curl -vN -H "Accept: text/event-stream" "PASTE_URL_HERE" 2>&1 | grep -iE "issuer|event:"
 
 
+# LaunchDarkly at CDB: Environments, Contexts & Flag Evaluation
+
+## LaunchDarkly Environments
+
+CDB uses two LaunchDarkly (LD) environments:
+
+| LD Environment | Covers | How individual CDB envs are told apart |
+|---|---|---|
+| **QA** | All CDB QA environments (QA1, QA2, ... QAn) | `environment` context key (e.g. `QA5`) |
+| **PROD** | Production Blue and Green slots | `application.releaseVersion` (live vs. pre-prod release) |
+
+**Key concept: flags are shared, values are not.**
+Every LD environment in the project shares the same list of flags. When a flag is created, it appears in both QA and PROD immediately. However, each flag's targeting and value are controlled **independently** per LD environment.
+
+> Example: `CLICK_TO_PAY` can be `true` in PROD and `false` in QA at the same time. Changing it in QA has no effect on PROD.
+
+---
+
+## Context
+
+### What is a context?
+
+A **context** is the data the client (Web or Mobile) sends to LaunchDarkly when it initializes. LD evaluates each flag's targeting rules against this context and returns the resulting values.
+
+CDB sends a **multi-context** made up of three context kinds:
+
+| Context kind | Key | Attributes | Purpose |
+|---|---|---|---|
+| `user` | DARID (unique per CDB user) | — | Target or roll out to specific users |
+| `application` | `CDB` | `channel`, `platform`, `releaseVersion`, `adoBuild`, `freddyVersion` | Target by channel, platform, or release/build |
+| `environment` | CDB env name, e.g. `QA5` | `color`, `hostname` | Target by CDB environment / slot |
+
+### Example context (QA5 web session)
+
+```json
+{
+  "kind": "multi",
+  "user": { "key": "8527cd05ad7226474cb87f8ea201ce1824199341" },
+  "application": {
+    "key": "CDB",
+    "channel": "OLB",
+    "platform": "web",
+    "releaseVersion": "95.0.0",
+    "adoBuild": "3340961",
+    "freddyVersion": "3.8.4"
+  },
+  "environment": {
+    "key": "QA5",
+    "color": "blue",
+    "hostname": "blue.www.olb-qa5.dev.bmo.com"
+  }
+}
+```
+
 ### What this enables
- 
+
 Any context attribute can be used as a condition in a flag's targeting rules. For example:
- 
+
 - **By CDB QA env:** turn a feature on in QA5 only → rule on `environment.key`
 - **By release:** enable a feature from release 95.0.0 onward → rule on `application.releaseVersion` (semver operators)
 - **By platform/channel:** web only, or OLB only → rule on `application.platform` / `application.channel`
 - **By user:** enable for a specific test user → rule on `user.key`
- 
+
 ---
- 
+
 ## Handling CDB QA Envs within the LD QA Environment
- 
+
 All CDB QA environments share the single LD **QA** environment, so per-env behaviour is controlled with targeting rules on the `environment` context kind.
- 
+
 Recommended pattern (**exception list**):
- 
+
 1. Set the flag's default rule to the value most QA envs should get (e.g. `true`).
 2. Add the env keys that should differ (e.g. `QA3`, `QA12`) as individual targets serving the other value (`false`).
- 
+
 This keeps flags manageable across a large number of QA envs — you only list the exceptions, not every environment.
- 
+
 > Environment keys must match the CDB env name exactly, with standard casing (`QA5`, not `qa5`).
- 
+
 ---
- 
+
+## Handling PROD Blue/Green within the LD PROD Environment
+
+### Why one PROD environment, not PROD-BLUE and PROD-GREEN
+
+CDB production runs as two slots (Blue and Green). At any time one is **live** and the other is **pre-prod**, and they swap at each release. CDB UI builds are colour-agnostic: the same artifact can be deployed to either slot.
+
+Because the slots swap roles, **colour is not a stable way to identify live vs. pre-prod**. If flags were targeted by colour (or split into PROD-BLUE / PROD-GREEN LD environments), every swap would need matching flag changes, and forgetting one would flip features for real customers.
+
+The **release version** follows the build, not the slot. So both slots share the single LD **PROD** environment, and flags that need to behave differently between live and pre-prod target `application.releaseVersion`.
+
+### Example
+
+| Slot | Role | Release |
+|---|---|---|
+| Blue | Live | 95.0.0 |
+| Green | Pre-prod | 96.0.0 |
+
+To turn on a new feature only for the 96.0.0 release under test in pre-prod:
+
+- **Default rule:** `false`
+- **Rule:** `application.releaseVersion` **is not semver less than** `96.0.0` → `true`
+
+Result:
+- **Before the swap:** Green (96.0.0, pre-prod) gets `true`. Blue (95.0.0, live) gets `false`. Customers are unaffected.
+- **After the swap:** 96.0.0 is now live, so customers get `true`. That's the intended outcome, since the feature shipped in 96.0.0. No flag change is needed at swap time.
+- **Hotfixes** (e.g. 95.0.1) still fall below 96.0.0, so they keep getting `false`.
+
+To test one exact build only, use **semver equal** `96.0.0` instead.
+
+### Things to know
+
+- **Rules apply to every slot.** Any PROD change without a release-version condition applies to both live and pre-prod immediately. Use this deliberately (e.g. `CDB_KILL_SWITCH`), never by accident.
+- **Mobile versions linger.** Mobile users on older app versions stay in the field long after a release. A rule like "`releaseVersion` less than X → false" is how you keep a feature off for builds that can't support it.
+- **`releaseVersion` must be valid semver** (`95.0.0`, not `95`). If it isn't, semver rules won't match and the user falls through to the default rule.
+- **`environment.color` is still sent**, but it's useful only for troubleshooting (seeing which slot a session hit), not for targeting.
+
+---
+
 ## Flags
- 
+
 [image-20261029-200106.png]
- 
+
 ### Example flag response
- 
+
 Below is the payload the CDB UI receives from LD for the context above. Each top-level key is a flag key.
- 
+
 ```json
 {
   "ALERTS":                { "flagVersion": 2,  "trackEvents": false, "value": false,         "variation": 1, "version": 133 },
@@ -63,9 +155,9 @@ Below is the payload the CDB UI receives from LD for the context above. Each top
   "role_allow_budget":     { "flagVersion": 2,  "trackEvents": false, "value": "variation 2", "variation": 1, "version": 133 }
 }
 ```
- 
+
 ### Response fields
- 
+
 | Field | Meaning |
 |---|---|
 | `value` | The evaluated flag value the app should use (boolean, string, etc.) |
@@ -73,3 +165,32 @@ Below is the payload the CDB UI receives from LD for the context above. Each top
 | `flagVersion` | Version of this flag's config; increments each time the flag is changed |
 | `version` | Version of the overall LD environment data at evaluation time |
 | `trackEvents` | Whether detailed evaluation events are sent back to LD for this flag |
+
+> Note: flags can return non-boolean values. `channels_allow_budget` returns a string list (`"MBA,MBW,OLB"`), so the UI must parse it rather than treat it as on/off.
+
+---
+
+## Fallback Behaviour
+
+What CDB gets when LD can't give a normal answer. For implementation details, see [UI Integration doc — link].
+
+> ⚠️ Items marked **TBD** need confirming against the current implementation before this page is published.
+
+| Scenario | LD / SDK behaviour | CDB behaviour |
+|---|---|---|
+| **LD unreachable at app start** (network, LD outage, blocked domain) | SDK can't initialize; flag lookups return the **default value defined in code** | **TBD:** Are the code defaults "safe" (feature off)? Is there an init timeout, and what is it? |
+| **LD drops mid-session** | SDK keeps the last values it received; updates stop until the connection returns | Session continues on last-known values |
+| **Flag deleted or key mistyped** | Flag isn't in the payload; lookup returns the **code default** | Same as above. Deleting a flag that's still referenced in code silently reverts to the code default |
+| **Flag targeting turned OFF** | Serves the flag's **off variation** to everyone in that LD environment | Off variation applies to all QA envs (QA) or both slots (PROD) |
+| **Context missing an attribute** (e.g. no `releaseVersion`) | Rules that use that attribute don't match; user falls through to the **default rule** | Gets the default rule value |
+| **Cached flags from a previous session** | **TBD:** Is SDK local caching / bootstrap enabled? | **TBD** |
+
+### Kill switch
+
+`CDB_KILL_SWITCH`: **TBD**. Document what it disables (whole app? specific journeys? a maintenance page?), who can flip it, and the expected time to take effect. Remember that in PROD it affects **both** Blue and Green unless it's targeted by release version.
+
+### Rules of thumb
+
+- **Code defaults must be the safe state.** For a new feature, the code default should be off, so an LD outage never exposes unfinished work.
+- **Don't delete a flag until its code reference is gone.** Archive or retire it only after the code no longer reads it.
+- **"Off" isn't the same as "false."** Turning targeting off serves the *off variation*, which is whatever's configured, not necessarily `false`.
