@@ -96,8 +96,12 @@
 
   <div class="tf-main">
     <div class="tf-canvas">
-      <svg [attr.viewBox]="'20 0 ' + (g.width - 40) + ' ' + g.height"
-        preserveAspectRatio="xMidYMid meet" role="img" aria-label="CDB traffic flow">
+      <svg #svg [attr.viewBox]="viewBox(g.width, g.height)" [class.tf-zoomed]="view()"
+        preserveAspectRatio="xMidYMid meet" role="img" aria-label="CDB traffic flow"
+        (wheel)="onWheel($event, svg, g.width, g.height)"
+        (pointerdown)="onPointerDown($event, g.width, g.height)"
+        (pointermove)="onPointerMove($event, svg, g.width, g.height)"
+        (pointerup)="onPointerUp()" (pointerleave)="onPointerUp()">
 
         <g *ngFor="let lane of g.lanes">
           <rect class="tf-lane" [attr.x]="lane.x" [attr.y]="lane.y"
@@ -114,8 +118,7 @@
         <g *ngFor="let n of g.nodes" class="tf-node"
           [ngClass]="n.flow ? 'tf-f-' + n.flow : ''"
           [class.tf-toggle]="n.toggleable"
-          [class.tf-dim]="!n.hop && !n.outOfService"
-          [class.tf-static]="n.static"
+          [class.tf-dim]="!n.hop && !n.fanout && !n.outOfService"
           [class.tf-on]="n.state === 'ok'"
           [class.tf-warn]="n.state === 'warn'"
           [class.tf-fail]="n.state === 'bad'"
@@ -206,6 +209,12 @@
         </ng-container>
       </svg>
 
+      <div class="tf-ov tf-zoom">
+        <button type="button" (click)="zoomBy(1 / 1.4, g.width, g.height)" title="Zoom in">+</button>
+        <button type="button" (click)="zoomBy(1.4, g.width, g.height)" [disabled]="!view()" title="Zoom out">&minus;</button>
+        <button type="button" (click)="resetZoom()" [disabled]="!view()" title="Fit the whole diagram">Fit</button>
+      </div>
+
       <div class="tf-ov tf-hint">Pills: GTM pick &middot; chips: settings &middot; box: out of service</div>
 
       <!-- This call, this user. -->
@@ -230,6 +239,15 @@
             class="tf-t-warn" *ngIf="ck.jsSplit"> &#9888; split</span></span>
           <span class="tf-k">apidc</span>
           <span class="tf-v" [ngClass]="ck.apidc ? siteClass(ck.apidc) : 'tf-na'">{{ ck.apidc ?? 'not assigned' }}</span>
+        </div>
+        <!-- Each SSS V2 call this one fans out to, resolved on its own. -->
+        <div class="tf-kv tf-ds" *ngIf="downstream().length">
+          <span class="tf-ds-h">Downstream</span>
+          <ng-container *ngFor="let d of downstream()">
+            <span class="tf-k" [title]="d.host + ' ' + d.path">{{ hostShort(d.host) }}</span>
+            <span class="tf-v"><span *ngIf="d.site" [ngClass]="siteClass(d.site)">{{ d.site }}</span><span
+              [ngClass]="'tf-ds-' + d.status">{{ d.status === 'ok' ? ' ✓' : d.status === 'failover' ? ' ⇄ failover' : ' ✕ broken' }}</span></span>
+          </ng-container>
         </div>
       </div>
 

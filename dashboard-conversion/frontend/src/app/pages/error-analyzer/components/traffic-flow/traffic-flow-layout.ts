@@ -2,9 +2,9 @@ import type {
   Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
-  APIC_INSTANCES, APP_SERVERS, AUTH_SPA_API_HOSTNAME, AWS_CHANNELS_GW, IDP_COOKIE_NAME, IDP_LIVENESS,
+  APIC_INSTANCES, APP_SERVERS, AUTH_SPA_API_HOSTNAME, AWS_API_GW, IDP_COOKIE_NAME, IDP_LIVENESS,
   IDP_WGA_INSTANCES,
-  ISAM_GTM_HOSTNAME, NAME_SERVERS,
+  ISAM_GTM_HOSTNAME, LAMBDAS, NAME_SERVERS,
   SITES, SITE_COOKIE_NAME, SITE_IDS, SSS_GSS_HOSTNAME, TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
 } from './traffic-topology';
 
@@ -41,8 +41,11 @@ export interface TfNode {
    * a colour strip only.
    */
   head: boolean;
-  /** Structure-only tier (SSS V2, AWS) that no modelled call reaches yet. */
-  static: boolean;
+  /**
+   * Lit by the current call's downstream fan-out. Fan-out hops have no order,
+   * so these carry a state but no hop badge.
+   */
+  fanout: boolean;
 }
 
 /**
@@ -56,11 +59,11 @@ export type FlowTag = 'current' | 'context';
 export interface TfEdge {
   d: string;
   /**
-   * 'direct', 'failover' and 'subset' belong to the static SSS V2 layer: a
-   * CDBBOS call to a site host with no failover, a GSS leg used only when the
-   * site's own NLB is down, and the /api/cdb subset going straight to AWS.
+   * 'direct' and 'failover' are SSS V2 structure: a CDBBOS call to a site host
+   * with no failover, and a per-site GSS leg used only when the site's own F5
+   * is down.
    */
-  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'mfe' | 'direct' | 'failover' | 'subset';
+  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'mfe' | 'direct' | 'failover';
   flow: FlowTag | null;
 }
 
@@ -173,10 +176,14 @@ const SPA_RAIL_Y = 436;
 const SPA_RAIL_DROP = 40;
 
 /**
- * SSS V2 and AWS rows, below CWH app. Static for now: no call resolves through
- * them, so they are drawn as structure only.
+ * SSS V2 and AWS rows, below CWH app. Lit by the downstream calls CDBBOS and
+ * CWH APIC make once a request is served.
  */
-const SSS_ROW = { gss: 1185, f5: 1310, apic: 1430, ocp: 1580, aws: 1755 };
+const SSS_ROW = { gss: 1170, f5: 1320, apic: 1440, ocp: 1590, aws: 1745 };
+
+/** AWS: one gateway, with its Lambdas stacked to its right. */
+const AWS_GW_X = 930;
+const LAMBDA_X = 1330;
 
 /** SSS columns sit outboard of the BOS columns so the CDBBOS legs fan out. */
 const SSS_X: Record<SiteId, number> = { BCC: 600, SCC: 1560 };
@@ -185,7 +192,7 @@ const SSS_X: Record<SiteId, number> = { BCC: 600, SCC: 1560 };
 const SSS_APIC_HALF = 230;
 const SSS_PATH_DX = 115;
 
-const CANVAS = { width: 2500, height: 1880 };
+const CANVAS = { width: 2500, height: 1900 };
 
 type Geom = { x: number; y: number; width: number; height: number };
 
@@ -307,13 +314,13 @@ function siteNodes(all: Record<string, any>): void {
   });
 }
 
-/** Adds the static SSS V2 and AWS tiers. */
-function sssNodes(all: Record<string, any>): void {
+/** Adds the SSS V2 and AWS tiers. */
+function sssNodes(all: Record<string, any>, res: Resolution): void {
   const gss = (cx: number, lines: { text: string; bold: boolean }[]) =>
-    ({ x: cx - 155, y: SSS_ROW.gss, width: 310, height: 86, outline: true, ellipse: true, lines });
+    ({ x: cx - 155, y: SSS_ROW.gss, width: 310, height: 110, footer: 30, outline: true, ellipse: true, lines });
 
   all['gss-BCC'] = gss(260, [line(SITES.BCC.sssGss, true), line('Per-site GSS'), line('BCC 100% · SCC 0%', true)]);
-  all['gss-es'] = gss(1080, [line(SSS_GSS_HOSTNAME, true), line('GSS'), line('50/50', true)]);
+  all['gss-es'] = gss(1080, [line(SSS_GSS_HOSTNAME, true), line('GSS'), line(res.gtmDistribution.sss, true)]);
   all['gss-SCC'] = gss(1900, [line(SITES.SCC.sssGss, true), line('Per-site GSS'), line('BCC 0% · SCC 100%', true)]);
 
   SITE_IDS.forEach(site => {
@@ -328,14 +335,12 @@ function sssNodes(all: Record<string, any>): void {
         line(`*.apps.${f.ocpCluster}.ocp4-pr`)] };
   });
 
-  all['aws-chgw'] = { x: 380, y: SSS_ROW.aws, width: 300, height: 66, outline: true,
-    lines: [line('Channels AWS API GW', true), line(AWS_CHANNELS_GW.replace('.hcloud.bmogc.net', ''))] };
-  all['aws-chl'] = { x: 740, y: SSS_ROW.aws, width: 220, height: 66, outline: true,
-    lines: [line('AWS Lambdas', true), line('ca-central-1')] };
-  all['aws-dcgw'] = { x: 1240, y: SSS_ROW.aws, width: 300, height: 66, outline: true,
-    lines: [line('DC AWS API Gateway', true), line('DigitalCore · host TBD')] };
-  all['aws-dcl'] = { x: 1600, y: SSS_ROW.aws, width: 220, height: 66, outline: true,
-    lines: [line('DC AWS Lambdas', true), line('DigitalCore')] };
+  all['awsgw'] = { x: AWS_GW_X, y: SSS_ROW.aws + 28, width: 300, height: 66, outline: true,
+    lines: [line('AWS API Gateway', true), line(AWS_API_GW.replace('.hcloud.bmogc.net', ''))] };
+  for (let i = 1; i <= LAMBDAS; i++) {
+    all[`lambda-${i}`] = { x: LAMBDA_X, y: SSS_ROW.aws + 10 + (i - 1) * 44, width: 170, height: 34,
+      outline: true, lines: [line(`Lambda ${i}`, true)] };
+  }
 }
 
 /** Bezier between two points, vertical at both ends. */
@@ -344,78 +349,103 @@ function bez(x1: number, y1: number, x2: number, y2: number): string {
   return `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`;
 }
 
+const inwardOf = (s: SiteId) => (s === 'BCC' ? 1 : -1);
+const siteOf = (id: string) => id.slice(id.lastIndexOf('-') + 1).replace(/#.*$/, '') as SiteId;
+
 /**
- * The SSS V2 and AWS edges. Hostname decides site behaviour (GSS 50/50,
- * per-site GSS, or direct with no failover); path decides the route through
- * APIC (/api/cdb via Channel Services, /api straight to DigitalCore).
+ * Geometry of one downstream hop. Shared by the dim structure and the lit path
+ * so the two always overlay exactly.
+ *
+ * `cdbbos-<SITE>` is the BOS App row as a whole; `cwhapic-<SITE>` is the CWH
+ * APIC instance group; `sssapic-<SITE>#cdb` / `#api` are the two halves of an
+ * SSS V2 APIC box. Returns null for a pair that is not a drawn hop.
  */
-function sssEdges(all: Record<string, Geom>): TfEdge[] {
-  const e = (d: string, kind: TfEdge['kind'] = 'base'): TfEdge => ({ d, kind, flow: null });
-  const bottom = (g: Geom, dx = 0) => [g.x + g.width / 2 + dx, g.y + g.height] as const;
-  const top = (g: Geom, dx = 0) => [g.x + g.width / 2 + dx, g.y] as const;
-  const link = (a: readonly [number, number], b: readonly [number, number], kind?: TfEdge['kind']) =>
-    e(bez(a[0], a[1], b[0], b[1]), kind);
-  const out: TfEdge[] = [];
+function sssLeg(all: Record<string, Geom>, a: string, b: string): string | null {
+  const bottom = (g: Geom, dx = 0): [number, number] => [g.x + g.width / 2 + dx, g.y + g.height];
+  const top = (g: Geom, dx = 0): [number, number] => [g.x + g.width / 2 + dx, g.y];
+  const link = (p: [number, number], q: [number, number]) => bez(p[0], p[1], q[0], q[1]);
+  const half = (id: string) => (id.endsWith('#cdb') ? -SSS_PATH_DX : SSS_PATH_DX);
 
-  SITE_IDS.forEach(site => {
-    const inward = site === 'BCC' ? 1 : -1;
-    const first = all[`app-${site}-1`], last = all[`app-${site}-${APP_SERVERS}`];
-    // CDBBOS is the whole BOS App row; legs leave from its outer, centre and inner thirds.
+  if (a.startsWith('cdbbos-')) {
+    const s = siteOf(a), first = all[`app-${s}-1`], last = all[`app-${s}-${APP_SERVERS}`];
     const span = last.x + last.width - first.x;
-    const at = (f: number) => [first.x + span * f, first.y + first.height] as const;
-    const outer = site === 'BCC' ? 0.15 : 0.85, mid = 0.5, inner = site === 'BCC' ? 0.85 : 0.15;
-    const f5 = all[`sssf5-${site}`], apic = all[`sssapic-${site}`], ocp = all[`ocp-${site}`];
+    // Legs leave from the outer, centre and inner thirds of the App row.
+    const at = (f: number): [number, number] => [first.x + span * f, first.y + first.height];
+    const outer = s === 'BCC' ? 0.15 : 0.85, inner = s === 'BCC' ? 0.85 : 0.15;
+    if (b === `gss-${s}`) { return link(at(outer), top(all[b])); }
+    if (b === 'gss-es') { return link(at(inner), top(all[b], -30 * inwardOf(s))); }
+    if (b === `sssf5-${s}`) { return link(at(0.5), top(all[b], 60 * inwardOf(s))); }
+    return null;
+  }
+  if (a.startsWith('cwhapic-') && b === 'gss-es') {
+    // Down the gap between the two BOS columns, clear of every box in them.
+    const s = siteOf(a), i1 = all[`apic-${s}-1`], iN = all[`apic-${s}-${APIC_INSTANCES}`];
+    const g = all['gss-es'];
+    const sx = (i1.x + iN.x + iN.width) / 2, cx = g.x + g.width / 2;
+    return `M${sx} ${i1.y + i1.height} V${i1.y + i1.height + 14} H${cx} V${g.y}`;
+  }
+  if (a.startsWith('gss-') && b.startsWith('sssf5-')) {
+    const t = siteOf(b), g = all[a], f5 = all[b];
+    if (a === 'gss-es') { return link(bottom(g, -40 * inwardOf(t)), top(f5, 120 * inwardOf(t))); }
+    // Per-site GSS: own site, or the failover leg across to the other site.
+    return siteOf(a) === t
+      ? link(bottom(g), top(f5, -80 * inwardOf(t)))
+      : link(bottom(g, -60 * inwardOf(t)), top(f5, -150 * inwardOf(t)));
+  }
+  if (a.startsWith('sssf5-') && b.startsWith('sssapic-')) {
+    return link(bottom(all[a], half(b) > 0 ? 60 : -60), top(all[b.replace(/#.*$/, '')], half(b)));
+  }
+  if (a.endsWith('#cdb') && b.startsWith('ocp-')) {
+    return link(bottom(all[a.replace('#cdb', '')], -SSS_PATH_DX), top(all[b]));
+  }
+  if (a.startsWith('ocp-') && b.endsWith('#api')) {
+    // Channel Services calls back into the same site's APIC /api.
+    const o = all[a], ap = all[b.replace('#api', '')];
+    return `M${o.x + o.width} ${o.y + o.height / 2} H${ap.x + ap.width / 2 + SSS_PATH_DX} V${ap.y + ap.height}`;
+  }
+  if (a.endsWith('#api') && b === 'awsgw') {
+    const s = siteOf(a);
+    return link(bottom(all[a.replace('#api', '')], SSS_PATH_DX), top(all[b], -40 * inwardOf(s)));
+  }
+  if (a === 'awsgw' && b.startsWith('lambda-')) {
+    const g = all[a], l = all[b], y = g.y + g.height / 2, ly = l.y + l.height / 2;
+    return `M${g.x + g.width} ${y} H${l.x - 30} V${ly} H${l.x}`;
+  }
+  return null;
+}
 
-    out.push(
-      link(at(outer), top(all[`gss-${site}`])),
-      link(at(inner), top(all['gss-es'], -30 * inward)),
-      link(at(mid), top(f5, 60 * inward), 'direct'),
-      link(bottom(all[`gss-${site}`]), top(f5, -80 * inward)),
-      link(bottom(all['gss-es'], -40 * inward), top(f5, 120 * inward)),
-      link(bottom(f5, -60), top(apic, -SSS_PATH_DX)),
-      link(bottom(f5, 60), top(apic, SSS_PATH_DX)),
-      link(bottom(apic, -SSS_PATH_DX), top(ocp)),
-      // Channel Services calls back into the same site's APIC /api.
-      e(`M${ocp.x + ocp.width} ${ocp.y + 33} H${apic.x + apic.width / 2 + SSS_PATH_DX} V${apic.y + apic.height}`),
-      link(bottom(apic, SSS_PATH_DX), top(all['aws-dcgw'], -40 * inward))
-    );
+/** Every downstream hop that exists, for the dim structure underneath. */
+function sssBaseLegs(): { a: string; b: string; kind: TfEdge['kind'] }[] {
+  const legs: { a: string; b: string; kind: TfEdge['kind'] }[] = [];
+  const add = (a: string, b: string, kind: TfEdge['kind'] = 'base') => legs.push({ a, b, kind });
+  SITE_IDS.forEach(s => {
+    const o: SiteId = s === 'BCC' ? 'SCC' : 'BCC';
+    add(`cdbbos-${s}`, `gss-${s}`);
+    add(`cdbbos-${s}`, 'gss-es');
+    add(`cdbbos-${s}`, `sssf5-${s}`, 'direct');
+    add(`cwhapic-${s}`, 'gss-es');
+    add(`gss-${s}`, `sssf5-${s}`);
+    add(`gss-${s}`, `sssf5-${o}`, 'failover');
+    add('gss-es', `sssf5-${s}`);
+    add(`sssf5-${s}`, `sssapic-${s}#cdb`);
+    add(`sssf5-${s}`, `sssapic-${s}#api`);
+    add(`sssapic-${s}#cdb`, `ocp-${s}`);
+    add(`ocp-${s}`, `sssapic-${s}#api`);
+    add(`sssapic-${s}#api`, 'awsgw');
   });
-
-  // Per-site GSS failover: only when the owning site's NLB is fully down.
-  out.push(
-    link(bottom(all['gss-BCC'], -60), top(all['sssf5-SCC'], -150), 'failover'),
-    link(bottom(all['gss-SCC'], 60), top(all['sssf5-BCC'], 150), 'failover')
-  );
-
-  // The /api/cdb subset that goes straight to Channels AWS, routed beside Channel Services.
-  const gw = all['aws-chgw'];
-  SITE_IDS.forEach((site, i) => {
-    const apic = all[`sssapic-${site}`];
-    const sx = apic.x + 12, ex = gw.x + gw.width / 2 + (i ? 30 : -30), ry = SSS_ROW.aws - 30 + i * 12;
-    out.push(e(`M${sx} ${apic.y + apic.height} V${ry} H${ex} V${gw.y}`, 'subset'));
-  });
-
-  const across = (a: Geom, b: Geom) => e(`M${a.x + a.width} ${a.y + 33} H${b.x}`);
-  out.push(across(gw, all['aws-chl']), across(all['aws-dcgw'], all['aws-dcl']));
-  return out;
+  for (let i = 1; i <= LAMBDAS; i++) { add('awsgw', `lambda-${i}`); }
+  return legs;
 }
 
 /** SSS V2 annotations. */
 function sssLabels(): TfLabel[] {
   const labels: TfLabel[] = [
-    { x: 960, y: SSS_ROW.gss - 22, text: 'es-api', kind: 'edge' },
-    { x: 1160, y: SSS_ROW.gss - 22, text: 'es-api', kind: 'edge' },
-    { x: 380, y: SSS_ROW.gss - 22, text: 'api-svc-bgss', kind: 'edge' },
-    { x: 1720, y: SSS_ROW.gss - 22, text: 'api-svc-sgss', kind: 'edge' },
-    { x: 990, y: SSS_ROW.f5 - 40, text: '50%', kind: 'edge' },
-    { x: 1150, y: SSS_ROW.f5 - 40, text: '50%', kind: 'edge' },
-    { x: 1030, y: SSS_ROW.f5 - 8, text: 'per-site GSS failover only if own NLB fully down', kind: 'edge' },
-    { x: 300, y: SSS_ROW.aws - 34, text: 'some /api/cdb', kind: 'edge' }
+    { x: 1030, y: SSS_ROW.f5 - 6, text: 'per-site GSS fails over only if its own F5 is fully down', kind: 'edge' }
   ];
   SITE_IDS.forEach(s => {
     const cx = SSS_X[s];
     labels.push(
-      { x: cx + (s === 'BCC' ? 70 : -170), y: SSS_ROW.gss + 96, text: 'direct · no failover', kind: 'alert' },
+      { x: cx + (s === 'BCC' ? 70 : -170), y: SSS_ROW.f5 - 34, text: 'direct · no failover', kind: 'alert' },
       { x: cx - 175, y: SSS_ROW.apic - 14, text: '/api/cdb · Channels', kind: 'edge' },
       { x: cx + 70, y: SSS_ROW.apic - 14, text: '/api · DigitalCore', kind: 'edge' },
       { x: cx + SSS_PATH_DX + 6, y: SSS_ROW.ocp + 28, text: '/api · same site', kind: 'edge' }
@@ -592,9 +622,6 @@ const CHIP_H = 20;
 /** Tier heads, which carry a site pill. */
 const HEAD_NODE = /^(apicfs|extgtm|ltm|isamltm|idpltm|sssf5|sssapic)-/;
 
-/** The static SSS V2 and AWS tiers. */
-const STATIC_NODE = /^(gss|sssf5|sssapic|ocp|aws)-/;
-
 /**
  * Setting chips, each straddling the bottom edge of the box it configures.
  * Values come from the frame's state, so a live.txt rename made by an outage
@@ -638,16 +665,20 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
     { gtm: 'bos', node: 'gtm-bos' },
     { gtm: 'api', node: 'gtm-api' },
     { gtm: 'isam', node: 'gtm-isam' },
-    { gtm: 'spa', node: 'gtm-spa' }
+    { gtm: 'spa', node: 'gtm-spa' },
+    { gtm: 'sss', node: 'gss-es' }
   ];
   const fronts: Record<GtmId, Resolution['path'][]> = {
-    bos: ['banking', 'csgcb'], api: ['api'], isam: ['idp'], spa: ['spaapi']
+    bos: ['banking', 'csgcb'], api: ['api'], isam: ['idp'], spa: ['spaapi'], sss: []
   };
   spec.forEach(({ gtm, node }) => {
     const g = geom[node];
     if (!g) { return; }
     // Only the GTM fronting the current path takes part in this request.
-    const inPath = fronts[gtm].includes(res.path);
+    // The es-api GSS is in play whenever a downstream call goes through it.
+    const inPath = gtm === 'sss'
+      ? res.downstream.some(d => d.kind === 'gss')
+      : fronts[gtm].includes(res.path);
     const overridden = !res.gtmDistribution[gtm].startsWith('50/50');
     const answered = res.gtmAnswer[gtm];
     SITE_IDS.forEach((site, i) => {
@@ -670,7 +701,7 @@ const LANES: TfLane[] = [
   { x: 40, y: 400, width: 2420, height: 595, title: 'CWH Web' },
   { x: 40, y: 1005, width: 2420, height: 120, title: 'CWH app' },
   { x: 40, y: 1140, width: 2420, height: 580, title: 'SSS V2' },
-  { x: 40, y: 1735, width: 2420, height: 125, title: 'AWS' }
+  { x: 40, y: 1735, width: 2420, height: 145, title: 'AWS' }
 ];
 
 type PathMap = Record<string, { hop: number; state: Severity }>;
@@ -712,7 +743,7 @@ export function buildTrafficGraph(
   idpNodes(geom);
   isamNodes(geom);
   siteNodes(geom);
-  sssNodes(geom);
+  sssNodes(geom, res);
 
   const currentPath = currentRes ? traversal(currentRes) : {};
   // The sign-in trace is context only when it is not itself the current call.
@@ -736,7 +767,10 @@ export function buildTrafficGraph(
     d: mfePath(geom), kind: 'mfe',
     flow: currentRes?.path === 'spaapi' ? 'current' : null
   });
-  edges.push(...sssEdges(geom));
+  sssBaseLegs().forEach(({ a, b, kind }) => {
+    const d = sssLeg(geom, a, b);
+    if (d) { edges.push({ d, kind, flow: null }); }
+  });
   SITE_IDS.forEach(s => edges.push(
     baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s)),
     baseRail(isamGtmRail(geom, s)), baseRail(spaRail(geom, s))
@@ -780,6 +814,36 @@ export function buildTrafficGraph(
   walk(contextRes && contextRes !== currentRes ? contextRes : null, 'context');
   walk(currentRes, 'current');
 
+  // Downstream fan-out. Every route is lit at once; a hop shared by several
+  // routes takes the worst of their states, so a break is never hidden behind
+  // a healthy route drawn over it.
+  const rank: Record<TfEdge['kind'], number> = {
+    base: 0, mfe: 0, direct: 0, failover: 0, taken: 1, crossover: 2, broken: 3
+  };
+  const sevRank: Record<Severity, number> = { ok: 0, warn: 1, bad: 2 };
+  const fan: Record<string, Severity> = {};
+  const breaks = new Set<string>();
+  const mark = (id: string, sev: Severity) => {
+    const n = id.replace(/#.*$/, '');
+    if (!geom[n]) { return; }
+    if (!fan[n] || sevRank[sev] > sevRank[fan[n]]) { fan[n] = sev; }
+  };
+  (currentRes?.downstream ?? []).forEach(r => {
+    if (r.breakAt) { breaks.add(r.breakAt); }
+    r.legs.forEach(([a, b]) => {
+      const d = sssLeg(geom, a, b);
+      if (!d) { return; }
+      const into = b.replace(/#.*$/, '');
+      const isBreak = into === r.breakAt;
+      const isFailover = r.status === 'failover' && a.startsWith('gss-');
+      const kind: TfEdge['kind'] = isBreak ? 'broken' : isFailover ? 'crossover' : 'taken';
+      const prev = taken.get(d);
+      if (!prev || rank[kind] > rank[prev.kind]) { taken.set(d, { d, kind, flow: 'current' }); }
+      mark(a, 'ok');
+      mark(b, isBreak ? 'bad' : isFailover ? 'warn' : 'ok');
+    });
+  });
+
   taken.forEach(e => {
     edges.push({ d: e.d, kind: e.kind, flow: e.flow });
   });
@@ -805,13 +869,13 @@ export function buildTrafficGraph(
       warn: !!g.warn && !off,
       toggleable: TOGGLEABLE_NODE.test(id),
       hop: hit && !off ? hit.hop : null,
-      state: hit && !off ? hit.state : null,
+      state: off ? null : hit ? hit.state : fan[id] ?? null,
       outOfService: off,
-      isBreak: currentRes?.breakAt === id,
-      flow: tag,
+      isBreak: currentRes?.breakAt === id || breaks.has(id),
+      flow: tag ?? (fan[id] && !off ? 'current' : null),
       site,
       head,
-      static: STATIC_NODE.test(id)
+      fanout: !!fan[id] && !off
     };
   });
 

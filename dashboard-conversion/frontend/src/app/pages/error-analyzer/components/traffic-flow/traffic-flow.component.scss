@@ -184,6 +184,24 @@ select {
 /* Top-left, where the eye starts; the GTM row below it is clear at that corner. */
 .tf-result { left: 12px; top: 10px; padding: 9px 12px; min-width: 240px; }
 .tf-na { color: $muted; font-style: italic; font-family: inherit; }
+.tf-ds { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e7eb; }
+.tf-ds-h { grid-column: 1 / -1; font-weight: 700; font-size: 11px; color: $muted; text-transform: uppercase; letter-spacing: .5px; }
+.tf-ds-ok { color: $ok; }
+.tf-ds-failover { color: $warn; font-weight: 700; }
+.tf-ds-broken { color: $bad; font-weight: 700; }
+
+/* Zoom control, bottom-left. Drag pans; the cursor says so once zoomed. */
+.tf-zoom {
+  left: 12px; bottom: 12px; display: flex; gap: 4px; padding: 4px;
+  button {
+    min-width: 28px; height: 26px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;
+    font-weight: 700; cursor: pointer;
+    &:disabled { opacity: .35; cursor: default; }
+  }
+}
+.tf-canvas svg { touch-action: none; user-select: none; }
+.tf-canvas svg.tf-zoomed { cursor: grab; }
+.tf-canvas svg.tf-zoomed:active { cursor: grabbing; }
 .tf-result-h { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 6px; }
 .tf-pill-s {
   font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px; color: #fff;
@@ -313,7 +331,6 @@ select {
 /* Static SSS V2 layer. Direct-to-site hosts are the ones worth spotting. */
 .tf-e-direct { stroke: $warn; stroke-width: 2; fill: none; }
 .tf-e-failover { stroke: #94a3b8; stroke-width: 1.1; fill: none; stroke-dasharray: 2 4; }
-.tf-e-subset { stroke: #7c3aed; stroke-width: 1; fill: none; }
 .tf-e-mfe.tf-f-current { stroke-width: 2.4; }
 
 .tf-l-edge { font-size: 9.5px; fill: #4b5563; }
@@ -333,8 +350,6 @@ select {
 
   &.tf-toggle { cursor: pointer; }
   &.tf-dim { opacity: 0.16; }
-  /* Never on a modelled call yet, so a full dim would hide it for good. */
-  &.tf-dim.tf-static { opacity: 0.55; }
   &.tf-on .tf-box { stroke: #0b2e5e; stroke-width: 2.5; }
   &.tf-on .tf-outline,
   &.tf-warn .tf-outline { stroke: $blue; stroke-width: 2.5; }
@@ -411,4 +426,7 @@ select {
 .tf-f-context { opacity: .55; }
 
 path.tf-f-current { stroke: $f-current; }
+/* A failover or a break on the current call keeps its own colour. */
+path.tf-e-crossover.tf-f-current { stroke: $warn; }
+path.tf-e-broken.tf-f-current { stroke: $bad; }
 path.tf-f-context { stroke: $f-context; stroke-dasharray: 6 5; opacity: .5; }

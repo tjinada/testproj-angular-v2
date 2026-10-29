@@ -1,4 +1,4 @@
-import type { SimState, SiteId } from '../../models/traffic-flow.model';
+import type { DownstreamKind, SimState, SiteId } from '../../models/traffic-flow.model';
 
 /** Per-site hostnames and VIPs, transcribed from the CDB architecture diagram. */
 export interface SiteFacts {
@@ -66,8 +66,32 @@ export const IDP_WGA_INSTANCES = 4;
 /** SSS V2 50/50 GSS called by CDBBOS for most channel APIs. */
 export const SSS_GSS_HOSTNAME = 'es-api.bmogc.net';
 
-/** Channels AWS API Gateway. The DigitalCore gateway hostname is not known yet. */
-export const AWS_CHANNELS_GW = 'prod-shr-ca1-aws-apigw01.hcloud.bmogc.net';
+/** AWS API Gateway behind SSS V2 APIC, for both /api/cdb and /api. */
+export const AWS_API_GW = 'prod-shr-ca1-aws-apigw01.hcloud.bmogc.net';
+
+/** Lambdas behind the AWS API Gateway. */
+export const LAMBDAS = 3;
+
+/**
+ * The SSS V2 calls CDBBOS makes, one per host type, from its own site's config.
+ * Each is resolved independently on every CDBBOS call, because they behave
+ * differently in an outage: the GSS ones fail over, the direct ones cannot.
+ * Example endpoints are from the PROD cdbbos ChannelServiceClientConfig.xml
+ * and APICConfig.xml.
+ */
+export interface DownstreamDef {
+  kind: DownstreamKind;
+  host: (site: SiteId) => string;
+  path: '/api/cdb' | '/api';
+  example: string;
+}
+
+export const CDBBOS_DOWNSTREAM: DownstreamDef[] = [
+  { kind: 'gss', host: () => SSS_GSS_HOSTNAME, path: '/api/cdb', example: 'DebitCardControl, consents' },
+  { kind: 'sitegss', host: s => SITES[s].sssGss, path: '/api/cdb', example: 'CardActivation' },
+  { kind: 'direct', host: s => SITES[s].sssEsApi, path: '/api/cdb', example: 'edoc' },
+  { kind: 'direct', host: s => SITES[s].sssApiSvc, path: '/api', example: 'lme-sales-leads/get' }
+];
 
 /** GTM fronting authentication.bmo.com/aac/*, in front of the ISAM IdP LTMs. */
 export const ISAM_GTM_HOSTNAME = 'isam.prod.ciam.akadns.net';
@@ -171,7 +195,7 @@ export const ISAM_SHARES_SITE_COOKIE = true;
  * appliances are a sync group answering identically for the same wide IPs,
  * which makes a single-appliance outage unobservable from the request path.
  */
-export const TOGGLEABLE_NODE = /^(apicfs|apic|ltm|web|app|isamltm|wga|idpltm|idpwga)-/;
+export const TOGGLEABLE_NODE = /^(apicfs|apic|ltm|web|app|isamltm|wga|idpltm|idpwga|sssf5|sssapic|ocp|lambda)-|^awsgw$/;
 
 /** Starting scenario: healthy estate, existing session pinned to BCC. */
 export function defaultSimState(): SimState {
@@ -179,7 +203,7 @@ export function defaultSimState(): SimState {
     path: 'api',
     session: 'existing',
     site: 'BCC',
-    gtmPick: { bos: 'BCC', api: 'BCC', isam: 'BCC', spa: 'BCC' },
+    gtmPick: { bos: 'BCC', api: 'BCC', isam: 'BCC', spa: 'BCC', sss: 'BCC' },
     jsession: 1,
     live: { BCC: 'present', SCC: 'present' },
     idpLive: { BCC: 'present', SCC: 'present' },
@@ -202,7 +226,12 @@ export function nodeLabel(id: string): string {
     isamltm: 'ISAM Legacy LTM',
     wga: 'ISAM WGA',
     idpltm: 'ISAM IdP LTM',
-    idpwga: 'ISAM IdP WGA'
+    idpwga: 'ISAM IdP WGA',
+    sssf5: 'SSS F5',
+    sssapic: 'SSS V2 APIC',
+    ocp: 'Channel Services',
+    awsgw: 'AWS API GW',
+    lambda: 'Lambda'
   };
   const name = tier[parts[0]] ?? parts[0];
   return `${name} ${parts[1] ?? ''}${parts[2] ? ' #' + parts[2] : ''}`.trim();

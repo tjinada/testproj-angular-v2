@@ -30,8 +30,11 @@ export type LivenessState = 'present' | 'renamed';
  */
 export type PoolMonitor = 'live' | 'tcp';
 
-/** The Akamai GTMs. Each has its own 50/50 pick for cookie-less requests. */
-export type GtmId = 'bos' | 'api' | 'isam' | 'spa';
+/**
+ * The Akamai GTMs, plus the es-api.bmogc.net GSS in front of SSS V2. Each has
+ * its own 50/50 pick for requests nothing pins.
+ */
+export type GtmId = 'bos' | 'api' | 'isam' | 'spa' | 'sss';
 
 /** Everything the operator can vary. Serialised into the shareable link. */
 export interface SimState {
@@ -100,6 +103,35 @@ export interface DecisionStep {
   state: Severity;
 }
 
+/**
+ * How a downstream SSS V2 host picks its site.
+ *
+ * 'gss'     — es-api.bmogc.net, 50/50 across both sites by F5 health.
+ * 'sitegss' — api-svc-bgss / -sgss, 100% own site; the other site only when
+ *             the own-site F5 is fully down.
+ * 'direct'  — es-api-*prod / api-svc-*prod, the site host itself. No failover.
+ */
+export type DownstreamKind = 'gss' | 'sitegss' | 'direct';
+
+/** One downstream call made by CDBBOS (or CWH APIC), resolved on its own. */
+export interface DownstreamRoute {
+  /** Hostname as CDBBOS calls it. */
+  host: string;
+  kind: DownstreamKind;
+  /** /api/cdb goes via Channel Services; /api goes straight to AWS. */
+  path: '/api/cdb' | '/api';
+  /** Site whose SSS V2 served it. Null when no site could be picked. */
+  site: SiteId | null;
+  status: 'ok' | 'failover' | 'broken';
+  /**
+   * Hops in order, as [from, to] pairs. Ids may be pseudo-ids the layout
+   * understands (`cdbbos-BCC`, `sssapic-BCC#cdb`) as well as node ids.
+   */
+  legs: [string, string][];
+  /** Node id where it died, if it died. */
+  breakAt: string | null;
+}
+
 /** Full result of resolving a SimState against the topology. */
 export interface Resolution {
   path: TrafficPath;
@@ -137,6 +169,12 @@ export interface Resolution {
   steps: DecisionStep[];
   /** Node id where the request died, if it died. */
   breakAt: string | null;
+  /**
+   * The SSS V2 calls this request fans out to once it is served. Each is
+   * resolved independently: one call can fail over on one route and break on
+   * another. Empty when the request never reached CDBBOS or CWH APIC.
+   */
+  downstream: DownstreamRoute[];
 }
 
 /** The estate half of SimState — everything a request does not carry. */
@@ -219,6 +257,8 @@ export interface ScenarioConfig {
   idpSite: SiteId;
   /** Which site GTM-Auth-SPA-API's 50/50 answers. No cookie, so every call. */
   spaSite: SiteId;
+  /** Which site the es-api.bmogc.net GSS 50/50 answers for downstream calls. */
+  sssSite: SiteId;
   /** What breaks. Independent of `site`, so the healthy-site control works. */
   outageSite: SiteId;
   outageType: OutageType;

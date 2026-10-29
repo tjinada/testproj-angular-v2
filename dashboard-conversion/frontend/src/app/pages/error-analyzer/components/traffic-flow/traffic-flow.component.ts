@@ -4,7 +4,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  CallKind, CallResult, Cohort, JourneyFrame, OutageType, Overrides, PoolMonitor,
+  CallKind, CallResult, Cohort, DownstreamRoute, JourneyFrame, OutageType, Overrides, PoolMonitor,
   RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { CALL_SEQUENCE } from '../../models/traffic-flow.model';
@@ -53,6 +53,12 @@ export class TrafficFlowComponent implements OnInit {
   linkCopied = signal(false);
   hoveredIds = signal<string[]>([]);
 
+  /** Zoomed viewBox, in diagram units. Null means fit the whole diagram. */
+  view = signal<{ x: number; y: number; w: number; h: number } | null>(null);
+  /** Set once a drag has moved the view, so the click that ends it is ignored. */
+  private panned = false;
+  private drag: { px: number; py: number; vx: number; vy: number } | null = null;
+
   scenario = computed(() => buildScenario(this.config(), this.overrides()));
   frames = computed(() => runJourney(this.scenario(), this.config()));
 
@@ -64,6 +70,9 @@ export class TrafficFlowComponent implements OnInit {
   /** The call this frame shows, for the selected cohort. */
   selected = computed<CallResult | null>(() =>
     this.activeFrame()?.results.find(r => r.cohort === this.cohort()) ?? null);
+
+  /** SSS V2 calls the selected call fans out to. Empty when it never reached CDBBOS. */
+  downstream = computed<DownstreamRoute[]>(() => this.selected()?.resolution?.downstream ?? []);
 
   /** Stage groups for the step strip. */
   stages = computed(() => {
@@ -242,6 +251,78 @@ export class TrafficFlowComponent implements OnInit {
     }
   }
 
+  // ---- zoom and pan --------------------------------------------------------
+  // Done on the SVG viewBox rather than with browser zoom, which cannot work in
+  // full screen: the diagram re-fits to the screen whatever the page zoom is.
+
+  viewBox(width: number, height: number): string {
+    const v = this.view() ?? this.fit(width, height);
+    return `${v.x} ${v.y} ${v.w} ${v.h}`;
+  }
+
+  /** Wheel zooms about the cursor. */
+  onWheel(e: WheelEvent, svg: SVGSVGElement, width: number, height: number): void {
+    e.preventDefault();
+    this.zoomAt(e.deltaY < 0 ? 1 / 1.2 : 1.2, this.toSvg(svg, e.clientX, e.clientY, width, height), width, height);
+  }
+
+  /** The +/− buttons zoom about the centre of the current view. */
+  zoomBy(factor: number, width: number, height: number): void {
+    const v = this.view() ?? this.fit(width, height);
+    this.zoomAt(factor, { x: v.x + v.w / 2, y: v.y + v.h / 2 }, width, height);
+  }
+
+  resetZoom(): void { this.view.set(null); }
+
+  onPointerDown(e: PointerEvent, width: number, height: number): void {
+    if (e.button !== 0) { return; }
+    const v = this.view() ?? this.fit(width, height);
+    this.drag = { px: e.clientX, py: e.clientY, vx: v.x, vy: v.y };
+    this.panned = false;
+  }
+
+  onPointerMove(e: PointerEvent, svg: SVGSVGElement, width: number, height: number): void {
+    if (!this.drag) { return; }
+    const dx = e.clientX - this.drag.px, dy = e.clientY - this.drag.py;
+    // A few pixels of slop, so a click on a box is still a click.
+    if (!this.panned && Math.hypot(dx, dy) < 4) { return; }
+    this.panned = true;
+    const v = this.view() ?? this.fit(width, height);
+    const scale = v.w / svg.getBoundingClientRect().width;
+    this.view.set({ ...v, x: this.drag.vx - dx * scale, y: this.drag.vy - dy * scale });
+  }
+
+  onPointerUp(): void {
+    this.drag = null;
+    // The click that ends a drag fires after this; let it see `panned` first.
+    setTimeout(() => { this.panned = false; });
+  }
+
+  private fit(width: number, height: number) {
+    return { x: 20, y: 0, w: width - 40, h: height };
+  }
+
+  private zoomAt(factor: number, at: { x: number; y: number }, width: number, height: number): void {
+    const v = this.view() ?? this.fit(width, height);
+    const full = this.fit(width, height);
+    // Never further out than the whole diagram, never closer than 1/8 of it.
+    const w = Math.min(full.w, Math.max(full.w / 8, v.w * factor));
+    if (w === full.w) { this.view.set(null); return; }
+    const k = w / v.w, h = v.h * k;
+    this.view.set({ x: at.x - (at.x - v.x) * k, y: at.y - (at.y - v.y) * k, w, h });
+  }
+
+  /** Screen point to diagram units, through the SVG's own transform. */
+  private toSvg(svg: SVGSVGElement, cx: number, cy: number, width: number, height: number) {
+    const m = svg.getScreenCTM();
+    if (!m) { const v = this.view() ?? this.fit(width, height); return { x: v.x + v.w / 2, y: v.y + v.h / 2 }; }
+    const p = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+    return { x: p.x, y: p.y };
+  }
+
+  /** Short label for a downstream host in the result box. */
+  hostShort(host: string): string { return host.replace('.bmogc.net', ''); }
+
   @HostListener('document:fullscreenchange')
   onFullscreenChange(): void {
     this.fullscreen.set(document.fullscreenElement === this.host.nativeElement);
@@ -293,7 +374,7 @@ export class TrafficFlowComponent implements OnInit {
 
   /** Clicking a box takes it out of service, or brings it back. */
   toggleNode(node: TfNode): void {
-    if (!node.toggleable) { return; }
+    if (!node.toggleable || this.panned) { return; }
     this.setOverrides(o => {
       if (o.down[node.id]) { delete o.down[node.id]; } else { o.down[node.id] = true; }
     });
@@ -307,9 +388,11 @@ export class TrafficFlowComponent implements OnInit {
    * GTM picks change answers, not the frame count, so the step is kept.
    */
   clickPill(pill: TfPill): void {
+    if (this.panned) { return; }
     this.setConfig(c => {
       if (pill.gtm === 'isam') { c.idpSite = pill.site; }
       else if (pill.gtm === 'spa') { c.spaSite = pill.site; }
+      else if (pill.gtm === 'sss') { c.sssSite = pill.site; }
       else { c.site = pill.site; }
     }, true);
   }
@@ -362,7 +445,7 @@ export class TrafficFlowComponent implements OnInit {
   private queryParams(): Record<string, string> {
     const c = this.config(), o = this.overrides();
     const q: Record<string, string> = {
-      tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, ssite: c.spaSite,
+      tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, ssite: c.spaSite, esite: c.sssSite,
       os: c.outageSite, ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
       ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
       idlb: o.idpLive.BCC, idls: o.idpLive.SCC, lb: o.live.BCC, ls: o.live.SCC,
@@ -387,6 +470,7 @@ export class TrafficFlowComponent implements OnInit {
     if (isSite(p['site'])) { c.site = p['site']; }
     if (isSite(p['isite'])) { c.idpSite = p['isite']; }
     if (isSite(p['ssite'])) { c.spaSite = p['ssite']; }
+    if (isSite(p['esite'])) { c.sssSite = p['esite']; }
     if (isSite(p['os'])) { c.outageSite = p['os']; }
     if (OUTAGE_TYPES.some(t => t.value === p['ot'])) { c.outageType = p['ot'] as OutageType; }
     if (['none', 'jvm-then-ihs', 'ihs-then-jvm'].includes(p['rec'])) {

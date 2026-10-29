@@ -1,5 +1,7 @@
 import type {
   DecisionStep,
+  DownstreamKind,
+  DownstreamRoute,
   Outcome,
   OutcomeKey,
   Resolution,
@@ -10,15 +12,18 @@ import type {
 import {
   APIC_INSTANCES,
   APP_SERVERS,
+  CDBBOS_DOWNSTREAM,
   COOKIE_BYPASSES_GTM,
   IDP_COOKIE_NAME,
   IDP_LIVENESS,
   IDP_WGA_INSTANCES,
   ISAM_GTM_HOSTNAME,
+  LAMBDAS,
   ISAM_SHARES_SITE_COOKIE,
   SESSION_REPLICATED,
   SITES,
   SITE_COOKIE_NAME,
+  SSS_GSS_HOSTNAME,
   VHOST_DEPLOYED,
   WEB_SERVERS,
   WGA_INSTANCES
@@ -40,11 +45,11 @@ const OUTCOMES: Record<OutcomeKey, { title: string; severity: Severity }> = {
 
 const other = (s: SiteId): SiteId => (s === 'BCC' ? 'SCC' : 'BCC');
 
-/** Members of a tier that are still in service. */
-function membersUp(state: SimState, tier: string, site: SiteId, count: number): number[] {
+/** Members of a tier that are still in service. Shared tiers pass a null site. */
+function membersUp(state: SimState, tier: string, site: SiteId | null, count: number): number[] {
   const up: number[] = [];
   for (let i = 1; i <= count; i++) {
-    if (!state.down[`${tier}-${site}-${i}`]) { up.push(i); }
+    if (!state.down[site ? `${tier}-${site}-${i}` : `${tier}-${i}`]) { up.push(i); }
   }
   return up;
 }
@@ -100,6 +105,75 @@ function ltmPoolUp(s: SimState, site: SiteId): boolean {
   return s.ltmMonitor === 'tcp' || s.live[site] === 'present';
 }
 
+/** A site's SSS V2 F5 is what the GSSes health-check. */
+const sssF5Up = (s: SimState, site: SiteId) => !s.down[`sssf5-${site}`];
+
+/**
+ * Resolves one downstream SSS V2 call from `site` through to AWS. Pure.
+ *
+ * The host decides the site (GSS 50/50, per-site GSS, or the site host with no
+ * failover); the path decides the route through APIC. /api/cdb goes to Channel
+ * Services, which calls back into the same site's APIC /api; /api goes straight
+ * to the AWS API Gateway.
+ */
+function downstreamRoute(
+  state: SimState, source: string, site: SiteId,
+  kind: DownstreamKind, host: string, path: '/api/cdb' | '/api'
+): DownstreamRoute {
+  const legs: [string, string][] = [];
+  const broken = (at: string): DownstreamRoute =>
+    ({ host, kind, path, site: target, status: 'broken', legs, breakAt: at });
+  const f5 = { BCC: sssF5Up(state, 'BCC'), SCC: sssF5Up(state, 'SCC') };
+
+  let target: SiteId | null = null;
+  let failover = false;
+  if (kind === 'gss') {
+    legs.push([source, 'gss-es']);
+    const pick = state.gtmPick.sss;
+    target = f5[pick] ? pick : f5[other(pick)] ? other(pick) : null;
+    if (!target) { return broken('gss-es'); }
+    failover = target !== pick;
+    legs.push(['gss-es', `sssf5-${target}`]);
+  } else if (kind === 'sitegss') {
+    legs.push([source, `gss-${site}`]);
+    target = f5[site] ? site : f5[other(site)] ? other(site) : null;
+    if (!target) { return broken(`gss-${site}`); }
+    failover = target !== site;
+    legs.push([`gss-${site}`, `sssf5-${target}`]);
+  } else {
+    target = site;
+    legs.push([source, `sssf5-${site}`]);
+    if (!f5[site]) { return broken(`sssf5-${site}`); }
+  }
+
+  const sec = path === '/api/cdb' ? 'cdb' : 'api';
+  legs.push([`sssf5-${target}`, `sssapic-${target}#${sec}`]);
+  if (state.down[`sssapic-${target}`]) { return broken(`sssapic-${target}`); }
+
+  if (path === '/api/cdb') {
+    legs.push([`sssapic-${target}#cdb`, `ocp-${target}`]);
+    if (state.down[`ocp-${target}`]) { return broken(`ocp-${target}`); }
+    legs.push([`ocp-${target}`, `sssapic-${target}#api`]);
+  }
+
+  legs.push([`sssapic-${target}#api`, 'awsgw']);
+  if (state.down['awsgw']) { return broken('awsgw'); }
+  const lambdas = membersUp(state, 'lambda', null, LAMBDAS);
+  if (lambdas.length === 0) {
+    for (let i = 1; i <= LAMBDAS; i++) { legs.push(['awsgw', `lambda-${i}`]); }
+    return broken('lambda-1');
+  }
+  lambdas.forEach(i => legs.push(['awsgw', `lambda-${i}`]));
+
+  return { host, kind, path, site: target, status: failover ? 'failover' : 'ok', legs, breakAt: null };
+}
+
+/** Every downstream call CDBBOS makes from a site. */
+function cdbbosDownstream(state: SimState, site: SiteId): DownstreamRoute[] {
+  return CDBBOS_DOWNSTREAM.map(d =>
+    downstreamRoute(state, `cdbbos-${site}`, site, d.kind, d.host(site), d.path));
+}
+
 function outcome(key: OutcomeKey, why: string, sev?: Severity | null): Outcome {
   return { key, why, title: OUTCOMES[key].title, severity: sev ?? OUTCOMES[key].severity };
 }
@@ -141,9 +215,10 @@ export function resolveTraffic(state: SimState): Resolution {
   const idpHealth = { BCC: idpHealthy(state, 'BCC'), SCC: idpHealthy(state, 'SCC') };
   // GTM-Auth-SPA-API is the same akadns property as GTM-CDB-API, so it shares
   // the APIC TCP:443 health; only its 50/50 pick is its own.
+  const sssHealth = { BCC: sssF5Up(state, 'BCC'), SCC: sssF5Up(state, 'SCC') };
   const gtmDistribution = {
     api: distribution(apiHealth), bos: distribution(bosHealth),
-    isam: distribution(idpHealth), spa: distribution(apiHealth)
+    isam: distribution(idpHealth), spa: distribution(apiHealth), sss: distribution(sssHealth)
   };
 
   // Which site each GTM actually answers with. The operator's pick only stands
@@ -158,7 +233,8 @@ export function resolveTraffic(state: SimState): Resolution {
     api: answer(apiHealth, state.gtmPick.api),
     bos: answer(bosHealth, state.gtmPick.bos),
     isam: answer(idpHealth, state.gtmPick.isam),
-    spa: answer(apiHealth, state.gtmPick.spa)
+    spa: answer(apiHealth, state.gtmPick.spa),
+    sss: answer(sssHealth, state.gtmPick.sss)
   };
 
   // EXT GTM legs: each answers with its own VIP unless its site fails the check.
@@ -178,7 +254,7 @@ export function resolveTraffic(state: SimState): Resolution {
     apicSite: null, bosSite: null, appServer: null,
     gtmDistribution, gtmAnswer, gtmActive: !existing, extGtmSplit,
     outcome: outcome(key, why, sevOverride), http, setCookie: null,
-    cookieStamped: stampedCookie, stampedSite, steps, breakAt: null,
+    cookieStamped: stampedCookie, stampedSite, steps, breakAt: null, downstream: [],
     ...extra
   });
 
@@ -300,7 +376,11 @@ export function resolveTraffic(state: SimState): Resolution {
         ? `APIC-${pick} is down, so the GTM sent this call to ${answered}. No cookie means no pin to ` +
           'hold it on the dead site — the failover just works.'
         : `No affinity cookie. GTM-Auth-SPA-API answers ${answered} for this request only.`,
-      '200 OK', { pinnedSite: answered, apicSite: answered });
+      '200 OK', {
+        pinnedSite: answered, apicSite: answered,
+        // CWH APIC calls SSS V2 through the es-api GSS, on the /api route.
+        downstream: [downstreamRoute(state, `cwhapic-${answered}`, answered, 'gss', SSS_GSS_HOSTNAME, '/api')]
+      });
   }
 
   const urlPath = api ? '/api/cdb' : csgcb ? '/banking/services/csgcb' : '/banking/services/*';
@@ -626,6 +706,8 @@ export function resolveTraffic(state: SimState): Resolution {
     bosSite,
     appServer,
     setCookie,
-    breakAt: key === 'TIMEOUT' ? `app-${bosSite}-${appServer}` : null
+    breakAt: key === 'TIMEOUT' ? `app-${bosSite}-${appServer}` : null,
+    // A bounced session never reaches the code that calls SSS V2.
+    downstream: key === 'TIMEOUT' ? [] : cdbbosDownstream(state, bosSite)
   });
 }

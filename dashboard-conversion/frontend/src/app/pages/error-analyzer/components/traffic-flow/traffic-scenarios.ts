@@ -62,6 +62,7 @@ export const DEFAULT_CONFIG: ScenarioConfig = {
   site: 'BCC',
   idpSite: 'BCC',
   spaSite: 'BCC',
+  sssSite: 'BCC',
   outageSite: 'BCC',
   outageType: 'none',
   recovery: 'none'
@@ -200,7 +201,7 @@ export function buildScenario(c: ScenarioConfig, o: Overrides): Scenario {
 
   const same = c.site === c.outageSite;
   return {
-    id: `${c.site}-${c.idpSite}-${c.spaSite}-${c.outageType}-${c.outageSite}-${c.recovery}`,
+    id: `${c.site}-${c.idpSite}-${c.spaSite}-${c.sssSite}-${c.outageType}-${c.outageSite}-${c.recovery}`,
     title: `${OUTAGE_TITLE[c.outageType]}${c.outageType === 'none' ? '' : ` on ${c.outageSite}`}`,
     blurb: outageNone
       ? `Normal running with the user on ${c.site}. Click any box to take it out of service.`
@@ -210,7 +211,7 @@ export function buildScenario(c: ScenarioConfig, o: Overrides): Scenario {
     // The user's own site is the GTM's answer while both sites are healthy.
     // Overrides are applied here so they survive every regeneration.
     base: env => {
-      env.gtmPick = { bos: c.site, api: c.site, isam: c.idpSite, spa: c.spaSite };
+      env.gtmPick = { bos: c.site, api: c.site, isam: c.idpSite, spa: c.spaSite, sss: c.sssSite };
       env.ltmMonitor = o.ltmMonitor;
       env.extGtmMonitor = o.extGtmMonitor;
       Object.keys(o.down).forEach(id => { env.down[id] = true; });
