@@ -261,7 +261,8 @@ export class TrafficFlowComponent implements OnInit {
   }
 
   /** Wheel zooms about the cursor. */
-  onWheel(e: WheelEvent, svg: SVGSVGElement, width: number, height: number): void {
+  // The template ref on <svg> is typed HTMLElement, so these take Element.
+  onWheel(e: WheelEvent, svg: Element, width: number, height: number): void {
     e.preventDefault();
     this.zoomAt(e.deltaY < 0 ? 1 / 1.2 : 1.2, this.toSvg(svg, e.clientX, e.clientY, width, height), width, height);
   }
@@ -281,7 +282,7 @@ export class TrafficFlowComponent implements OnInit {
     this.panned = false;
   }
 
-  onPointerMove(e: PointerEvent, svg: SVGSVGElement, width: number, height: number): void {
+  onPointerMove(e: PointerEvent, svg: Element, width: number, height: number): void {
     if (!this.drag) { return; }
     const dx = e.clientX - this.drag.px, dy = e.clientY - this.drag.py;
     // A few pixels of slop, so a click on a box is still a click.
@@ -313,8 +314,8 @@ export class TrafficFlowComponent implements OnInit {
   }
 
   /** Screen point to diagram units, through the SVG's own transform. */
-  private toSvg(svg: SVGSVGElement, cx: number, cy: number, width: number, height: number) {
-    const m = svg.getScreenCTM();
+  private toSvg(svg: Element, cx: number, cy: number, width: number, height: number) {
+    const m = (svg as SVGGraphicsElement).getScreenCTM();
     if (!m) { const v = this.view() ?? this.fit(width, height); return { x: v.x + v.w / 2, y: v.y + v.h / 2 }; }
     const p = new DOMPoint(cx, cy).matrixTransform(m.inverse());
     return { x: p.x, y: p.y };
