@@ -2,10 +2,10 @@ import type {
   Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
 } from '../../models/traffic-flow.model';
 import {
-  APIC_INSTANCES, APP_SERVERS, AUTH_SPA_API_HOSTNAME, IDP_COOKIE_NAME, IDP_LIVENESS,
+  APIC_INSTANCES, APP_SERVERS, AUTH_SPA_API_HOSTNAME, AWS_CHANNELS_GW, IDP_COOKIE_NAME, IDP_LIVENESS,
   IDP_WGA_INSTANCES,
   ISAM_GTM_HOSTNAME, NAME_SERVERS,
-  SITES, SITE_COOKIE_NAME, SITE_IDS, TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
+  SITES, SITE_COOKIE_NAME, SITE_IDS, SSS_GSS_HOSTNAME, TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
 } from './traffic-topology';
 
 /** A laid-out box on the diagram. */
@@ -41,6 +41,8 @@ export interface TfNode {
    * a colour strip only.
    */
   head: boolean;
+  /** Structure-only tier (SSS V2, AWS) that no modelled call reaches yet. */
+  static: boolean;
 }
 
 /**
@@ -53,7 +55,12 @@ export type FlowTag = 'current' | 'context';
 /** A laid-out edge. */
 export interface TfEdge {
   d: string;
-  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'mfe';
+  /**
+   * 'direct', 'failover' and 'subset' belong to the static SSS V2 layer: a
+   * CDBBOS call to a site host with no failover, a GSS leg used only when the
+   * site's own NLB is down, and the /api/cdb subset going straight to AWS.
+   */
+  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'mfe' | 'direct' | 'failover' | 'subset';
   flow: FlowTag | null;
 }
 
@@ -165,7 +172,20 @@ const SPA_RAIL_Y = 436;
 /** Where the SPA rail drops into an APIC FS box, offset from the cloudlet edge. */
 const SPA_RAIL_DROP = 40;
 
-const CANVAS = { width: 2500, height: 1145 };
+/**
+ * SSS V2 and AWS rows, below CWH app. Static for now: no call resolves through
+ * them, so they are drawn as structure only.
+ */
+const SSS_ROW = { gss: 1185, f5: 1310, apic: 1430, ocp: 1580, aws: 1755 };
+
+/** SSS columns sit outboard of the BOS columns so the CDBBOS legs fan out. */
+const SSS_X: Record<SiteId, number> = { BCC: 600, SCC: 1560 };
+
+/** Half-width of an SSS V2 APIC box; /api/cdb enters left of centre, /api right. */
+const SSS_APIC_HALF = 230;
+const SSS_PATH_DX = 115;
+
+const CANVAS = { width: 2500, height: 1880 };
 
 type Geom = { x: number; y: number; width: number; height: number };
 
@@ -285,6 +305,123 @@ function siteNodes(all: Record<string, any>): void {
         lines: [line('BOS'), line('App'), line(`#${i}`)] };
     }
   });
+}
+
+/** Adds the static SSS V2 and AWS tiers. */
+function sssNodes(all: Record<string, any>): void {
+  const gss = (cx: number, lines: { text: string; bold: boolean }[]) =>
+    ({ x: cx - 155, y: SSS_ROW.gss, width: 310, height: 86, outline: true, ellipse: true, lines });
+
+  all['gss-BCC'] = gss(260, [line(SITES.BCC.sssGss, true), line('Per-site GSS'), line('BCC 100% · SCC 0%', true)]);
+  all['gss-es'] = gss(1080, [line(SSS_GSS_HOSTNAME, true), line('GSS'), line('50/50', true)]);
+  all['gss-SCC'] = gss(1900, [line(SITES.SCC.sssGss, true), line('Per-site GSS'), line('BCC 0% · SCC 100%', true)]);
+
+  SITE_IDS.forEach(site => {
+    const cx = SSS_X[site];
+    const f = SITES[site];
+    all[`sssf5-${site}`] = { x: cx - 190, y: SSS_ROW.f5, width: 380, height: 66,
+      lines: [line(`SSS F5 (${site})`, true), line(f.sssEsApi), line(f.sssApiSvc)] };
+    all[`sssapic-${site}`] = { x: cx - SSS_APIC_HALF, y: SSS_ROW.apic, width: SSS_APIC_HALF * 2, height: 80,
+      lines: [line(`SSS V2 APIC (${site})`, true), line('host TBD')] };
+    all[`ocp-${site}`] = { x: cx - SSS_PATH_DX - 100, y: SSS_ROW.ocp, width: 200, height: 66, outline: true,
+      lines: [line('Channel Services', true), line(`OpenShift · ${f.ocpCluster}`),
+        line(`*.apps.${f.ocpCluster}.ocp4-pr`)] };
+  });
+
+  all['aws-chgw'] = { x: 380, y: SSS_ROW.aws, width: 300, height: 66, outline: true,
+    lines: [line('Channels AWS API GW', true), line(AWS_CHANNELS_GW.replace('.hcloud.bmogc.net', ''))] };
+  all['aws-chl'] = { x: 740, y: SSS_ROW.aws, width: 220, height: 66, outline: true,
+    lines: [line('AWS Lambdas', true), line('ca-central-1')] };
+  all['aws-dcgw'] = { x: 1240, y: SSS_ROW.aws, width: 300, height: 66, outline: true,
+    lines: [line('DC AWS API Gateway', true), line('DigitalCore · host TBD')] };
+  all['aws-dcl'] = { x: 1600, y: SSS_ROW.aws, width: 220, height: 66, outline: true,
+    lines: [line('DC AWS Lambdas', true), line('DigitalCore')] };
+}
+
+/** Bezier between two points, vertical at both ends. */
+function bez(x1: number, y1: number, x2: number, y2: number): string {
+  const my = (y1 + y2) / 2;
+  return `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`;
+}
+
+/**
+ * The SSS V2 and AWS edges. Hostname decides site behaviour (GSS 50/50,
+ * per-site GSS, or direct with no failover); path decides the route through
+ * APIC (/api/cdb via Channel Services, /api straight to DigitalCore).
+ */
+function sssEdges(all: Record<string, Geom>): TfEdge[] {
+  const e = (d: string, kind: TfEdge['kind'] = 'base'): TfEdge => ({ d, kind, flow: null });
+  const bottom = (g: Geom, dx = 0) => [g.x + g.width / 2 + dx, g.y + g.height] as const;
+  const top = (g: Geom, dx = 0) => [g.x + g.width / 2 + dx, g.y] as const;
+  const link = (a: readonly [number, number], b: readonly [number, number], kind?: TfEdge['kind']) =>
+    e(bez(a[0], a[1], b[0], b[1]), kind);
+  const out: TfEdge[] = [];
+
+  SITE_IDS.forEach(site => {
+    const inward = site === 'BCC' ? 1 : -1;
+    const first = all[`app-${site}-1`], last = all[`app-${site}-${APP_SERVERS}`];
+    // CDBBOS is the whole BOS App row; legs leave from its outer, centre and inner thirds.
+    const span = last.x + last.width - first.x;
+    const at = (f: number) => [first.x + span * f, first.y + first.height] as const;
+    const outer = site === 'BCC' ? 0.15 : 0.85, mid = 0.5, inner = site === 'BCC' ? 0.85 : 0.15;
+    const f5 = all[`sssf5-${site}`], apic = all[`sssapic-${site}`], ocp = all[`ocp-${site}`];
+
+    out.push(
+      link(at(outer), top(all[`gss-${site}`])),
+      link(at(inner), top(all['gss-es'], -30 * inward)),
+      link(at(mid), top(f5, 60 * inward), 'direct'),
+      link(bottom(all[`gss-${site}`]), top(f5, -80 * inward)),
+      link(bottom(all['gss-es'], -40 * inward), top(f5, 120 * inward)),
+      link(bottom(f5, -60), top(apic, -SSS_PATH_DX)),
+      link(bottom(f5, 60), top(apic, SSS_PATH_DX)),
+      link(bottom(apic, -SSS_PATH_DX), top(ocp)),
+      // Channel Services calls back into the same site's APIC /api.
+      e(`M${ocp.x + ocp.width} ${ocp.y + 33} H${apic.x + apic.width / 2 + SSS_PATH_DX} V${apic.y + apic.height}`),
+      link(bottom(apic, SSS_PATH_DX), top(all['aws-dcgw'], -40 * inward))
+    );
+  });
+
+  // Per-site GSS failover: only when the owning site's NLB is fully down.
+  out.push(
+    link(bottom(all['gss-BCC'], -60), top(all['sssf5-SCC'], -150), 'failover'),
+    link(bottom(all['gss-SCC'], 60), top(all['sssf5-BCC'], 150), 'failover')
+  );
+
+  // The /api/cdb subset that goes straight to Channels AWS, routed beside Channel Services.
+  const gw = all['aws-chgw'];
+  SITE_IDS.forEach((site, i) => {
+    const apic = all[`sssapic-${site}`];
+    const sx = apic.x + 12, ex = gw.x + gw.width / 2 + (i ? 30 : -30), ry = SSS_ROW.aws - 30 + i * 12;
+    out.push(e(`M${sx} ${apic.y + apic.height} V${ry} H${ex} V${gw.y}`, 'subset'));
+  });
+
+  const across = (a: Geom, b: Geom) => e(`M${a.x + a.width} ${a.y + 33} H${b.x}`);
+  out.push(across(gw, all['aws-chl']), across(all['aws-dcgw'], all['aws-dcl']));
+  return out;
+}
+
+/** SSS V2 annotations. */
+function sssLabels(): TfLabel[] {
+  const labels: TfLabel[] = [
+    { x: 960, y: SSS_ROW.gss - 22, text: 'es-api', kind: 'edge' },
+    { x: 1160, y: SSS_ROW.gss - 22, text: 'es-api', kind: 'edge' },
+    { x: 380, y: SSS_ROW.gss - 22, text: 'api-svc-bgss', kind: 'edge' },
+    { x: 1720, y: SSS_ROW.gss - 22, text: 'api-svc-sgss', kind: 'edge' },
+    { x: 990, y: SSS_ROW.f5 - 40, text: '50%', kind: 'edge' },
+    { x: 1150, y: SSS_ROW.f5 - 40, text: '50%', kind: 'edge' },
+    { x: 1030, y: SSS_ROW.f5 - 8, text: 'per-site GSS failover only if own NLB fully down', kind: 'edge' },
+    { x: 300, y: SSS_ROW.aws - 34, text: 'some /api/cdb', kind: 'edge' }
+  ];
+  SITE_IDS.forEach(s => {
+    const cx = SSS_X[s];
+    labels.push(
+      { x: cx + (s === 'BCC' ? 70 : -170), y: SSS_ROW.gss + 96, text: 'direct · no failover', kind: 'alert' },
+      { x: cx - 175, y: SSS_ROW.apic - 14, text: '/api/cdb · Channels', kind: 'edge' },
+      { x: cx + 70, y: SSS_ROW.apic - 14, text: '/api · DigitalCore', kind: 'edge' },
+      { x: cx + SSS_PATH_DX + 6, y: SSS_ROW.ocp + 28, text: '/api · same site', kind: 'edge' }
+    );
+  });
+  return labels;
 }
 
 /** Bezier from the bottom of one box to the top of another. */
@@ -453,7 +590,10 @@ function baseLabels(res: Resolution): TfLabel[] {
 const CHIP_H = 20;
 
 /** Tier heads, which carry a site pill. */
-const HEAD_NODE = /^(apicfs|extgtm|ltm|isamltm|idpltm)-/;
+const HEAD_NODE = /^(apicfs|extgtm|ltm|isamltm|idpltm|sssf5|sssapic)-/;
+
+/** The static SSS V2 and AWS tiers. */
+const STATIC_NODE = /^(gss|sssf5|sssapic|ocp|aws)-/;
 
 /**
  * Setting chips, each straddling the bottom edge of the box it configures.
@@ -528,7 +668,9 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
 const LANES: TfLane[] = [
   { x: 40, y: 100, width: 2420, height: 196, title: 'Akamai' },
   { x: 40, y: 400, width: 2420, height: 595, title: 'CWH Web' },
-  { x: 40, y: 1005, width: 2420, height: 120, title: 'CWH app' }
+  { x: 40, y: 1005, width: 2420, height: 120, title: 'CWH app' },
+  { x: 40, y: 1140, width: 2420, height: 580, title: 'SSS V2' },
+  { x: 40, y: 1735, width: 2420, height: 125, title: 'AWS' }
 ];
 
 type PathMap = Record<string, { hop: number; state: Severity }>;
@@ -570,6 +712,7 @@ export function buildTrafficGraph(
   idpNodes(geom);
   isamNodes(geom);
   siteNodes(geom);
+  sssNodes(geom);
 
   const currentPath = currentRes ? traversal(currentRes) : {};
   // The sign-in trace is context only when it is not itself the current call.
@@ -593,6 +736,7 @@ export function buildTrafficGraph(
     d: mfePath(geom), kind: 'mfe',
     flow: currentRes?.path === 'spaapi' ? 'current' : null
   });
+  edges.push(...sssEdges(geom));
   SITE_IDS.forEach(s => edges.push(
     baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s)),
     baseRail(isamGtmRail(geom, s)), baseRail(spaRail(geom, s))
@@ -666,14 +810,15 @@ export function buildTrafficGraph(
       isBreak: currentRes?.breakAt === id,
       flow: tag,
       site,
-      head
+      head,
+      static: STATIC_NODE.test(id)
     };
   });
 
   return {
     nodes,
     edges,
-    labels: baseLabels(res),
+    labels: [...baseLabels(res), ...sssLabels()],
     lanes: LANES,
     pills: buildPills(state, res, geom),
     chips: buildChips(state, geom, liveLocked),

@@ -7,6 +7,7 @@ import type {
   CallKind, CallResult, Cohort, JourneyFrame, OutageType, Overrides, PoolMonitor,
   RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
+import { CALL_SEQUENCE } from '../../models/traffic-flow.model';
 import { callPaths, runJourney } from '../../services/traffic-scenario-runner';
 import {
   DEFAULT_CONFIG, OverrideItem, buildScenario, defaultOverrides, flipLiveness, flipMonitor,
@@ -77,8 +78,9 @@ export class TrafficFlowComponent implements OnInit {
   });
 
   /**
-   * The selected user's cookies at the current stage, before → after. Read off
-   * sign-in for cdbbossiteId and JSESSIONID, and off the auth call for apidc.
+   * The selected user's cookies as of the call on screen. Read
+   * off sign-in for cdbbossiteId and JSESSIONID, and off the auth call for apidc.
+   * Null means the cookie has not been assigned.
    */
   cookies = computed(() => {
     const f = this.activeFrame();
@@ -94,19 +96,19 @@ export class TrafficFlowComponent implements OnInit {
     const fresh = !st || st.session === 'new';
     const jsInSite = fresh ? null : st!.jsessionSite ?? st!.site;
 
-    const idpIn = idp?.state?.session === 'existing' ? idp.state.idpSite ?? 'none' : 'none';
-    const jsIn = fresh ? 'none' : `${jsInSite} #${st!.jsession}`;
+    // A skipped auth call has no state; the cookie carried into sign-in still stands.
+    const idpIn = (idp?.state ?? st)?.idpSite ?? null;
+    const jsIn = fresh ? null : `${jsInSite} #${st!.jsession}`;
     return {
-      site: { in: fresh ? 'none' : st!.site, out: sr?.stampedSite ?? (fresh ? '—' : st!.site) },
+      site: sr?.stampedSite ?? (fresh ? null : st!.site),
       // Only sign-in issues a session, so this is the only call that can move it.
-      js: {
-        in: jsIn,
-        out: sr && sr.outcome.severity !== 'bad' && sr.bosSite && sr.appServer
-          ? `${sr.bosSite} #${sr.appServer}` : jsIn
-      },
+      js: sr && sr.outcome.severity !== 'bad' && sr.bosSite && sr.appServer
+        ? `${sr.bosSite} #${sr.appServer}` : jsIn,
       // Cookie and session on different sites is what breaks the next call.
       jsSplit: !!sr?.bosSite && !!sr?.stampedSite && sr.bosSite !== sr.stampedSite,
-      apidc: { in: idpIn, out: idp?.resolution?.stampedSite ?? idpIn }
+      // apidc is set by the auth call, so it only changes once that call has run.
+      apidc: CALL_SEQUENCE.indexOf(f.call) >= CALL_SEQUENCE.indexOf('idp')
+        ? idp?.resolution?.stampedSite ?? idpIn : idpIn
     };
   });
 

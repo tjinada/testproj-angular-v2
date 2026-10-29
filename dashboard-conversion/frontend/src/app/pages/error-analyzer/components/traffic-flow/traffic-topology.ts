@@ -10,6 +10,13 @@ export interface SiteFacts {
   isamLtm: string;
   /** ISAM IdP (mobile IdP) front door, behind GTM-ISAM. Structural only. */
   idpLtm: string;
+  /** SSS V2 F5 VIPs called directly by CDBBOS, bypassing every GSS. */
+  sssEsApi: string;
+  sssApiSvc: string;
+  /** Per-site GSS: 100% to its own site, other site only if this NLB is down. */
+  sssGss: string;
+  /** OpenShift cluster hosting Channel Services. */
+  ocpCluster: string;
 }
 
 export const SITE_IDS: SiteId[] = ['BCC', 'SCC'];
@@ -21,7 +28,11 @@ export const SITES: Record<SiteId, SiteFacts> = {
     ltmHost: 'bmonsori-www13.bmo.com',
     ltmVip: '(198.96.174.25)',
     isamLtm: 'retailcanapi-prodbcc.bmofg.com',
-    idpLtm: 'bmonsori-mobileidp-www1.bmofg.com'
+    idpLtm: 'bmonsori-mobileidp-www1.bmofg.com',
+    sssEsApi: 'es-api-bccprod.bmogc.net',
+    sssApiSvc: 'api-svc-bccprod.bmogc.net',
+    sssGss: 'api-svc-bgss.bmogc.net',
+    ocpCluster: 'beaver'
   },
   SCC: {
     apicFs: 'bmonsori-apissccprod.bmo.com',
@@ -29,7 +40,11 @@ export const SITES: Record<SiteId, SiteFacts> = {
     ltmHost: 'bmonsori-www12.bmo.com',
     ltmVip: '(142.43.171.25)',
     isamLtm: 'retailcanapi-prodscc.bmofg.com',
-    idpLtm: 'bmonsori-mobileidp-www2.bmofg.com'
+    idpLtm: 'bmonsori-mobileidp-www2.bmofg.com',
+    sssEsApi: 'es-api-sccprod.bmogc.net',
+    sssApiSvc: 'api-svc-sccprod.bmogc.net',
+    sssGss: 'api-svc-sgss.bmogc.net',
+    ocpCluster: 'swan'
   }
 };
 
@@ -47,6 +62,12 @@ export const WEB_SERVERS = 2;
 export const APP_SERVERS = 6;
 export const WGA_INSTANCES = 6;
 export const IDP_WGA_INSTANCES = 4;
+
+/** SSS V2 50/50 GSS called by CDBBOS for most channel APIs. */
+export const SSS_GSS_HOSTNAME = 'es-api.bmogc.net';
+
+/** Channels AWS API Gateway. The DigitalCore gateway hostname is not known yet. */
+export const AWS_CHANNELS_GW = 'prod-shr-ca1-aws-apigw01.hcloud.bmogc.net';
 
 /** GTM fronting authentication.bmo.com/aac/*, in front of the ISAM IdP LTMs. */
 export const ISAM_GTM_HOSTNAME = 'isam.prod.ciam.akadns.net';

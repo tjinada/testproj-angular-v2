@@ -181,7 +181,9 @@ select {
 }
 .tf-hint { right: 12px; top: 10px; padding: 4px 9px; font-size: 11px; color: $muted; }
 
-.tf-result { left: 12px; bottom: 12px; padding: 9px 12px; min-width: 240px; }
+/* Top-left, where the eye starts; the GTM row below it is clear at that corner. */
+.tf-result { left: 12px; top: 10px; padding: 9px 12px; min-width: 240px; }
+.tf-na { color: $muted; font-style: italic; font-family: inherit; }
 .tf-result-h { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 6px; }
 .tf-pill-s {
   font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 9px; color: #fff;
@@ -308,6 +310,10 @@ select {
 .tf-e-broken { stroke: $bad; stroke-width: 3; fill: none; }
 /* MFE load relationship (CDB UI → CIAM Auth SPA), not a request hop. */
 .tf-e-mfe { stroke: $f-context; stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
+/* Static SSS V2 layer. Direct-to-site hosts are the ones worth spotting. */
+.tf-e-direct { stroke: $warn; stroke-width: 2; fill: none; }
+.tf-e-failover { stroke: #94a3b8; stroke-width: 1.1; fill: none; stroke-dasharray: 2 4; }
+.tf-e-subset { stroke: #7c3aed; stroke-width: 1; fill: none; }
 .tf-e-mfe.tf-f-current { stroke-width: 2.4; }
 
 .tf-l-edge { font-size: 9.5px; fill: #4b5563; }
@@ -327,6 +333,8 @@ select {
 
   &.tf-toggle { cursor: pointer; }
   &.tf-dim { opacity: 0.16; }
+  /* Never on a modelled call yet, so a full dim would hide it for good. */
+  &.tf-dim.tf-static { opacity: 0.55; }
   &.tf-on .tf-box { stroke: #0b2e5e; stroke-width: 2.5; }
   &.tf-on .tf-outline,
   &.tf-warn .tf-outline { stroke: $blue; stroke-width: 2.5; }

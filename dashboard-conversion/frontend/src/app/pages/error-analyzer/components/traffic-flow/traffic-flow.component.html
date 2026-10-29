@@ -115,6 +115,7 @@
           [ngClass]="n.flow ? 'tf-f-' + n.flow : ''"
           [class.tf-toggle]="n.toggleable"
           [class.tf-dim]="!n.hop && !n.outOfService"
+          [class.tf-static]="n.static"
           [class.tf-on]="n.state === 'ok'"
           [class.tf-warn]="n.state === 'warn'"
           [class.tf-fail]="n.state === 'bad'"
@@ -211,7 +212,7 @@
       <div class="tf-ov tf-result" *ngIf="selected() as sel">
         <div class="tf-result-h">
           <ng-container *ngIf="sel.skipped || !sel.resolution; else served">
-            <span class="tf-pill-s tf-sev-skip">&mdash;</span> not attempted
+            <span class="tf-pill-s tf-sev-skip">&mdash;</span> {{ callShort(sel.call) }} &middot; not attempted
           </ng-container>
           <ng-template #served>
             <span class="tf-pill-s" [ngClass]="'tf-sev-' + sel.resolution!.outcome.severity">
@@ -222,16 +223,13 @@
         </div>
         <div class="tf-kv" *ngIf="cookies() as ck">
           <span class="tf-k">cdbbossiteId</span>
-          <span class="tf-v"><span [ngClass]="siteClass(ck.site.in)">{{ ck.site.in }}</span><ng-container
-            *ngIf="ck.site.out !== ck.site.in"> &rarr; <span [ngClass]="siteClass(ck.site.out)">{{ ck.site.out }}</span></ng-container></span>
+          <span class="tf-v" [ngClass]="ck.site ? siteClass(ck.site) : 'tf-na'">{{ ck.site ?? 'not assigned' }}</span>
           <span class="tf-k">JSESSIONID</span>
           <span class="tf-v" [title]="ck.jsSplit ? 'Session and cookie on different sites' : ''"><span
-            [ngClass]="siteClass(ck.js.in)">{{ ck.js.in }}</span><ng-container
-            *ngIf="ck.js.out !== ck.js.in"> &rarr; <span [ngClass]="siteClass(ck.js.out)">{{ ck.js.out }}</span></ng-container><span
+            [ngClass]="ck.js ? siteClass(ck.js) : 'tf-na'">{{ ck.js ?? 'not assigned' }}</span><span
             class="tf-t-warn" *ngIf="ck.jsSplit"> &#9888; split</span></span>
           <span class="tf-k">apidc</span>
-          <span class="tf-v"><span [ngClass]="siteClass(ck.apidc.in)">{{ ck.apidc.in }}</span><ng-container
-            *ngIf="ck.apidc.out !== ck.apidc.in"> &rarr; <span [ngClass]="siteClass(ck.apidc.out)">{{ ck.apidc.out }}</span></ng-container></span>
+          <span class="tf-v" [ngClass]="ck.apidc ? siteClass(ck.apidc) : 'tf-na'">{{ ck.apidc ?? 'not assigned' }}</span>
         </div>
       </div>
 
