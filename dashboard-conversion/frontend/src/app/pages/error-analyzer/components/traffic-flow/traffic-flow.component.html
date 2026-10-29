@@ -183,30 +183,19 @@
           </ng-container>
         </g>
 
-        <!-- Setting chips sit above the nodes so they stay full-strength on dimmed boxes. -->
-        <ng-container *ngFor="let c of g.chips">
-          <g *ngIf="c.style === 'chip'" class="tf-ec"
-            [class.tf-ec-changed]="c.changed" [class.tf-ec-locked]="c.locked"
-            (click)="toggleChip(c)">
-            <title>{{ c.locked ? 'Set by the outage scenario' : 'Click to flip' }}</title>
-            <rect [attr.x]="c.x" [attr.y]="c.y" [attr.width]="c.width" height="20" rx="10"></rect>
-            <text class="tf-ec-k" [attr.x]="c.x + 12" [attr.y]="c.y + 14">{{ c.label }}</text>
-            <text class="tf-ec-v" text-anchor="end" [attr.x]="c.x + c.width - 12"
-              [attr.y]="c.y + 14">{{ c.value }} {{ c.locked ? '🔒' : '⇄' }}</text>
+        <!-- Setting switches sit above the nodes so they stay full-strength on dimmed boxes.
+             Both options shown, the active one filled. -->
+        <g *ngFor="let c of g.chips" class="tf-sw"
+          [class.tf-sw-changed]="c.changed" [class.tf-sw-locked]="c.locked">
+          <text class="tf-sw-k" text-anchor="end" [attr.x]="c.x - 7" [attr.y]="c.y + 13">{{ c.label }}{{ c.locked ? ' 🔒' : '' }}</text>
+          <g *ngFor="let o of c.options; let k = index" class="tf-sw-o"
+            [class.tf-sw-on]="o === c.value" (click)="o !== c.value && toggleChip(c)">
+            <title>{{ c.locked ? 'Set by the outage scenario' : o === c.value ? 'Current setting' : 'Switch to ' + o }}</title>
+            <rect [attr.x]="c.x + k * c.width / 2" [attr.y]="c.y" [attr.width]="c.width / 2"
+              height="18" [attr.rx]="4"></rect>
+            <text [attr.x]="c.x + k * c.width / 2 + c.width / 4" [attr.y]="c.y + 13">{{ o }}</text>
           </g>
-
-          <!-- Monitor switch, inside its box: both options shown, the active one filled. -->
-          <g *ngIf="c.style === 'switch'" class="tf-sw" [class.tf-sw-changed]="c.changed">
-            <text class="tf-sw-k" text-anchor="end" [attr.x]="c.x - 7" [attr.y]="c.y + 13">{{ c.label }}</text>
-            <g *ngFor="let o of c.options; let k = index" class="tf-sw-o"
-              [class.tf-sw-on]="o === c.value" (click)="o !== c.value && toggleChip(c)">
-              <title>{{ o === c.value ? 'Current monitor' : 'Switch the monitor to ' + o }}</title>
-              <rect [attr.x]="c.x + k * c.width / 2" [attr.y]="c.y" [attr.width]="c.width / 2"
-                height="18" [attr.rx]="4"></rect>
-              <text [attr.x]="c.x + k * c.width / 2 + c.width / 4" [attr.y]="c.y + 13">{{ o }}</text>
-            </g>
-          </g>
-        </ng-container>
+        </g>
       </svg>
 
       <div class="tf-ov tf-zoom">

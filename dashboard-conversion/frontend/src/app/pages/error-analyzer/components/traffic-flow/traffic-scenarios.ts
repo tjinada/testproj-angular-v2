@@ -181,7 +181,7 @@ export function buildScenario(c: ScenarioConfig, o: Overrides): Scenario {
   const outageNone = c.outageType === 'none';
 
   // Every step is one user action: sign-in, authentication.bmo.com,
-  // apis.bmo.com, initISAMSession and the trailing call. An estate change rides
+  // apis.bmo.com, initISAMSession, /api/cdb/* and /banking/services. An estate change rides
   // on the step it precedes rather than taking a frame of its own.
   // No "before the outage" frame — the pinned user is established silently by
   // the runner, so the first step is the first thing that actually changes.

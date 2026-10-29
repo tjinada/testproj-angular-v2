@@ -167,6 +167,7 @@ export class TrafficFlowComponent implements OnInit {
     if (p === 'idp') { return 'authentication.bmo.com'; }
     if (p === 'spaapi') { return 'apis.bmo.com'; }
     if (p === 'csgcb') { return 'initISAMSession'; }
+    if (call === 'apicdb') { return '/api/cdb/*'; }
     const base = p === 'api' ? '/api/cdb' : '/banking/services';
     return call === 'signin' ? `${base}/SignInRequestManager` : base;
   }

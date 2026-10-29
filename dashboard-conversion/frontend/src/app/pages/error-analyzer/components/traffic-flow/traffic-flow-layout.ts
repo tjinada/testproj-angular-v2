@@ -58,12 +58,8 @@ export type FlowTag = 'current' | 'context';
 /** A laid-out edge. */
 export interface TfEdge {
   d: string;
-  /**
-   * 'direct' and 'failover' are SSS V2 structure: a CDBBOS call to a site host
-   * with no failover, and a per-site GSS leg used only when the site's own F5
-   * is down.
-   */
-  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'mfe' | 'direct' | 'failover';
+  /** 'failover' is a per-site GSS leg used only when the site's own SSS is down. */
+  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'mfe' | 'failover';
   flow: FlowTag | null;
 }
 
@@ -116,13 +112,7 @@ export interface TfChip {
   changed: boolean;
   /** Owned by the outage scenario, so not editable here. */
   locked: boolean;
-  /**
-   * 'chip' straddles the box edge and flips on click. 'switch' sits inside the
-   * box with both options visible — used for the monitors, so a monitor choice
-   * never looks like the live.txt file state.
-   */
-  style: 'chip' | 'switch';
-  /** The two values a switch offers, in display order. Empty for chips. */
+  /** The two values the switch offers, in display order. */
   options: string[];
 }
 
@@ -330,16 +320,16 @@ function sssNodes(all: Record<string, any>, res: Resolution): void {
       lines: [line(`SSS F5 (${site})`, true), line(f.sssEsApi), line(f.sssApiSvc)] };
     all[`sssapic-${site}`] = { x: cx - SSS_APIC_HALF, y: SSS_ROW.apic, width: SSS_APIC_HALF * 2, height: 80,
       lines: [line(`SSS V2 APIC (${site})`, true), line('host TBD')] };
-    all[`ocp-${site}`] = { x: cx - SSS_PATH_DX - 100, y: SSS_ROW.ocp, width: 200, height: 66, outline: true,
+    all[`ocp-${site}`] = { x: cx - SSS_PATH_DX - 100, y: SSS_ROW.ocp, width: 200, height: 66,
       lines: [line('Channel Services', true), line(`OpenShift · ${f.ocpCluster}`),
         line(`*.apps.${f.ocpCluster}.ocp4-pr`)] };
   });
 
-  all['awsgw'] = { x: AWS_GW_X, y: SSS_ROW.aws + 28, width: 300, height: 66, outline: true,
+  all['awsgw'] = { x: AWS_GW_X, y: SSS_ROW.aws + 28, width: 300, height: 66,
     lines: [line('AWS API Gateway', true), line(AWS_API_GW.replace('.hcloud.bmogc.net', ''))] };
   for (let i = 1; i <= LAMBDAS; i++) {
     all[`lambda-${i}`] = { x: LAMBDA_X, y: SSS_ROW.aws + 10 + (i - 1) * 44, width: 170, height: 34,
-      outline: true, lines: [line(`Lambda ${i}`, true)] };
+      lines: [line(`Lambda ${i}`, true)] };
   }
 }
 
@@ -422,7 +412,7 @@ function sssBaseLegs(): { a: string; b: string; kind: TfEdge['kind'] }[] {
     const o: SiteId = s === 'BCC' ? 'SCC' : 'BCC';
     add(`cdbbos-${s}`, `gss-${s}`);
     add(`cdbbos-${s}`, 'gss-es');
-    add(`cdbbos-${s}`, `sssf5-${s}`, 'direct');
+    add(`cdbbos-${s}`, `sssf5-${s}`);
     add(`cwhapic-${s}`, 'gss-es');
     add(`gss-${s}`, `sssf5-${s}`);
     add(`gss-${s}`, `sssf5-${o}`, 'failover');
@@ -440,12 +430,12 @@ function sssBaseLegs(): { a: string; b: string; kind: TfEdge['kind'] }[] {
 /** SSS V2 annotations. */
 function sssLabels(): TfLabel[] {
   const labels: TfLabel[] = [
-    { x: 1030, y: SSS_ROW.f5 - 6, text: 'per-site GSS fails over only if its own F5 is fully down', kind: 'edge' }
+    { x: 1030, y: SSS_ROW.f5 - 6, text: 'per-site GSS fails over only if its own F5 or APIC is down', kind: 'edge' }
   ];
   SITE_IDS.forEach(s => {
     const cx = SSS_X[s];
     labels.push(
-      { x: cx + (s === 'BCC' ? 70 : -170), y: SSS_ROW.f5 - 34, text: 'direct · no failover', kind: 'alert' },
+      { x: cx + (s === 'BCC' ? 70 : -170), y: SSS_ROW.f5 - 34, text: 'direct · no failover', kind: 'edge' },
       { x: cx - 175, y: SSS_ROW.apic - 14, text: '/api/cdb · Channels', kind: 'edge' },
       { x: cx + 70, y: SSS_ROW.apic - 14, text: '/api · DigitalCore', kind: 'edge' },
       { x: cx + SSS_PATH_DX + 6, y: SSS_ROW.ocp + 28, text: '/api · same site', kind: 'edge' }
@@ -623,19 +613,19 @@ const CHIP_H = 20;
 const HEAD_NODE = /^(apicfs|extgtm|ltm|isamltm|idpltm|sssf5|sssapic)-/;
 
 /**
- * Setting chips, each straddling the bottom edge of the box it configures.
+ * Setting switches, drawn on the box they configure with both options visible.
+ * Monitors sit inside their box; liveness objects straddle its bottom edge.
  * Values come from the frame's state, so a live.txt rename made by an outage
  * stage shows up here as the journey plays, locked.
  */
 function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boolean): TfChip[] {
   const chips: TfChip[] = [];
   const mon = (m: SimState['ltmMonitor']) => (m === 'tcp' ? 'TCP' : 'live.txt');
-  const onBox = (g: Geom, width: number) =>
-    ({ x: g.x + g.width / 2 - width / 2, y: g.y + g.height - CHIP_H / 2, width });
-  // A switch sits in the box's footer; its label is drawn to the left of x.
+  // Label is drawn to the left of x. inBox sits in the footer; onEdge straddles the bottom edge.
   const inBox = (g: Geom) => ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - 25, width: 120 });
-  const monitor = { style: 'switch' as const, options: ['live.txt', 'TCP'], locked: false };
-  const chip = { style: 'chip' as const, options: [] };
+  const onEdge = (g: Geom, width: number) =>
+    ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - CHIP_H / 2, width });
+  const monitor = { options: ['live.txt', 'TCP'], locked: false };
 
   SITE_IDS.forEach(site => {
     chips.push({ kind: 'extgtm', site, ...inBox(geom[`extgtm-${site}`]), ...monitor,
@@ -644,15 +634,15 @@ function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boo
     chips.push({ kind: 'ltm', site, ...inBox(geom[`ltm-${site}`]), ...monitor,
       label: 'pool monitor', value: mon(state.ltmMonitor), changed: state.ltmMonitor !== 'live' });
 
-    chips.push({ kind: 'idplive', site, ...onBox(geom[`idpltm-${site}`], 190), ...chip,
-      label: 'mobileidp.gif', value: state.idpLive[site],
+    chips.push({ kind: 'idplive', site, ...onEdge(geom[`idpltm-${site}`], 130),
+      options: ['present', 'renamed'], label: 'mobileidp.gif', value: state.idpLive[site],
       changed: state.idpLive[site] !== 'present', locked: false });
 
-    // live.txt is served by IHS, so the chip spans the pair of web servers.
+    // live.txt is served by IHS, so the switch sits under the pair of web servers.
     const w1 = geom[`web-${site}-1`], w2 = geom[`web-${site}-${WEB_SERVERS}`];
     const webs = { x: w1.x, y: w1.y, width: w2.x + w2.width - w1.x, height: w1.height };
-    chips.push({ kind: 'live', site, ...onBox(webs, 200), ...chip,
-      label: '/banking/', value: state.live[site] === 'present' ? 'live.txt' : 'dead.txt',
+    chips.push({ kind: 'live', site, ...onEdge(webs, 120),
+      options: ['live.txt', 'dead.txt'], label: '/banking/', value: state.live[site] === 'present' ? 'live.txt' : 'dead.txt',
       changed: state.live[site] !== 'present', locked: liveLocked });
   });
   return chips;
@@ -818,7 +808,7 @@ export function buildTrafficGraph(
   // routes takes the worst of their states, so a break is never hidden behind
   // a healthy route drawn over it.
   const rank: Record<TfEdge['kind'], number> = {
-    base: 0, mfe: 0, direct: 0, failover: 0, taken: 1, crossover: 2, broken: 3
+    base: 0, mfe: 0, failover: 0, taken: 1, crossover: 2, broken: 3
   };
   const sevRank: Record<Severity, number> = { ok: 0, warn: 1, bad: 2 };
   const fan: Record<string, Severity> = {};

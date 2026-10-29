@@ -60,6 +60,12 @@ export interface SimState {
   jsessionSite?: SiteId;
   /** apidc value carried into the idp call. Absent means unpinned. */
   idpSite?: SiteId;
+  /**
+   * The request reaches CDBBOS code that calls SSS V2, so the resolver fans it
+   * out downstream. Only the /api/cdb/* call does; sign-in, initISAMSession
+   * and /banking/services stop at CDBBOS.
+   */
+  fanout?: boolean;
   live: Record<SiteId, LivenessState>;
   /** ISAM IdP liveness object per site. Drives GTM-ISAM health only. */
   idpLive: Record<SiteId, LivenessState>;
@@ -79,8 +85,11 @@ export type OutcomeKey =
   | 'VHOST'
   | 'LOCAL503'
   | 'TIMEOUT'
+  | 'DS500'
+  | 'PARTIAL'
   | 'SPLIT'
   | 'DRAINED'
+  | 'DS_FAILOVER'
   | 'NEW'
   | 'OK';
 
@@ -123,6 +132,8 @@ export interface DownstreamRoute {
   /** Site whose SSS V2 served it. Null when no site could be picked. */
   site: SiteId | null;
   status: 'ok' | 'failover' | 'broken';
+  /** Endpoints CDBBOS calls this way, e.g. "edoc". For the outcome text. */
+  example?: string;
   /**
    * Hops in order, as [from, to] pairs. Ids may be pseudo-ids the layout
    * understands (`cdbbos-BCC`, `sssapic-BCC#cdb`) as well as node ids.
@@ -178,7 +189,7 @@ export interface Resolution {
 }
 
 /** The estate half of SimState — everything a request does not carry. */
-export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite' | 'idpSite'>;
+export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite' | 'idpSite' | 'fanout'>;
 
 /**
  * What one user carries between requests. cdbbossiteId and the JSESSIONID
@@ -291,14 +302,15 @@ export interface Overrides {
  * cdbbossiteId. 'idp' (authentication.bmo.com) follows it and decides apidc
  * the same way, through GTM-ISAM. 'spaapi' (apis.bmo.com, still during login)
  * has no cookie and is answered fresh by GTM-Auth-SPA-API every time. The last
- * two inherit cdbbossiteId.
+ * three inherit cdbbossiteId.
  *
- * 'trailing' is whichever of /api/cdb or /banking/services is not carrying
- * sign-in. It is cookie-bound and decides nothing.
+ * 'apicdb' is a post-login /api/cdb/* call: the same front path as sign-in on
+ * /api/cdb, but CDBBOS goes on to call SSS V2 and AWS. 'banking' is a
+ * post-login /banking/services call. Both are cookie-bound and decide nothing.
  */
-export type CallKind = 'signin' | 'idp' | 'spaapi' | 'isam' | 'trailing';
+export type CallKind = 'signin' | 'idp' | 'spaapi' | 'isam' | 'apicdb' | 'banking';
 
-export const CALL_SEQUENCE: CallKind[] = ['signin', 'idp', 'spaapi', 'isam', 'trailing'];
+export const CALL_SEQUENCE: CallKind[] = ['signin', 'idp', 'spaapi', 'isam', 'apicdb', 'banking'];
 
 /** Calls the app cannot continue without. A failure stops the sequence. */
 export const BLOCKING_CALLS: CallKind[] = ['signin', 'idp', 'spaapi'];

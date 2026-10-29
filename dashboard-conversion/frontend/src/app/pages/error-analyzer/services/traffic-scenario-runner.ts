@@ -6,17 +6,15 @@ import { BLOCKING_CALLS, CALL_SEQUENCE } from '../models/traffic-flow.model';
 import { resolveTraffic } from './traffic-resolver';
 import { defaultSimState } from '../components/traffic-flow/traffic-topology';
 
-/**
- * Which path each call takes. Sign-in moves between /api/cdb and
- * /banking/services; the trailing call is whichever one it left behind.
- */
+/** Which path each call takes. Only sign-in moves between /api/cdb and /banking/services. */
 export function callPaths(c: ScenarioConfig): Record<CallKind, TrafficPath> {
   return {
     signin: c.signinPath,
     idp: 'idp',
     spaapi: 'spaapi',
     isam: 'csgcb',
-    trailing: c.signinPath === 'api' ? 'banking' : 'api'
+    apicdb: 'api',
+    banking: 'banking'
   };
 }
 
@@ -25,7 +23,7 @@ function emptyUser(): UserSession {
 }
 
 function baseEnv(): EnvState {
-  const { path, session, site, jsession, jsessionSite, idpSite, ...env } = defaultSimState();
+  const { path, session, site, jsession, jsessionSite, idpSite, fanout, ...env } = defaultSimState();
   return env;
 }
 
@@ -36,7 +34,8 @@ function baseEnv(): EnvState {
  * cdbbossiteId. Once pinned, the Akamai property rule wins outright.
  */
 function toSimState(
-  env: EnvState, user: UserSession, path: TrafficPath, fallbackSite: SimState['site']
+  env: EnvState, user: UserSession, path: TrafficPath, fallbackSite: SimState['site'],
+  fanout = false
 ): SimState {
   // The auth call is pinned by apidc, not cdbbossiteId. apis.bmo.com carries
   // no affinity cookie at all, so it always arrives unpinned.
@@ -53,7 +52,8 @@ function toSimState(
     site: user.cookie ?? fallbackSite,
     jsession: user.jsServer ?? 1,
     jsessionSite: user.jsSite ?? undefined,
-    idpSite: user.idpCookie ?? undefined
+    idpSite: user.idpCookie ?? undefined,
+    fanout
   };
 }
 
@@ -117,7 +117,7 @@ function runPass(
       continue;
     }
 
-    const state = toSimState(env, user, paths[call], gtmSite);
+    const state = toSimState(env, user, paths[call], gtmSite, call === 'apicdb');
     const resolution = resolveTraffic(state);
     results[call] = { cohort, call, state, resolution, skipped: false };
 
@@ -169,7 +169,7 @@ export function runJourney(scenario: Scenario, c: ScenarioConfig): JourneyFrame[
     CALL_SEQUENCE.forEach((call, i) => {
       const state = pinned.results[call].state
         ?? fresh.results[call].state
-        ?? toSimState(env, user, paths[call], gtmSite);
+        ?? toSimState(env, user, paths[call], gtmSite, call === 'apicdb');
 
       frames.push({
         label: step.label,

@@ -258,8 +258,8 @@ select {
 .tf-sitepill-g { pointer-events: none; }
 .tf-sitepill-t { font-size: 9.5px; font-weight: 800; text-anchor: middle; letter-spacing: .04em; }
 
-/* In-box monitor switch. Visually unlike the live.txt chip on purpose. The
-   label carries a white halo so it reads on both full and dimmed boxes. */
+/* Setting switch on its box. The label carries a white halo so it reads on
+   both full and dimmed boxes. */
 .tf-sw-k {
   font-size: 10px; font-weight: 700; fill: #1f2937;
   stroke: #fff; stroke-width: 3px; paint-order: stroke;
@@ -276,10 +276,12 @@ select {
     text { fill: #fff; }
   }
 }
-/* TCP is a change from production, so the active option turns amber. */
+/* A change from production turns the active option amber. */
 .tf-sw-changed .tf-sw-o.tf-sw-on {
   rect { fill: $warn; stroke: #7c2d12; }
 }
+/* Owned by the outage scenario: shown, not editable. */
+.tf-sw-locked .tf-sw-o { cursor: not-allowed; &:hover rect { stroke: #94a3b8; } }
 
 /* ---- trace drawer --------------------------------------------------------- */
 .tf-drawer {
@@ -328,8 +330,7 @@ select {
 .tf-e-broken { stroke: $bad; stroke-width: 3; fill: none; }
 /* MFE load relationship (CDB UI → CIAM Auth SPA), not a request hop. */
 .tf-e-mfe { stroke: $f-context; stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
-/* Static SSS V2 layer. Direct-to-site hosts are the ones worth spotting. */
-.tf-e-direct { stroke: $warn; stroke-width: 2; fill: none; }
+/* Per-site GSS leg: carries traffic only when its own site's SSS is down. */
 .tf-e-failover { stroke: #94a3b8; stroke-width: 1.1; fill: none; stroke-dasharray: 2 4; }
 .tf-e-mfe.tf-f-current { stroke-width: 2.4; }
 
@@ -385,29 +386,6 @@ select {
   &.tf-pill-off {
     opacity: 0.45;
     &:hover { opacity: 0.8; }
-  }
-}
-
-/* Setting chips on the boxes they configure. */
-.tf-ec {
-  cursor: pointer;
-
-  rect { fill: #fff; stroke: $blue; stroke-width: 1.4; filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .18)); }
-  text { font-size: 10.5px; font-weight: 600; }
-  .tf-ec-k { fill: $muted; font-weight: 500; }
-  .tf-ec-v { fill: $blue; }
-
-  &:hover rect { stroke-width: 2.2; }
-
-  &.tf-ec-changed {
-    rect { stroke: $warn; fill: #fffbeb; }
-    .tf-ec-v { fill: $warn; }
-  }
-
-  &.tf-ec-locked {
-    cursor: not-allowed;
-    rect { stroke-dasharray: 4 3; }
-    &:hover rect { stroke-width: 1.4; }
   }
 }
 

@@ -37,8 +37,11 @@ const OUTCOMES: Record<OutcomeKey, { title: string; severity: Severity }> = {
   VHOST: { title: 'Vhost Mismatch — 400/404', severity: 'bad' },
   LOCAL503: { title: 'Local 503 — no failover', severity: 'bad' },
   TIMEOUT: { title: 'Session Timeout — re-auth required', severity: 'bad' },
+  DS500: { title: 'Downstream unreachable — 500', severity: 'bad' },
+  PARTIAL: { title: 'Partial — some endpoints return 500', severity: 'bad' },
   SPLIT: { title: 'Split-site — degraded', severity: 'warn' },
   DRAINED: { title: 'Successful — still on the drained site', severity: 'warn' },
+  DS_FAILOVER: { title: 'Successful — downstream failed over', severity: 'warn' },
   NEW: { title: 'Successful — new session issued', severity: 'ok' },
   OK: { title: 'Successful', severity: 'ok' }
 };
@@ -105,8 +108,12 @@ function ltmPoolUp(s: SimState, site: SiteId): boolean {
   return s.ltmMonitor === 'tcp' || s.live[site] === 'present';
 }
 
-/** A site's SSS V2 F5 is what the GSSes health-check. */
-const sssF5Up = (s: SimState, site: SiteId) => !s.down[`sssf5-${site}`];
+/**
+ * SSS V2 site health as the GSSes see it: the F5 up with a healthy APIC behind
+ * it. An F5 whose APIC pool is empty is as good as down, so both GSS kinds
+ * fail over. Direct site hosts never consult this — they hit the site anyway.
+ */
+const sssSiteUp = (s: SimState, site: SiteId) => !s.down[`sssf5-${site}`] && !s.down[`sssapic-${site}`];
 
 /**
  * Resolves one downstream SSS V2 call from `site` through to AWS. Pure.
@@ -123,27 +130,27 @@ function downstreamRoute(
   const legs: [string, string][] = [];
   const broken = (at: string): DownstreamRoute =>
     ({ host, kind, path, site: target, status: 'broken', legs, breakAt: at });
-  const f5 = { BCC: sssF5Up(state, 'BCC'), SCC: sssF5Up(state, 'SCC') };
+  const up = { BCC: sssSiteUp(state, 'BCC'), SCC: sssSiteUp(state, 'SCC') };
 
   let target: SiteId | null = null;
   let failover = false;
   if (kind === 'gss') {
     legs.push([source, 'gss-es']);
     const pick = state.gtmPick.sss;
-    target = f5[pick] ? pick : f5[other(pick)] ? other(pick) : null;
+    target = up[pick] ? pick : up[other(pick)] ? other(pick) : null;
     if (!target) { return broken('gss-es'); }
     failover = target !== pick;
     legs.push(['gss-es', `sssf5-${target}`]);
   } else if (kind === 'sitegss') {
     legs.push([source, `gss-${site}`]);
-    target = f5[site] ? site : f5[other(site)] ? other(site) : null;
+    target = up[site] ? site : up[other(site)] ? other(site) : null;
     if (!target) { return broken(`gss-${site}`); }
     failover = target !== site;
     legs.push([`gss-${site}`, `sssf5-${target}`]);
   } else {
     target = site;
     legs.push([source, `sssf5-${site}`]);
-    if (!f5[site]) { return broken(`sssf5-${site}`); }
+    if (state.down[`sssf5-${site}`]) { return broken(`sssf5-${site}`); }
   }
 
   const sec = path === '/api/cdb' ? 'cdb' : 'api';
@@ -170,8 +177,10 @@ function downstreamRoute(
 
 /** Every downstream call CDBBOS makes from a site. */
 function cdbbosDownstream(state: SimState, site: SiteId): DownstreamRoute[] {
-  return CDBBOS_DOWNSTREAM.map(d =>
-    downstreamRoute(state, `cdbbos-${site}`, site, d.kind, d.host(site), d.path));
+  return CDBBOS_DOWNSTREAM.map(d => ({
+    ...downstreamRoute(state, `cdbbos-${site}`, site, d.kind, d.host(site), d.path),
+    example: d.example
+  }));
 }
 
 function outcome(key: OutcomeKey, why: string, sev?: Severity | null): Outcome {
@@ -215,7 +224,7 @@ export function resolveTraffic(state: SimState): Resolution {
   const idpHealth = { BCC: idpHealthy(state, 'BCC'), SCC: idpHealthy(state, 'SCC') };
   // GTM-Auth-SPA-API is the same akadns property as GTM-CDB-API, so it shares
   // the APIC TCP:443 health; only its 50/50 pick is its own.
-  const sssHealth = { BCC: sssF5Up(state, 'BCC'), SCC: sssF5Up(state, 'SCC') };
+  const sssHealth = { BCC: sssSiteUp(state, 'BCC'), SCC: sssSiteUp(state, 'SCC') };
   const gtmDistribution = {
     api: distribution(apiHealth), bos: distribution(bosHealth),
     isam: distribution(idpHealth), spa: distribution(apiHealth), sss: distribution(sssHealth)
@@ -369,18 +378,32 @@ export function resolveTraffic(state: SimState): Resolution {
     step([`apicfs-${answered}`], `APIC FS (${answered})`,
       `Routes into the ${answered} APIC farm — <b>${SITES[answered].apicFs}</b>.`);
     step(apicUp(state, answered).map(i => `apic-${answered}-${i}`), `APIC inst (${answered})`,
-      'API served.');
+      'Forwards to SSS V2 through <b>es-api.bmogc.net</b>.');
 
-    return done('OK',
-      overridden
-        ? `APIC-${pick} is down, so the GTM sent this call to ${answered}. No cookie means no pin to ` +
-          'hold it on the dead site — the failover just works.'
-        : `No affinity cookie. GTM-Auth-SPA-API answers ${answered} for this request only.`,
-      '200 OK', {
-        pinnedSite: answered, apicSite: answered,
-        // CWH APIC calls SSS V2 through the es-api GSS, on the /api route.
-        downstream: [downstreamRoute(state, `cwhapic-${answered}`, answered, 'gss', SSS_GSS_HOSTNAME, '/api')]
-      });
+    // CWH APIC calls SSS V2 through the es-api GSS, on the /api route. That GSS
+    // fails over, so this only breaks when neither site's SSS V2 is healthy or
+    // the shared AWS tier is out.
+    const ds = downstreamRoute(state, `cwhapic-${answered}`, answered, 'gss', SSS_GSS_HOSTNAME, '/api');
+    const front = overridden
+      ? `APIC-${pick} is down, so the GTM sent this call to ${answered}. No cookie means no pin to ` +
+        'hold it on the dead site — the failover just works.'
+      : `No affinity cookie. GTM-Auth-SPA-API answers ${answered} for this request only.`;
+    const extra = { pinnedSite: answered, apicSite: answered, downstream: [ds] };
+
+    if (ds.status === 'broken') {
+      const where = ds.breakAt === 'gss-es'
+        ? 'neither site has a healthy SSS V2 (F5 and APIC) behind es-api'
+        : ds.breakAt === 'awsgw' ? 'the AWS API Gateway is out' : 'every Lambda is out';
+      return done('DS500',
+        `CWH APIC served the request but cannot complete it: ${where}. Login cannot continue.`,
+        '500', { ...extra, breakAt: ds.breakAt });
+    }
+    if (ds.status === 'failover') {
+      return done('DS_FAILOVER',
+        `${front} es-api's pick is down, so SSS V2 is reached on ${ds.site} instead — served, but cross-site.`,
+        '200 OK', extra);
+    }
+    return done('OK', front, '200 OK', extra);
   }
 
   const urlPath = api ? '/api/cdb' : csgcb ? '/banking/services/csgcb' : '/banking/services/*';
@@ -701,13 +724,35 @@ export function resolveTraffic(state: SimState): Resolution {
       ? `JSESSIONID=…${suffix} (new)`
       : null;
 
-  return done(key, why, key === 'TIMEOUT' ? '302 → login' : '200 OK', {
+  // Only /api/cdb/* reaches the CDBBOS code that calls SSS V2, and a bounced
+  // session never gets that far.
+  const downstream = key === 'TIMEOUT' || !state.fanout ? [] : cdbbosDownstream(state, bosSite);
+
+  // One real request hits one endpoint, and so one of these routes. The step
+  // stands for all of them, so a broken route means some endpoints return 500
+  // (CDBBOS cannot reach SSS V2) even though the front path served it.
+  const brokenDs = downstream.filter(d => d.status === 'broken');
+  const failedOver = downstream.filter(d => d.status === 'failover');
+  const named = (ds: typeof downstream) =>
+    ds.map(d => `${d.example} (${d.host})`).join(' and ');
+  let http = key === 'TIMEOUT' ? '302 → login' : '200 OK';
+  if (brokenDs.length) {
+    const note = `${brokenDs.length} of ${downstream.length} downstream routes are broken: ` +
+      `${named(brokenDs)} ${brokenDs.length > 1 ? 'have' : 'has'} no healthy SSS V2 to reach, ` +
+      'so those endpoints return 500.';
+    if (key === 'OK' || key === 'NEW') { key = 'PARTIAL'; why = note; } else { why += ` ${note}`; sevOverride = 'bad'; }
+    http = '200 / 500';
+  } else if (failedOver.length) {
+    const note = `${named(failedOver)} failed over to the other site's SSS V2 — served, but cross-site.`;
+    if (key === 'OK' || key === 'NEW') { key = 'DS_FAILOVER'; why = note; } else { why += ` ${note}`; }
+  }
+
+  return done(key, why, http, {
     apicSite,
     bosSite,
     appServer,
     setCookie,
     breakAt: key === 'TIMEOUT' ? `app-${bosSite}-${appServer}` : null,
-    // A bounced session never reaches the code that calls SSS V2.
-    downstream: key === 'TIMEOUT' ? [] : cdbbosDownstream(state, bosSite)
+    downstream
   });
 }
