@@ -59,7 +59,7 @@ export type FlowTag = 'current' | 'context';
 export interface TfEdge {
   d: string;
   /** 'failover' is a per-site GSS leg used only when the site's own SSS is down. */
-  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'mfe' | 'failover';
+  kind: 'base' | 'taken' | 'crossover' | 'broken' | 'failover';
   flow: FlowTag | null;
 }
 
@@ -199,13 +199,11 @@ function line(text: string, bold = false) { return { text, bold }; }
 function baseNodes(res: Resolution): Record<string, any> {
   const n: Record<string, any> = {};
 
-  n['client'] = { x: 1010, y: 20, width: 140, height: 44, outline: true,
+  // The SPA makes every call, including the CIAM login ones (authentication
+  // and apis.bmo.com). Centred over GTM-APIC so its three edges fan out
+  // left, down and right without crossing.
+  n['client'] = { x: 1230, y: 20, width: 140, height: 44, outline: true,
     lines: [line('CDB UI', true)] };
-
-  // Stands in for the four CIAM Auth SPAs (login, registration, pwd reset,
-  // recover user ID), which all call apis.bmo.com the same way.
-  n['ciam-spa'] = { x: 1700, y: 20, width: 180, height: 44, outline: true,
-    lines: [line('CIAM Auth SPA', true)] };
 
   // Each Akamai GTM's distribution is its weighting switch, drawn above the pills.
   n['gtm-bos'] = { x: 715, y: ROW.gtm - 85, width: 290, height: 170, footer: 66, outline: true, ellipse: true,
@@ -216,7 +214,7 @@ function baseNodes(res: Resolution): Record<string, any> {
   // hostname is resolved on its own, so each keeps its own pick (two pill rows).
   n['gtm-api'] = { x: 1145, y: ROW.gtm - 97, width: 310, height: 194, footer: 90,
     outline: true, ellipse: true,
-    lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'), line('apis.bmo.com/api/*'),
+    lines: [line('GTM-APIC', true), line('www1.bmo.com/api/cdb'), line('apis.bmo.com/api/*'),
       line(AUTH_SPA_API_HOSTNAME), line('Liveness: TCP on port 443')] };
 
   n['gtm-isam'] = { x: 1595, y: ROW.gtm - 85, width: 290, height: 170, footer: 66, outline: true, ellipse: true,
@@ -477,9 +475,20 @@ function railPath(all: Record<string, Geom>, site: SiteId): string {
  * GTM-CDB-BOS, which would draw the csgcb path through the very GTM it bypasses.
  */
 function clientPropPath(all: Record<string, Geom>): string {
+  // Leaves the side of CDB UI, so it never runs under the edges fanning out below.
   const c = all['client'], p = all['akamai-prop'];
-  const sx = c.x + c.width / 2, tx = p.x + p.width / 2;
-  return `M${sx} ${c.y + c.height} V88 H${tx} V${p.y}`;
+  const tx = p.x + p.width / 2;
+  return `M${c.x} ${c.y + c.height / 2} H${tx} V${p.y}`;
+}
+
+/**
+ * CDB UI to GTM-ISAM. Leaves the right side of CDB UI and drops onto the oval,
+ * mirroring the csgcb rail on the left, so it stays clear of the /api/cdb edge
+ * and its label below the box.
+ */
+function clientIsamPath(all: Record<string, Geom>): string {
+  const c = all['client'], g = all['gtm-isam'];
+  return `M${c.x + c.width} ${c.y + c.height / 2} H${g.x + g.width / 2} V${g.y}`;
 }
 
 /**
@@ -519,33 +528,21 @@ function isamGtmRail(all: Record<string, Geom>, site: SiteId): string {
 }
 
 /**
- * GTM-CDB-API to a site's APIC FS for apis.bmo.com. Runs just above the APIC FS row and
+ * GTM-APIC to a site's APIC FS for apis.bmo.com. Runs just above the APIC FS row and
  * drops in right of centre, so it stays distinct from the cloudlet's /api/cdb
  * curve arriving at the same box.
  */
 function spaRail(all: Record<string, Geom>, site: SiteId): string {
-  // Leaves GTM-CDB-API right of centre, clear of its /api/cdb edge to the cloudlet.
+  // Leaves GTM-APIC right of centre, clear of its /api/cdb edge to the cloudlet.
   const g = all['gtm-api'], t = all[`apicfs-${site}`];
   const sx = g.x + g.width / 2 + 60, tx = t.x + t.width / 2 + SPA_RAIL_DROP;
   return `M${sx} ${g.y + g.height} V${SPA_RAIL_Y} H${tx} V${t.y}`;
 }
 
-/**
- * CDB UI loads the CIAM Auth SPA as an MFE. Not a network hop on any call the
- * simulator resolves, so it is drawn as a dashed relationship line between the
- * two client boxes rather than as part of a request path.
- */
-function mfePath(all: Record<string, Geom>): string {
-  const a = all['client'], b = all['ciam-spa'];
-  const y = a.y + a.height / 2;
-  return `M${a.x + a.width} ${y} H${b.x}`;
-}
-
 /** Every structural edge, drawn dim underneath the taken path. */
 function baseEdgePairs(): [string, string][] {
   const pairs: [string, string][] = [
-    ['client', 'gtm-bos'], ['client', 'gtm-api'], ['client', 'gtm-isam'],
-    ['ciam-spa', 'gtm-api'],
+    ['client', 'gtm-bos'], ['client', 'gtm-api'],
     ['gtm-bos', 'cloudlet'], ['gtm-api', 'cloudlet']
   ];
   SITE_IDS.forEach(s => {
@@ -577,9 +574,9 @@ function baseLabels(res: Resolution): TfLabel[] {
     // Sits right of the CWH Web lane title and above the trap alert, in the
     // gap between the property-rule box and the ISAM Legacy LTM row.
     { x: 510, y: CSGCB_RAIL_Y - 6, text: '/banking/services/csgcb', kind: 'edge' },
-    { x: 1460, y: 72, text: 'authentication.bmo.com/aac/*', kind: 'edge' },
-    { x: 1660, y: 86, text: 'apis.bmo.com/api/*', kind: 'edge' },
-    { x: 1410, y: 36, text: 'MFE', kind: 'edge' }
+    // One label per CDB UI edge, each beside its own line.
+    { x: 1308, y: 86, text: '/api/cdb · apis.bmo.com/api/*', kind: 'edge' },
+    { x: 1420, y: 36, text: 'authentication.bmo.com/aac/*', kind: 'edge' }
   ];
 
   /*
@@ -631,7 +628,7 @@ function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boo
   const inBox = (g: Geom, width = 120) => ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - 25, width });
   const monitor = { options: ['live.txt', 'TCP'], locked: false };
 
-  // GTM weighting, above the pick pills. GTM-CDB-API has two pill rows.
+  // GTM weighting, above the pick pills. GTM-APIC has two pill rows.
   WEIGHT_SWITCHES.forEach(({ gtm, node, pillRows }) => {
     const g = geom[node];
     const w = state.gtmWeight[gtm];
@@ -691,7 +688,7 @@ function weightNotes(state: SimState, res: Resolution, geom: Record<string, Geom
 /** Site-pick chips, centred low inside each GTM oval. */
 function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>): TfPill[] {
   const pills: TfPill[] = [];
-  // `row` puts a pick on its own line with a caption. GTM-CDB-API carries two
+  // `row` puts a pick on its own line with a caption. GTM-APIC carries two
   // hostnames, so it gets two rows: www1 (cookie-pinned) and apis (never pinned).
   const spec: { gtm: GtmId; node: string; row?: { caption: string; up: number } }[] = [
     { gtm: 'bos', node: 'gtm-bos' },
@@ -794,12 +791,7 @@ export function buildTrafficGraph(
       d: curve(geom[a], geom[b]), kind: 'base' as const, flow: null
     }));
   const baseRail = (d: string): TfEdge => ({ d, kind: 'base', flow: null });
-  edges.push(baseRail(clientPropPath(geom)));
-  // Lit with the apis.bmo.com call, so it reads as "CDB UI → CIAM SPA → apis".
-  edges.push({
-    d: mfePath(geom), kind: 'mfe',
-    flow: currentRes?.path === 'spaapi' ? 'current' : null
-  });
+  edges.push(baseRail(clientPropPath(geom)), baseRail(clientIsamPath(geom)));
   sssBaseLegs().forEach(({ a, b, kind }) => {
     const d = sssLeg(geom, a, b);
     if (d) { edges.push({ d, kind, flow: null }); }
@@ -824,22 +816,24 @@ export function buildTrafficGraph(
         const kind: TfEdge['kind'] = flow === 'context' ? 'base'
           : next.state === 'bad' ? 'broken'
             : leavesEntry ? 'crossover' : 'taken';
-        // Four hops are drawn as rails rather than beziers, so the taken path
+        // Several hops are drawn as rails rather than beziers, so the taken path
         // has to reuse the same geometry or it would peel away from the dim
         // edge underneath it.
         const d = a === 'cloudlet' && b.startsWith('ltm-') && rs.bosSite
           ? railPath(geom, rs.bosSite)
           : a === 'client' && b === 'akamai-prop'
             ? clientPropPath(geom)
-            : a === 'akamai-prop' && b.startsWith('isamltm-')
-              ? csgcbPath(geom, b.slice('isamltm-'.length) as SiteId)
-              : a.startsWith('wga-') && b.startsWith('ltm-')
-                ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
-                : a === 'gtm-isam' && b.startsWith('idpltm-')
-                  ? isamGtmRail(geom, b.slice('idpltm-'.length) as SiteId)
-                  : a === 'gtm-api' && b.startsWith('apicfs-')
-                    ? spaRail(geom, b.slice('apicfs-'.length) as SiteId)
-                    : curve(geom[a], geom[b]);
+            : a === 'client' && b === 'gtm-isam'
+              ? clientIsamPath(geom)
+              : a === 'akamai-prop' && b.startsWith('isamltm-')
+                ? csgcbPath(geom, b.slice('isamltm-'.length) as SiteId)
+                : a.startsWith('wga-') && b.startsWith('ltm-')
+                  ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
+                  : a === 'gtm-isam' && b.startsWith('idpltm-')
+                    ? isamGtmRail(geom, b.slice('idpltm-'.length) as SiteId)
+                    : a === 'gtm-api' && b.startsWith('apicfs-')
+                      ? spaRail(geom, b.slice('apicfs-'.length) as SiteId)
+                      : curve(geom[a], geom[b]);
         taken.set(d, { d, kind, flow });
       }));
     }
@@ -851,7 +845,7 @@ export function buildTrafficGraph(
   // routes takes the worst of their states, so a break is never hidden behind
   // a healthy route drawn over it.
   const rank: Record<TfEdge['kind'], number> = {
-    base: 0, mfe: 0, failover: 0, taken: 1, crossover: 2, broken: 3
+    base: 0, failover: 0, taken: 1, crossover: 2, broken: 3
   };
   const sevRank: Record<Severity, number> = { ok: 0, warn: 1, bad: 2 };
   const fan: Record<string, Severity> = {};

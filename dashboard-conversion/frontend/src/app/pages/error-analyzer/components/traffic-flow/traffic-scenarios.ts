@@ -19,7 +19,7 @@ export function defaultOverrides(): Overrides {
 /** GTM node and display name per weighted GTM. */
 export const WEIGHTED_GTMS: { gtm: WeightedGtm; node: string; name: string }[] = [
   { gtm: 'bos', node: 'gtm-bos', name: 'GTM-CDB-BOS' },
-  { gtm: 'api', node: 'gtm-api', name: 'GTM-CDB-API' },
+  { gtm: 'api', node: 'gtm-api', name: 'GTM-APIC' },
   { gtm: 'isam', node: 'gtm-isam', name: 'GTM-ISAM' }
 ];
 

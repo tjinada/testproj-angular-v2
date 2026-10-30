@@ -226,7 +226,7 @@ export function resolveTraffic(state: SimState): Resolution {
     return 'no healthy DC';
   };
   const idpHealth = { BCC: idpHealthy(state, 'BCC'), SCC: idpHealthy(state, 'SCC') };
-  // apis.bmo.com is answered by GTM-CDB-API too (one akadns property), so it
+  // apis.bmo.com is answered by GTM-APIC too (one akadns property), so it
   // shares the APIC TCP:443 health; only its 50/50 pick is its own.
   const sssHealth = { BCC: sssSiteUp(state, 'BCC'), SCC: sssSiteUp(state, 'SCC') };
   const wt = state.gtmWeight;
@@ -237,7 +237,7 @@ export function resolveTraffic(state: SimState): Resolution {
   };
 
   // The site each GTM aims for: its manual weight when one is set, else the
-  // 50/50 pick. GTM-CDB-API's weight covers both its hostnames.
+  // 50/50 pick. GTM-APIC's weight covers both its hostnames.
   const weightOf: Record<'bos' | 'api' | 'isam' | 'spa', GtmWeight> =
     { bos: wt.bos, api: wt.api, spa: wt.api, isam: wt.isam };
   const aim = (g: 'bos' | 'api' | 'isam' | 'spa'): SiteId =>
@@ -368,16 +368,16 @@ export function resolveTraffic(state: SimState): Resolution {
     return done(idpKey, idpWhy, '200 OK', { pinnedSite: site });
   }
 
-  // ---- apis.bmo.com from the CIAM Auth SPAs: no cookie, GTM every time ---
+  // ---- apis.bmo.com during CIAM login: no cookie, GTM every time --------
   if (state.path === 'spaapi') {
-    step(['ciam-spa'], 'CIAM Auth SPA',
+    step(['client'], 'Client',
       'Request <b>apis.bmo.com/api/*</b> (e.g. client-data-encryption-key/get). No affinity ' +
       'cookie — the property has no stickiness rule for apis.bmo.com.');
 
     const pick = aim('spa');
     const answered = gtmAnswer.spa;
     const overridden = answered !== null && answered !== pick;
-    step(['gtm-api'], 'Akamai GTM-CDB-API (apis.bmo.com)',
+    step(['gtm-api'], 'Akamai GTM-APIC (apis.bmo.com)',
       answered === null
         ? 'TCP:443 fails against the APIC farm on <b>both</b> sites.'
         : overridden
@@ -388,7 +388,7 @@ export function resolveTraffic(state: SimState): Resolution {
 
     if (answered === null) {
       return done('DOWN503',
-        'The APIC farm is out of service on both sites, so GTM-CDB-API has no healthy ' +
+        'The APIC farm is out of service on both sites, so GTM-APIC has no healthy ' +
         'datacentre. Login cannot continue.',
         '503', { pinnedSite: pick, breakAt: 'gtm-api' });
     }
@@ -405,7 +405,7 @@ export function resolveTraffic(state: SimState): Resolution {
     const front = overridden
       ? `APIC-${pick} is down, so the GTM sent this call to ${answered}. No cookie means no pin to ` +
         'hold it on the dead site — the failover just works.'
-      : `No affinity cookie. GTM-CDB-API answers ${answered} for this request only.`;
+      : `No affinity cookie. GTM-APIC answers ${answered} for this request only.`;
     const extra = { pinnedSite: answered, apicSite: answered, downstream: [ds] };
 
     if (ds.status === 'broken') {
@@ -462,7 +462,7 @@ export function resolveTraffic(state: SimState): Resolution {
       else if (apicHealthy(state, other(pick))) { apicSite = other(pick); edgeFailover = true; }
       if (apicSite) { stamp(apicSite); }
 
-      step(['gtm-api'], 'Akamai GTM-CDB-API',
+      step(['gtm-api'], 'Akamai GTM-APIC',
         apicSite === null
           ? 'No cookie → the CNAME chain resolves, but the TCP:443 check fails against the APIC farm on <b>both</b> sites.'
           : edgeFailover

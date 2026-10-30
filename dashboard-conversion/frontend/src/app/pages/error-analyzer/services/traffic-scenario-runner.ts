@@ -31,7 +31,7 @@ function baseEnv(): EnvState {
 /**
  * Recombines the estate and a carried session into a resolvable SimState.
  *
- * `fallbackSite` is GTM-CDB-API's 50/50 answer, used only when the user has no
+ * `fallbackSite` is GTM-APIC's 50/50 answer, used only when the user has no
  * cdbbossiteId. Once pinned, the Akamai property rule wins outright.
  */
 function toSimState(

@@ -219,7 +219,6 @@ select {
 .tf-lg i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: 2px; }
 .tf-lg-current i { background: $f-current; }
 .tf-lg-context i { background-image: repeating-linear-gradient(90deg, $f-context 0 5px, transparent 5px 9px); }
-.tf-lg-mfe i { height: 2px; background-image: repeating-linear-gradient(90deg, $f-context 0 6px, transparent 6px 10px); }
 .tf-lg-site i { width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
 
 /* ---- site colours ---------------------------------------------------------- */
@@ -328,11 +327,8 @@ select {
 .tf-e-taken { stroke: $blue; stroke-width: 3; fill: none; }
 .tf-e-crossover { stroke: $warn; stroke-width: 3; fill: none; stroke-dasharray: 8 4; }
 .tf-e-broken { stroke: $bad; stroke-width: 3; fill: none; }
-/* MFE load relationship (CDB UI → CIAM Auth SPA), not a request hop. */
-.tf-e-mfe { stroke: $f-context; stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
 /* Per-site GSS leg: carries traffic only when its own site's SSS is down. */
 .tf-e-failover { stroke: #94a3b8; stroke-width: 1.1; fill: none; stroke-dasharray: 2 4; }
-.tf-e-mfe.tf-f-current { stroke-width: 2.4; }
 
 .tf-l-edge { font-size: 9.5px; fill: #4b5563; }
 .tf-l-alert { font-size: 9.5px; fill: $bad; font-weight: 600; }

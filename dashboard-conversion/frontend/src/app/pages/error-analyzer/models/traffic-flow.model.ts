@@ -9,7 +9,7 @@
  * Its affinity cookie is apidc, independent of cdbbossiteId.
  *
  * 'spaapi' is apis.bmo.com/api/* from the CIAM Auth SPAs, through
- * GTM-CDB-API to APIC. It carries no affinity cookie: the property has no
+ * GTM-APIC to APIC. It carries no affinity cookie: the property has no
  * stickiness rule for apis.bmo.com, so every request is answered by the GTM.
  */
 export type TrafficPath = 'banking' | 'api' | 'csgcb' | 'idp' | 'spaapi';
@@ -38,7 +38,7 @@ export type GtmId = 'bos' | 'api' | 'isam' | 'spa' | 'sss';
 
 /**
  * The Akamai GTMs whose traffic weighting the operator can set in the GTM
- * console. GTM-CDB-API is one property for www1 /api/cdb and apis.bmo.com, so
+ * console. GTM-APIC is one property for www1 /api/cdb and apis.bmo.com, so
  * its weight covers both; only the per-hostname pick ('api' / 'spa') differs.
  */
 export type WeightedGtm = 'bos' | 'api' | 'isam';
@@ -274,7 +274,7 @@ export interface ScenarioConfig {
    * Which path carries SigninRequestManager, and therefore which GTM decides
    * where the user is pinned.
    *
-   * 'api'     — today. GTM-CDB-API answers on a TCP:443 check of the APIC
+   * 'api'     — today. GTM-APIC answers on a TCP:443 check of the APIC
    *             farm, so cdbbossiteId records an APIC that knows nothing about
    *             BOS health. That is the defect.
    * 'banking' — proposed. GTM-CDB-BOS answers on /banking/live.txt, so the
@@ -289,7 +289,7 @@ export interface ScenarioConfig {
   site: SiteId;
   /** Which site GTM-ISAM's 50/50 answers when the auth call arrives without apidc. */
   idpSite: SiteId;
-  /** Which site GTM-CDB-API's 50/50 answers for apis.bmo.com. No cookie, so every call. */
+  /** Which site GTM-APIC's 50/50 answers for apis.bmo.com. No cookie, so every call. */
   spaSite: SiteId;
   /** Which site the es-api.bmogc.net GSS 50/50 answers for downstream calls. */
   sssSite: SiteId;
@@ -326,7 +326,7 @@ export interface Overrides {
  * Sign-in arrives unpinned, so its GTM answer is what gets stamped into
  * cdbbossiteId. 'idp' (authentication.bmo.com) follows it and decides apidc
  * the same way, through GTM-ISAM. 'spaapi' (apis.bmo.com, still during login)
- * has no cookie and is answered fresh by GTM-CDB-API every time. The rest
+ * has no cookie and is answered fresh by GTM-APIC every time. The rest
  * inherit cdbbossiteId.
  *
  * 'cdbsession' is initCDBSession, the first /api/cdb call once the user is
