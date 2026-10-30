@@ -194,3 +194,176 @@ What CDB gets when LD can't give a normal answer. For implementation details, se
 - **Code defaults must be the safe state.** For a new feature, the code default should be off, so an LD outage never exposes unfinished work.
 - **Don't delete a flag until its code reference is gone.** Archive or retire it only after the code no longer reads it.
 - **"Off" isn't the same as "false."** Turning targeting off serves the *off variation*, which is whatever's configured, not necessarily `false`.
+
+
+Every CDB release flag follows the same lifecycle in LaunchDarkly (LD): create it, test it in selected QA envs, enable it in pre-prod, enable it for customers, then retrofit it once it's live. After creation, every stage is a targeting change in LD, with no code change or redeploy.
+
+Stage	LD environment	Targeting on	Who gets the feature
+1. Create	QA + PROD (automatic)	Nothing (targeting off)	No one
+2. QA testing	QA	environment key (e.g. QA5)	Selected QA envs
+3. Pre-prod	PROD	application.releaseVersion + test users (user key)	Testers on the pre-prod slot
+4. Prod	PROD	application.releaseVersion	All customers on the release
+5. Retrofit	QA (then PROD)	Default rule true, env conditions removed	All QA envs, then everyone
+Before you start
+
+You have LD access to the CDB project (QA for stages 1–2, PROD for stages 3–4).
+
+The feature code reads the flag and is merged, with the code default set to off.
+
+You know the target release version (e.g. 96.0.0) and have a Jira ticket for the change.
+
+For stages 3–4: the DARIDs of the test users who will verify in pre-prod.
+
+Step 1: Create the flag
+Create the flag from the QA environment. It appears in every LD environment (QA and PROD) straight away, with targeting off, so nobody gets it until you turn it on.
+
+In LD, open the CDB project, switch to the QA environment, go to Flags and select Create flag.
+
+Fill in the details:
+
+Field	Value	Notes
+Name	Readable name, e.g. Alerts – deeplink to account	Can be changed later
+Key	Feature name only, e.g. ALERTS_DEEPLINK	Can't be changed after creation. Sub-flags share the parent's prefix
+Description	What the flag controls + Jira ticket	
+Maintainer	Owning team member	
+Tags	Release (e.g. 96.0.0), team, Jira key	Used for search and cleanup
+Flag type	Release flag, temporary	Marks it for removal after rollout
+Variations	Boolean: true / false	
+Default variations	On: true, Off: false	
+Client-side availability	SDKs using Client-side ID: checked	If unchecked, the CDB UI never receives the flag
+Select Create flag.
+
+Screenshot: Create flag form
+
+The key must exactly match the key in the feature code. A typo means the UI silently falls back to the code default.
+
+Step 2: Turn it on for specific QA envs
+All CDB QA envs share the one LD QA environment, so you pick envs by targeting the environment context key. Pick the pattern by how many envs need it.
+
+Need	Default rule	Individual targets (environment)
+A few envs on (typical for new features)	false	Env keys to enable, serving true (e.g. QA5, QA12)
+Most envs on, a few off	true	Env keys to exclude, serving false
+Open the flag in the QA environment.
+
+Under Individual targets, choose context kind environment and add the env keys for the variation they should get.
+
+Keys must match the CDB env name exactly, e.g. QA5, not qa5.
+
+Set the Default rule as in the table above.
+
+Turn targeting On.
+
+Select Review and save, add a comment with the Jira key, and save.
+
+Screenshot: Individual targets with environment keys
+
+Screenshot: Default rule and targeting toggle
+
+Check it worked: in Contexts, search for the env key (e.g. QA5) and confirm the flag shows true. Or open CDB in that env and look for the flag in the LD response in the browser network tab.
+
+Step 3: Promote to PROD – pre-prod enabling
+The flag already exists in PROD, so there's nothing to copy. Promoting it means adding PROD targeting so only test users on the new release get the feature.
+
+Don't use LD's compare-and-copy from QA to PROD. QA targeting uses QA env keys, which mean nothing in PROD.
+
+Blue and Green share the one LD PROD environment, and they swap live/pre-prod roles at every release. So pre-prod is identified by release version, not by colour. The test-user condition keeps the feature dark for customers when the release goes live.
+
+Open the flag and switch to the PROD environment.
+
+Add a rule with both conditions (AND):
+
+Context kind application, attribute releaseVersion, is not semver less than 96.0.0 (your release).
+
+Context kind user, attribute key, is one of the test-user DARIDs.
+
+Set that rule to serve true.
+
+Set the Default rule to false.
+
+Turn targeting On.
+
+Select Review and save, add the Jira key, and save. Change record required: TBD with change management.
+
+Screenshot: PROD rule with releaseVersion + user key conditions
+
+Who	Release	Gets
+Test user on pre-prod slot	96.0.0	true
+Customer on pre-prod slot	96.0.0	false
+Anyone on the live slot	95.x	false
+Check it worked: in Contexts, look up a test user's DARID and confirm true on 96.0.0; then confirm a non-test user gets false.
+
+Step 4: PROD enabling
+After the swap, 96.0.0 is live but the feature is still limited to test users. Enabling it for customers is one rule change, made when the business is ready, not tied to the deploy.
+
+Open the flag in the PROD environment.
+
+Edit the Step 3 rule: remove the user key condition and keep the releaseVersion condition.
+
+Keeping the version condition means older mobile app versions without the feature code still get false.
+
+For a gradual rollout, serve a percentage rollout on this rule instead of true, and raise it in stages.
+
+Leave the Default rule as false.
+
+Select Review and save, add the Jira key and change record, and save.
+
+Screenshot: PROD rule after removing the user condition
+
+Check it worked: in Contexts, look up a non-test customer on 96.0.0 and confirm true. Watch error rates and dashboards for the feature after enabling.
+
+Shortcut for low-risk features: skip the user condition in Step 3. The feature then turns on for customers automatically at the swap, with no Step 4 change.
+
+Step 5: Retrofit after production
+Once the feature is on for all customers, make the flag's default ON and drop the custom conditions. Every QA env then behaves like production, and the flag no longer needs per-env upkeep.
+
+QA
+
+Open the flag in the QA environment.
+
+Set the Default rule to true.
+
+Remove the environment individual targets and any env-key rules.
+
+Select Review and save, add the Jira key, and save.
+
+Screenshot: QA flag with default rule true and no env targets
+
+PROD (when no supported app version is older than the release)
+
+Open the flag in the PROD environment.
+
+Set the Default rule to true.
+
+Remove the releaseVersion rule.
+
+Save with the Jira key and change record.
+
+If a QA env must stay off (e.g. it runs an older release), keep just that env key as an exception serving false.
+
+At this point the flag is permanently on everywhere and ready for cleanup.
+
+Rollback and cleanup
+Rollback is a targeting change, effective within seconds for active sessions:
+
+One feature: edit the PROD rule to serve false, or turn targeting Off. Off serves the off variation (false here) to both slots.
+
+Never delete the flag to roll back. The UI falls back to the code default, which hides mistakes instead of fixing them.
+
+Cleanup once the feature is fully on in PROD and stable:
+
+Remove the flag check from the code and ship that release.
+
+Archive the flag in LD once no supported app version reads it (mind older mobile versions).
+
+Checklist
+☐ Flag created with the correct key, tags and client-side ID availability checked
+
+☐ QA: targeting on for the selected env keys, verified in Contexts
+
+☐ PROD pre-prod: version + test-user rule on, verified with a test DARID
+
+☐ PROD: user condition removed after the swap, change record attached
+
+☐ Retrofit: default true and env conditions removed in QA, then PROD
+
+☐ Code reference removed and flag archived
