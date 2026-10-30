@@ -78,8 +78,8 @@ export interface SimState {
   idpSite?: SiteId;
   /**
    * The request reaches CDBBOS code that calls SSS V2, so the resolver fans it
-   * out downstream. Only the /api/cdb/* call does; sign-in, initISAMSession
-   * and /banking/services stop at CDBBOS.
+   * out downstream. initCDBSession and the /api/cdb/* app calls do; sign-in,
+   * initISAMSession and /banking/services stop at CDBBOS.
    */
   fanout?: boolean;
   /**

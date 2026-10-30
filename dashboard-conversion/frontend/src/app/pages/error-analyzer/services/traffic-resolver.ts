@@ -757,8 +757,8 @@ export function resolveTraffic(state: SimState): Resolution {
       ? `JSESSIONID=…${suffix} (new)`
       : null;
 
-  // Only /api/cdb/* reaches the CDBBOS code that calls SSS V2, and a bounced
-  // session never gets that far.
+  // initCDBSession and the /api/cdb/* app calls reach the CDBBOS code that
+  // calls SSS V2; a bounced session never gets that far.
   const downstream = key === 'TIMEOUT' || !state.fanout ? [] : cdbbosDownstream(state, bosSite);
 
   // One real request hits one endpoint, and so one of these routes. The step
@@ -769,7 +769,20 @@ export function resolveTraffic(state: SimState): Resolution {
   const named = (ds: typeof downstream) =>
     ds.map(d => `${d.example} (${d.host})`).join(' and ');
   let http = key === 'TIMEOUT' ? '302 → login' : '200 OK';
-  if (brokenDs.length) {
+  // initCDBSession blocks login, but which SSS host it calls is not known, so
+  // it only fails outright when every route is broken. Some broken is amber:
+  // login continues, and the app calls after it show which endpoints fail.
+  const allBroken = brokenDs.length > 0 && brokenDs.length === downstream.length;
+  if (mode === 'issue' && allBroken) {
+    const note = `Every downstream route is broken, so initCDBSession cannot complete and login stops.`;
+    if (key === 'OK' || key === 'NEW') { key = 'DS500'; why = note; } else { why += ` ${note}`; sevOverride = 'bad'; }
+    http = '500';
+  } else if (mode === 'issue' && brokenDs.length) {
+    const note = `${brokenDs.length} of ${downstream.length} downstream routes are broken (${named(brokenDs)}). ` +
+      'Which host initCDBSession itself calls is not modelled, so login continues; the app calls show what fails.';
+    if (key === 'OK' || key === 'NEW') { key = 'PARTIAL'; why = note; sevOverride = 'warn'; } else { why += ` ${note}`; }
+    http = '200 / 500';
+  } else if (brokenDs.length) {
     const note = `${brokenDs.length} of ${downstream.length} downstream routes are broken: ` +
       `${named(brokenDs)} ${brokenDs.length > 1 ? 'have' : 'has'} no healthy SSS V2 to reach, ` +
       'so those endpoints return 500.';

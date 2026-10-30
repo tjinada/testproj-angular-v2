@@ -55,7 +55,7 @@ function toSimState(
     jsession: user.jsServer ?? 1,
     jsessionSite: user.jsSite ?? undefined,
     idpSite: user.idpCookie ?? undefined,
-    fanout: call === 'apicdb',
+    fanout: call === 'apicdb' || call === 'cdbsession',
     sessionMode: call === 'signin' ? 'none' : call === 'cdbsession' ? 'issue' : 'check'
   };
 }
