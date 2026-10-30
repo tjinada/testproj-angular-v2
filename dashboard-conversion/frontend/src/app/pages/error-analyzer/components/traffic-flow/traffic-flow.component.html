@@ -172,6 +172,10 @@
             [attr.height]="p.height" rx="9"></rect>
           <text [attr.x]="p.x + p.width / 2" [attr.y]="p.y + 13">{{ p.site }}</text>
         </g>
+        <!-- Row captions where one GTM has a pick per hostname. -->
+        <ng-container *ngFor="let p of g.pills">
+          <text *ngIf="p.row" class="tf-pill-row" [attr.x]="p.x - 6" [attr.y]="p.y + 13">{{ p.row }}</text>
+        </ng-container>
 
         <!-- Site pills on tier heads, above the nodes so they read even when dimmed. -->
         <g *ngFor="let n of g.nodes" class="tf-sitepill-g">
@@ -189,11 +193,11 @@
           [class.tf-sw-changed]="c.changed" [class.tf-sw-locked]="c.locked">
           <text class="tf-sw-k" text-anchor="end" [attr.x]="c.x - 7" [attr.y]="c.y + 13">{{ c.label }}{{ c.locked ? ' 🔒' : '' }}</text>
           <g *ngFor="let o of c.options; let k = index" class="tf-sw-o"
-            [class.tf-sw-on]="o === c.value" (click)="o !== c.value && toggleChip(c)">
+            [class.tf-sw-on]="o === c.value" (click)="pickChip(c, o)">
             <title>{{ c.locked ? 'Set by the outage scenario' : o === c.value ? 'Current setting' : 'Switch to ' + o }}</title>
-            <rect [attr.x]="c.x + k * c.width / 2" [attr.y]="c.y" [attr.width]="c.width / 2"
-              height="18" [attr.rx]="4"></rect>
-            <text [attr.x]="c.x + k * c.width / 2 + c.width / 4" [attr.y]="c.y + 13">{{ o }}</text>
+            <rect [attr.x]="c.x + k * c.width / c.options.length" [attr.y]="c.y"
+              [attr.width]="c.width / c.options.length" height="18" [attr.rx]="4"></rect>
+            <text [attr.x]="c.x + (k + 0.5) * c.width / c.options.length" [attr.y]="c.y + 13">{{ o }}</text>
           </g>
         </g>
       </svg>

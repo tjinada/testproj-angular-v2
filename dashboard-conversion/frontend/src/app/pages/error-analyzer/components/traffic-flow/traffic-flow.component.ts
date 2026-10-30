@@ -4,7 +4,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  CallKind, CallResult, Cohort, DownstreamRoute, JourneyFrame, OutageType, Overrides, PoolMonitor,
+  CallKind, CallResult, Cohort, DownstreamRoute, GtmWeight, JourneyFrame, OutageType, Overrides, PoolMonitor,
   RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { CALL_SEQUENCE } from '../../models/traffic-flow.model';
@@ -87,8 +87,8 @@ export class TrafficFlowComponent implements OnInit {
   });
 
   /**
-   * The selected user's cookies as of the call on screen. Read
-   * off sign-in for cdbbossiteId and JSESSIONID, and off the auth call for apidc.
+   * The selected user's cookies as of the call on screen. Read off sign-in for
+   * cdbbossiteId, off initCDBSession for JSESSIONID, and off the auth call for apidc.
    * Null means the cookie has not been assigned.
    */
   cookies = computed(() => {
@@ -108,13 +108,16 @@ export class TrafficFlowComponent implements OnInit {
     // A skipped auth call has no state; the cookie carried into sign-in still stands.
     const idpIn = (idp?.state ?? st)?.idpSite ?? null;
     const jsIn = fresh ? null : `${jsInSite} #${st!.jsession}`;
+    // Only initCDBSession issues a session, so it only changes once that call has run.
+    const reached = (call: CallKind) => CALL_SEQUENCE.indexOf(f.call) >= CALL_SEQUENCE.indexOf(call);
+    const cs = reached('cdbsession') ? at('cdbsession')?.resolution ?? null : null;
+    const site = sr?.stampedSite ?? (fresh ? null : st!.site);
     return {
-      site: sr?.stampedSite ?? (fresh ? null : st!.site),
-      // Only sign-in issues a session, so this is the only call that can move it.
-      js: sr && sr.outcome.severity !== 'bad' && sr.bosSite && sr.appServer
-        ? `${sr.bosSite} #${sr.appServer}` : jsIn,
+      site,
+      js: cs && cs.outcome.severity !== 'bad' && cs.bosSite && cs.appServer
+        ? `${cs.bosSite} #${cs.appServer}` : jsIn,
       // Cookie and session on different sites is what breaks the next call.
-      jsSplit: !!sr?.bosSite && !!sr?.stampedSite && sr.bosSite !== sr.stampedSite,
+      jsSplit: !!cs?.bosSite && !!site && cs.bosSite !== (cs.stampedSite ?? site),
       // apidc is set by the auth call, so it only changes once that call has run.
       apidc: CALL_SEQUENCE.indexOf(f.call) >= CALL_SEQUENCE.indexOf('idp')
         ? idp?.resolution?.stampedSite ?? idpIn : idpIn
@@ -167,7 +170,8 @@ export class TrafficFlowComponent implements OnInit {
     if (p === 'idp') { return 'authentication.bmo.com'; }
     if (p === 'spaapi') { return 'apis.bmo.com'; }
     if (p === 'csgcb') { return 'initISAMSession'; }
-    if (call === 'apicdb') { return '/api/cdb/*'; }
+    if (call === 'cdbsession') { return 'initCDBSession'; }
+    if (call === 'apicdb') { return 'App calls (/api/cdb/*)'; }
     const base = p === 'api' ? '/api/cdb' : '/banking/services';
     return call === 'signin' ? `${base}/SignInRequestManager` : base;
   }
@@ -338,6 +342,7 @@ export class TrafficFlowComponent implements OnInit {
         case 'ltm': o.ltmMonitor = 'live'; break;
         case 'idplive': o.idpLive[item.site] = 'present'; break;
         case 'live': o.live[item.site] = 'present'; break;
+        case 'gtmw': o.gtmWeight[item.gtm] = 'split'; break;
       }
     });
     this.clearHover();
@@ -399,6 +404,21 @@ export class TrafficFlowComponent implements OnInit {
     }, true);
   }
 
+  /**
+   * A switch option was clicked. Two-way switches flip; the GTM weighting
+   * switch has three options, so it takes the one clicked.
+   */
+  pickChip(chip: TfChip, option: string): void {
+    if (chip.locked || option === chip.value) { return; }
+    if (chip.kind === 'gtmw' && chip.gtm) {
+      const gtm = chip.gtm;
+      const w: GtmWeight = option === 'BCC' || option === 'SCC' ? option : 'split';
+      this.setOverrides(o => { o.gtmWeight[gtm] = w; });
+      return;
+    }
+    this.toggleChip(chip);
+  }
+
   /** A chip flips the setting it sits on. Monitors are one setting for both sites. */
   toggleChip(chip: TfChip): void {
     if (chip.locked) { return; }
@@ -437,7 +457,8 @@ export class TrafficFlowComponent implements OnInit {
   private setOverrides(mutate: (o: Overrides) => void): void {
     const cur = this.overrides();
     const next: Overrides = {
-      ...cur, down: { ...cur.down }, idpLive: { ...cur.idpLive }, live: { ...cur.live }
+      ...cur, down: { ...cur.down }, idpLive: { ...cur.idpLive }, live: { ...cur.live },
+      gtmWeight: { ...cur.gtmWeight }
     };
     mutate(next);
     this.overrides.set(next);
@@ -451,6 +472,7 @@ export class TrafficFlowComponent implements OnInit {
       os: c.outageSite, ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
       ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
       idlb: o.idpLive.BCC, idls: o.idpLive.SCC, lb: o.live.BCC, ls: o.live.SCC,
+      wbos: o.gtmWeight.bos, wapi: o.gtmWeight.api, wisam: o.gtmWeight.isam,
       who: this.cohort()
     };
     const off = Object.keys(o.down);
@@ -487,6 +509,8 @@ export class TrafficFlowComponent implements OnInit {
     if (p['idls'] === 'renamed') { o.idpLive.SCC = 'renamed'; }
     if (p['lb'] === 'renamed') { o.live.BCC = 'renamed'; }
     if (p['ls'] === 'renamed') { o.live.SCC = 'renamed'; }
+    const weight = (v: string | undefined): GtmWeight => (v === 'BCC' || v === 'SCC' ? v : 'split');
+    o.gtmWeight = { bos: weight(p['wbos']), api: weight(p['wapi']), isam: weight(p['wisam']) };
     (p['off'] ?? '').split(',').filter(Boolean).forEach(id => { o.down[id] = true; });
     this.overrides.set(o);
 

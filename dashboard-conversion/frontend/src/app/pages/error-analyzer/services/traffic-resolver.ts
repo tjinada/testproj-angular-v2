@@ -1,5 +1,6 @@
 import type {
   DecisionStep,
+  GtmWeight,
   DownstreamKind,
   DownstreamRoute,
   Outcome,
@@ -215,34 +216,51 @@ export function resolveTraffic(state: SimState): Resolution {
   // both its datacentres pass their check; otherwise it answers 100% one way.
   const apiHealth = { BCC: apicHealthy(state, 'BCC'), SCC: apicHealthy(state, 'SCC') };
   const bosHealth = { BCC: bosHealthy(state, 'BCC', false), SCC: bosHealthy(state, 'SCC', false) };
-  const distribution = (h: Record<SiteId, boolean>): string => {
+  // A manual weight replaces the 50/50, but only while the weighted site is
+  // healthy; otherwise health decides, as it would for a 50/50.
+  const distribution = (h: Record<SiteId, boolean>, w: GtmWeight = 'split'): string => {
+    if (w !== 'split' && h[w]) { return `100% → ${w} (weighted)`; }
     if (h.BCC && h.SCC) { return '50/50'; }
     if (h.BCC) { return '100% → BCC'; }
     if (h.SCC) { return '100% → SCC'; }
     return 'no healthy DC';
   };
   const idpHealth = { BCC: idpHealthy(state, 'BCC'), SCC: idpHealthy(state, 'SCC') };
-  // GTM-Auth-SPA-API is the same akadns property as GTM-CDB-API, so it shares
-  // the APIC TCP:443 health; only its 50/50 pick is its own.
+  // apis.bmo.com is answered by GTM-CDB-API too (one akadns property), so it
+  // shares the APIC TCP:443 health; only its 50/50 pick is its own.
   const sssHealth = { BCC: sssSiteUp(state, 'BCC'), SCC: sssSiteUp(state, 'SCC') };
+  const wt = state.gtmWeight;
   const gtmDistribution = {
-    api: distribution(apiHealth), bos: distribution(bosHealth),
-    isam: distribution(idpHealth), spa: distribution(apiHealth), sss: distribution(sssHealth)
+    api: distribution(apiHealth, wt.api), bos: distribution(bosHealth, wt.bos),
+    isam: distribution(idpHealth, wt.isam), spa: distribution(apiHealth, wt.api),
+    sss: distribution(sssHealth)
   };
 
-  // Which site each GTM actually answers with. The operator's pick only stands
-  // while both datacentres pass; otherwise health decides for it.
+  // The site each GTM aims for: its manual weight when one is set, else the
+  // 50/50 pick. GTM-CDB-API's weight covers both its hostnames.
+  const weightOf: Record<'bos' | 'api' | 'isam' | 'spa', GtmWeight> =
+    { bos: wt.bos, api: wt.api, spa: wt.api, isam: wt.isam };
+  const aim = (g: 'bos' | 'api' | 'isam' | 'spa'): SiteId =>
+    weightOf[g] === 'split' ? state.gtmPick[g] : weightOf[g] as SiteId;
+  /** How the aim was chosen, for the trace text. */
+  const decided = (g: 'bos' | 'api' | 'isam' | 'spa') =>
+    weightOf[g] === 'split' ? 'the 50/50 lands on' : 'the GTM is weighted 100% to';
+  const plan = (g: 'bos' | 'api' | 'isam' | 'spa') =>
+    weightOf[g] === 'split' ? 'the 50/50' : `the 100% ${weightOf[g]} weighting`;
+
+  // Which site each GTM actually answers with. The aim only stands while that
+  // site passes its check; otherwise health decides for it.
   const answer = (h: Record<SiteId, boolean>, pick: SiteId): SiteId | null => {
-    if (h.BCC && h.SCC) { return pick; }
+    if (h[pick]) { return pick; }
     if (h.BCC) { return 'BCC'; }
     if (h.SCC) { return 'SCC'; }
     return null;
   };
   const gtmAnswer = {
-    api: answer(apiHealth, state.gtmPick.api),
-    bos: answer(bosHealth, state.gtmPick.bos),
-    isam: answer(idpHealth, state.gtmPick.isam),
-    spa: answer(apiHealth, state.gtmPick.spa),
+    api: answer(apiHealth, aim('api')),
+    bos: answer(bosHealth, aim('bos')),
+    isam: answer(idpHealth, aim('isam')),
+    spa: answer(apiHealth, aim('spa')),
     sss: answer(sssHealth, state.gtmPick.sss)
   };
 
@@ -300,7 +318,7 @@ export function resolveTraffic(state: SimState): Resolution {
           : ''),
         renamed ? 'warn' : 'ok');
     } else {
-      const pick = state.gtmPick.isam;
+      const pick = aim('isam');
       const answered = gtmAnswer.isam;
       const overridden = answered !== null && answered !== pick;
       step(['gtm-isam'], 'Akamai GTM-ISAM',
@@ -308,8 +326,8 @@ export function resolveTraffic(state: SimState): Resolution {
           ? `No ${IDP_COOKIE_NAME} → <b>${ISAM_GTM_HOSTNAME}</b> resolves, but no site passes <b>${IDP_LIVENESS}</b>.`
           : overridden
             ? `No ${IDP_COOKIE_NAME} → ISAM-${pick} fails <b>${IDP_LIVENESS}</b>, so the GTM answers ` +
-              `<b>100% ${answered}</b> and the 50/50 is overridden. The edge stamps <b>${IDP_COOKIE_NAME}</b> from the answer.`
-            : `No ${IDP_COOKIE_NAME} → the 50/50 lands on <b>${answered}</b>; the edge stamps ` +
+              `<b>100% ${answered}</b> and ${plan('isam')} is overridden. The edge stamps <b>${IDP_COOKIE_NAME}</b> from the answer.`
+            : `No ${IDP_COOKIE_NAME} → ${decided('isam')} <b>${answered}</b>; the edge stamps ` +
               `<b>${IDP_COOKIE_NAME}</b> from the answer.`,
         answered === null ? 'bad' : overridden ? 'warn' : 'ok');
       if (answered === null) {
@@ -356,23 +374,23 @@ export function resolveTraffic(state: SimState): Resolution {
       'Request <b>apis.bmo.com/api/*</b> (e.g. client-data-encryption-key/get). No affinity ' +
       'cookie — the property has no stickiness rule for apis.bmo.com.');
 
-    const pick = state.gtmPick.spa;
+    const pick = aim('spa');
     const answered = gtmAnswer.spa;
     const overridden = answered !== null && answered !== pick;
-    step(['gtm-spa'], 'Akamai GTM-Auth-SPA-API',
+    step(['gtm-api'], 'Akamai GTM-CDB-API (apis.bmo.com)',
       answered === null
         ? 'TCP:443 fails against the APIC farm on <b>both</b> sites.'
         : overridden
           ? `TCP:443 fails against APIC-${pick}, so the GTM answers <b>100% ${answered}</b>. ` +
             'With no cookie to pin it, every user fails over — existing ones included.'
-          : `The 50/50 lands on <b>${answered}</b>. Nothing is stamped, so the next call gets its own answer.`,
+          : `${decided('spa').replace(/^t/, 'T')} <b>${answered}</b>. Nothing is stamped, so the next call gets its own answer.`,
       answered === null ? 'bad' : overridden ? 'warn' : 'ok');
 
     if (answered === null) {
       return done('DOWN503',
-        'The APIC farm is out of service on both sites, so GTM-Auth-SPA-API has no healthy ' +
+        'The APIC farm is out of service on both sites, so GTM-CDB-API has no healthy ' +
         'datacentre. Login cannot continue.',
-        '503', { pinnedSite: pick, breakAt: 'gtm-spa' });
+        '503', { pinnedSite: pick, breakAt: 'gtm-api' });
     }
 
     step([`apicfs-${answered}`], `APIC FS (${answered})`,
@@ -387,7 +405,7 @@ export function resolveTraffic(state: SimState): Resolution {
     const front = overridden
       ? `APIC-${pick} is down, so the GTM sent this call to ${answered}. No cookie means no pin to ` +
         'hold it on the dead site — the failover just works.'
-      : `No affinity cookie. GTM-Auth-SPA-API answers ${answered} for this request only.`;
+      : `No affinity cookie. GTM-CDB-API answers ${answered} for this request only.`;
     const extra = { pinnedSite: answered, apicSite: answered, downstream: [ds] };
 
     if (ds.status === 'broken') {
@@ -439,7 +457,7 @@ export function resolveTraffic(state: SimState): Resolution {
           '503', { apicSite, breakAt: `apicfs-${pinned}` });
       }
     } else {
-      const pick = state.gtmPick.api;
+      const pick = aim('api');
       if (apicHealthy(state, pick)) { apicSite = pick; }
       else if (apicHealthy(state, other(pick))) { apicSite = other(pick); edgeFailover = true; }
       if (apicSite) { stamp(apicSite); }
@@ -448,8 +466,8 @@ export function resolveTraffic(state: SimState): Resolution {
         apicSite === null
           ? 'No cookie → the CNAME chain resolves, but the TCP:443 check fails against the APIC farm on <b>both</b> sites.'
           : edgeFailover
-            ? `No cookie → the CNAME chain resolves. TCP:443 fails against APIC-${pick}, so the GTM answers <b>100% ${apicSite}</b> and the 50/50 split is overridden.`
-            : `No cookie → the CNAME chain resolves. The 50/50 lands on <b>${apicSite}</b>; the edge stamps <b>${SITE_COOKIE_NAME}</b> from the answer.`,
+            ? `No cookie → the CNAME chain resolves. TCP:443 fails against APIC-${pick}, so the GTM answers <b>100% ${apicSite}</b> and ${plan('api')} is overridden.`
+            : `No cookie → the CNAME chain resolves; ${decided('api')} <b>${apicSite}</b>. The edge stamps <b>${SITE_COOKIE_NAME}</b> from the answer.`,
         apicSite === null ? 'bad' : edgeFailover ? 'warn' : 'ok');
 
       if (apicSite === null) {
@@ -521,7 +539,9 @@ export function resolveTraffic(state: SimState): Resolution {
       '<b>/banking/live.txt</b> is never consulted on this request.');
   } else {
     step(['gtm-bos'], 'Akamai GTM-CDB-BOS',
-      'No cookie → the CNAME chain resolves and liveness <b>/banking/live.txt</b> decides the site.');
+      'No cookie → the CNAME chain resolves and ' + (wt.bos === 'split'
+        ? 'liveness <b>/banking/live.txt</b> decides the site.'
+        : `the GTM is weighted <b>100% to ${wt.bos}</b>; liveness only overrides that if ${wt.bos} fails.`));
   }
 
   // csgcb never passes through the cloudlet — ISAM has no blue/green instances.
@@ -531,7 +551,7 @@ export function resolveTraffic(state: SimState): Resolution {
   }
 
   // ---- tier 2: pick the BOS site ------------------------------------------
-  const from: SiteId = api ? (apicSite as SiteId) : (cookieBypass ? pinned : state.gtmPick.bos);
+  const from: SiteId = api ? (apicSite as SiteId) : (cookieBypass ? pinned : aim('bos'));
   let bosSite: SiteId | null = null;
   let bosFailover = false;
   let drained = false;
@@ -589,7 +609,7 @@ export function resolveTraffic(state: SimState): Resolution {
     } else if (bosFailover) {
       steps[1].what =
         `No cookie → the CNAME chain resolves. BOS-${from} fails <b>/banking/live.txt</b>, so the GTM ` +
-        `answers <b>100% ${bosSite}</b> and the 50/50 split is overridden.`;
+        `answers <b>100% ${bosSite}</b> and ${plan('bos')} is overridden.`;
       steps[1].state = 'warn';
     }
   }
@@ -654,10 +674,16 @@ export function resolveTraffic(state: SimState): Resolution {
   // site *issued* the JSESSIONID, not which site the cdbbossiteId points at.
   // Those are the same in manual mode but diverge after a failover: cookie SCC
   // with a BCC-issued session resolves fine as long as the request lands on BCC.
+  //
+  // JSESSIONID is issued by initCDBSession, the first /api/cdb call after
+  // authentication. Sign-in runs before any session exists, and initCDBSession
+  // starts a fresh one, so only the calls after it are held to a JVM.
+  const mode = state.sessionMode ?? 'check';
+  const holdsSession = existing && mode === 'check';
   const jsSite = state.jsessionSite ?? pinned;
-  const crossSite = existing && bosSite !== jsSite;
-  const jvmGone = existing && !crossSite && apps.indexOf(state.jsession) < 0;
-  const appServer = crossSite || jvmGone || !existing ? apps[0] : state.jsession;
+  const crossSite = holdsSession && bosSite !== jsSite;
+  const jvmGone = holdsSession && !crossSite && apps.indexOf(state.jsession) < 0;
+  const appServer = crossSite || jvmGone || !holdsSession ? apps[0] : state.jsession;
 
   let key: OutcomeKey;
   let why: string;
@@ -701,24 +727,31 @@ export function resolveTraffic(state: SimState): Resolution {
       'drain bleeds instead of cutting.';
   } else if (!existing) {
     key = 'NEW';
-    why = `No stickiness cookie. The edge assigns ${bosSite} and the app issues fresh cookies.`;
+    why = `No stickiness cookie. The edge assigns ${bosSite} and stamps ${SITE_COOKIE_NAME}` +
+      (mode === 'none' ? '; no session yet — JSESSIONID comes with initCDBSession after login.' : '.');
   } else {
     key = 'OK';
-    why = `Cookie pins ${bosSite}, the site is healthy, and the plugin routes to App Server ${appServer}.`;
+    why = mode === 'none'
+      ? `Cookie pins ${bosSite} and the site is healthy. No session yet — JSESSIONID comes with initCDBSession after login.`
+      : mode === 'issue'
+        ? `Cookie pins ${bosSite} and the site is healthy. initCDBSession starts the session on App Server ${appServer}.`
+        : `Cookie pins ${bosSite}, the site is healthy, and the plugin routes to App Server ${appServer}.`;
   }
 
   step([`app-${bosSite}-${appServer}`], `BOS App (${bosSite})`,
     key === 'TIMEOUT'
       ? `A fresh empty session is created on <b>App Server ${appServer}</b> — user is bounced to login.`
-      : existing
+      : holdsSession
         ? `App Server <b>${appServer}</b> holds the session state.`
-        : `App issues <b>JSESSIONID</b> with jvmRoute for <b>App Server ${appServer}</b>.`,
+        : mode === 'issue'
+          ? `initCDBSession issues <b>JSESSIONID</b> with jvmRoute for <b>App Server ${appServer}</b>.`
+          : `Served by <b>App Server ${appServer}</b> with no session — JSESSIONID comes later, with initCDBSession.`,
     key === 'TIMEOUT' ? 'bad' : 'ok');
 
   const suffix = `${bosSite.toLowerCase()}app${appServer}`;
   // The site cookie is reported separately as cookieStamped; this is the
   // application's own session cookie.
-  const setCookie = !existing
+  const setCookie = mode === 'issue'
     ? `JSESSIONID=…${suffix}`
     : key === 'TIMEOUT'
       ? `JSESSIONID=…${suffix} (new)`

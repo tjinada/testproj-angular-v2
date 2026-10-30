@@ -9,7 +9,7 @@
  * Its affinity cookie is apidc, independent of cdbbossiteId.
  *
  * 'spaapi' is apis.bmo.com/api/* from the CIAM Auth SPAs, through
- * GTM-Auth-SPA-API to APIC. It carries no affinity cookie: the property has no
+ * GTM-CDB-API to APIC. It carries no affinity cookie: the property has no
  * stickiness rule for apis.bmo.com, so every request is answered by the GTM.
  */
 export type TrafficPath = 'banking' | 'api' | 'csgcb' | 'idp' | 'spaapi';
@@ -36,6 +36,16 @@ export type PoolMonitor = 'live' | 'tcp';
  */
 export type GtmId = 'bos' | 'api' | 'isam' | 'spa' | 'sss';
 
+/**
+ * The Akamai GTMs whose traffic weighting the operator can set in the GTM
+ * console. GTM-CDB-API is one property for www1 /api/cdb and apis.bmo.com, so
+ * its weight covers both; only the per-hostname pick ('api' / 'spa') differs.
+ */
+export type WeightedGtm = 'bos' | 'api' | 'isam';
+
+/** 'split' is the normal 50/50; a site is a manual 100% to that site. */
+export type GtmWeight = 'split' | SiteId;
+
 /** Everything the operator can vary. Serialised into the shareable link. */
 export interface SimState {
   path: TrafficPath;
@@ -47,6 +57,12 @@ export interface SimState {
    * the session is existing, because the cookie bypasses the GTM entirely.
    */
   gtmPick: Record<GtmId, SiteId>;
+  /**
+   * Manual traffic weighting per GTM. A forced site wins over the pick, but
+   * health still wins over the weight: if the weighted site fails its check,
+   * the GTM answers the other site rather than nothing.
+   */
+  gtmWeight: Record<WeightedGtm, GtmWeight>;
   /** JSESSIONID jvmRoute -> app server 1..APP_SERVERS. */
   jsession: number;
   /**
@@ -66,6 +82,13 @@ export interface SimState {
    * and /banking/services stop at CDBBOS.
    */
   fanout?: boolean;
+  /**
+   * Where this call stands with JSESSIONID, which initCDBSession issues as the
+   * first /api/cdb call after authentication. 'none': sign-in, before any
+   * session exists. 'issue': initCDBSession, which starts a fresh one. 'check':
+   * every call after it, held to the JVM that issued it. Absent means 'check'.
+   */
+  sessionMode?: 'none' | 'issue' | 'check';
   live: Record<SiteId, LivenessState>;
   /** ISAM IdP liveness object per site. Drives GTM-ISAM health only. */
   idpLive: Record<SiteId, LivenessState>;
@@ -189,7 +212,7 @@ export interface Resolution {
 }
 
 /** The estate half of SimState — everything a request does not carry. */
-export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite' | 'idpSite' | 'fanout'>;
+export type EnvState = Omit<SimState, 'path' | 'session' | 'site' | 'jsession' | 'jsessionSite' | 'idpSite' | 'fanout' | 'sessionMode'>;
 
 /**
  * What one user carries between requests. cdbbossiteId and the JSESSIONID
@@ -266,7 +289,7 @@ export interface ScenarioConfig {
   site: SiteId;
   /** Which site GTM-ISAM's 50/50 answers when the auth call arrives without apidc. */
   idpSite: SiteId;
-  /** Which site GTM-Auth-SPA-API's 50/50 answers. No cookie, so every call. */
+  /** Which site GTM-CDB-API's 50/50 answers for apis.bmo.com. No cookie, so every call. */
   spaSite: SiteId;
   /** Which site the es-api.bmogc.net GSS 50/50 answers for downstream calls. */
   sssSite: SiteId;
@@ -288,6 +311,8 @@ export interface Overrides {
   extGtmMonitor: PoolMonitor;
   /** ISAM IdP liveness object per site. */
   idpLive: Record<SiteId, LivenessState>;
+  /** Manual GTM traffic weighting, as set in the GTM console. */
+  gtmWeight: Record<WeightedGtm, GtmWeight>;
   /**
    * BOS live.txt per site. Only applied when no outage scenario is selected —
    * the planned and unplanned stages own it otherwise.
@@ -301,19 +326,23 @@ export interface Overrides {
  * Sign-in arrives unpinned, so its GTM answer is what gets stamped into
  * cdbbossiteId. 'idp' (authentication.bmo.com) follows it and decides apidc
  * the same way, through GTM-ISAM. 'spaapi' (apis.bmo.com, still during login)
- * has no cookie and is answered fresh by GTM-Auth-SPA-API every time. The last
- * three inherit cdbbossiteId.
+ * has no cookie and is answered fresh by GTM-CDB-API every time. The rest
+ * inherit cdbbossiteId.
  *
- * 'apicdb' is a post-login /api/cdb/* call: the same front path as sign-in on
- * /api/cdb, but CDBBOS goes on to call SSS V2 and AWS. 'banking' is a
- * post-login /banking/services call. Both are cookie-bound and decide nothing.
+ * 'cdbsession' is initCDBSession, the first /api/cdb call once the user is
+ * authenticated. It issues JSESSIONID; sign-in does not. initISAMSession
+ * follows it. 'apicdb' stands for the regular post-login /api/cdb calls
+ * (getCount, entitlements, edoc…): the same front path, but CDBBOS goes on to
+ * call SSS V2 and AWS. 'banking' is a post-login /banking/services call. Those
+ * last two are held to the session and decide nothing.
  */
-export type CallKind = 'signin' | 'idp' | 'spaapi' | 'isam' | 'apicdb' | 'banking';
+export type CallKind = 'signin' | 'idp' | 'spaapi' | 'cdbsession' | 'isam' | 'apicdb' | 'banking';
 
-export const CALL_SEQUENCE: CallKind[] = ['signin', 'idp', 'spaapi', 'isam', 'apicdb', 'banking'];
+export const CALL_SEQUENCE: CallKind[] =
+  ['signin', 'idp', 'spaapi', 'cdbsession', 'isam', 'apicdb', 'banking'];
 
 /** Calls the app cannot continue without. A failure stops the sequence. */
-export const BLOCKING_CALLS: CallKind[] = ['signin', 'idp', 'spaapi'];
+export const BLOCKING_CALLS: CallKind[] = ['signin', 'idp', 'spaapi', 'cdbsession'];
 
 /** One cohort's answer for the call a frame is showing. */
 export interface CallResult {

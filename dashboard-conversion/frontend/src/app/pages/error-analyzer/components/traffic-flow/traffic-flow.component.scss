@@ -368,6 +368,9 @@ select {
   &.tf-linked .tf-outline { stroke: $amber; stroke-width: 4; }
 }
 
+/* Caption for a pick row, when one GTM carries a pick per hostname. */
+.tf-pill-row { font-size: 10px; font-weight: 700; fill: $muted; text-anchor: end; }
+
 /* GTM site-pick pills, rendered inside the ovals. Always clickable. */
 .tf-pill {
   cursor: pointer;

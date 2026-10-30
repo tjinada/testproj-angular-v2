@@ -12,6 +12,7 @@ export function callPaths(c: ScenarioConfig): Record<CallKind, TrafficPath> {
     signin: c.signinPath,
     idp: 'idp',
     spaapi: 'spaapi',
+    cdbsession: 'api',
     isam: 'csgcb',
     apicdb: 'api',
     banking: 'banking'
@@ -23,7 +24,7 @@ function emptyUser(): UserSession {
 }
 
 function baseEnv(): EnvState {
-  const { path, session, site, jsession, jsessionSite, idpSite, fanout, ...env } = defaultSimState();
+  const { path, session, site, jsession, jsessionSite, idpSite, fanout, sessionMode, ...env } = defaultSimState();
   return env;
 }
 
@@ -35,7 +36,7 @@ function baseEnv(): EnvState {
  */
 function toSimState(
   env: EnvState, user: UserSession, path: TrafficPath, fallbackSite: SimState['site'],
-  fanout = false
+  call?: CallKind
 ): SimState {
   // The auth call is pinned by apidc, not cdbbossiteId. apis.bmo.com carries
   // no affinity cookie at all, so it always arrives unpinned.
@@ -47,13 +48,15 @@ function toSimState(
     live: { ...env.live },
     idpLive: { ...env.idpLive },
     gtmPick: { ...env.gtmPick },
+    gtmWeight: { ...env.gtmWeight },
     path,
     session: existing || path === 'csgcb' ? 'existing' : 'new',
     site: user.cookie ?? fallbackSite,
     jsession: user.jsServer ?? 1,
     jsessionSite: user.jsSite ?? undefined,
     idpSite: user.idpCookie ?? undefined,
-    fanout
+    fanout: call === 'apicdb',
+    sessionMode: call === 'signin' ? 'none' : call === 'cdbsession' ? 'issue' : 'check'
   };
 }
 
@@ -63,13 +66,14 @@ function toSimState(
  * The cookie is stamped by the edge on the way out, so it lands whenever the
  * origin answered at all.
  *
- * The JSESSIONID is set by sign-in and only by sign-in. initISAMSession and
- * /banking/services respect it rather than reissuing, so they never move the
- * session — which is what lets the cookie and the session point at different
- * sites and stay that way.
+ * The JSESSIONID is set by initCDBSession and only by initCDBSession, the
+ * first /api/cdb call after authentication. initISAMSession and the app calls
+ * after it respect it rather than reissuing, so they never move the session —
+ * which is what lets the cookie and the session point at different sites and
+ * stay that way.
  *
- * Even on sign-in it needs the request to have been served: a 302 back to
- * login, a 503 or an RST never reached an app server, so nothing was issued.
+ * Even then it needs the request to have been served: a 302 back to login, a
+ * 503 or an RST never reached an app server, so nothing was issued.
  * Without that guard a session-mismatch 302 would adopt the site that bounced
  * it and the mismatch would vanish on the next frame.
  */
@@ -82,7 +86,7 @@ function carry(user: UserSession, call: CallKind, r: Resolution): UserSession {
       : { ...next, cookie: r.stampedSite };
   }
   const served = r.outcome.severity !== 'bad';
-  if (call === 'signin' && served && r.bosSite && r.appServer) {
+  if (call === 'cdbsession' && served && r.bosSite && r.appServer) {
     next = { ...next, jsSite: r.bosSite, jsServer: r.appServer };
   }
   return next;
@@ -98,7 +102,7 @@ interface CohortPass {
 /**
  * Runs the full sequence for one cohort against the current estate.
  *
- * A failed login call (sign-in, authentication.bmo.com or apis.bmo.com) stops
+ * A failed login call (sign-in, authentication.bmo.com, apis.bmo.com or initCDBSession) stops
  * everything: the app goes no further. A failed initISAMSession does not —
  * /banking/services is still resolved and shown, so the knock-on is visible.
  */
@@ -117,7 +121,7 @@ function runPass(
       continue;
     }
 
-    const state = toSimState(env, user, paths[call], gtmSite, call === 'apicdb');
+    const state = toSimState(env, user, paths[call], gtmSite, call);
     const resolution = resolveTraffic(state);
     results[call] = { cohort, call, state, resolution, skipped: false };
 
@@ -169,7 +173,7 @@ export function runJourney(scenario: Scenario, c: ScenarioConfig): JourneyFrame[
     CALL_SEQUENCE.forEach((call, i) => {
       const state = pinned.results[call].state
         ?? fresh.results[call].state
-        ?? toSimState(env, user, paths[call], gtmSite, call === 'apicdb');
+        ?? toSimState(env, user, paths[call], gtmSite, call);
 
       frames.push({
         label: step.label,

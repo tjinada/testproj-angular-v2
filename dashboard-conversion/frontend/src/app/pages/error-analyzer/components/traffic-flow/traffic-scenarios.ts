@@ -1,5 +1,6 @@
 import type {
-  EnvState, JourneyStep, LivenessState, Overrides, PoolMonitor, Scenario, ScenarioConfig, SiteId
+  EnvState, JourneyStep, LivenessState, Overrides, PoolMonitor, Scenario, ScenarioConfig, SiteId,
+  WeightedGtm
 } from '../../models/traffic-flow.model';
 import {
   APIC_INSTANCES, APP_SERVERS, IDP_LIVENESS, SITE_IDS, WEB_SERVERS, nodeLabel
@@ -10,15 +11,24 @@ export function defaultOverrides(): Overrides {
   return {
     down: {}, ltmMonitor: 'live', extGtmMonitor: 'live',
     idpLive: { BCC: 'present', SCC: 'present' },
+    gtmWeight: { bos: 'split', api: 'split', isam: 'split' },
     live: { BCC: 'present', SCC: 'present' }
   };
 }
+
+/** GTM node and display name per weighted GTM. */
+export const WEIGHTED_GTMS: { gtm: WeightedGtm; node: string; name: string }[] = [
+  { gtm: 'bos', node: 'gtm-bos', name: 'GTM-CDB-BOS' },
+  { gtm: 'api', node: 'gtm-api', name: 'GTM-CDB-API' },
+  { gtm: 'isam', node: 'gtm-isam', name: 'GTM-ISAM' }
+];
 
 /** One way the estate differs from production, as listed under Overrides. */
 export type OverrideItem =
   | { kind: 'down'; id: string; label: string; nodeIds: string[] }
   | { kind: 'extgtm' | 'ltm'; label: string; nodeIds: string[] }
-  | { kind: 'idplive' | 'live'; site: SiteId; label: string; nodeIds: string[] };
+  | { kind: 'idplive' | 'live'; site: SiteId; label: string; nodeIds: string[] }
+  | { kind: 'gtmw'; gtm: WeightedGtm; label: string; nodeIds: string[] };
 
 /**
  * Everything the operator has changed from the production defaults. live.txt
@@ -30,6 +40,10 @@ export function listOverrides(o: Overrides, outageNone: boolean): OverrideItem[]
   const both = (tier: string) => SITE_IDS.map(s => `${tier}-${s}`);
   const mon = (m: PoolMonitor) => (m === 'tcp' ? 'TCP' : 'live.txt');
 
+  WEIGHTED_GTMS.forEach(({ gtm, node, name }) => {
+    const w = o.gtmWeight[gtm];
+    if (w !== 'split') { items.push({ kind: 'gtmw', gtm, label: `${name} → 100% ${w}`, nodeIds: [node] }); }
+  });
   if (o.extGtmMonitor !== 'live') {
     items.push({ kind: 'extgtm', label: `EXT GTM monitor → ${mon(o.extGtmMonitor)}`, nodeIds: both('extgtm') });
   }
@@ -181,7 +195,7 @@ export function buildScenario(c: ScenarioConfig, o: Overrides): Scenario {
   const outageNone = c.outageType === 'none';
 
   // Every step is one user action: sign-in, authentication.bmo.com,
-  // apis.bmo.com, initISAMSession, /api/cdb/* and /banking/services. An estate change rides
+  // apis.bmo.com, initCDBSession, initISAMSession, /api/cdb/* and /banking/services. An estate change rides
   // on the step it precedes rather than taking a frame of its own.
   // No "before the outage" frame — the pinned user is established silently by
   // the runner, so the first step is the first thing that actually changes.
@@ -220,8 +234,11 @@ export function buildScenario(c: ScenarioConfig, o: Overrides): Scenario {
     // their cookie, so those users keep hitting the drained site while new
     // users move away. live.txt is only applied with no outage selected —
     // otherwise the planned/unplanned stages own it.
+    // GTM weighting is the same kind of change: set in the console after users
+    // are already pinned, so it only steers requests the GTM still answers.
     afterPin: env => {
       env.idpLive = { ...o.idpLive };
+      env.gtmWeight = { ...o.gtmWeight };
       if (outageNone) { env.live = { ...o.live }; }
     },
     steps

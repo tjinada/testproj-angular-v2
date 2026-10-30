@@ -1,5 +1,5 @@
 import type {
-  Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId
+  Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId, WeightedGtm
 } from '../../models/traffic-flow.model';
 import {
   APIC_INSTANCES, APP_SERVERS, AUTH_SPA_API_HOSTNAME, AWS_API_GW, IDP_COOKIE_NAME, IDP_LIVENESS,
@@ -91,10 +91,15 @@ export interface TfPill {
   selected: boolean;
   /** False when a cookie bypasses the GTM, or health has overridden the pick. */
   active: boolean;
+  /**
+   * Row caption, on the first pill of a row only. Set where one GTM carries
+   * more than one hostname, each with its own pick.
+   */
+  row?: string;
 }
 
 /** Which override a chip flips. Monitors are one setting across both sites. */
-export type ChipKind = 'extgtm' | 'ltm' | 'idplive' | 'live';
+export type ChipKind = 'extgtm' | 'ltm' | 'idplive' | 'live' | 'gtmw';
 
 /**
  * A setting toggle drawn on the box it configures. Rendered above the nodes so
@@ -112,8 +117,10 @@ export interface TfChip {
   changed: boolean;
   /** Owned by the outage scenario, so not editable here. */
   locked: boolean;
-  /** The two values the switch offers, in display order. */
+  /** The values the switch offers, in display order. */
   options: string[];
+  /** Which GTM a weighting switch sets. */
+  gtm?: WeightedGtm;
 }
 
 export interface TfGraph {
@@ -157,7 +164,7 @@ const CSGCB_RAIL_Y = 420;
 const ISAM_GTM_RAIL_Y = 310;
 
 /**
- * Horizontal run of the GTM-Auth-SPA-API legs, in the gap just above the APIC
+ * Horizontal run of the apis.bmo.com legs, in the gap just above the APIC
  * FS row. Lower than the GTM-ISAM rail so the two never run alongside.
  */
 const SPA_RAIL_Y = 436;
@@ -200,25 +207,22 @@ function baseNodes(res: Resolution): Record<string, any> {
   n['ciam-spa'] = { x: 1700, y: 20, width: 180, height: 44, outline: true,
     lines: [line('CIAM Auth SPA', true)] };
 
-  n['gtm-bos'] = { x: 715, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+  // Each Akamai GTM's distribution is its weighting switch, drawn above the pills.
+  n['gtm-bos'] = { x: 715, y: ROW.gtm - 85, width: 290, height: 170, footer: 66, outline: true, ellipse: true,
     lines: [line('GTM-CDB-BOS', true), line('www1.bmo.com/banking/services/*'),
-      line('Liveness: /banking/live.txt'), line('Stickiness: cdbbossiteId'),
-      line(res.gtmDistribution.bos, true)] };
+      line('Liveness: /banking/live.txt'), line('Stickiness: cdbbossiteId')] };
 
-  n['gtm-api'] = { x: 1155, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
-    lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'),
-      line('wlb.apis.olbb.akadns.net'), line('Liveness: TCP on port 443'),
-      line('Stickiness: cdbbossiteId'), line(res.gtmDistribution.api, true)] };
+  // One GTM property for both hostnames: shared TCP:443 health, but each
+  // hostname is resolved on its own, so each keeps its own pick (two pill rows).
+  n['gtm-api'] = { x: 1145, y: ROW.gtm - 97, width: 310, height: 194, footer: 90,
+    outline: true, ellipse: true,
+    lines: [line('GTM-CDB-API', true), line('www1.bmo.com/api/cdb'), line('apis.bmo.com/api/*'),
+      line(AUTH_SPA_API_HOSTNAME), line('Liveness: TCP on port 443')] };
 
-  n['gtm-isam'] = { x: 1595, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
+  n['gtm-isam'] = { x: 1595, y: ROW.gtm - 85, width: 290, height: 170, footer: 66, outline: true, ellipse: true,
     lines: [line('GTM-ISAM', true), line('authentication.bmo.com/aac/*'),
       line(ISAM_GTM_HOSTNAME), line(`Liveness: ${IDP_LIVENESS}`),
-      line(`Stickiness: ${IDP_COOKIE_NAME}`), line(res.gtmDistribution.isam, true)] };
-
-  n['gtm-spa'] = { x: 2135, y: ROW.gtm - 85, width: 290, height: 170, outline: true, ellipse: true,
-    lines: [line('GTM-Auth-SPA-API', true), line('apis.bmo.com/api/*'),
-      line(AUTH_SPA_API_HOSTNAME), line('Liveness: TCP on port 443'),
-      line('Stickiness: none'), line(res.gtmDistribution.spa, true)] };
+      line(`Stickiness: ${IDP_COOKIE_NAME}`)] };
 
   n['cloudlet'] = { x: 890, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
     lines: [line('cloudlet Configuration', true), line('Set x-bmo-env=blue or Green'),
@@ -515,13 +519,14 @@ function isamGtmRail(all: Record<string, Geom>, site: SiteId): string {
 }
 
 /**
- * GTM-Auth-SPA-API to a site's APIC FS. Runs just above the APIC FS row and
+ * GTM-CDB-API to a site's APIC FS for apis.bmo.com. Runs just above the APIC FS row and
  * drops in right of centre, so it stays distinct from the cloudlet's /api/cdb
  * curve arriving at the same box.
  */
 function spaRail(all: Record<string, Geom>, site: SiteId): string {
-  const g = all['gtm-spa'], t = all[`apicfs-${site}`];
-  const sx = g.x + g.width / 2, tx = t.x + t.width / 2 + SPA_RAIL_DROP;
+  // Leaves GTM-CDB-API right of centre, clear of its /api/cdb edge to the cloudlet.
+  const g = all['gtm-api'], t = all[`apicfs-${site}`];
+  const sx = g.x + g.width / 2 + 60, tx = t.x + t.width / 2 + SPA_RAIL_DROP;
   return `M${sx} ${g.y + g.height} V${SPA_RAIL_Y} H${tx} V${t.y}`;
 }
 
@@ -540,7 +545,7 @@ function mfePath(all: Record<string, Geom>): string {
 function baseEdgePairs(): [string, string][] {
   const pairs: [string, string][] = [
     ['client', 'gtm-bos'], ['client', 'gtm-api'], ['client', 'gtm-isam'],
-    ['ciam-spa', 'gtm-spa'],
+    ['ciam-spa', 'gtm-api'],
     ['gtm-bos', 'cloudlet'], ['gtm-api', 'cloudlet']
   ];
   SITE_IDS.forEach(s => {
@@ -573,7 +578,7 @@ function baseLabels(res: Resolution): TfLabel[] {
     // gap between the property-rule box and the ISAM Legacy LTM row.
     { x: 510, y: CSGCB_RAIL_Y - 6, text: '/banking/services/csgcb', kind: 'edge' },
     { x: 1460, y: 72, text: 'authentication.bmo.com/aac/*', kind: 'edge' },
-    { x: 1960, y: 74, text: 'apis.bmo.com/api/*', kind: 'edge' },
+    { x: 1660, y: 86, text: 'apis.bmo.com/api/*', kind: 'edge' },
     { x: 1410, y: 36, text: 'MFE', kind: 'edge' }
   ];
 
@@ -626,6 +631,15 @@ function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boo
   const inBox = (g: Geom, width = 120) => ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - 25, width });
   const monitor = { options: ['live.txt', 'TCP'], locked: false };
 
+  // GTM weighting, above the pick pills. GTM-CDB-API has two pill rows.
+  WEIGHT_SWITCHES.forEach(({ gtm, node, pillRows }) => {
+    const g = geom[node];
+    const w = state.gtmWeight[gtm];
+    chips.push({ kind: 'gtmw', gtm, site: 'BCC', label: '', locked: false,
+      x: g.x + g.width / 2 - 75, y: g.y + g.height - 40 - (pillRows - 1) * 24 - 26, width: 150,
+      options: ['50/50', 'BCC', 'SCC'], value: w === 'split' ? '50/50' : w, changed: w !== 'split' });
+  });
+
   SITE_IDS.forEach(site => {
     chips.push({ kind: 'extgtm', site, ...inBox(geom[`extgtm-${site}`]), ...monitor,
       label: 'monitor', value: mon(state.extGtmMonitor), changed: state.extGtmMonitor !== 'live' });
@@ -651,20 +665,45 @@ function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boo
   return chips;
 }
 
+/** The weighted GTMs, with how many pick rows sit below each switch. */
+const WEIGHT_SWITCHES: { gtm: WeightedGtm; node: string; pillRows: number }[] = [
+  { gtm: 'bos', node: 'gtm-bos', pillRows: 1 },
+  { gtm: 'api', node: 'gtm-api', pillRows: 2 },
+  { gtm: 'isam', node: 'gtm-isam', pillRows: 1 }
+];
+
+/**
+ * When health overrides what a GTM's switch says (a weighted or 50/50 site
+ * failing its check), say what it is actually answering, under the oval.
+ */
+function weightNotes(state: SimState, res: Resolution, geom: Record<string, Geom>): TfLabel[] {
+  return WEIGHT_SWITCHES.flatMap(({ gtm, node }) => {
+    const w = state.gtmWeight[gtm];
+    const said = w === 'split' ? '50/50' : `100% → ${w} (weighted)`;
+    const dist = res.gtmDistribution[gtm];
+    if (dist === said) { return []; }
+    const g = geom[node];
+    // Lower right of the oval, clear of the edges leaving its bottom.
+    return [{ x: g.x + g.width - 40, y: g.y + g.height - 2, text: `answering ${dist}`, kind: 'alert' as const }];
+  });
+}
+
 /** Site-pick chips, centred low inside each GTM oval. */
 function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>): TfPill[] {
   const pills: TfPill[] = [];
-  const spec: { gtm: GtmId; node: string }[] = [
+  // `row` puts a pick on its own line with a caption. GTM-CDB-API carries two
+  // hostnames, so it gets two rows: www1 (cookie-pinned) and apis (never pinned).
+  const spec: { gtm: GtmId; node: string; row?: { caption: string; up: number } }[] = [
     { gtm: 'bos', node: 'gtm-bos' },
-    { gtm: 'api', node: 'gtm-api' },
+    { gtm: 'api', node: 'gtm-api', row: { caption: 'www1', up: 24 } },
     { gtm: 'isam', node: 'gtm-isam' },
-    { gtm: 'spa', node: 'gtm-spa' },
+    { gtm: 'spa', node: 'gtm-api', row: { caption: 'apis', up: 0 } },
     { gtm: 'sss', node: 'gss-es' }
   ];
   const fronts: Record<GtmId, Resolution['path'][]> = {
     bos: ['banking', 'csgcb'], api: ['api'], isam: ['idp'], spa: ['spaapi'], sss: []
   };
-  spec.forEach(({ gtm, node }) => {
+  spec.forEach(({ gtm, node, row }) => {
     const g = geom[node];
     if (!g) { return; }
     // Only the GTM fronting the current path takes part in this request.
@@ -677,9 +716,10 @@ function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>
     SITE_IDS.forEach((site, i) => {
       pills.push({
         gtm, site,
-        x: g.x + g.width / 2 - 55 + i * 58,
-        y: g.y + g.height - 40,
+        x: g.x + g.width / 2 - (row ? 38 : 55) + i * 58,
+        y: g.y + g.height - 40 - (row?.up ?? 0),
         width: 52, height: 19,
+        row: row && i === 0 ? row.caption : undefined,
         // Show what the GTM actually answers, not a pick health has overridden.
         selected: answered ? answered === site : state.gtmPick[gtm] === site,
         active: inPath && res.gtmActive && !overridden
@@ -797,7 +837,7 @@ export function buildTrafficGraph(
                 ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
                 : a === 'gtm-isam' && b.startsWith('idpltm-')
                   ? isamGtmRail(geom, b.slice('idpltm-'.length) as SiteId)
-                  : a === 'gtm-spa' && b.startsWith('apicfs-')
+                  : a === 'gtm-api' && b.startsWith('apicfs-')
                     ? spaRail(geom, b.slice('apicfs-'.length) as SiteId)
                     : curve(geom[a], geom[b]);
         taken.set(d, { d, kind, flow });
@@ -875,7 +915,7 @@ export function buildTrafficGraph(
   return {
     nodes,
     edges,
-    labels: [...baseLabels(res), ...sssLabels()],
+    labels: [...baseLabels(res), ...sssLabels(), ...weightNotes(state, res, geom)],
     lanes: LANES,
     pills: buildPills(state, res, geom),
     chips: buildChips(state, geom, liveLocked),

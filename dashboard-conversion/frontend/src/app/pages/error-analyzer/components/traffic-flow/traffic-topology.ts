@@ -204,6 +204,7 @@ export function defaultSimState(): SimState {
     session: 'existing',
     site: 'BCC',
     gtmPick: { bos: 'BCC', api: 'BCC', isam: 'BCC', spa: 'BCC', sss: 'BCC' },
+    gtmWeight: { bos: 'split', api: 'split', isam: 'split' },
     jsession: 1,
     live: { BCC: 'present', SCC: 'present' },
     idpLive: { BCC: 'present', SCC: 'present' },
