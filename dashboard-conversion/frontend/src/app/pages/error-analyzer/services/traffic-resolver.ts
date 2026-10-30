@@ -478,13 +478,12 @@ export function resolveTraffic(state: SimState): Resolution {
     }
   } else if (csgcb) {
     // The property rule matches the path and the cookie, assigns PMUSER_TARGET
-    // the ISAM front door, and stops. No GTM, no liveness, no cloudlet.
+    // the ISAM front door, and stops. No GTM, no liveness.
     stamp(pinned);
     step(['akamai-prop'], 'Akamai property rule',
       `Path matches <b>/banking/services/csgcb</b> and the request carries ` +
       `<b>${SITE_COOKIE_NAME}</b> pinning <b>${pinned}</b> → PMUSER_TARGET is hardcoded to ` +
-      `<b>${SITES[pinned].isamLtm}</b>. No GTM query, no liveness check, and no cloudlet — ` +
-      'legacy ISAM has no blue/green instances, so there is no env header to set.');
+      `<b>${SITES[pinned].isamLtm}</b>. No GTM query and no liveness check.`);
 
     if (state.down[`isamltm-${pinned}`]) {
       return done('DOWN503',
@@ -544,12 +543,6 @@ export function resolveTraffic(state: SimState): Resolution {
         : `the GTM is weighted <b>100% to ${wt.bos}</b>; liveness only overrides that if ${wt.bos} fails.`));
   }
 
-  // csgcb never passes through the cloudlet — ISAM has no blue/green instances.
-  if (!csgcb) {
-    step(['cloudlet'], 'Cloudlet Configuration',
-      'Sets <b>x-bmo-env</b> (blue/Green) and <b>x-api-key</b> (pr1/pr2).');
-  }
-
   // ---- tier 2: pick the BOS site ------------------------------------------
   const from: SiteId = api ? (apicSite as SiteId) : (cookieBypass ? pinned : aim('bos'));
   let bosSite: SiteId | null = null;
@@ -595,8 +588,7 @@ export function resolveTraffic(state: SimState): Resolution {
   if (!api && !cookieBypass && bosSite) { stamp(bosSite); }
 
   // On the banking path the GTM step itself carries the failover narrative.
-  // csgcb is excluded: it has no GTM step, and its step indices differ because
-  // there is no cloudlet hop.
+  // csgcb is excluded: it has no GTM step.
   if (!api && !csgcb) {
     if (bosSite === null) {
       steps[1].what = 'No BOS site passes the <b>/banking/live.txt</b> check.';

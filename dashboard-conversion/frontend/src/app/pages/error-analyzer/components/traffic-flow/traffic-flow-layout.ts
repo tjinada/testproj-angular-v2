@@ -136,7 +136,7 @@ export interface TfGraph {
 
 /** Vertical rhythm, transcribed from the architecture diagram. */
 const ROW = {
-  gtm: 195, cloudlet: 330, apicFs: 445, apic: 545,
+  gtm: 195, apicFs: 445, apic: 545,
   extGtm: 625, ltm: 785, web: 925, app: 1065
 };
 const SITE_X: Record<SiteId, number> = { BCC: 860, SCC: 1300 };
@@ -157,20 +157,17 @@ const IDP_X: Record<SiteId, number> = { BCC: 200, SCC: 1960 };
 /** Vertical run of the /banking/services rails, threaded between the columns. */
 const RAIL_X: Record<SiteId, number> = { BCC: 671, SCC: 1488 };
 
-/** Horizontal run of the csgcb leg to the far site, below the cloudlet. */
+/** Horizontal run of the csgcb leg to the far site, just above the LTM rows. */
 const CSGCB_RAIL_Y = 420;
+
+/**
+ * Horizontal run of the /banking/services rails out of GTM-CDB-BOS, in the gap
+ * below the Akamai lane and clear of the GTM-ISAM rail above it.
+ */
+const BANKING_RAIL_Y = 340;
 
 /** Horizontal run of the GTM-ISAM legs, just below the Akamai lane. */
 const ISAM_GTM_RAIL_Y = 310;
-
-/**
- * Horizontal run of the apis.bmo.com legs, in the gap just above the APIC
- * FS row. Lower than the GTM-ISAM rail so the two never run alongside.
- */
-const SPA_RAIL_Y = 436;
-
-/** Where the SPA rail drops into an APIC FS box, offset from the cloudlet edge. */
-const SPA_RAIL_DROP = 40;
 
 /**
  * SSS V2 and AWS rows, below CWH app. Lit by the downstream calls CDBBOS and
@@ -222,13 +219,10 @@ function baseNodes(res: Resolution): Record<string, any> {
       line(ISAM_GTM_HOSTNAME), line(`Liveness: ${IDP_LIVENESS}`),
       line(`Stickiness: ${IDP_COOKIE_NAME}`)] };
 
-  n['cloudlet'] = { x: 890, y: ROW.cloudlet, width: 380, height: 66, outline: true, radius: 33,
-    lines: [line('cloudlet Configuration', true), line('Set x-bmo-env=blue or Green'),
-      line('Set x-api-key=pr1_key or pr2_key')] };
-
-  // The csgcb entry point. Drawn on every path so the estate reads whole, but
-  // only on the taken path when the request is actually csgcb.
-  n['akamai-prop'] = { x: 360, y: ROW.cloudlet, width: 280, height: 66,
+  // The csgcb entry point, inside the Akamai lane beside GTM-CDB-BOS: it is an
+  // edge rule, not an origin. Drawn on every path so the estate reads whole,
+  // but only on the taken path when the request is actually csgcb.
+  n['akamai-prop'] = { x: 360, y: ROW.gtm - 33, width: 280, height: 66,
     outline: true, radius: 33,
     lines: [line('Property Configuration', true),
       line(`if ${SITE_COOKIE_NAME} = BCC/SCC`),
@@ -458,15 +452,13 @@ function curve(a: Geom, b: Geom): string {
 }
 
 /**
- * The /banking/services rails, which run down the outside of the canvas from
- * the cloudlet straight to the BOS LTM, bypassing APIC entirely.
+ * The /banking/services rails, which run from GTM-CDB-BOS down between the
+ * columns straight to the BOS LTM, bypassing APIC entirely.
  */
 function railPath(all: Record<string, Geom>, site: SiteId): string {
-  const c = all['cloudlet'], ltm = all[`ltm-${site}`];
-  const railX = RAIL_X[site];
-  const sx = site === 'BCC' ? c.x : c.x + c.width;
+  const g = all['gtm-bos'], ltm = all[`ltm-${site}`];
   const ex = site === 'BCC' ? ltm.x : ltm.x + ltm.width;
-  return `M${sx} ${c.y + 40} H${railX} V${ltm.y + 46} H${ex}`;
+  return `M${g.x + g.width / 2} ${g.y + g.height} V${BANKING_RAIL_Y} H${RAIL_X[site]} V${ltm.y + 46} H${ex}`;
 }
 
 /**
@@ -493,7 +485,7 @@ function clientIsamPath(all: Record<string, Geom>): string {
 
 /**
  * The csgcb leg from the property rule to an ISAM LTM. BCC drops straight down;
- * SCC runs below the cloudlet before turning, so it clears that box.
+ * SCC runs along just above the LTM rows before turning, clear of the rails.
  */
 function csgcbPath(all: Record<string, Geom>, site: SiteId): string {
   const p = all['akamai-prop'], t = all[`isamltm-${site}`];
@@ -518,8 +510,7 @@ function wgaRail(all: Record<string, Geom>, site: SiteId): string {
 
 /**
  * GTM-ISAM to a site's IdP LTM. Orthogonal, running just below the Akamai lane
- * and outboard of every other column, so it clears the cloudlet and property
- * boxes.
+ * and outboard of every other column, so it clears the other front doors.
  */
 function isamGtmRail(all: Record<string, Geom>, site: SiteId): string {
   const g = all['gtm-isam'], t = all[`idpltm-${site}`];
@@ -527,26 +518,14 @@ function isamGtmRail(all: Record<string, Geom>, site: SiteId): string {
   return `M${sx} ${g.y + g.height} V${ISAM_GTM_RAIL_Y} H${tx} V${t.y}`;
 }
 
-/**
- * GTM-APIC to a site's APIC FS for apis.bmo.com. Runs just above the APIC FS row and
- * drops in right of centre, so it stays distinct from the cloudlet's /api/cdb
- * curve arriving at the same box.
- */
-function spaRail(all: Record<string, Geom>, site: SiteId): string {
-  // Leaves GTM-APIC right of centre, clear of its /api/cdb edge to the cloudlet.
-  const g = all['gtm-api'], t = all[`apicfs-${site}`];
-  const sx = g.x + g.width / 2 + 60, tx = t.x + t.width / 2 + SPA_RAIL_DROP;
-  return `M${sx} ${g.y + g.height} V${SPA_RAIL_Y} H${tx} V${t.y}`;
-}
-
 /** Every structural edge, drawn dim underneath the taken path. */
 function baseEdgePairs(): [string, string][] {
   const pairs: [string, string][] = [
-    ['client', 'gtm-bos'], ['client', 'gtm-api'],
-    ['gtm-bos', 'cloudlet'], ['gtm-api', 'cloudlet']
+    ['client', 'gtm-bos'], ['client', 'gtm-api']
   ];
   SITE_IDS.forEach(s => {
-    pairs.push(['cloudlet', `apicfs-${s}`]);
+    // www1 /api/cdb and apis.bmo.com both enter APIC FS straight from GTM-APIC.
+    pairs.push(['gtm-api', `apicfs-${s}`]);
     for (let i = 1; i <= IDP_WGA_INSTANCES; i++) {
       pairs.push([`idpltm-${s}`, `idpwga-${s}-${i}`]);
     }
@@ -568,8 +547,8 @@ function baseEdgePairs(): [string, string][] {
 /** Static annotations carried over from the architecture diagram. */
 function baseLabels(res: Resolution): TfLabel[] {
   const labels: TfLabel[] = [
-    { x: RAIL_X.BCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
-    { x: RAIL_X.SCC + 6, y: ROW.cloudlet + 30, text: '/banking/services', kind: 'edge' },
+    { x: RAIL_X.BCC + 6, y: BANKING_RAIL_Y + 30, text: '/banking/services', kind: 'edge' },
+    { x: RAIL_X.SCC + 6, y: BANKING_RAIL_Y + 30, text: '/banking/services', kind: 'edge' },
     { x: 1265, y: ROW.gtm + 105, text: '/api/cdb', kind: 'edge' },
     // Sits right of the CWH Web lane title and above the trap alert, in the
     // gap between the property-rule box and the ISAM Legacy LTM row.
@@ -798,7 +777,7 @@ export function buildTrafficGraph(
   });
   SITE_IDS.forEach(s => edges.push(
     baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s)),
-    baseRail(isamGtmRail(geom, s)), baseRail(spaRail(geom, s))
+    baseRail(isamGtmRail(geom, s))
   ));
 
   // Taken edges, deduped by geometry. The context pass runs first so that any
@@ -811,7 +790,7 @@ export function buildTrafficGraph(
       const next = rs.steps[i + 1];
       rs.steps[i].ids.forEach(a => next.ids.forEach(b => {
         if (!geom[a] || !geom[b]) { return; }
-        const leavesEntry = (a.startsWith('extgtm') || a.startsWith('gtm-') || a === 'cloudlet') &&
+        const leavesEntry = (a.startsWith('extgtm') || a.startsWith('gtm-')) &&
           b.includes('-') && !!entrySite && !b.includes(`-${entrySite}`);
         const kind: TfEdge['kind'] = flow === 'context' ? 'base'
           : next.state === 'bad' ? 'broken'
@@ -819,7 +798,7 @@ export function buildTrafficGraph(
         // Several hops are drawn as rails rather than beziers, so the taken path
         // has to reuse the same geometry or it would peel away from the dim
         // edge underneath it.
-        const d = a === 'cloudlet' && b.startsWith('ltm-') && rs.bosSite
+        const d = a === 'gtm-bos' && b.startsWith('ltm-') && rs.bosSite
           ? railPath(geom, rs.bosSite)
           : a === 'client' && b === 'akamai-prop'
             ? clientPropPath(geom)
@@ -831,9 +810,7 @@ export function buildTrafficGraph(
                   ? wgaRail(geom, b.slice('ltm-'.length) as SiteId)
                   : a === 'gtm-isam' && b.startsWith('idpltm-')
                     ? isamGtmRail(geom, b.slice('idpltm-'.length) as SiteId)
-                    : a === 'gtm-api' && b.startsWith('apicfs-')
-                      ? spaRail(geom, b.slice('apicfs-'.length) as SiteId)
-                      : curve(geom[a], geom[b]);
+                    : curve(geom[a], geom[b]);
         taken.set(d, { d, kind, flow });
       }));
     }

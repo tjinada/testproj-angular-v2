@@ -2,8 +2,8 @@
  * Which CDB entry path the simulated request takes.
  *
  * 'csgcb' is /banking/services/csgcb. It is post-auth, so it always carries a
- * cdbbossiteId, never queries a GTM, and never passes through the cloudlet —
- * legacy ISAM has no blue/green instances, so there is no env header to set.
+ * cdbbossiteId and never queries a GTM: the property rule sends it straight to
+ * the legacy ISAM front door.
  *
  * 'idp' is authentication.bmo.com/aac/* through GTM-ISAM to the ISAM IdP LTM.
  * Its affinity cookie is apidc, independent of cdbbossiteId.
