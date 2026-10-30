@@ -50,7 +50,6 @@ export class TrafficFlowComponent implements OnInit {
   traceOpen = signal(false);
   overridesOpen = signal(false);
   fullscreen = signal(false);
-  linkCopied = signal(false);
   hoveredIds = signal<string[]>([]);
 
   /** Zoomed viewBox, in diagram units. Null means fit the whole diagram. */
@@ -140,8 +139,6 @@ export class TrafficFlowComponent implements OnInit {
 
   /** Ordering only means something when both tiers went down. */
   recoveryOrderMatters = computed(() => this.config().outageType === 'unplanned');
-
-  shareLink = computed(() => `/error-analyzer?${new URLSearchParams(this.queryParams()).toString()}`);
 
   constructor(private router: Router, private host: ElementRef<HTMLElement>) {}
 
@@ -352,16 +349,6 @@ export class TrafficFlowComponent implements OnInit {
     this.overrides.set(defaultOverrides());
     this.overridesOpen.set(false);
     this.syncUrl();
-  }
-
-  async copyLink(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(window.location.origin + this.shareLink());
-      this.linkCopied.set(true);
-      setTimeout(() => this.linkCopied.set(false), 1400);
-    } catch {
-      this.linkCopied.set(false);
-    }
   }
 
   // ---- diagram -------------------------------------------------------------

@@ -33,8 +33,6 @@
       </ng-container>
     </div>
 
-    <div class="tf-sp"></div>
-
     <div class="tf-grp">
       <span class="tf-lbl">View as</span>
       <div class="tf-seg">
@@ -67,13 +65,14 @@
       </ng-container>
     </div>
 
-    <button type="button" class="tf-ibtn" [attr.aria-pressed]="traceOpen()" (click)="toggleTrace()">
-      &#9776; Trace</button>
-    <button type="button" class="tf-ibtn" [attr.aria-pressed]="fullscreen()" (click)="toggleFullscreen()"
-      [title]="fullscreen() ? 'Exit full screen' : 'Full screen'">
-      {{ fullscreen() ? '✕ Exit full screen' : '⛶ Full screen' }}</button>
-    <button type="button" class="tf-ibtn" (click)="copyLink()" title="Copy shareable link">
-      {{ linkCopied() ? 'Copied' : '🔗' }}</button>
+    <!-- Everything above is the scenario; this group only changes the view. -->
+    <div class="tf-grp tf-view">
+      <button type="button" class="tf-ibtn" [attr.aria-pressed]="traceOpen()" (click)="toggleTrace()">
+        &#9776; Trace</button>
+      <button type="button" class="tf-ibtn tf-fs-btn" [attr.aria-pressed]="fullscreen()" (click)="toggleFullscreen()"
+        [title]="fullscreen() ? 'Exit full screen' : 'Full screen'">
+        {{ fullscreen() ? '✕ Exit full screen' : '⛶ Full screen' }}</button>
+    </div>
   </header>
 
   <!-- Step strip: one chip per call, two dots each (new user, existing user). -->
