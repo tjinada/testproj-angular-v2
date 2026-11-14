@@ -1,0 +1,21 @@
+const hosts = [
+  'https://app.launchdarkly.com',
+  'https://clientsdk.launchdarkly.com',
+  'https://clientstream.launchdarkly.com',
+  'https://events.launchdarkly.com',
+];
+
+const violations = new Set();
+const onViolation = e => violations.add(new URL(e.blockedURI).origin);
+document.addEventListener('securitypolicyviolation', onViolation);
+
+const results = await Promise.all(hosts.map(h =>
+  fetch(h, { mode: 'no-cors', credentials: 'omit', cache: 'no-store' })
+    .then(() => ({ host: h, fetch: 'OK' }))
+    .catch(() => ({ host: h, fetch: 'FAILED' }))
+));
+
+await new Promise(r => setTimeout(r, 200)); // let violation events land
+document.removeEventListener('securitypolicyviolation', onViolation);
+
+console.table(results.map(r => ({ ...r, cspViolation: violations.has(r.host) })));
