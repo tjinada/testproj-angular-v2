@@ -2,7 +2,7 @@ import type {
   Cohort, GtmId, JourneyFrame, Resolution, Severity, SimState, SiteId, WeightedGtm
 } from '../../models/traffic-flow.model';
 import {
-  APIC_INSTANCES, APP_SERVERS, AUTH_SPA_API_HOSTNAME, AWS_API_GW, IDP_COOKIE_NAME, IDP_LIVENESS,
+  APIC_INSTANCES, APP_SERVERS, AUTH_SPA_API_HOSTNAME, AWS_API_GW, F5_LIVENESS, IDP_COOKIE_NAME, IDP_LIVENESS,
   IDP_WGA_INSTANCES,
   ISAM_GTM_HOSTNAME, LAMBDAS, NAME_SERVERS,
   SITES, SITE_COOKIE_NAME, SITE_IDS, SSS_GSS_HOSTNAME, TOGGLEABLE_NODE, WEB_SERVERS, WGA_INSTANCES
@@ -98,8 +98,8 @@ export interface TfPill {
   row?: string;
 }
 
-/** Which override a chip flips. Monitors are one setting across both sites. */
-export type ChipKind = 'extgtm' | 'ltm' | 'idplive' | 'live' | 'gtmw';
+/** Which override a chip flips. */
+export type ChipKind = 'idplive' | 'live' | 'gtmw';
 
 /**
  * A setting toggle drawn on the box it configures. Rendered above the nodes so
@@ -239,7 +239,7 @@ function idpNodes(all: Record<string, any>): void {
     // Taller than its neighbours to hold the mobileidp.gif switch in its footer.
     all[`idpltm-${site}`] = { x: cx - 125, y: ROW.apicFs, width: 250, height: 96, footer: 30,
       lines: [line(`ISAM IdP LTM (${site})`, true), line('bmonsori-'),
-        line(SITES[site].idpLtm.replace('bmonsori-', ''))] };
+        line(SITES[site].idpLtm.replace('bmonsori-', '')), line(`Liveness: ${IDP_LIVENESS}`)] };
 
     // A row lower than the other WGA tiers, below the taller IdP LTM.
     for (let i = 1; i <= IDP_WGA_INSTANCES; i++) {
@@ -282,14 +282,13 @@ function siteNodes(all: Record<string, any>): void {
         width: 100, height: 46, warn: true, lines: [line(`APIC inst #${i}`)] };
     }
 
-    // The monitor is shown and set by the chip on this box, not a text line.
-    all[`extgtm-${site}`] = { x: cx - 125, y: ROW.extGtm, width: 250, height: 140, footer: 30, warn: true,
+    all[`extgtm-${site}`] = { x: cx - 125, y: ROW.extGtm, width: 250, height: 140, warn: true,
       lines: [line('EXT GTM (DNS)', true), line(facts.extGtm),
-        ...NAME_SERVERS.map(s => line(s))] };
+        ...NAME_SERVERS.map(s => line(s)), line(`Liveness: ${F5_LIVENESS}`)] };
 
-    all[`ltm-${site}`] = { x: cx - 125, y: ROW.ltm, width: 250, height: 116, footer: 30,
+    all[`ltm-${site}`] = { x: cx - 125, y: ROW.ltm, width: 250, height: 116,
       lines: [line('BOS LTM (Local traffic', true), line(`manager) (${site})`, true),
-        line('CWH-WEB'), line(facts.ltmHost), line(facts.ltmVip)] };
+        line('CWH-WEB'), line(facts.ltmHost), line(facts.ltmVip), line(`Liveness: ${F5_LIVENESS}`)] };
 
     for (let i = 1; i <= WEB_SERVERS; i++) {
       // Footer holds the site's live.txt switch.
@@ -602,10 +601,8 @@ const HEAD_NODE = /^(apicfs|extgtm|ltm|isamltm|idpltm|sssf5|sssapic)-/;
  */
 function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boolean): TfChip[] {
   const chips: TfChip[] = [];
-  const mon = (m: SimState['ltmMonitor']) => (m === 'tcp' ? 'TCP' : 'live.txt');
   // A switch sits in the box's footer; its label is drawn to the left of x.
   const inBox = (g: Geom, width = 120) => ({ x: g.x + g.width / 2 - 14, y: g.y + g.height - 25, width });
-  const monitor = { options: ['live.txt', 'TCP'], locked: false };
 
   // GTM weighting, above the pick pills. GTM-APIC has two pill rows.
   WEIGHT_SWITCHES.forEach(({ gtm, node, pillRows }) => {
@@ -617,12 +614,6 @@ function buildChips(state: SimState, geom: Record<string, Geom>, liveLocked: boo
   });
 
   SITE_IDS.forEach(site => {
-    chips.push({ kind: 'extgtm', site, ...inBox(geom[`extgtm-${site}`]), ...monitor,
-      label: 'monitor', value: mon(state.extGtmMonitor), changed: state.extGtmMonitor !== 'live' });
-
-    chips.push({ kind: 'ltm', site, ...inBox(geom[`ltm-${site}`]), ...monitor,
-      label: 'pool monitor', value: mon(state.ltmMonitor), changed: state.ltmMonitor !== 'live' });
-
     chips.push({ kind: 'idplive', site, ...inBox(geom[`idpltm-${site}`], 130),
       options: ['present', 'renamed'], label: 'mobileidp.gif', value: state.idpLive[site],
       changed: state.idpLive[site] !== 'present', locked: false });

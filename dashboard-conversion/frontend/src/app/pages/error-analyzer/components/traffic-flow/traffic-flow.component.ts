@@ -4,14 +4,13 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type {
-  CallKind, CallResult, Cohort, DownstreamRoute, GtmWeight, JourneyFrame, OutageType, Overrides, PoolMonitor,
+  CallKind, CallResult, Cohort, DownstreamRoute, GtmWeight, JourneyFrame, OutageType, Overrides,
   RecoveryOrder, ScenarioConfig, SiteId, TrafficPath
 } from '../../models/traffic-flow.model';
 import { CALL_SEQUENCE } from '../../models/traffic-flow.model';
 import { callPaths, runJourney } from '../../services/traffic-scenario-runner';
 import {
-  DEFAULT_CONFIG, OverrideItem, buildScenario, defaultOverrides, flipLiveness, flipMonitor,
-  listOverrides
+  DEFAULT_CONFIG, OverrideItem, buildScenario, defaultOverrides, flipLiveness, listOverrides
 } from './traffic-scenarios';
 import { buildTrafficGraph, TfChip, TfNode, TfPill } from './traffic-flow-layout';
 import { SITE_IDS } from './traffic-topology';
@@ -169,8 +168,10 @@ export class TrafficFlowComponent implements OnInit {
     if (p === 'csgcb') { return 'initISAMSession'; }
     if (call === 'cdbsession') { return 'initCDBSession'; }
     if (call === 'apicdb') { return 'App calls (/api/cdb/*)'; }
-    const base = p === 'api' ? '/api/cdb' : '/banking/services';
-    return call === 'signin' ? `${base}/SignInRequestManager` : base;
+    if (call === 'signin') {
+      return p === 'api' ? '/api/cdb/SigninRequestManager' : '/banking/servlet/SigninRequestManager';
+    }
+    return p === 'api' ? '/api/cdb' : '/banking/services';
   }
 
   /** The site that served a call. */
@@ -209,18 +210,11 @@ export class TrafficFlowComponent implements OnInit {
   // ---- toolbar -------------------------------------------------------------
 
   /**
-   * Selecting a sign-in path selects the whole package it belongs to.
-   *
-   * The proposal is not just "move sign-in": once the pin comes from a
-   * BOS-health-aware decision, the internal tiers should stop failing over on
-   * their own, because an independent re-route is precisely what separates the
-   * cookie from the session. So both monitors move to a TCP check with it —
-   * that is also the DACT-104 remediation. The monitor chips stay editable, so
-   * the package can still be taken apart one piece at a time.
+   * Which GTM answers sign-in. '/banking/services' is production (Akamai
+   * rewrites it to GTM-CDB-BOS); '/api/cdb' is the pre-fix path via GTM-APIC,
+   * kept for comparison. The F5 monitors are CDBF5_live.txt either way.
    */
   setSigninPath(v: TrafficPath): void {
-    const monitor: PoolMonitor = v === 'banking' ? 'tcp' : 'live';
-    this.setOverrides(o => { o.ltmMonitor = monitor; o.extGtmMonitor = monitor; });
     this.setConfig(c => { c.signinPath = v; });
   }
 
@@ -335,8 +329,6 @@ export class TrafficFlowComponent implements OnInit {
     this.setOverrides(o => {
       switch (item.kind) {
         case 'down': delete o.down[item.id]; break;
-        case 'extgtm': o.extGtmMonitor = 'live'; break;
-        case 'ltm': o.ltmMonitor = 'live'; break;
         case 'idplive': o.idpLive[item.site] = 'present'; break;
         case 'live': o.live[item.site] = 'present'; break;
         case 'gtmw': o.gtmWeight[item.gtm] = 'split'; break;
@@ -406,13 +398,11 @@ export class TrafficFlowComponent implements OnInit {
     this.toggleChip(chip);
   }
 
-  /** A chip flips the setting it sits on. Monitors are one setting for both sites. */
+  /** A chip flips the setting it sits on. */
   toggleChip(chip: TfChip): void {
     if (chip.locked) { return; }
     this.setOverrides(o => {
       switch (chip.kind) {
-        case 'extgtm': o.extGtmMonitor = flipMonitor(o.extGtmMonitor); break;
-        case 'ltm': o.ltmMonitor = flipMonitor(o.ltmMonitor); break;
         case 'idplive': o.idpLive[chip.site] = flipLiveness(o.idpLive[chip.site]); break;
         case 'live': o.live[chip.site] = flipLiveness(o.live[chip.site]); break;
       }
@@ -457,7 +447,6 @@ export class TrafficFlowComponent implements OnInit {
     const q: Record<string, string> = {
       tab: 'traffic', sp: c.signinPath, site: c.site, isite: c.idpSite, ssite: c.spaSite, esite: c.sssSite,
       os: c.outageSite, ot: c.outageType, rec: c.recovery, step: String(this.activeIndex()),
-      ltm: o.ltmMonitor, xgtm: o.extGtmMonitor,
       idlb: o.idpLive.BCC, idls: o.idpLive.SCC, lb: o.live.BCC, ls: o.live.SCC,
       wbos: o.gtmWeight.bos, wapi: o.gtmWeight.api, wisam: o.gtmWeight.isam,
       who: this.cohort()
@@ -490,8 +479,6 @@ export class TrafficFlowComponent implements OnInit {
     this.config.set(c);
 
     const o = defaultOverrides();
-    if (p['ltm'] === 'live' || p['ltm'] === 'tcp') { o.ltmMonitor = p['ltm']; }
-    if (p['xgtm'] === 'live' || p['xgtm'] === 'tcp') { o.extGtmMonitor = p['xgtm']; }
     if (p['idlb'] === 'renamed') { o.idpLive.BCC = 'renamed'; }
     if (p['idls'] === 'renamed') { o.idpLive.SCC = 'renamed'; }
     if (p['lb'] === 'renamed') { o.live.BCC = 'renamed'; }

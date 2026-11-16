@@ -1,5 +1,5 @@
 import type {
-  EnvState, JourneyStep, LivenessState, Overrides, PoolMonitor, Scenario, ScenarioConfig, SiteId,
+  EnvState, JourneyStep, LivenessState, Overrides, Scenario, ScenarioConfig, SiteId,
   WeightedGtm
 } from '../../models/traffic-flow.model';
 import {
@@ -9,7 +9,7 @@ import {
 /** Production defaults: nothing overridden. */
 export function defaultOverrides(): Overrides {
   return {
-    down: {}, ltmMonitor: 'live', extGtmMonitor: 'live',
+    down: {},
     idpLive: { BCC: 'present', SCC: 'present' },
     gtmWeight: { bos: 'split', api: 'split', isam: 'split' },
     live: { BCC: 'present', SCC: 'present' }
@@ -26,7 +26,6 @@ export const WEIGHTED_GTMS: { gtm: WeightedGtm; node: string; name: string }[] =
 /** One way the estate differs from production, as listed under Overrides. */
 export type OverrideItem =
   | { kind: 'down'; id: string; label: string; nodeIds: string[] }
-  | { kind: 'extgtm' | 'ltm'; label: string; nodeIds: string[] }
   | { kind: 'idplive' | 'live'; site: SiteId; label: string; nodeIds: string[] }
   | { kind: 'gtmw'; gtm: WeightedGtm; label: string; nodeIds: string[] };
 
@@ -37,19 +36,11 @@ export type OverrideItem =
  */
 export function listOverrides(o: Overrides, outageNone: boolean): OverrideItem[] {
   const items: OverrideItem[] = [];
-  const both = (tier: string) => SITE_IDS.map(s => `${tier}-${s}`);
-  const mon = (m: PoolMonitor) => (m === 'tcp' ? 'TCP' : 'live.txt');
 
   WEIGHTED_GTMS.forEach(({ gtm, node, name }) => {
     const w = o.gtmWeight[gtm];
     if (w !== 'split') { items.push({ kind: 'gtmw', gtm, label: `${name} → 100% ${w}`, nodeIds: [node] }); }
   });
-  if (o.extGtmMonitor !== 'live') {
-    items.push({ kind: 'extgtm', label: `EXT GTM monitor → ${mon(o.extGtmMonitor)}`, nodeIds: both('extgtm') });
-  }
-  if (o.ltmMonitor !== 'live') {
-    items.push({ kind: 'ltm', label: `BOS LTM pool → ${mon(o.ltmMonitor)}`, nodeIds: both('ltm') });
-  }
   SITE_IDS.forEach(site => {
     if (o.idpLive[site] !== 'present') {
       items.push({ kind: 'idplive', site, label: `${site} ${IDP_LIVENESS.split('/').pop()} → renamed`,
@@ -68,11 +59,10 @@ export function listOverrides(o: Overrides, outageNone: boolean): OverrideItem[]
 
 /** The value a chip flips to. */
 export const flipLiveness = (v: LivenessState): LivenessState => (v === 'present' ? 'renamed' : 'present');
-export const flipMonitor = (v: PoolMonitor): PoolMonitor => (v === 'live' ? 'tcp' : 'live');
 
-/** Opens healthy on BCC, with sign-in where it lives today. */
+/** Opens healthy on BCC, with sign-in where it lives in production. */
 export const DEFAULT_CONFIG: ScenarioConfig = {
-  signinPath: 'api',
+  signinPath: 'banking',
   site: 'BCC',
   idpSite: 'BCC',
   spaSite: 'BCC',
@@ -226,14 +216,13 @@ export function buildScenario(c: ScenarioConfig, o: Overrides): Scenario {
     // Overrides are applied here so they survive every regeneration.
     base: env => {
       env.gtmPick = { bos: c.site, api: c.site, isam: c.idpSite, spa: c.spaSite, sss: c.sssSite };
-      env.ltmMonitor = o.ltmMonitor;
-      env.extGtmMonitor = o.extGtmMonitor;
       Object.keys(o.down).forEach(id => { env.down[id] = true; });
     },
-    // Both liveness toggles are drains: they land on users already holding
-    // their cookie, so those users keep hitting the drained site while new
-    // users move away. live.txt is only applied with no outage selected —
-    // otherwise the planned/unplanned stages own it.
+    // Both liveness toggles land on users already holding their cookie. A
+    // live.txt rename is a drain: those users keep hitting the drained site
+    // while new users move away. A mobileidp.gif rename is a cut: the IdP LTM
+    // pool watches it too, so apidc-pinned users are rejected. live.txt is only
+    // applied with no outage selected — otherwise the planned/unplanned stages own it.
     // GTM weighting is the same kind of change: set in the console after users
     // are already pinned, so it only steers requests the GTM still answers.
     afterPin: env => {

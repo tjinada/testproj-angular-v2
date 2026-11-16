@@ -15,6 +15,7 @@ import {
   APP_SERVERS,
   CDBBOS_DOWNSTREAM,
   COOKIE_BYPASSES_GTM,
+  F5_LIVENESS,
   IDP_COOKIE_NAME,
   IDP_LIVENESS,
   IDP_WGA_INSTANCES,
@@ -22,6 +23,8 @@ import {
   LAMBDAS,
   ISAM_SHARES_SITE_COOKIE,
   SESSION_REPLICATED,
+  SIGNIN_REQUEST_PATH,
+  SIGNIN_REWRITE_PATH,
   SITES,
   SITE_COOKIE_NAME,
   SSS_GSS_HOSTNAME,
@@ -34,7 +37,6 @@ import {
 const OUTCOMES: Record<OutcomeKey, { title: string; severity: Severity }> = {
   DOWN503: { title: 'Service Unavailable — 503', severity: 'bad' },
   ISAM500: { title: 'initISAMSession failed — 500', severity: 'bad' },
-  POOL_OFF: { title: 'Pool Offline — call rejected (DACT-104)', severity: 'bad' },
   VHOST: { title: 'Vhost Mismatch — 400/404', severity: 'bad' },
   LOCAL503: { title: 'Local 503 — no failover', severity: 'bad' },
   TIMEOUT: { title: 'Session Timeout — re-auth required', severity: 'bad' },
@@ -69,7 +71,11 @@ function idpReachable(s: SimState, site: SiteId): boolean {
   return !s.down[`idpltm-${site}`] && idpWgaUp(s, site).length > 0;
 }
 
-/** Site health as GTM-ISAM sees it: reachable, and the liveness object present. */
+/**
+ * IdP site health. GTM-ISAM and the IdP LTM pool monitor both watch the
+ * liveness object, so this is both what the GTM sees and whether the pool has
+ * members: reachable, and the object present.
+ */
 function idpHealthy(s: SimState, site: SiteId): boolean {
   return idpReachable(s, site) && s.idpLive[site] === 'present';
 }
@@ -79,34 +85,21 @@ function apicHealthy(s: SimState, site: SiteId): boolean {
   return !s.down[`apicfs-${site}`] && apicUp(s, site).length > 0;
 }
 
-/**
- * Site health as a GTM sees it. Both GTMs probe the BOS LTM VIP, so the site is
- * unreachable if the LTM or the whole web tier is out. What the probe *is*
- * differs by tier: the EXT GTM's monitor is configurable, while the Akamai BOS
- * GTM watches /banking/live.txt per the Requirements box on the architecture
- * diagram. A TCP monitor keeps passing when the object is renamed, so the
- * liveness drain has no effect on that tier.
- */
-function bosHealthy(s: SimState, site: SiteId, api: boolean): boolean {
-  if (s.down[`ltm-${site}`] || webUp(s, site).length === 0) { return false; }
-  const monitor = api ? s.extGtmMonitor : 'live';
-  if (monitor === 'live' && s.live[site] !== 'present') { return false; }
-  return true;
-}
-
-/** Physical reachability, independent of the liveness object. */
+/** Physical reachability: LTM in service with IHS behind it. */
 function reachable(s: SimState, site: SiteId): boolean {
   return !s.down[`ltm-${site}`] && webUp(s, site).length > 0;
 }
 
 /**
- * DACT-104. When the LTM pool monitor watches the liveness object rather than
- * the httpd TCP port, renaming that object marks every pool member offline —
- * the VIP has no members and rejects, even though httpd is still serving.
+ * Site health as a GTM sees it. Both GTMs probe through the BOS LTM VIP, but
+ * watch different objects. Akamai GTM-CDB-BOS watches /banking/live.txt, the
+ * drain lever. The EXT GTM watches CDBF5_live.txt, which is never renamed, so
+ * it only fails when the site is physically unreachable and a live.txt drain
+ * is invisible to it.
  */
-function ltmPoolUp(s: SimState, site: SiteId): boolean {
-  if (webUp(s, site).length === 0) { return false; }
-  return s.ltmMonitor === 'tcp' || s.live[site] === 'present';
+function bosHealthy(s: SimState, site: SiteId, api: boolean): boolean {
+  if (!reachable(s, site)) { return false; }
+  return api || s.live[site] === 'present';
 }
 
 /**
@@ -309,14 +302,9 @@ export function resolveTraffic(state: SimState): Resolution {
     let site: SiteId;
     if (idpPinned) {
       site = idpPinned;
-      const renamed = state.idpLive[site] !== 'present';
       step(['gtm-isam'], 'Akamai edge',
         `Valid <b>${IDP_COOKIE_NAME}</b> → pinned to <b>${SITES[site].idpLtm}</b>. ` +
-        `GTM-ISAM and its <b>${IDP_LIVENESS}</b> check are never consulted.` +
-        (renamed
-          ? ` The liveness object is renamed on ${site}, but nothing on this path reads it.`
-          : ''),
-        renamed ? 'warn' : 'ok');
+        'GTM-ISAM is never consulted.');
     } else {
       const pick = aim('isam');
       const answered = gtmAnswer.isam;
@@ -339,31 +327,35 @@ export function resolveTraffic(state: SimState): Resolution {
     }
     stampIdp(site);
 
-    // Only a pinned request can reach a dead site: the GTM would have routed
-    // a cookie-less one away from it.
-    if (!idpReachable(state, site)) {
+    // Only a pinned request can reach an unhealthy site: the GTM would have
+    // routed a cookie-less one away from it. The LTM pool monitor watches the
+    // same liveness object, so a rename empties the pool just as an outage does.
+    if (!idpHealthy(state, site)) {
       const ltmOut = !!state.down[`idpltm-${site}`];
+      const renamed = idpReachable(state, site);
+      if (renamed) {
+        step([`idpltm-${site}`], `ISAM IdP LTM (${site})`,
+          `The pool monitor is <b>${IDP_LIVENESS}</b>, renamed on <b>${site}</b>, so every WGA is ` +
+          'marked <b>offline</b> and the VIP rejects.', 'bad');
+      }
       return done('DOWN503',
         `${IDP_COOKIE_NAME} pinned ${site} and the ${site} ISAM IdP ` +
-        (ltmOut ? 'LTM is out of service' : 'WGA tier is empty') +
+        (renamed ? `LTM pool is empty — ${IDP_LIVENESS} is renamed and the pool monitor watches it`
+          : ltmOut ? 'LTM is out of service' : 'WGA tier is empty') +
         '. The cookie bypasses GTM-ISAM, so there is no failover — auth fails and the app stops here.',
         '503', { pinnedSite: site, breakAt: `idpltm-${site}` });
     }
 
     step([`idpltm-${site}`], `ISAM IdP LTM (${site})`,
-      `VIP <b>${SITES[site].idpLtm}</b> → IdP WGA tier.`);
+      `VIP <b>${SITES[site].idpLtm}</b> → IdP WGA tier. Pool monitor <b>${IDP_LIVENESS}</b> passes.`);
     step(idpWgaUp(state, site).map(i => `idpwga-${site}-${i}`), `ISAM IdP WGA (${site})`,
       'Authentication served.');
 
-    const drainedIdp = !!idpPinned && state.idpLive[site] !== 'present';
-    const idpKey: OutcomeKey = drainedIdp ? 'DRAINED' : idpPinned ? 'OK' : 'NEW';
-    const idpWhy = drainedIdp
-      ? `${IDP_COOKIE_NAME} pins ${site}, so the renamed ${IDP_LIVENESS} is never read. Auth is still ` +
-        'served on the site being drained — it bleeds rather than cuts.'
-      : idpPinned
-        ? `${IDP_COOKIE_NAME} pins ${site} and the IdP tier is healthy. Independent of ${SITE_COOKIE_NAME} — ` +
-          'auth and app calls on different sites is fine.'
-        : `No ${IDP_COOKIE_NAME}. GTM-ISAM assigns ${site} and the edge stamps ${IDP_COOKIE_NAME}=${site}.`;
+    const idpKey: OutcomeKey = idpPinned ? 'OK' : 'NEW';
+    const idpWhy = idpPinned
+      ? `${IDP_COOKIE_NAME} pins ${site} and the IdP tier is healthy. Independent of ${SITE_COOKIE_NAME} — ` +
+        'auth and app calls on different sites is fine.'
+      : `No ${IDP_COOKIE_NAME}. GTM-ISAM assigns ${site} and the edge stamps ${IDP_COOKIE_NAME}=${site}.`;
 
     return done(idpKey, idpWhy, '200 OK', { pinnedSite: site });
   }
@@ -425,9 +417,14 @@ export function resolveTraffic(state: SimState): Resolution {
   }
 
   const urlPath = api ? '/api/cdb' : csgcb ? '/banking/services/csgcb' : '/banking/services/*';
+  // Sign-in on the banking path is sent as /api/cdb and rewritten at the edge.
+  const signinRewrite = !api && !csgcb && state.sessionMode === 'none';
 
   step(['client'], 'Client',
-    `Request <b>www1.bmo.com${urlPath}</b>. ` +
+    (signinRewrite
+      ? `Request <b>www1.bmo.com${SIGNIN_REQUEST_PATH}</b>. The Akamai property rewrites it to ` +
+        `<b>${SIGNIN_REWRITE_PATH}</b>, so GTM-CDB-BOS answers it, not GTM-APIC. `
+      : `Request <b>www1.bmo.com${urlPath}</b>. `) +
     (csgcb
       ? `Post-auth, so it always carries a <b>${SITE_COOKIE_NAME}</b> — here pinning <b>${pinned}</b>.`
       : existing
@@ -509,15 +506,10 @@ export function resolveTraffic(state: SimState): Resolution {
     // The WGA junction call-back URL is the BOS LTM VIP hostname, so whatever
     // that VIP does to a connection, it does to ISAM. ISAM has no health
     // checking of its own — no liveness object, no port check — but that only
-    // means it cannot *know* why it was refused, not that it is exempt. Both a
-    // dead site and a pool emptied by DACT-104 surface as a 500.
-    const poolOff = !ltmPoolUp(state, pinned);
-    const bosRefused = !reachable(state, pinned) || poolOff;
-    if (bosRefused) {
-      const why = poolOff && reachable(state, pinned)
-        ? `the ${pinned} BOS LTM pool is empty — DACT-104 has the monitor watching the liveness ` +
-          'object, so the rename marked every member offline and the VIP refuses the junction'
-        : `${pinned} BOS is down and legacy ISAM has no failover leg of its own`;
+    // means it cannot *know* why it was refused, not that it is exempt. A dead
+    // BOS site surfaces as a 500.
+    if (!reachable(state, pinned)) {
+      const why = `${pinned} BOS is down and legacy ISAM has no failover leg of its own`;
       step(wgaIds, `ISAM WGA (${pinned})`,
         `The junction is hard-wired to same-site BOS — <b>${SITES[pinned].ltmHost}</b>. ` +
         `Here ${why}, so <b>initISAMSession</b> fails.`, 'bad');
@@ -572,14 +564,14 @@ export function resolveTraffic(state: SimState): Resolution {
     step(apicUp(state, apicSite as SiteId).map(i => `apic-${apicSite}-${i}`),
       `APIC inst (${apicSite})`,
       `Gateway script uses its own FQDN to pick the BOS GTM hostname: <b>${SITES[apicSite as SiteId].extGtm}</b>.`);
-    const mon = state.extGtmMonitor === 'live' ? '/banking/live.txt' : 'httpd TCP';
+    const mon = F5_LIVENESS;
     step([`extgtm-${apicSite}`], `EXT GTM DNS (${apicSite})`,
       bosSite === null
         ? `No BOS site passes the <b>${mon}</b> monitor — no VIP to return.`
         : bosFailover
           ? `BOS-${apicSite} fails its <b>${mon}</b> monitor → returns the <b>${bosSite}</b> LTM VIP (the <b>0% failover</b> leg).`
-          : state.extGtmMonitor === 'tcp' && state.live[apicSite as SiteId] !== 'present'
-            ? `Monitor is <b>httpd TCP</b>, not the liveness object, so the renamed live.txt is invisible here — returns the <b>${bosSite}</b> VIP <b>100%</b>.`
+          : state.live[apicSite as SiteId] !== 'present'
+            ? `Monitor is <b>${mon}</b>, not live.txt, so the renamed live.txt is invisible here — returns the <b>${bosSite}</b> VIP <b>100%</b>.`
             : `Monitor <b>${mon}</b> passes — returns the <b>${bosSite}</b> LTM VIP <b>100%</b> of the time.`,
       bosSite === null ? 'bad' : bosFailover ? 'warn' : 'ok');
   }
@@ -608,7 +600,7 @@ export function resolveTraffic(state: SimState): Resolution {
 
   if (bosSite === null) {
     return done('DOWN503',
-      'Neither site serves /banking/live.txt behind a healthy LTM and web tier.',
+      `Neither site serves ${api ? F5_LIVENESS : '/banking/live.txt'} behind a healthy LTM and web tier.`,
       '503', { apicSite, breakAt: api ? `extgtm-${apicSite}` : 'gtm-bos' });
   }
 
@@ -626,21 +618,10 @@ export function resolveTraffic(state: SimState): Resolution {
       { apicSite, bosSite, breakAt: `web-${bosSite}-${webUp(state, bosSite)[0] ?? 1}` });
   }
 
-  // ---- LTM pool availability (DACT-104) -----------------------------------
-  if (!ltmPoolUp(state, bosSite)) {
-    step([`ltm-${bosSite}`], `BOS LTM (${bosSite})`,
-      'The pool monitor is <b>/banking/live.txt</b>, not the httpd TCP port. The object is ' +
-      `renamed on <b>${bosSite}</b>, so every pool member is marked <b>offline</b>. The VIP ` +
-      'has no members left and rejects the connection.', 'bad');
-    return done('POOL_OFF',
-      'The BOS LTM monitors /banking/live.txt instead of the httpd TCP port, so renaming the ' +
-      'object takes the whole pool offline and the call is rejected outright — even though ' +
-      'httpd and the app are still running.',
-      'RST', { apicSite, bosSite, breakAt: `ltm-${bosSite}` });
-  }
-
   step([`ltm-${bosSite}`], `BOS LTM (${bosSite})`,
-    `CWH-WEB VIP <b>${SITES[bosSite].ltmHost} ${SITES[bosSite].ltmVip}</b> → web tier.`);
+    `CWH-WEB VIP <b>${SITES[bosSite].ltmHost} ${SITES[bosSite].ltmVip}</b> → web tier. ` +
+    `Pool monitor is <b>${F5_LIVENESS}</b>` +
+    (state.live[bosSite] !== 'present' ? ', so the renamed live.txt leaves the pool in service.' : '.'));
 
   const webs = webUp(state, bosSite);
   const apps = appUp(state, bosSite);
@@ -656,8 +637,8 @@ export function resolveTraffic(state: SimState): Resolution {
     step(all, `BOS App (${bosSite})`,
       'Every cluster member is out of service. IHS has no available JVM and returns 503 locally.', 'bad');
     return done('LOCAL503',
-      `live.txt is still present on ${bosSite}, so the GTM keeps sending traffic here — but no app ` +
-      'server is in service. Liveness and app health are independent signals; nothing fails over.',
+      `IHS on ${bosSite} is still serving its static liveness objects, so traffic keeps arriving ` +
+      'here — but no app server is in service. Liveness and app health are independent signals; nothing fails over.',
       '503', { apicSite, bosSite, breakAt: `app-${bosSite}-1` });
   }
 
@@ -696,9 +677,8 @@ export function resolveTraffic(state: SimState): Resolution {
 
     // The cookie records which APIC answered, and legacy ISAM reads it as if it
     // were a statement about BOS. This request succeeds; the next csgcb call is
-    // the one that pays. Whether it 500s turns on physical reachability, not on
-    // the monitor: a liveness drain splits the path but leaves IHS serving, so
-    // ISAM still works. A real outage does not.
+    // the one that pays. Whether it 500s turns on physical reachability: the
+    // EXT GTM only splits the path when a BOS site is actually unreachable.
     if (ISAM_SHARES_SITE_COOKIE) {
       const isamTarget = apicSite as SiteId;
       const isamDead = !reachable(state, isamTarget);

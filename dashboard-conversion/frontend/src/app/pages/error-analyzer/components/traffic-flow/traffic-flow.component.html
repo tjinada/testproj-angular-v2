@@ -2,13 +2,13 @@
 
   <!-- Toolbar: scenario-level choices only. Everything else lives on the diagram. -->
   <header class="tf-bar">
-    <div class="tf-grp" title="SignInRequestManager arrives unpinned, so whichever GTM answers it decides cdbbossiteId. Selecting a path also sets both pool monitors to match.">
+    <div class="tf-grp" title="SigninRequestManager arrives unpinned, so whichever GTM answers it decides cdbbossiteId. Production: Akamai rewrites it to /banking/servlet so GTM-CDB-BOS answers. /api/cdb is the pre-fix path via GTM-APIC.">
       <span class="tf-lbl">Sign-in</span>
       <div class="tf-seg">
-        <button type="button" [attr.aria-pressed]="config().signinPath === 'api'"
-          (click)="setSigninPath('api')">/api/cdb</button>
         <button type="button" [attr.aria-pressed]="config().signinPath === 'banking'"
           (click)="setSigninPath('banking')">/banking/services</button>
+        <button type="button" [attr.aria-pressed]="config().signinPath === 'api'"
+          (click)="setSigninPath('api')">/api/cdb (pre-fix)</button>
       </div>
     </div>
 

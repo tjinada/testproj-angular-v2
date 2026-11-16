@@ -24,13 +24,6 @@ export type SiteId = 'BCC' | 'SCC';
 export type LivenessState = 'present' | 'renamed';
 
 /**
- * What a pool monitor watches. Monitoring the liveness object rather than the
- * httpd TCP port means a renamed object marks the pool down even though httpd
- * is still serving (DACT-104 at the LTM; the same choice exists at the EXT GTM).
- */
-export type PoolMonitor = 'live' | 'tcp';
-
-/**
  * The Akamai GTMs, plus the es-api.bmogc.net GSS in front of SSS V2. Each has
  * its own 50/50 pick for requests nothing pins.
  */
@@ -92,10 +85,6 @@ export interface SimState {
   live: Record<SiteId, LivenessState>;
   /** ISAM IdP liveness object per site. Drives GTM-ISAM health only. */
   idpLive: Record<SiteId, LivenessState>;
-  /** BOS LTM pool monitor (DACT-104). */
-  ltmMonitor: PoolMonitor;
-  /** EXT GTM pool monitor. Decides whether a renamed object drains the API path. */
-  extGtmMonitor: PoolMonitor;
   /** Node ids taken out of service, keyed for cheap lookup. */
   down: Record<string, true>;
 }
@@ -104,7 +93,6 @@ export interface SimState {
 export type OutcomeKey =
   | 'DOWN503'
   | 'ISAM500'
-  | 'POOL_OFF'
   | 'VHOST'
   | 'LOCAL503'
   | 'TIMEOUT'
@@ -274,11 +262,14 @@ export interface ScenarioConfig {
    * Which path carries SigninRequestManager, and therefore which GTM decides
    * where the user is pinned.
    *
-   * 'api'     — today. GTM-APIC answers on a TCP:443 check of the APIC
-   *             farm, so cdbbossiteId records an APIC that knows nothing about
-   *             BOS health. That is the defect.
-   * 'banking' — proposed. GTM-CDB-BOS answers on /banking/live.txt, so the
-   *             cookie records a site BOS liveness has already vouched for.
+   * 'banking' — production. The Akamai property rewrites
+   *             /api/cdb/party-authentication/servlet/SigninRequestManager to
+   *             /banking/servlet/SigninRequestManager, so GTM-CDB-BOS answers on
+   *             /banking/live.txt and the cookie records a site BOS liveness has
+   *             already vouched for.
+   * 'api'     — before the fix, kept for comparison. GTM-APIC answers on a
+   *             TCP:443 check of the APIC farm, so cdbbossiteId records an APIC
+   *             that knows nothing about BOS health.
    */
   signinPath: TrafficPath;
   /**
@@ -302,13 +293,10 @@ export interface ScenarioConfig {
 /**
  * What the operator has changed by hand from the production defaults. Set from
  * the chips on the diagram and box clicks, and survive every journey
- * regeneration. Editable mid-journey on purpose — comparing live.txt against a
- * TCP check is the whole reason the flip exists.
+ * regeneration. Editable mid-journey on purpose.
  */
 export interface Overrides {
   down: Record<string, true>;
-  ltmMonitor: PoolMonitor;
-  extGtmMonitor: PoolMonitor;
   /** ISAM IdP liveness object per site. */
   idpLive: Record<SiteId, LivenessState>;
   /** Manual GTM traffic weighting, as set in the GTM console. */

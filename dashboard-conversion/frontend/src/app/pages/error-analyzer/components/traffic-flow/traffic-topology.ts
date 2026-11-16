@@ -105,8 +105,9 @@ export const ISAM_GTM_HOSTNAME = 'isam.prod.ciam.akadns.net';
 export const IDP_COOKIE_NAME = 'apidc';
 
 /**
- * GTM-ISAM's liveness object. It only drives GTM-ISAM health: the IdP LTM has
- * no pool monitor on it, so renaming it never rejects pinned traffic.
+ * The ISAM IdP liveness object. GTM-ISAM and the IdP LTM pool monitor both
+ * watch it, so renaming it on a site steers new users away (GTM-ISAM) and
+ * marks every WGA offline (LTM) — apidc-pinned users are rejected, not drained.
  */
 export const IDP_LIVENESS = '/pics/mobileidp.gif';
 
@@ -156,17 +157,29 @@ export const COOKIE_BYPASSES_GTM = true;
 
 /**
  * /banking/live.txt is a plain static file served by the httpd process in IHS,
- * and both GTMs probe the same object.
+ * watched only by Akamai GTM-CDB-BOS. Renaming it is the site-redirect lever.
  *
- * It therefore says nothing about the app tier. Killing every JVM leaves it
- * returning 200, so neither GTM reacts and traffic keeps arriving at a site
- * that cannot serve it — which is exactly why the unplanned-outage runbook has
- * a manual "rename live.txt" step to force the drain.
- *
- * This corrects an earlier note in this file which had it served through the
- * WAS plugin and therefore app-aware. It is not.
+ * It says nothing about the app tier. Killing every JVM leaves it returning
+ * 200, so the GTM does not react and traffic keeps arriving at a site that
+ * cannot serve it — which is exactly why the unplanned-outage runbook has a
+ * manual "rename live.txt" step to force the drain.
  */
 export const LIVE_TXT_STATIC_IN_IHS = true;
+
+/**
+ * The F5 liveness object, a static file on the same IHS servers. Both the BOS
+ * LTM pool monitor and the EXT GTM watch it instead of live.txt, so a live.txt
+ * drain no longer empties the LTM pool (DACT-104) or flips the EXT GTM. It is
+ * never renamed by hand, so it only fails when IHS or the LTM is actually down.
+ */
+export const F5_LIVENESS = '/banking/CDBF5_live.txt';
+
+/**
+ * Sign-in as the SPA sends it, and as the Akamai property rewrites it so that
+ * GTM-CDB-BOS, not GTM-APIC, answers it.
+ */
+export const SIGNIN_REQUEST_PATH = '/api/cdb/party-authentication/servlet/SigninRequestManager';
+export const SIGNIN_REWRITE_PATH = '/banking/servlet/SigninRequestManager';
 
 /**
  * Legacy ISAM keys off the same cdbbossiteId as APIC, but hard-wires to
@@ -208,8 +221,6 @@ export function defaultSimState(): SimState {
     jsession: 1,
     live: { BCC: 'present', SCC: 'present' },
     idpLive: { BCC: 'present', SCC: 'present' },
-    ltmMonitor: 'live',
-    extGtmMonitor: 'live',
     down: {}
   };
 }
