@@ -4,6 +4,23 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { IntakeFormData } from './intake-template';
 import { IntakePropertyPayload } from '../types/intake';
 
+export interface ConfluenceChildPage {
+  id: string;
+  title?: string;
+  version?: {
+    when?: string;
+    by?: { displayName?: string };
+  };
+  metadata?: {
+    properties?: Record<string, {
+      value?: unknown;
+      _expandable?: unknown;
+    }> & {
+      _expandable?: Record<string, unknown>;
+    };
+  };
+}
+
 class ConfluenceService {
   private client: AxiosInstance;
   private cachedServiceAccountId: string | null = null;
@@ -23,15 +40,15 @@ class ConfluenceService {
     return new Promise((res) => setTimeout(res, ms));
   }
 
-  private async withRetries<T>(fn: () => Promise<T>, attempts = 3, baseDelay = 200): Promise<T> {
+  private async withRetries<T>(fn: () => Promise<T>, attempts = 3, baseDelay = 200, retryNotFound = false): Promise<T> {
     let lastErr: any;
     for (let i = 0; i < attempts; i++) {
       try {
         return await fn();
       } catch (err: any) {
         lastErr = err;
-        // If it's a 413, don't retry
-        if (err?.response?.status === 413) throw err;
+        // Missing resources and oversized payloads are not transient.
+        if ((err?.response?.status === 404 && !retryNotFound) || err?.response?.status === 413) throw err;
         const delay = baseDelay * Math.pow(2, i);
         await this.sleep(delay);
       }
@@ -59,6 +76,29 @@ class ConfluenceService {
       },
     });
     return response.data?.results || [];
+  }
+
+  async getChildPagesWithIntake(parentPageId: string): Promise<ConfluenceChildPage[]> {
+    const apiPrefix = config.confluence.baseUrl.includes('/rest/api') ? '' : 'rest/api/';
+    const limit = 100;
+    const pages: ConfluenceChildPage[] = [];
+    let start = 0;
+
+    while (true) {
+      const response = await this.client.get(`${apiPrefix}content/${parentPageId}/child/page`, {
+        params: {
+          limit,
+          start,
+          expand: 'version,metadata.properties.intake-data',
+        },
+      });
+      const results = Array.isArray(response.data?.results) ? response.data.results as ConfluenceChildPage[] : [];
+      pages.push(...results);
+      if (!response.data?._links?.next || results.length === 0) break;
+      start += results.length;
+    }
+
+    return pages;
   }
 
   /**
@@ -108,14 +148,16 @@ class ConfluenceService {
     return this.withRetries(async () => {
       const resp = await this.client.post(`${apiPrefix}content/${pageId}/property`, payload);
       return resp.data;
-    });
+    }, 3, 200, true);
   }
 
   async getIntakeProperty(pageId: string): Promise<null | any> {
     const apiPrefix = config.confluence.baseUrl.includes('/rest/api') ? '' : 'rest/api/';
     try {
-      const resp = await this.client.get(`${apiPrefix}content/${pageId}/property/intake-data`);
-      return resp.data || null;
+      return await this.withRetries(async () => {
+        const resp = await this.client.get(`${apiPrefix}content/${pageId}/property/intake-data`);
+        return resp.data || null;
+      });
     } catch (err: any) {
       if (err?.response?.status === 404) return null;
       throw err;
@@ -170,7 +212,15 @@ class ConfluenceService {
 
   async getPageContent(pageId: string): Promise<any> {
     const apiPrefix = config.confluence.baseUrl.includes('/rest/api') ? '' : 'rest/api/';
-    const response = await this.client.get(`${apiPrefix}content/${pageId}?expand=history,version,body.storage`);
+    const response = await this.client.get(`${apiPrefix}content/${pageId}?expand=history,version,space,body.storage`);
+    return response.data;
+  }
+
+  async getPageSummary(pageId: string): Promise<any> {
+    const apiPrefix = config.confluence.baseUrl.includes('/rest/api') ? '' : 'rest/api/';
+    const response = await this.client.get(`${apiPrefix}content/${pageId}`, {
+      params: { expand: 'space,version' },
+    });
     return response.data;
   }
 

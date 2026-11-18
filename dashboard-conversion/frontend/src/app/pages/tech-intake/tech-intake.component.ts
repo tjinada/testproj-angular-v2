@@ -68,9 +68,21 @@ export class TechIntakeComponent implements OnInit {
 
   // Identity (collected in the Create / Modify modals)
   // All releases, newest first (Modify modal)
-  releases: { releaseId: string; title: string; status?: string }[] = [];
+  releases: {
+    releaseId: string;
+    title: string;
+    status?: string;
+    intakeParentPageId?: string | null;
+    intakeSpaceKey?: string;
+  }[] = [];
   // Releases still accepting intakes, newest first (Create modal)
-  openReleases: { releaseId: string; title: string; status?: string }[] = [];
+  openReleases: {
+    releaseId: string;
+    title: string;
+    status?: string;
+    intakeParentPageId?: string | null;
+    intakeSpaceKey?: string;
+  }[] = [];
   // Create modal DA team type-to-filter
   teamSearchTerm = '';
   showTeamResults = false;
@@ -157,6 +169,7 @@ export class TechIntakeComponent implements OnInit {
     updatedBy: string | null;
   }> = [];
   previousIntakesLoading = false;
+  previousIntakesLoadError = false;
   selectedDuplicationSource: { release: string; title: string; pageId: string; url: string } | null = null;
   // Schema drift warning data (populated by Prompt 3 logic)
   schemaDriftWarnings: string[] = [];
@@ -165,6 +178,7 @@ export class TechIntakeComponent implements OnInit {
   editModalRelease = '';
   editModalPages: Array<{ pageId: string; title: string; url: string; lastUpdated: string | null; updatedBy: string | null }> = [];
   editModalPagesLoading = false;
+  editModalLoadError = false;
   editModalSelectedPageId = '';
   editModalLoading = false;
   editMode = false;
@@ -350,7 +364,13 @@ export class TechIntakeComponent implements OnInit {
       ]);
 
       this.releases = (releases || [])
-        .map((r) => ({ releaseId: r.releaseId, title: r.title, status: r.status }))
+        .map((r) => ({
+          releaseId: r.releaseId,
+          title: r.title,
+          status: r.status,
+          intakeParentPageId: r.intakeParentPageId,
+          intakeSpaceKey: r.intakeSpaceKey,
+        }))
         .sort((a, b) => TechIntakeComponent.compareReleaseIdsDesc(a.releaseId, b.releaseId));
       this.openReleases = this.releases.filter((r) => !CLOSED_RELEASE_STATUSES.includes(r.status || ''));
       // Keep an unfiltered master list for Create flow and initialize visible list
@@ -393,7 +413,10 @@ export class TechIntakeComponent implements OnInit {
   filteredDaTeams(): { name: string; jiraProjects: string[] }[] {
     const term = this.teamSearchTerm.trim().toLowerCase();
     if (!term || term === this.createForm.daTeam.toLowerCase()) return this.allDaTeams;
-    return this.allDaTeams.filter((t) => t.name.toLowerCase().includes(term));
+    return this.allDaTeams.filter((t) =>
+      t.name.toLowerCase().includes(term)
+      || t.jiraProjects.some((project) => project.toLowerCase().includes(term))
+    );
   }
 
   onTeamSearchChange(term: string): void {
@@ -501,6 +524,7 @@ export class TechIntakeComponent implements OnInit {
     this.createModalChecking = false;
     this.previousIntakes = [];
     this.previousIntakesLoading = false;
+    this.previousIntakesLoadError = false;
     this.selectedDuplicationSource = null;
     this.schemaDriftWarnings = [];
     this.duplicationInProgress = false;
@@ -512,10 +536,11 @@ export class TechIntakeComponent implements OnInit {
   }
 
   async onCreateModalSelectionChange(): Promise<void> {
+    this.previousIntakes = [];
+    this.previousIntakesLoadError = false;
     // Reset modal-specific state
     this.createModalExistingIntake = null;
     this.createModalError = null;
-    this.previousIntakes = [];
     this.selectedDuplicationSource = null;
     this.createModalState = 'select';
     if (!this.createForm.release || !this.createForm.daTeam) return;
@@ -549,6 +574,7 @@ export class TechIntakeComponent implements OnInit {
         } catch (err) {
           console.error('Failed to fetch previous intakes:', err);
           this.previousIntakes = [];
+          this.previousIntakesLoadError = true;
         } finally {
           this.previousIntakesLoading = false;
         }
@@ -561,16 +587,7 @@ export class TechIntakeComponent implements OnInit {
       this.createModalError = 'Failed to check for existing intakes.';
     } finally {
       this.createModalChecking = false;
-      // New intake for this release + team: the Feature Name is the next thing to fill in
-      if (this.createModalState === 'results' && !this.createModalExistingIntake && !this.createForm.titleSuffix.trim()) {
-        this.focusFeatureName();
-      }
     }
-  }
-
-  /** Move the cursor to the Create modal's Feature Name (after it has rendered). */
-  focusFeatureName(): void {
-    setTimeout(() => document.getElementById('create-feature-name')?.focus());
   }
 
   async submitCreateModal(): Promise<void> {
@@ -649,6 +666,14 @@ export class TechIntakeComponent implements OnInit {
   // Temporary storage for fetched source data when showing schema-warning
   private _pendingDuplicationData: any = null;
 
+  private getFriendlySourceError(error: any): string {
+    const raw = typeof error?.error === 'string' ? error.error : error?.error?.error;
+    if (typeof raw === 'string' && raw.includes('No intake-data property found')) {
+      return 'This page was not created by the dashboard and cannot be copied.';
+    }
+    return 'Failed to load source intake data.';
+  }
+
   /**
    * Fetch source intake data, detect schema drift (stub), and either show
    * a warning or apply duplication.
@@ -686,7 +711,7 @@ export class TechIntakeComponent implements OnInit {
       this.applyDuplication(sourceFormData);
     } catch (err) {
       console.error('Duplication failed:', err);
-      this.createModalError = 'Failed to load source intake data.';
+      this.createModalError = this.getFriendlySourceError(err);
     } finally {
       this.duplicationInProgress = false;
     }
@@ -869,6 +894,7 @@ export class TechIntakeComponent implements OnInit {
     this.editModalRelease = '';
     this.editModalPages = [];
     this.editModalPagesLoading = false;
+    this.editModalLoadError = false;
     this.editModalSelectedPageId = '';
     this.editModalLoading = false;
   }
@@ -880,6 +906,7 @@ export class TechIntakeComponent implements OnInit {
   async onEditModalReleaseChange(): Promise<void> {
     this.editModalPages = [];
     this.editModalSelectedPageId = '';
+    this.editModalLoadError = false;
     if (!this.editModalRelease) return;
     this.editModalPagesLoading = true;
     try {
@@ -890,6 +917,7 @@ export class TechIntakeComponent implements OnInit {
       this.editModalPages = data.results || [];
     } catch (err) {
       console.error('Failed to load intakes for edit modal:', err);
+      this.editModalLoadError = true;
     } finally {
       this.editModalPagesLoading = false;
     }
@@ -919,7 +947,7 @@ export class TechIntakeComponent implements OnInit {
       this.enterForm();
     } catch (err) {
       console.error('Failed to load intake for editing:', err);
-      alert('Failed to load intake data.');
+      alert(this.getFriendlySourceError(err));
     } finally {
       this.editModalLoading = false;
     }
@@ -2084,9 +2112,6 @@ payload.step1.intakeTitle = this.intakeTitleSuffix || '';
         }
       } else {
         // Create new intake (existing flow)
-        // Keep frontend hints for parent/space; backend resolves server-side
-        payload.parentPageId = '1356094131';
-        payload.spaceId = 'SSRELEASE';
         payload.daTeam = this.selectedDATeam;
         payload.release = this.selectedRelease;
         payload.jiraBoardKey = this.jiraBoardKey;

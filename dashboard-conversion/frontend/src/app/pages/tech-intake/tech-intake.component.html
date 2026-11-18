@@ -885,7 +885,7 @@
           <div *ngIf="createForm.release && createForm.daTeam && !createModalExistingIntake && !createModalChecking" class="form-group">
             <label for="create-feature-name">Feature Name *</label>
             <input id="create-feature-name" type="text" [(ngModel)]="createForm.titleSuffix" placeholder="e.g. Interac e-Transfer limits" />
-            <span class="field-hint">Page title: {{ createForm.release }} - {{ createModalBoardKey || createForm.daTeam }} - <ng-container *ngIf="createForm.titleSuffix.trim(); else featureNamePlaceholder">{{ createForm.titleSuffix.trim() }}</ng-container><ng-template #featureNamePlaceholder><em>your feature name</em></ng-template></span>
+            <span class="field-hint">Page title: {{ createForm.release }} - {{ createModalBoardKey || createForm.daTeam }} - {{ createForm.titleSuffix.trim() || '…' }}</span>
           </div>
           <!-- Error message -->
           <div *ngIf="createModalError" class="modal-error">{{ createModalError }}</div>
@@ -902,7 +902,7 @@
           </label>
           <div class="start-from-subhead">
             <span>Or copy a previous {{ createModalBoardKey || createForm.daTeam }} intake</span>
-            <span *ngIf="!previousIntakesLoading && previousIntakes.length > 0" class="start-from-count">{{ previousIntakes.length }} found</span>
+            <span *ngIf="!previousIntakesLoading && !previousIntakesLoadError && previousIntakes.length > 0" class="start-from-count">{{ previousIntakes.length }} found</span>
           </div>
           <div *ngIf="previousIntakesLoading" class="modal-checking">Loading previous intakes…</div>
           <div *ngIf="!previousIntakesLoading && previousIntakes.length > 0" class="start-option-list">
@@ -918,8 +918,11 @@
               <a class="start-option-view" [href]="intake.url" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()">View <i class="bi bi-box-arrow-up-right"></i></a>
             </label>
           </div>
-          <div *ngIf="!previousIntakesLoading && previousIntakes.length === 0" class="start-from-empty">
-            No previous intakes for {{ createModalBoardKey || createForm.daTeam }} yet — start blank.
+          <div *ngIf="!previousIntakesLoading && previousIntakesLoadError" class="start-from-empty">
+            Couldn't load previous intakes. Try again.
+          </div>
+          <div *ngIf="!previousIntakesLoading && !previousIntakesLoadError && previousIntakes.length === 0" class="start-from-empty">
+            No previous {{ createModalBoardKey || createForm.daTeam }} intakes created by the dashboard are available to copy.
           </div>
         </fieldset>
         <!-- STATE: schema-warning -->
@@ -953,12 +956,8 @@
         </ng-container>
         <!-- State: results (no existing intake, showing Start-from table) -->
         <ng-container *ngIf="createModalState === 'results' && !createModalExistingIntake && !createModalChecking">
-          <button *ngIf="!createForm.titleSuffix.trim()" type="button" class="link-btn modal-footer-hint" (click)="focusFeatureName()">
-            Enter a feature name to continue
-          </button>
           <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
           <button class="btn btn-primary"
-                  [attr.title]="!createForm.titleSuffix.trim() ? 'Enter a feature name to continue' : null"
                   [disabled]="!selectedUser || !createForm.titleSuffix.trim() || createModalLoading || duplicationInProgress"
                   (click)="submitCreateModal()">
             {{ duplicationInProgress ? 'Loading…' : (selectedDuplicationSource ? 'Duplicate selected intake' : 'Start blank intake') }}
@@ -996,8 +995,10 @@
         @if (editModalRelease) {
           @if (editModalPagesLoading) {
             <p class="placeholder-text">Loading intakes...</p>
+          } @else if (editModalLoadError) {
+            <p class="placeholder-text">Couldn't load intakes. Try again.</p>
           } @else if (editModalPages.length === 0) {
-            <p class="placeholder-text">No intakes found for this release.</p>
+            <p class="placeholder-text">No intakes created by the dashboard for {{ editModalRelease }} yet.</p>
           } @else {
             <div class="intake-results">
               <ul class="intake-list">

@@ -7,10 +7,15 @@ import { techGovernanceReleasesIntakeService } from '../services';
  * - 'ssrelease'           → Test board (SS Release Management space)
  * - 'channel-technology'  → Production board (Channel Technology space)
  */
-const ACTIVE_BOARD: 'ssrelease' | 'channel-technology' =
-  process.env.INTAKE_ACTIVE_BOARD === 'channel-technology'
-    ? 'channel-technology'
-    : 'ssrelease';
+const configuredBoard = process.env.INTAKE_ACTIVE_BOARD;
+const ACTIVE_BOARD: 'ssrelease' | 'channel-technology' = configuredBoard === 'channel-technology'
+  ? 'channel-technology'
+  : 'ssrelease';
+
+if (configuredBoard !== 'channel-technology' && configuredBoard !== 'ssrelease') {
+  const received = configuredBoard ? ` (received "${configuredBoard}")` : '';
+  console.warn(`[Intake Board] INTAKE_ACTIVE_BOARD is missing or invalid; falling back to ssrelease${received}`);
+}
 const BOARD_CONFIG = {
   ssrelease: {
     spaceKey: 'SSRELEASE',

@@ -4,7 +4,7 @@ import releaseWorkflowService from '../services/release-workflow.service';
 import { techGovernanceReleasesIntakeService } from '../services';
 import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
 import confluenceExportService, { buildIntakeTitle } from '../services/confluence-export.service';
-import ConfluenceService from '../services/confluence.service';
+import ConfluenceService, { ConfluenceChildPage } from '../services/confluence.service';
 import daTeamsService from '../services/da-teams.service';
 import { IntakeFormData } from '../services/intake-template';
 import { loadIntakeTemplate } from '../services/intake-template-loader';
@@ -27,6 +27,58 @@ function badRequest(res: Response, msg: string): Response {
 
 function notFound(res: Response, msg: string): Response {
   return res.status(404).json({ error: msg });
+}
+
+class MissingIntakePropertyValueError extends Error {
+  constructor() {
+    super('intake-data property has no value');
+    this.name = 'MissingIntakePropertyValueError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+async function filterDashboardIntakes(pages: ConfluenceChildPage[]): Promise<ConfluenceChildPage[]> {
+  const results: Array<ConfluenceChildPage | null> = new Array(pages.length).fill(null);
+  const checkPage = async (page: ConfluenceChildPage, index: number): Promise<void> => {
+    try {
+      const properties = page.metadata?.properties;
+      const expandedProperty = properties?.['intake-data'];
+      if (expandedProperty?.value !== undefined) {
+        if (typeof expandedProperty.value === 'string') JSON.parse(expandedProperty.value);
+        results[index] = page;
+        return;
+      }
+      const expandableProperties = properties?._expandable;
+      if (properties && !('intake-data' in properties)
+        && (!expandableProperties || !('intake-data' in expandableProperties))) {
+        return;
+      }
+
+      const property = await ConfluenceService.getIntakeProperty(String(page.id));
+      if (!property) {
+        return;
+      }
+      if (typeof property.value === 'string') JSON.parse(property.value);
+      else if (property.value === undefined) throw new MissingIntakePropertyValueError();
+      results[index] = page;
+    } catch (err: any) {
+      if (!(err instanceof SyntaxError) && !(err instanceof MissingIntakePropertyValueError)) {
+        throw err;
+      }
+      console.warn('[TechIntake Copy] Skipping page whose intake-data could not be read', {
+        pageId: page.id,
+        title: page.title,
+        reason: err instanceof SyntaxError ? err.message : 'intake-data property has no value',
+      });
+    }
+  };
+  const checkBatch = async (startIndex: number): Promise<void> => {
+    if (startIndex >= pages.length) return;
+    await Promise.all(pages.slice(startIndex, startIndex + 5).map((page, offset) => checkPage(page, startIndex + offset)));
+    return checkBatch(startIndex + 5);
+  };
+  await checkBatch(0);
+  return results.filter((page): page is ConfluenceChildPage => page !== null);
 }
 
 /**
@@ -75,13 +127,21 @@ function normalizeIntakePropertyValue(rawValue: any) {
 
 /**
  * GET /api/tech-intake/releases
- * Returns minimal release list (id + title + status) for the intake form dropdowns.
- * Status lets the Create flow hide complete/aborted releases.
+ * Returns minimal release list (id + title only) for the intake form dropdown.
  */
 router.get('/releases', async (_req: Request, res: Response) => {
   try {
     const releases = Object.values(await releaseWorkflowService.getAll());
-    const minimal = (releases || []).map((r: any) => ({ releaseId: r.releaseId, title: r.title, status: r.status }));
+    const minimal = (releases || []).map((r: any) => {
+      const releaseId = r.releaseId;
+      return {
+        releaseId,
+        title: r.title,
+        status: r.status,
+        intakeParentPageId: resolveIntakeParentPageId(releaseId) || null,
+        intakeSpaceKey: getIntakeSpaceKey(),
+      };
+    });
     res.json(minimal);
   } catch (error) {
     console.error('Error fetching releases for intake:', error);
@@ -173,7 +233,7 @@ router.get('/intake/lookup', async (req: Request, res: Response) => {
     const parentPageId = resolveIntakeParentPageId(release);
     if (!parentPageId) return notFound(res, `No intake parent page configured for release "${release}"`);
 
-    const allChildren = await ConfluenceService.getChildPages(String(parentPageId));
+    const allChildren = await ConfluenceService.getChildPagesWithIntake(String(parentPageId));
     const releaseLower = release.toLowerCase();
     // Resolve board key preference: explicit boardKey query param wins, otherwise
     // resolve from daTeam for backwards compatibility
@@ -187,7 +247,8 @@ router.get('/intake/lookup', async (req: Request, res: Response) => {
       return true;
     });
 
-    const pages = filtered.map((page: any) => ({
+    const dashboardIntakes = await filterDashboardIntakes(filtered);
+    const pages = dashboardIntakes.map((page: any) => ({
       pageId: page.id,
       title: page.title,
       url: buildIntakePageUrl(page.id, page.title),
@@ -198,7 +259,11 @@ router.get('/intake/lookup', async (req: Request, res: Response) => {
     res.json({ release, daTeam, boardKey: resolvedKey, parentPageId, results: pages });
   } catch (err: any) {
     console.error('Error in intake lookup:', err?.message ?? err);
-    res.status(500).json({ error: err?.message ?? 'Intake lookup failed' });
+    const upstreamStatus = err?.response?.status;
+    const hasUpstreamStatus = Number.isInteger(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus <= 599;
+    const responseStatus = hasUpstreamStatus ? (upstreamStatus === 403 ? 403 : 502) : 500;
+    const message = hasUpstreamStatus ? 'Confluence request failed' : (err?.message ?? 'Intake lookup failed');
+    res.status(responseStatus).json({ error: message });
   }
 });
 
@@ -244,28 +309,24 @@ router.get('/intakes-by-team/:boardKey', async (req: Request<{ boardKey: string 
 
     // Parallel fetch child pages for each release's intake parent (skip releases with no parent)
     const perReleasePromises = releases.map(async (r: any) => {
-      try {
-        const parent = resolveIntakeParentPageId(r.releaseId);
-        if (!parent) return [] as any[];
-        const children = await ConfluenceService.getChildPages(String(parent));
-        const lowerKey = boardKey.toLowerCase();
-        const matched = (children || []).filter((p: any) => (String(p.title || '').toLowerCase().includes(lowerKey)));
-        return matched.map((p: any) => {
-          const titleStr = String(p.title || '');
-          const extractedRelease = (titleStr.split(' - ')[0] || '').trim() || r.releaseId;
-          return {
-            release: extractedRelease,
-            title: p.title,
-            pageId: p.id,
-            url: buildIntakePageUrl(p.id, p.title),
-            lastUpdated: p.version?.when || null,
-            updatedBy: p.version?.by?.displayName || null,
-          };
-        });
-      } catch (err) {
-        console.error(`Failed to fetch intakes for release ${r && r.releaseId}:`, err);
-        return [] as any[];
-      }
+      const parent = resolveIntakeParentPageId(r.releaseId);
+      if (!parent) return [] as any[];
+      const children = await ConfluenceService.getChildPagesWithIntake(String(parent));
+      const lowerKey = boardKey.toLowerCase();
+      const matched = children.filter((p) => String(p.title || '').toLowerCase().includes(lowerKey));
+      const dashboardIntakes = await filterDashboardIntakes(matched);
+      return dashboardIntakes.map((p: any) => {
+        const titleStr = String(p.title || '');
+        const extractedRelease = (titleStr.split(' - ')[0] || '').trim() || r.releaseId;
+        return {
+          release: extractedRelease,
+          title: p.title,
+          pageId: p.id,
+          url: buildIntakePageUrl(p.id, p.title),
+          lastUpdated: p.version?.when || null,
+          updatedBy: p.version?.by?.displayName || null,
+        };
+      });
     });
 
     const perReleaseResults = await Promise.all(perReleasePromises);
@@ -281,7 +342,11 @@ router.get('/intakes-by-team/:boardKey', async (req: Request<{ boardKey: string 
     res.json({ boardKey, intakes });
   } catch (err: any) {
     console.error('Error fetching intakes by team:', err?.message ?? err);
-    res.status(500).json({ error: err?.message ?? 'Failed to fetch intakes by team' });
+    const upstreamStatus = err?.response?.status;
+    const hasUpstreamStatus = Number.isInteger(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus <= 599;
+    const responseStatus = hasUpstreamStatus ? (upstreamStatus === 403 ? 403 : 502) : 500;
+    const message = hasUpstreamStatus ? 'Confluence request failed' : (err?.message ?? 'Failed to fetch intakes by team');
+    res.status(responseStatus).json({ error: message });
   }
 });
 
@@ -292,13 +357,34 @@ router.get('/intakes-by-team/:boardKey', async (req: Request<{ boardKey: string 
 router.post('/export', async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
-    // Resolve parent from server-side config (ignore frontend values — server is source of truth)
+    // Resolve the target exclusively from server-side board and release data.
     const release = String(body.step1?.release || body.release || '');
-    const parentPageId = String(body.parentPageId || resolveIntakeParentPageId(release) || '');
-    const spaceId = String(body.spaceId || getIntakeSpaceKey() || '');
+    const parentPageId = String(resolveIntakeParentPageId(release) || '');
+    const spaceId = String(getIntakeSpaceKey() || '');
 
-    if (!parentPageId) return notFound(res, `No Tech Governance intake parent page found for release "${release}"`);
+    if (!parentPageId) return notFound(res, `No intake parent page configured for ${release}`);
     if (!/^[0-9]+$/.test(String(parentPageId))) return badRequest(res, 'Invalid parentPageId');
+
+    let parentPage: any;
+    try {
+      parentPage = await ConfluenceService.getPageSummary(parentPageId);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 404) return notFound(res, `Intake parent page ${parentPageId} was not found`);
+      if (status === 403) return res.status(403).json({ error: `Service account cannot access parent page ${parentPageId}` });
+      throw err;
+    }
+    if (!parentPage) return notFound(res, `Intake parent page ${parentPageId} was not found`);
+    const parentTitle = String(parentPage.title || '');
+    const expectedTitlePrefix = `${release} CDB Platform technical Intake checklist Instructions`;
+    if (String(parentPage.space?.key || '') !== spaceId) {
+      return badRequest(res, `Intake parent page ${parentPageId} is not in ${spaceId}`);
+    }
+    if (!parentTitle.startsWith(expectedTitlePrefix)) {
+      console.warn('[TechIntake Export] Parent title does not match expected checklist title', {
+        release, parentPageId, parentTitle, expectedTitlePrefix,
+      });
+    }
 
     // Resolve real user identity from request body if provided, otherwise fall back to session
     const providedUser = req.body?.requestor || req.body?.createdBy || req.body?.exportedBy || req.body?.user || req.body?.selectedUser;
@@ -363,7 +449,6 @@ router.post('/export', async (req: Request, res: Response) => {
 
     if (!formData.step1.daTeam) return badRequest(res, 'Body field "step1.daTeam" is required');
     if (!formData.step1.release) return badRequest(res, 'Body field "step1.release" is required');
-    // New intakes must name the feature (it's the page-title suffix). Edits via /push stay lenient.
     if (!String(formData.step1.intakeTitle || '').trim()) return badRequest(res, 'Feature name is required');
 
     // Acquire per-release+team lock to mitigate race conditions
