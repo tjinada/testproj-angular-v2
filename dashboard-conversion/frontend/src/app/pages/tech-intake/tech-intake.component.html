@@ -348,7 +348,7 @@
           </div>
           @if (getFieldValue('general', field.field) === 'Yes' && field.conditionalFields?.whenYes) {
             <div class="sub-fields">
-              @for (sub of field.conditionalFields.whenYes; track sub.field) {
+              @for (sub of visibleSubFields(field.conditionalFields.whenYes); track sub.field) {
                 <div class="sub-field">
                   @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                   @if (sub.type === 'checkbox' && sub.options) {
@@ -420,7 +420,7 @@
           </div>
           @if (getFieldValue('general', field.field) && getFieldValue('general', field.field) !== 'No' && field.conditionalFields?.whenNotNo) {
             <div class="sub-fields">
-              @for (sub of field.conditionalFields.whenNotNo; track sub.field) {
+              @for (sub of visibleSubFields(field.conditionalFields.whenNotNo); track sub.field) {
                 <div class="sub-field">
                   @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                   @if (sub.type === 'checkbox' && sub.options) {
@@ -544,7 +544,7 @@
               </div>
               @if (getFieldValue('scope', field.field) === 'Yes' && field.conditionalFields?.whenYes) {
                 <div class="sub-fields">
-                  @for (sub of field.conditionalFields.whenYes; track sub.field) {
+                  @for (sub of visibleSubFields(field.conditionalFields.whenYes); track sub.field) {
                     <div class="sub-field">
                       @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                       @if (sub.type === 'checkbox' && sub.options) {
@@ -593,29 +593,6 @@
                 }
               </div>
             }
-            @if (field.type === 'dynamic-rows' && field.columns) {
-              <div>
-                <table class="dynamic-table">
-                  <thead>
-                    <tr>
-                      @for (col of field.columns; track col) { <th>{{ col }}</th> }
-                      <th style="width:40px"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (row of dynamicRows[field.field] || []; track $index; let ri = $index) {
-                      <tr>
-                        @for (cell of row; track $index; let ci = $index) {
-                          <td><input type="text" [value]="cell" (input)="updateDynamicRowCell(field.field, ri, ci, $any($event.target).value)" [placeholder]="field.columnPlaceholders?.[ci] || ''" /></td>
-                        }
-                        <td><button class="remove-row-btn" (click)="removeDynamicRow(field.field, ri)" title="Remove row">✕</button></td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-                <button class="add-row-btn" (click)="addDynamicRow(field.field, field.columns.length)">+ Add row</button>
-              </div>
-            }
             @if (field.type === 'radio-with-link') {
               <div class="radio-group">
                 @for (opt of field.options; track opt.label) {
@@ -639,7 +616,7 @@
               </div>
               @if (getFieldValue('scope', field.field) && getFieldValue('scope', field.field) !== 'No' && field.conditionalFields?.whenNotNo) {
                 <div class="sub-fields">
-                  @for (sub of field.conditionalFields.whenNotNo; track sub.field) {
+                  @for (sub of visibleSubFields(field.conditionalFields.whenNotNo); track sub.field) {
                     <div class="sub-field">
                       @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                       @if (sub.type === 'checkbox' && sub.options) {
@@ -743,7 +720,6 @@
       [generalValues]="generalValues"
       [selectedScopes]="selectedScopes"
       [scopeValues]="scopeValues"
-      [dynamicRows]="dynamicRows"
       [changedFields]="changedFieldsList"
       [noChangeMessage]="noChangeMessage"
       [editMode]="editMode"
@@ -805,10 +781,10 @@
   }
 </ng-template>
 
-<!-- Shared "Your name" Jira user search — used by both the Create and Modify modals -->
+<!-- Shared "Requestor name" Jira user search — used by both the Create and Modify modals -->
 <ng-template #userSearchField>
   <div class="form-group">
-    <label for="userSearch">Your Name *</label>
+    <label for="userSearch">Requestor Name *</label>
     <div class="typeahead">
       <input id="userSearch" type="text" autocomplete="off" [ngModel]="userSearchTerm" (ngModelChange)="onUserSearchTermChange($event)" placeholder="Type at least 3 characters to search…" />
       @if (selectedUser) {

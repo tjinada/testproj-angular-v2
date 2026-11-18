@@ -113,7 +113,6 @@ export class TechIntakeComponent implements OnInit {
 
   // Step 4 (Scope details)
   scopeValues: Record<string, any> = {};
-  dynamicRows: Record<string, any[][]> = {};
   // Scope Details sub-step tracking
   activeScopeIndex = 0;
   // Visited sub-steps by section key (not position), so adding/removing scopes keeps progress
@@ -777,7 +776,7 @@ export class TechIntakeComponent implements OnInit {
   detectSchemaDrift(sourceFormData: any): string[] {
     if (!this.template || !sourceFormData) return [];
     const unmapped: string[] = [];
-    const { generalValues: sourceGeneral, selectedScopes: sourceSelectedScopes, scopeValues: sourceScopeValues, dynamicRows: sourceDynamicRows } = this.normalizeSourceFormData(sourceFormData);
+    const { generalValues: sourceGeneral, selectedScopes: sourceSelectedScopes, scopeValues: sourceScopeValues } = this.normalizeSourceFormData(sourceFormData);
     const { knownGeneralKeys, knownScopeKeys, knownScopeIds, generalFieldLabels, scopeFieldLabels } = this.getTemplateFieldKeys();
     // ── 2. Check source generalValues against known general keys ───────
     for (const key of Object.keys(sourceGeneral || {})) {
@@ -793,14 +792,7 @@ export class TechIntakeComponent implements OnInit {
         unmapped.push(`Scope: ${label}`);
       }
     }
-    // ── 4. Check source dynamicRows against known scope keys ───────────
-    for (const key of Object.keys(sourceDynamicRows || {})) {
-      if (!knownScopeKeys.has(key)) {
-        const label = scopeFieldLabels.get(key) || key;
-        unmapped.push(`Scope (table): ${label}`);
-      }
-    }
-    // ── 5. Check source selectedScopes against known scope IDs ─────────
+    // ── 4. Check source selectedScopes against known scope IDs ─────────
     for (const scopeId of sourceSelectedScopes || []) {
       if (!knownScopeIds.has(scopeId)) {
         // Try to find a human label from source context
@@ -817,12 +809,9 @@ export class TechIntakeComponent implements OnInit {
   getNewTemplateFields(sourceFormData: any): string[] {
     if (!this.template || !sourceFormData) return [];
     const newFields: string[] = [];
-    const { generalValues: sourceGeneral, selectedScopes: sourceSelectedScopes, scopeValues: sourceScopeValues, dynamicRows: sourceDynamicRows } = this.normalizeSourceFormData(sourceFormData);
+    const { generalValues: sourceGeneral, selectedScopes: sourceSelectedScopes, scopeValues: sourceScopeValues } = this.normalizeSourceFormData(sourceFormData);
     const sourceGeneralKeys = new Set(Object.keys(sourceGeneral || {}));
-    const sourceScopeKeys = new Set([
-      ...Object.keys(sourceScopeValues || {}),
-      ...Object.keys(sourceDynamicRows || {}),
-    ]);
+    const sourceScopeKeys = new Set(Object.keys(sourceScopeValues || {}));
     // Use template keys helper
     const { knownGeneralKeys, knownScopeKeys } = this.getTemplateFieldKeys();
     // Check general fields
@@ -1103,9 +1092,6 @@ export class TechIntakeComponent implements OnInit {
       const allScopeFields = Object.values(this.template?.scopeDetails || {}).flatMap((s: any) => s.fields || []);
       this.normalizeDateFieldsInStore(this.scopeValues, allScopeFields || []);
     }
-    if (formData.dynamicRows) {
-      this.dynamicRows = { ...formData.dynamicRows };
-    }
     // Title suffix should be locked when loading existing data
     this.titleSuffixLocked = true;
   }
@@ -1138,7 +1124,6 @@ export class TechIntakeComponent implements OnInit {
     this.generalValues = {};
     this.selectedScopes = new Set();
     this.scopeValues = {};
-    this.dynamicRows = {};
     this._originalFormSnapshot = null;
     this.submitBlockers = [];
     this.currentStep = 'general';
@@ -1331,7 +1316,6 @@ export class TechIntakeComponent implements OnInit {
     this.selectedScopes.delete(section.showWhen);
     for (const f of section.fields || []) {
       delete this.scopeValues[f.field];
-      delete this.dynamicRows[f.field];
       if (f.detailField) delete this.scopeValues[f.detailField];
       delete this.scopeValues[`${f.field}_link`];
       for (const sub of Object.values(f.conditionalFields || {}).flat() as any[]) {
@@ -1405,24 +1389,31 @@ export class TechIntakeComponent implements OnInit {
   /** Sub-fields currently shown under a yes-no / conditional-radio parent. */
   private getVisibleSubFields(field: any, value: any): any[] {
     const cond = field.conditionalFields || {};
-    if (field.type === 'yes-no') return value === 'Yes' ? cond.whenYes || [] : [];
+    if (field.type === 'yes-no') return value === 'Yes' ? this.visibleSubFields(cond.whenYes) : [];
     if (field.type === 'conditional-radio') {
       if (!value) return [];
-      return value === 'No' ? cond.whenNo || [] : cond.whenNotNo || [];
+      return this.visibleSubFields(value === 'No' ? cond.whenNo : cond.whenNotNo);
     }
     return [];
+  }
+
+  /** YAML `visibleWhen`: sub-field shows only while a sibling checkbox includes an option. */
+  private isSubFieldVisible(sub: any): boolean {
+    const rule = sub?.visibleWhen;
+    if (!rule) return true;
+    const value = this.generalValues[rule.field] ?? this.scopeValues[rule.field];
+    return Array.isArray(value) && value.includes(rule.includes);
+  }
+
+  /** Sub-fields of a conditional group that pass their `visibleWhen` rule (used by the template too). */
+  visibleSubFields(subs: any[] = []): any[] {
+    return subs.filter((sub) => this.isSubFieldVisible(sub));
   }
 
   isInvalidLink(value: any): boolean {
     if (this.isBlank(value)) return false;
     const text = String(value).trim();
     return !LINK_PATTERN.test(text) && !NOT_APPLICABLE_PATTERN.test(text);
-  }
-
-  private hasFilledRow(fieldName: string): boolean {
-    return (this.dynamicRows[fieldName] || []).some((row) =>
-      Array.isArray(row) && row.some((cell) => cell !== null && cell !== undefined && String(cell).trim() !== ''),
-    );
   }
 
   /**
@@ -1437,10 +1428,6 @@ export class TechIntakeComponent implements OnInit {
     for (const f of fields) {
       const label = f.label || f.field;
       const value = values[f.field];
-      if (f.type === 'dynamic-rows') {
-        if (!this.hasFilledRow(f.field)) add(f.field, `${label} (at least one row)`, 'Add at least one row');
-        continue;
-      }
       if (f.required && this.isBlank(value)) add(f.field, label, 'This field is required');
       if (f.type === 'link' && this.isInvalidLink(value)) add(f.field, `${label} (must start with http:// or https://)`, '');
       if (f.type === 'radio-with-link' && this.isInvalidLink(values[`${f.field}_link`])) {
@@ -1624,45 +1611,45 @@ export class TechIntakeComponent implements OnInit {
     const idx = arr.indexOf(option);
     if (idx >= 0) {
       arr.splice(idx, 1);
+      this.clearHiddenDependents(storeRef, fieldName);
       return;
     }
     // YAML `exclusive:` option (e.g. "Not applicable") can't be combined with the others
     const exclusive = this.findFieldDef(fieldName)?.exclusive;
     if (exclusive) {
       storeRef[fieldName] = option === exclusive ? [option] : [...arr.filter((o) => o !== exclusive), option];
+      this.clearHiddenDependents(storeRef, fieldName);
       return;
     }
     arr.push(option);
   }
 
-  /** Top-level field definition (general or any scope section) by key. */
-  private findFieldDef(fieldName: string): any {
-    const allFields = [
+  /** Unticking a checkbox option clears the `visibleWhen` sub-fields it was showing. */
+  private clearHiddenDependents(storeRef: Record<string, any>, checkboxField: string): void {
+    for (const f of this.allTemplateFields()) {
+      for (const sub of Object.values(f.conditionalFields || {}).flat() as any[]) {
+        if (sub?.visibleWhen?.field === checkboxField && !this.isSubFieldVisible(sub)) delete storeRef[sub.field];
+      }
+    }
+  }
+
+  /** Every top-level field definition (general + all scope sections). */
+  private allTemplateFields(): any[] {
+    return [
       ...(this.template?.general?.fields || []),
       ...Object.values(this.template?.scopeDetails || {}).flatMap((s: any) => s.fields || []),
     ];
-    return allFields.find((f: any) => f.field === fieldName);
+  }
+
+  /** Top-level field definition (general or any scope section) by key. */
+  private findFieldDef(fieldName: string): any {
+    return this.allTemplateFields().find((f: any) => f.field === fieldName);
   }
 
   isCheckboxChecked(store: 'general' | 'scope', fieldName: string, option: string): boolean {
     const storeRef = store === 'general' ? this.generalValues : this.scopeValues;
     const arr = storeRef[fieldName] || [];
     return Array.isArray(arr) && arr.indexOf(option) >= 0;
-  }
-
-  addDynamicRow(fieldName: string, columnCount: number): void {
-    const rows = (this.dynamicRows[fieldName] = this.dynamicRows[fieldName] || []);
-    rows.push(new Array(columnCount).fill(''));
-  }
-
-  removeDynamicRow(fieldName: string, index: number): void {
-    const rows = this.dynamicRows[fieldName] || [];
-    rows.splice(index, 1);
-  }
-
-  updateDynamicRowCell(fieldName: string, rowIndex: number, colIndex: number, value: string): void {
-    const rows = (this.dynamicRows[fieldName] = this.dynamicRows[fieldName] || []);
-    rows[rowIndex][colIndex] = value;
   }
 
   formatDateForDisplay(isoDate: string): string {
@@ -1730,7 +1717,6 @@ export class TechIntakeComponent implements OnInit {
       generalValues: {},
       selectedScopes: [],
       scopeValues: {},
-      dynamicRows: {},
     };
     // Copy only known general fields
     for (const [key, val] of Object.entries(normalized.generalValues || {})) {
@@ -1750,12 +1736,6 @@ export class TechIntakeComponent implements OnInit {
         cleaned.scopeValues[key] = val;
       }
     }
-    // Copy only known dynamic rows
-    for (const [key, val] of Object.entries(normalized.dynamicRows || {})) {
-      if (knownScopeKeys.has(key)) {
-        cleaned.dynamicRows[key] = val;
-      }
-    }
     return cleaned;
   }
 
@@ -1763,14 +1743,12 @@ export class TechIntakeComponent implements OnInit {
     generalValues: Record<string, any>;
     selectedScopes: string[];
     scopeValues: Record<string, any>;
-    dynamicRows: Record<string, any>;
   } {
     // Safety net: the pull endpoint normalizes old -> new format before returning,
     // but handle the case where raw property data (old or new) reaches the frontend.
     let generalValues: Record<string, any> = {};
     let selectedScopes: string[] = [];
     let scopeValues: Record<string, any> = {};
-    let dynamicRows: Record<string, any> = {};
     // General values — old format: step3.general, new format: generalValues
     if (sourceFormData.step3?.general) {
       generalValues = { ...sourceFormData.step3.general };
@@ -1791,9 +1769,7 @@ export class TechIntakeComponent implements OnInit {
     } else if (sourceFormData.scopeValues) {
       scopeValues = { ...sourceFormData.scopeValues };
     }
-    // Dynamic rows — same key in both formats
-    dynamicRows = { ...(sourceFormData.dynamicRows || {}) };
-    return { generalValues, selectedScopes, scopeValues, dynamicRows };
+    return { generalValues, selectedScopes, scopeValues };
   }
 
   formatSectionHeader(item: string): string {
@@ -1807,7 +1783,6 @@ export class TechIntakeComponent implements OnInit {
       generalValues: { ...(this.generalValues || {}) },
       selectedScopes: Array.from(this.selectedScopes || []).sort(),
       scopeValues: { ...(this.scopeValues || {}) },
-      dynamicRows: { ...(this.dynamicRows || {}) },
     };
     return JSON.stringify(state);
   }
@@ -1936,31 +1911,6 @@ export class TechIntakeComponent implements OnInit {
         }
       }
     }
-    // ── 4. Dynamic rows ───────────────────────────────────────────
-    const allDynKeys = new Set([
-      ...Object.keys(original.dynamicRows || {}),
-      ...Object.keys(this.dynamicRows || {}),
-    ]);
-    for (const key of allDynKeys) {
-      const oldRows = original.dynamicRows?.[key] || [];
-      const newRows = this.dynamicRows?.[key] || [];
-      if (isDiff(oldRows, newRows)) {
-        // Find the field def to get a label and section
-        let label = key;
-        let section = 'Scope Details';
-        for (const sec of scopeSections) {
-          const found = (sec.fields || []).find((f: any) => f.field === key);
-          if (found) { label = found.label || key; section = sec.label || section; break; }
-        }
-        result.push({
-          field: key,
-          label,
-          section,
-          oldValue: `${oldRows.length} row(s)`,
-          newValue: `${newRows.length} row(s)`,
-        });
-      }
-    }
     return result;
   }
 
@@ -2064,7 +2014,6 @@ export class TechIntakeComponent implements OnInit {
         generalValues: this.getFormattedGeneralValues(),
         selectedScopes: Array.from(this.selectedScopes),
         scopeValues: this.scopeValues,
-        dynamicRows: this.dynamicRows,
       };
 // Only send the optional suffix — buildIntakeTitle on the backend
 // already prepends "<release> - <boardKey> -"

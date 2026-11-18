@@ -134,7 +134,6 @@ class ConfluenceService {
         generalValues: intakeData.generalValues || {},
         selectedScopes: intakeData.selectedScopes || [],
         scopeValues: intakeData.scopeValues || {},
-        dynamicRows: intakeData.dynamicRows || {},
         metadata: {
           createdBy: createdBy?.name || exportedBy,
           createdAt: exportedAt,

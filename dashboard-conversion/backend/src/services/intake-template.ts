@@ -18,7 +18,6 @@ export interface IntakeFormData {
   generalValues: Record<string, any>;
   selectedScopes: string[];
   scopeValues: Record<string, any>;
-  dynamicRows?: Record<string, any[][]>;
 }
 
 function escapeHtml(s: string | undefined | null): string {
@@ -29,6 +28,32 @@ function escapeHtml(s: string | undefined | null): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+const URL_PATTERN = /https?:\/\/[^\s<>"']+/g;
+const URL_TRAILING_PUNCTUATION = /[.,;:!?)\]]+$/;
+
+/** Multi-line user text → escaped HTML with clickable http(s) links and <br/> line breaks. */
+function renderMultiline(text: string | undefined | null): string {
+  const raw = String(text ?? '').replaceAll(/\r\n?/g, '\n');
+  const parts: string[] = [];
+  let last = 0;
+  for (const match of raw.matchAll(URL_PATTERN)) {
+    const url = match[0].replace(URL_TRAILING_PUNCTUATION, '');
+    const start = match.index ?? 0;
+    parts.push(escapeHtml(raw.slice(last, start)), `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`);
+    last = start + url.length;
+  }
+  parts.push(escapeHtml(raw.slice(last)));
+  return parts.join('').replaceAll('\n', '<br/>');
+}
+
+/** YAML `visibleWhen`: sub-field shows only while a sibling checkbox includes an option. */
+function isSubFieldVisible(sub: IntakeFieldDef, formData?: IntakeFormData): boolean {
+  const rule = sub.visibleWhen;
+  if (!rule) return true;
+  const val = formData?.generalValues?.[rule.field] ?? formData?.scopeValues?.[rule.field];
+  return Array.isArray(val) && val.map(String).includes(rule.includes);
 }
 
 function renderOptionLabel(opt: any): string {
@@ -84,37 +109,17 @@ function renderLinkValue(val: any): string {
   return `<a href="${escapeHtml(url)}">${escapeHtml(href)}</a>`;
 }
 
-function renderDynamicRows(field: IntakeFieldDef, dynamicRows: any[][] | undefined): string {
-  const rows = dynamicRows || [];
-  const cols = field.columns || [];
-  const th = cols.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
-  const trs = rows.map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('');
-  return `<table class="dynamic-table"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
-}
-
-// Helper: whether a dynamic row has any non-empty cell
-function rowHasContent(row: any[]): boolean {
-  return row.some(cell => String(cell || '').trim());
-}
-
-// Helper: join filtered row cells into single string
-function rowToJoinedString(row: any[]): string {
-  return row
-    .filter((c) => String(c || '').trim())
-    .map((c) => escapeHtml(String(c).trim()))
-    .join(' - ');
-}
-
 function renderSubFieldsHtml(subs: any[] = [], formData?: IntakeFormData): string {
   const parts: string[] = [];
   for (const sub of subs) {
+    if (!isSubFieldVisible(sub, formData)) continue;
     const subVal = formData?.generalValues?.[sub.field] ?? formData?.scopeValues?.[sub.field];
     if (sub.type === 'checkbox') {
       const labelPrefix = sub.label ? `<p><strong>${escapeHtml(sub.label)}</strong></p>` : '';
       parts.push(labelPrefix + renderTaskListOptions(sub.options || [], new Set(Array.isArray(subVal) ? subVal.map(String) : [])));
     } else if (sub.type === 'textarea' || sub.type === 'text') {
-      if (sub.label) parts.push(`<p>${escapeHtml(sub.label)}${subVal ? '<br/>' + escapeHtml(subVal) : ''}</p>`);
-      else if (subVal) parts.push(`<p>${escapeHtml(subVal)}</p>`);
+      if (sub.label) parts.push(`<p>${escapeHtml(sub.label)}${subVal ? '<br/>' + renderMultiline(subVal) : ''}</p>`);
+      else if (subVal) parts.push(`<p>${renderMultiline(subVal)}</p>`);
     } else if (sub.type === 'link') {
       parts.push(`<p><strong>${escapeHtml(sub.label || sub.field)}</strong>: ${renderLinkValue(subVal)}</p>`);
     } else {
@@ -133,9 +138,7 @@ function renderFieldValue(field: IntakeFieldDef, value: any, formData: IntakeFor
     case 'link':
       return renderLinkValue(value);
     case 'textarea':
-      return `<p>${escapeHtml(value).replaceAll('\n', '<br/>')}</p>`;
-    case 'dynamic-rows':
-      return renderDynamicRows(field, formData.dynamicRows?.[field.field]);
+      return `<p>${renderMultiline(value)}</p>`;
     default:
       return `<div>${escapeHtml(value)}</div>`;
   }
@@ -212,9 +215,9 @@ function renderRadioFieldTwoRow(field: IntakeFieldDef, val: any, formData: Intak
   const detailPrompt = hintText || defaultDetailPrompt;
   let detailContent = '';
   if (detailPrompt) {
-    detailContent = detailPrompt + (detailVal ? '<br/>' + escapeHtml(detailVal) : '');
+    detailContent = detailPrompt + (detailVal ? '<br/>' + renderMultiline(detailVal) : '');
   } else if (detailVal) {
-    detailContent = escapeHtml(detailVal);
+    detailContent = renderMultiline(detailVal);
   }
   const detailHtml = detailContent ? `<p>${detailContent}</p>` : '<p></p>';
   const result: string[] = [];
@@ -291,9 +294,11 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
   // Header
   rows.push(`<tr><th colspan="4"><p><strong>📝 PLATFORM CDB INTAKE CHECKLIST 📝</strong></p></th><th><p><strong>DETAILS/NOTES</strong></p></th></tr>`);
 
-  // Jira Board Key (first data row — sets column widths)
+  // Jira Board Key (first data row — sets column widths), followed by the Intake Scope text
   const jiraKey = formData.step1.jiraBoardKey || '';
-  rows.push(`<tr><td data-colwidth="420"><p><strong>Jira Board Key (e.g. RELMAN, PCI, PBT)</strong></p></td><td data-colwidth="200" colspan="3"><p>${renderLinkValue(jiraKey)}</p></td><td data-colwidth="300"><p></p></td></tr>`);
+  const intakeScope = formData.generalValues?.intakeScope || '';
+  const intakeScopeHtml = intakeScope ? `<p>${renderMultiline(intakeScope)}</p>` : '';
+  rows.push(`<tr><td data-colwidth="420"><p><strong>Jira Board Key (e.g. RELMAN, PCI, PBT)</strong></p></td><td data-colwidth="200" colspan="3"><p>${renderLinkValue(jiraKey)}</p>${intakeScopeHtml}</td><td data-colwidth="300"><p></p></td></tr>`);
 
   // Change Scope row: render selected scopes as a task list (checked per selectedScopes)
   const scopeSections = Object.entries((template as any).scopeDetails || {});
@@ -327,7 +332,6 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
     const scopeId = entry.source || defaultScopeId;
 
     if ((field as any).skipRender) return;
-    if (field.field === 'uiConfigEntries' || field.field === 'bosConfigEntries') return;
     // Skip scope-specific fields if their scope is not selected
     if (scopeId && !formData.selectedScopes?.includes(scopeId)) return;
 
@@ -337,26 +341,26 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
     if (field.field === 'akamaiChangeType') {
       const akamaiDetails = formData.scopeValues?.['akamaiDetails'] || formData.generalValues?.['akamaiDetails'] || '';
       if (akamaiDetails) {
-        const detailHtml = `<p>${escapeHtml(akamaiDetails).replaceAll('\n', '<br/>')}</p>`;
+        const detailHtml = `<p>${renderMultiline(akamaiDetails)}</p>`;
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>Akamai change details</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
     }
     if (field.field === 'isamChangeType') {
       const isamDetails = formData.scopeValues?.['isamDetails'] || formData.generalValues?.['isamDetails'] || '';
       if (isamDetails) {
-        const detailHtml = `<p>${escapeHtml(isamDetails).replaceAll('\n', '<br/>')}</p>`;
+        const detailHtml = `<p>${renderMultiline(isamDetails)}</p>`;
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>ISAM Details</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
     }
     if (field.field === 'newNavigation') {
       const newRouteDetails = formData.scopeValues?.['newRouteDetails'] || '';
       if (newRouteDetails) {
-        const detailHtml = `<p>${escapeHtml(newRouteDetails).replaceAll('\n', '<br/>')}</p>`;
+        const detailHtml = `<p>${renderMultiline(newRouteDetails)}</p>`;
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>New Route Path(s)</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
       const beyondAppDetails = formData.scopeValues?.['beyondAppDetails'] || '';
       if (beyondAppDetails) {
-        const detailHtml = `<p>${escapeHtml(beyondAppDetails).replaceAll('\n', '<br/>')}</p>`;
+        const detailHtml = `<p>${renderMultiline(beyondAppDetails)}</p>`;
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>Beyond App Details</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
     }
@@ -410,25 +414,7 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
       const yesTask = `<ac:task-list><ac:task><ac:task-status>${yesChecked ? 'complete' : 'incomplete'}</ac:task-status><ac:task-body>Yes</ac:task-body></ac:task></ac:task-list>`;
       const noTask = `<ac:task-list><ac:task><ac:task-status>${noChecked ? 'complete' : 'incomplete'}</ac:task-status><ac:task-body>No</ac:task-body></ac:task></ac:task-list>`;
       if (Array.isArray(cond?.whenYes) && cond.whenYes.length > 0) {
-        const parts: string[] = [];
-        for (const sub of cond.whenYes) {
-          const subVal = formData.generalValues?.[sub.field] ?? formData.scopeValues?.[sub.field];
-          if (sub.type === 'checkbox') {
-            const labelPrefix = sub.label ? `<p><strong>${escapeHtml(sub.label)}</strong></p>` : '';
-            parts.push(labelPrefix + renderTaskListOptions(sub.options || [], new Set(Array.isArray(subVal) ? subVal.map(String) : [])));
-          } else if (sub.type === 'textarea' || sub.type === 'text') {
-            if (sub.label) {
-              parts.push(`<p>${escapeHtml(sub.label)}${subVal ? '<br/>' + escapeHtml(subVal) : ''}</p>`);
-            } else if (subVal) {
-              parts.push(`<p>${escapeHtml(subVal)}</p>`);
-            }
-          } else if (sub.type === 'link') {
-            parts.push(`<p><strong>${escapeHtml(sub.label || sub.field)}</strong>: ${renderLinkValue(subVal)}</p>`);
-          } else {
-            parts.push(`<p>${escapeHtml(subVal)}</p>`);
-          }
-        }
-        const subHtml = parts.join('');
+        const subHtml = renderSubFieldsHtml(cond.whenYes, formData);
         rows.push(`<tr><td rowspan="2" data-highlight-colour="#f4f5f7">${labelHtml}</td><td>${yesTask}</td><td colspan="2">${subHtml}</td><td rowspan="2"><p></p></td></tr>`, `<tr><td colspan="3">${noTask}</td></tr>`);
       } else {
         const hintHtml = field.hint ? `<p>${escapeHtml(field.hint)}</p>` : '<p></p>';
@@ -459,13 +445,6 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
         return `<ac:task><ac:task-status>${checked}</ac:task-status><ac:task-body>${escapeHtml(label)}</ac:task-body></ac:task>`;
       }).join('');
       rows.push(`<tr><td data-highlight-colour="#f4f5f7">${labelHtml}</td><td colspan="3"><ac:task-list>${tasks}</ac:task-list></td><td><p></p></td></tr>`);
-      return;
-    }
-
-    // Dynamic rows
-    if (field.type === 'dynamic-rows') {
-      const dyn = renderDynamicRows(field, formData.dynamicRows?.[field.field]);
-      rows.push(`<tr><td data-highlight-colour="#f4f5f7">${labelHtml}</td><td colspan="3">${wrap(dyn)}</td><td><p></p></td></tr>`);
       return;
     }
 
@@ -501,10 +480,7 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
       if (isSelected) anySelected = true;
       const checked = isSelected ? 'complete' : 'incomplete';
       const task = `<ac:task-list><ac:task><ac:task-status>${checked}</ac:task-status><ac:task-body>${escapeHtml(opt.label)}</ac:task-body></ac:task></ac:task-list>`;
-      const entries = (formData.dynamicRows?.[opt.dynamicRowsKey] || [])
-        .filter(rowHasContent)
-        .map(rowToJoinedString)
-        .join('<br/>');
+      const entries = isSelected ? renderMultiline(String(formData.scopeValues?.[opt.valueKey] || '').trim()) : '';
       const promptHtml = escapeHtml(opt.prompt || '');
       const contentHtml = entries ? `${promptHtml}<br/>${entries}` : promptHtml;
       if (idx === 0) {
@@ -537,7 +513,6 @@ export function renderIntakeTemplate(data: IntakeStep1): string {
     generalValues: {},
     selectedScopes: [],
     scopeValues: {},
-    dynamicRows: {},
   };
   return renderFullIntakeTemplate(formData);
 }

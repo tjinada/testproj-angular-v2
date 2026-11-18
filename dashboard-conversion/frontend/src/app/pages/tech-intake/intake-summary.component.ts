@@ -18,7 +18,6 @@ export class IntakeSummaryComponent {
   @Input() generalValues: Record<string, any> = {};
   @Input() selectedScopes: Set<string> = new Set();
   @Input() scopeValues: Record<string, any> = {};
-  @Input() dynamicRows: Record<string, any[][]> = {};
   @Input() editMode = false;
   
   @Input() isExporting = false;

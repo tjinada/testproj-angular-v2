@@ -68,6 +68,7 @@
   font-size: 14px;
   color: #172b4d;
   word-break: break-word;
+  white-space: pre-line; // keep line breaks from multi-line fields
   flex: 1;
   a {
     color: #0052cc;

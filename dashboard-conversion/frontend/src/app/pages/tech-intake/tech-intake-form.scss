@@ -372,15 +372,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  /* Make dynamic tables responsive */
-  .dynamic-table, .dynamic-table table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .dynamic-table th, .dynamic-table td {
-    padding: 8px 10px;
-    border: 1px solid var(--bmo-grey-200, #e0e0e0);
+  /* Multi-line fields show multi-line examples ("one per line") */
+  textarea::placeholder {
+    white-space: pre-line;
   }
 
 /* .history-changes-table removed — replaced by compact card layout styles below */
@@ -745,50 +739,6 @@
   margin-top: 4px;
 }
 .sub-field { margin-bottom: 8px; }
-/* Dynamic rows */
-.dynamic-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 8px;
-  table-layout: fixed;
-  th {
-    background: #f5f5f5;
-    padding: 8px 10px;
-    text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid var(--border, #e0e0e0);
-    white-space: nowrap;
-  }
-  td {
-    padding: 4px 6px;
-    border: 1px solid var(--border, #e0e0e0);
-  }
-  input {
-    width: 100%;
-    min-width: 0;
-    border: none;
-    padding: 8px 10px;
-    font: inherit;
-    font-size: 0.8125rem;
-    box-sizing: border-box;
-    &::placeholder {
-      color: var(--bmo-grey-400, #999);
-      font-size: 0.75rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-  }
-  th:last-child,
-  td:last-child {
-    width: 40px;
-    text-align: center;
-  }
-}
-.remove-row-btn { background: none; border: none; color: #b3261e; cursor: pointer; font-size: 16px; padding: 4px; }
-.add-row-btn { font-size: 13px; color: #2d8ad3; background: none; border: none; cursor: pointer; font-weight: 600; }
-.add-row-btn:hover { text-decoration: underline; }
 /* Radio/checkbox groups — use horizontal wrap to fill available space */
 .radio-group,
 .checkbox-group {

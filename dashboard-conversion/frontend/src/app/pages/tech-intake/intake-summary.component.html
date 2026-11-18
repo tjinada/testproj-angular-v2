@@ -124,34 +124,11 @@
       </div>
       <div class="summary-grid">
         @for (field of entry.section.fields; track field.field) {
-          <div class="summary-row" [class.full-width]="field.type === 'textarea' || field.type === 'dynamic-rows'">
+          <div class="summary-row" [class.full-width]="field.type === 'textarea'">
             <span class="summary-label">{{ field.label }}:</span>
             <span class="summary-value">
               @if (field.type === 'link' && scopeValues[field.field]) {
                 <a [href]="scopeValues[field.field]" target="_blank" rel="noopener noreferrer">{{ scopeValues[field.field] }}</a>
-              } @else if (field.type === 'dynamic-rows' && field.columns) {
-                @if (dynamicRows[field.field] && dynamicRows[field.field].length > 0) {
-                  <table class="summary-table">
-                    <thead>
-                      <tr>
-                        @for (col of field.columns; track col) {
-                          <th>{{ col }}</th>
-                        }
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (row of dynamicRows[field.field]; track $index) {
-                        <tr>
-                          @for (cell of row; track $index) {
-                            <td>{{ cell || '—' }}</td>
-                          }
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                } @else {
-                  —
-                }
               } @else if (isArray(scopeValues[field.field])) {
                 {{ scopeValues[field.field].join(', ') || '—' }}
               } @else {

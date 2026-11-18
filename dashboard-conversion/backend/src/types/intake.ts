@@ -7,7 +7,6 @@ export interface IntakePropertyValue {
   generalValues: Record<string, any>;
   selectedScopes: string[];
   scopeValues: Record<string, any>;
-  dynamicRows: Record<string, any>;
   metadata: {
     createdBy: string | null;
     createdAt: string | null;

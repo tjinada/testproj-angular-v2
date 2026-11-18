@@ -64,16 +64,22 @@ step1:
 general:
   label: "General"
   fields:
+    - field: intakeScope
+      label: "Intake Scope"
+      type: textarea
+      required: true
+      hint: "Shown with the Jira Board Key on the Confluence page"
+      placeholder: "Add the filtered Jira board link here (plus any notes)"
     - field: pageVisualDesign
       label: "Page Visual Design"
-      type: link
-      hint: "Figma / design link"
-      placeholder: "e.g. https://www.figma.com/design/abc123/Design-Name?node-id=0-1 — or N/A if not applicable"
+      type: textarea
+      hint: "Figma / design links"
+      placeholder: "Paste Figma / design links or notes, e.g. https://www.figma.com/design/abc123/Design-Name?node-id=0-1 — or N/A if not applicable"
     - field: pageFlowDiagram
       label: "Page Flow Diagram (Optional)"
-      type: link
+      type: textarea
       required: false
-      placeholder: "Figma or Confluence link — leave blank if same as Visual Design, N/A if not applicable"
+      placeholder: "Paste Figma or Confluence links or notes — leave blank if same as Visual Design, N/A if not applicable"
     - field: cddSa
       label: "Code Design Document (CDD) / SA (Solution Architecture)"
       type: radio-with-link
@@ -97,11 +103,18 @@ general:
             required: true
             type: checkbox
             options: ["UI", "CDBBOS"]
-          - label: "Toggle name(s)"
-            field: featureToggleNames
+          - label: "UI toggle name(s)"
+            field: featureToggleNamesUi
             required: true
-            type: text
-            placeholder: "e.g. FEATURE_NAME_TOGGLE, ANOTHER_TOGGLE"
+            type: textarea
+            visibleWhen: { field: featureToggleEmbed, includes: "UI" }
+            placeholder: "One toggle per line, e.g.\nFEATURE_NAME_TOGGLE"
+          - label: "CDBBOS toggle name(s)"
+            field: featureToggleNamesBos
+            required: true
+            type: textarea
+            visibleWhen: { field: featureToggleEmbed, includes: "CDBBOS" }
+            placeholder: "One toggle per line, e.g.\nFEATURE_NAME_TOGGLE"
           - label: "Release toggle removing timeline?"
             field: featureToggleRemovalTimeline
             type: text
@@ -332,11 +345,11 @@ scopeDetails:
     label: "CDB UI Config"
     showWhen: cdb_ui_config
     fields:
-      - field: uiConfigEntries
-        label: "Config entries"
-        type: dynamic-rows
-        columns: ["Config file", "Config name", "Value"]
-        columnPlaceholders: ["e.g. environment.json", "e.g. FEATURE_FLAG_NAME or allowFeatureName", "e.g. true / \"value\" / [\"OLB\",\"MBW\"]"]
+      - field: uiConfigDetails
+        label: "Config changes"
+        type: textarea
+        required: true
+        placeholder: "Add/Update - config file - config name - value, one per line, e.g.\nAdd - environment.json - allowFeatureName - [\"OLB\",\"MBW\"]"
   cdbbos:
     label: "CDBBOS"
     showWhen: cdbbos
@@ -360,11 +373,11 @@ scopeDetails:
     label: "CDBBOS Config"
     showWhen: cdbbos_config
     fields:
-      - field: bosConfigEntries
-        label: "Config entries"
-        type: dynamic-rows
-        columns: ["Config file", "Config name", "Value"]
-        columnPlaceholders: ["e.g. cdbbos-apic-config.xml", "e.g. endpoint.url.serviceName", "e.g. /api/v2/service-endpoint"]
+      - field: bosConfigDetails
+        label: "Config changes"
+        type: textarea
+        required: true
+        placeholder: "Add/Update - config file - config name - value, one per line, e.g.\nUpdate - cdbbos-apic-config.xml - endpoint.url.serviceName - /api/v2/service-endpoint"
   akamai:
     label: "Akamai"
     showWhen: akamai
@@ -437,12 +450,12 @@ synthetics:
       - id: ui_config
         label: "UI config"
         scopeCheck: cdb_ui_config
-        dynamicRowsKey: uiConfigEntries
+        valueKey: uiConfigDetails
         prompt: "Add/Update - config name - value (if applicable)"
       - id: bos_config
         label: "CDBBOS Config"
         scopeCheck: cdbbos_config
-        dynamicRowsKey: bosConfigEntries
+        valueKey: bosConfigDetails
         prompt: "Add/Update - Name of config file - config name - value (if applicable)"
       - id: no
         label: "No"

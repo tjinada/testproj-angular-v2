@@ -13,8 +13,9 @@ export interface IntakeFieldDef {
   options?: (string | { label: string; hasLink?: boolean })[];
   hasDetails?: boolean;
   detailField?: string;
-  columns?: string[];
   conditionalFields?: Record<string, IntakeFieldDef[]>;
+  // Sub-field shown only while a sibling checkbox includes this option
+  visibleWhen?: { field: string; includes: string };
   // NEW rendering hints
   render?: 'split-no' | 'split-last' | 'per-option-row';
   skipRender?: boolean;

@@ -120,7 +120,6 @@ function normalizeIntakePropertyValue(rawValue: any) {
       }
       return {};
     })(),
-    dynamicRows: src.dynamicRows || {},
   };
   return formData;
 }
@@ -409,7 +408,7 @@ router.post('/export', async (req: Request, res: Response) => {
     } else if ((req as any).user) {
       createdBy = { name: (req as any).user?.displayName || (req as any).user?.name || (req as any).user?.email || 'unknown', email: (req as any).user?.email || '' };
     } else {
-      return badRequest(res, 'A user identity is required (select your name from the dropdown)');
+      return badRequest(res, 'A user identity is required (select the requestor name from the dropdown)');
     }
 
     // Normalize payload into IntakeFormData for both full-form and legacy flows
@@ -425,7 +424,6 @@ router.post('/export', async (req: Request, res: Response) => {
         generalValues: (body.generalValues || {}),
         selectedScopes: Array.isArray(body.selectedScopes) ? body.selectedScopes.map(String) : [],
         scopeValues: (body.scopeValues || {}),
-        dynamicRows: (body.dynamicRows || {}),
       };
     } else {
       const daTeam = String(body.daTeam || '');
@@ -443,7 +441,6 @@ router.post('/export', async (req: Request, res: Response) => {
         generalValues: {},
         selectedScopes: [],
         scopeValues: {},
-        dynamicRows: {},
       };
     }
 
@@ -519,7 +516,7 @@ router.post('/export', async (req: Request, res: Response) => {
 router.post('/intake/:pageId/push', async (req: Request<{ pageId: string }>, res: Response) => {
   try {
     const pageId = req.params.pageId;
-    const { step1, generalValues, selectedScopes, scopeValues, dynamicRows } = req.body || {};
+    const { step1, generalValues, selectedScopes, scopeValues } = req.body || {};
     // Resolve editor identity
     const providedEditor = req.body?.editedBy || req.body?.editor || req.body?.user || req.body?.selectedUser;
     let editedBy: { name: string; email: string } | null = null;
@@ -543,7 +540,7 @@ router.post('/intake/:pageId/push', async (req: Request<{ pageId: string }>, res
     } else if ((req as any).user) {
       editedBy = { name: (req as any).user?.displayName || (req as any).user?.name || (req as any).user?.email || 'unknown', email: (req as any).user?.email || '' };
     } else {
-      return badRequest(res, 'A user identity is required (select your name from the dropdown)');
+      return badRequest(res, 'A user identity is required (select the requestor name from the dropdown)');
     }
 
     const pageInfo = await ConfluenceService.getPageVersion(pageId);
@@ -552,7 +549,7 @@ router.post('/intake/:pageId/push', async (req: Request<{ pageId: string }>, res
     const currentProperty = await ConfluenceService.getIntakeProperty(pageId);
     const propertyVersion = currentProperty?.version?.number || 1;
 
-    const formData = { step1, generalValues, selectedScopes, scopeValues, dynamicRows };
+    const formData = { step1, generalValues, selectedScopes, scopeValues };
     // Preserve original creator from stored property where possible (do NOT fall back to editor)
     const preservedCreatedBy = currentProperty?.value?.createdBy ?? null;
     // Determine lastUpdatedBy only when the editor differs from the original creator AND both have accountIds
@@ -614,7 +611,6 @@ router.post('/intake/:pageId/push', async (req: Request<{ pageId: string }>, res
       generalValues: generalValues || {},
       selectedScopes: Array.isArray(selectedScopes) ? selectedScopes : [],
       scopeValues: scopeValues || {},
-      dynamicRows: dynamicRows || {},
       // persist lastUpdatedBy for downstream consumers
       lastUpdatedBy: lastUpdatedBy || null,
       metadata: {
