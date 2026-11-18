@@ -302,7 +302,7 @@ export function resolveTraffic(state: SimState): Resolution {
     let site: SiteId;
     if (idpPinned) {
       site = idpPinned;
-      step(['gtm-isam'], 'Akamai edge',
+      step(['pin-isam'], 'Akamai edge',
         `Valid <b>${IDP_COOKIE_NAME}</b> → pinned to <b>${SITES[site].idpLtm}</b>. ` +
         'GTM-ISAM is never consulted.');
     } else {
@@ -443,7 +443,7 @@ export function resolveTraffic(state: SimState): Resolution {
     if (cookieBypass) {
       apicSite = pinned;
       stamp(pinned);
-      step(['gtm-api'], 'Akamai edge',
+      step(['pin-api'], 'Akamai edge',
         `Valid <b>${SITE_COOKIE_NAME}</b> → PMUSER_TARGET is hardcoded to ` +
         `<b>${SITES[pinned].apicFs}</b>. populate-cname-chain never runs, so the GTM ` +
         'and its TCP:443 check are never consulted.');
@@ -524,7 +524,7 @@ export function resolveTraffic(state: SimState): Resolution {
       `Junction forwards to same-site BOS — <b>${SITES[pinned].ltmHost}</b>. No cross-site leg.`);
   } else if (cookieBypass) {
     stamp(pinned);
-    step(['gtm-bos'], 'Akamai edge',
+    step(['pin-bos'], 'Akamai edge',
       `Valid <b>${SITE_COOKIE_NAME}</b> → PMUSER_TARGET is hardcoded to ` +
       `<b>${SITES[pinned].ltmHost}</b>. populate-cname-chain never runs, so ` +
       '<b>/banking/live.txt</b> is never consulted on this request.');

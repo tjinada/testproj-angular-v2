@@ -169,6 +169,23 @@ const BANKING_RAIL_Y = 340;
 /** Horizontal run of the GTM-ISAM legs, just below the Akamai lane. */
 const ISAM_GTM_RAIL_Y = 310;
 
+/** Horizontal run of the GTM-APIC cookie pin's legs, below the banking rails. */
+const PIN_API_RAIL_Y = 372;
+
+/**
+ * Cookie pins, one beside each GTM oval. A request carrying the GTM's affinity
+ * cookie is routed by the property rule straight to a hardcoded origin, so it
+ * is drawn through the pin and around the oval, never into it.
+ */
+const PINS: { pin: string; gtm: string; cookie: string; x: number }[] = [
+  { pin: 'pin-bos', gtm: 'gtm-bos', cookie: SITE_COOKIE_NAME, x: 1015 },
+  { pin: 'pin-api', gtm: 'gtm-api', cookie: SITE_COOKIE_NAME, x: 1465 },
+  { pin: 'pin-isam', gtm: 'gtm-isam', cookie: IDP_COOKIE_NAME, x: 1895 }
+];
+
+/** True when this resolution went through the given cookie pin. */
+const usesPin = (res: Resolution, pin: string) => res.steps.some(s => s.ids.includes(pin));
+
 /**
  * SSS V2 and AWS rows, below CWH app. Lit by the downstream calls CDBBOS and
  * CWH APIC make once a request is served.
@@ -227,6 +244,13 @@ function baseNodes(res: Resolution): Record<string, any> {
     lines: [line('Property Configuration', true),
       line(`if ${SITE_COOKIE_NAME} = BCC/SCC`),
       line('→ ISAM origin, no GTM')] };
+
+  // Once a call goes through a pin, the pin names the site the cookie fixed.
+  PINS.forEach(({ pin, cookie, x }) => {
+    const target = usesPin(res, pin) && res.pinnedSite ? ` → ${res.pinnedSite}` : '';
+    n[pin] = { x, y: ROW.gtm - 30, width: 120, height: 60, outline: true, radius: 6,
+      lines: [line('Cookie pin', true), line(`${cookie}${target}`), line('GTM skipped')] };
+  });
 
   return n;
 }
@@ -517,10 +541,30 @@ function isamGtmRail(all: Record<string, Geom>, site: SiteId): string {
   return `M${sx} ${g.y + g.height} V${ISAM_GTM_RAIL_Y} H${tx} V${t.y}`;
 }
 
+/**
+ * A cookie pin to the origin it hardcodes. Orthogonal, joining the run the
+ * GTM's own legs use, so it clears the columns between.
+ */
+function pinPath(all: Record<string, Geom>, pin: string, target: string): string {
+  const p = all[pin], t = all[target];
+  const px = p.x + p.width / 2, pb = p.y + p.height;
+  if (pin === 'pin-bos') {
+    const site = target.slice('ltm-'.length) as SiteId;
+    const ex = site === 'BCC' ? t.x : t.x + t.width;
+    return `M${px} ${pb} V${BANKING_RAIL_Y} H${RAIL_X[site]} V${t.y + 46} H${ex}`;
+  }
+  const y = pin === 'pin-isam' ? ISAM_GTM_RAIL_Y : PIN_API_RAIL_Y;
+  return `M${px} ${pb} V${y} H${t.x + t.width / 2} V${t.y}`;
+}
+
+/** The origin a pin leads to on each site. */
+const PIN_TARGET: Record<string, string> = { 'pin-bos': 'ltm', 'pin-api': 'apicfs', 'pin-isam': 'idpltm' };
+
 /** Every structural edge, drawn dim underneath the taken path. */
 function baseEdgePairs(): [string, string][] {
   const pairs: [string, string][] = [
-    ['client', 'gtm-bos'], ['client', 'gtm-api']
+    ['client', 'gtm-bos'], ['client', 'gtm-api'],
+    ...PINS.map(({ pin }): [string, string] => ['client', pin])
   ];
   SITE_IDS.forEach(s => {
     // www1 /api/cdb and apis.bmo.com both enter APIC FS straight from GTM-APIC.
@@ -655,6 +699,18 @@ function weightNotes(state: SimState, res: Resolution, geom: Record<string, Geom
   });
 }
 
+/**
+ * Under a GTM whose cookie pinned this call. The oval is already dimmed as
+ * off-path; this says why. GTM-APIC's sits lower, clear of the /api/cdb label.
+ */
+function pinNotes(res: Resolution, geom: Record<string, Geom>): TfLabel[] {
+  return PINS.filter(({ pin }) => usesPin(res, pin)).map(({ gtm }) => {
+    const g = geom[gtm];
+    return { x: g.x + g.width / 2 - 72, y: g.y + g.height + (gtm === 'gtm-api' ? 26 : 14),
+      text: 'not consulted · cookie pinned', kind: 'edge' as const };
+  });
+}
+
 /** Site-pick chips, centred low inside each GTM oval. */
 function buildPills(state: SimState, res: Resolution, geom: Record<string, Geom>): TfPill[] {
   const pills: TfPill[] = [];
@@ -768,7 +824,8 @@ export function buildTrafficGraph(
   });
   SITE_IDS.forEach(s => edges.push(
     baseRail(railPath(geom, s)), baseRail(csgcbPath(geom, s)), baseRail(wgaRail(geom, s)),
-    baseRail(isamGtmRail(geom, s))
+    baseRail(isamGtmRail(geom, s)),
+    ...PINS.map(({ pin }) => baseRail(pinPath(geom, pin, `${PIN_TARGET[pin]}-${s}`)))
   ));
 
   // Taken edges, deduped by geometry. The context pass runs first so that any
@@ -789,7 +846,9 @@ export function buildTrafficGraph(
         // Several hops are drawn as rails rather than beziers, so the taken path
         // has to reuse the same geometry or it would peel away from the dim
         // edge underneath it.
-        const d = a === 'gtm-bos' && b.startsWith('ltm-') && rs.bosSite
+        const d = a.startsWith('pin-')
+          ? pinPath(geom, a, b)
+          : a === 'gtm-bos' && b.startsWith('ltm-') && rs.bosSite
           ? railPath(geom, rs.bosSite)
           : a === 'client' && b === 'akamai-prop'
             ? clientPropPath(geom)
@@ -877,7 +936,7 @@ export function buildTrafficGraph(
   return {
     nodes,
     edges,
-    labels: [...baseLabels(res), ...sssLabels(), ...weightNotes(state, res, geom)],
+    labels: [...baseLabels(res), ...sssLabels(), ...weightNotes(state, res, geom), ...pinNotes(res, geom)],
     lanes: LANES,
     pills: buildPills(state, res, geom),
     chips: buildChips(state, geom, liveLocked),
