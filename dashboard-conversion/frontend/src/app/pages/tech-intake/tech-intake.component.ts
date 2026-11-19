@@ -80,9 +80,25 @@ export class TechIntakeComponent implements OnInit {
     ],
   };
   readonly richTextFormats = ['bold', 'italic', 'underline', 'list', 'link', 'code', 'code-block'];
+  // Hover text for the toolbar buttons above (Quill draws inline code and code block with the same icon)
+  private readonly richTextButtonTitles: Record<string, string> = {
+    '.ql-bold': 'Bold (Ctrl/⌘+B)',
+    '.ql-italic': 'Italic (Ctrl/⌘+I)',
+    '.ql-underline': 'Underline (Ctrl/⌘+U)',
+    '.ql-list[value="ordered"]': 'Numbered list',
+    '.ql-list[value="bullet"]': 'Bulleted list',
+    '.ql-link': 'Link (select text first)',
+    '.ql-code': 'Inline code',
+    '.ql-code-block': 'Code block',
+    '.ql-clean': 'Clear formatting',
+  };
 
-  /** Every editor instance: links bare URLs on paste and when a space/Enter follows them. */
+  /** Every editor instance: toolbar hover text, and links bare URLs on paste or when a space/Enter follows them. */
   onEditorCreated(quill: Quill): void {
+    const toolbar = (quill.getModule('toolbar') as { container?: HTMLElement } | undefined)?.container;
+    for (const [selector, title] of Object.entries(this.richTextButtonTitles)) {
+      toolbar?.querySelector(selector)?.setAttribute('title', title);
+    }
     enableAutoLink(quill);
   }
 
