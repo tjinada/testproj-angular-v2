@@ -785,7 +785,8 @@
 <ng-template #richText let-store="store" let-key="key" let-placeholder="placeholder">
   <quill-editor class="rich-text" format="html" theme="snow"
                 [modules]="richTextModules" [formats]="richTextFormats" [placeholder]="placeholder || ''"
-                [ngModel]="getFieldValue(store, key)" (ngModelChange)="setFieldValue(store, key, $event)"></quill-editor>
+                [ngModel]="getFieldValue(store, key)" (ngModelChange)="setFieldValue(store, key, $event)"
+                (onEditorCreated)="onEditorCreated($event)"></quill-editor>
 </ng-template>
 
 <!-- Shared "Requestor name" Jira user search — used by both the Create and Modify modals -->

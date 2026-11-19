@@ -17,9 +17,11 @@ export interface SubFieldChange {
 }
 import { FormsModule } from '@angular/forms';
 import { QuillEditorComponent } from 'ngx-quill';
+import type Quill from 'quill';
 import { IntakeSummaryComponent } from './intake-summary.component';
 import { ApiService } from '../../services/api.service';
 import { toPlainText } from '../../utils/rich-text.util';
+import { enableAutoLink } from '../../utils/quill-autolink';
 
 export type StepId = 'general' | 'scope' | 'details' | 'review';
 const STEP_ORDER: StepId[] = ['general', 'scope', 'details', 'review'];
@@ -78,6 +80,11 @@ export class TechIntakeComponent implements OnInit {
     ],
   };
   readonly richTextFormats = ['bold', 'italic', 'underline', 'list', 'link', 'code', 'code-block'];
+
+  /** Every editor instance: links bare URLs on paste and when a space/Enter follows them. */
+  onEditorCreated(quill: Quill): void {
+    enableAutoLink(quill);
+  }
 
   // Identity (collected in the Create / Modify modals)
   // All releases, newest first (Modify modal)

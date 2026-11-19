@@ -394,6 +394,10 @@
         overflow-y: auto;
         line-height: 1.5;
       }
+      /* "Enter link" box: keep it above the next field's editor */
+      .ql-tooltip {
+        z-index: 20;
+      }
       /* Placeholders can show multi-line examples ("one per line") */
       .ql-editor.ql-blank::before {
         color: var(--bmo-grey-400, #999);
@@ -602,6 +606,10 @@
     width: 100%;
     min-width: 0;
     overflow: hidden;
+    /* The editor's link box pops outside the editor — don't clip it */
+    &:has(.rich-text) {
+      overflow: visible;
+    }
   }
 }
 .subtle-spacing {
