@@ -43,12 +43,26 @@ const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'a', 'code', 'pre'],
   allowedAttributes: { a: ['href'] },
   allowedSchemes: ['http', 'https', 'mailto'],
-  // Quill emits non-breaking spaces between words; also turn bare URLs into links (not inside links or code)
-  textFilter: (text: string, tagName: string) => {
-    const spaced = text.replaceAll(NBSP, ' ');
-    return ['a', 'code', 'pre'].includes(tagName) ? spaced : linkifyEscaped(spaced);
-  },
+  // Quill emits non-breaking spaces between words. (No linkifying here: the parser hands text over
+  // in chunks split at entities like &amp;, which would cut URLs short — see linkifyHtml.)
+  textFilter: (text: string) => text.replaceAll(NBSP, ' '),
 };
+
+/** Linkify bare URLs in the text of well-formed (sanitized) HTML, skipping <a>, <code> and <pre> content. */
+function linkifyHtml(html: string): string {
+  let skipDepth = 0;
+  return html
+    .split(/(<[^>]*>)/)
+    .map((part) => {
+      if (part.startsWith('<')) {
+        const tag = /^<(\/?)(a|code|pre)\b/i.exec(part);
+        if (tag) skipDepth = Math.max(0, skipDepth + (tag[1] ? -1 : 1));
+        return part;
+      }
+      return skipDepth > 0 ? part : linkifyEscaped(part);
+    })
+    .join('');
+}
 
 /** Text-node escaping (attribute quotes are not needed inside element content). */
 function escapeText(s: string): string {
@@ -99,7 +113,7 @@ function renderMultiline(value: string | undefined | null): string {
   const raw = String(value ?? '').replaceAll(/\r\n?/g, '\n');
   if (!raw.trim()) return '';
   const html = RICH_TEXT_PATTERN.test(raw)
-    ? sanitizeHtml(raw, RICH_TEXT_OPTIONS)
+    ? linkifyHtml(sanitizeHtml(raw, RICH_TEXT_OPTIONS))
     : `<p>${linkifyEscaped(escapeText(raw)).replaceAll('\n', '<br/>')}</p>`;
   return applySmartLinks(html);
 }
