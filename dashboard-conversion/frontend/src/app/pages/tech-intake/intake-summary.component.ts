@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import type { FieldChange } from './tech-intake.component';
 import { CommonModule } from '@angular/common';
+import { toDisplayHtml, toPlainText } from '../../utils/rich-text.util';
 @Component({
   selector: 'app-intake-summary',
   standalone: true,
@@ -31,8 +32,12 @@ export class IntakeSummaryComponent {
     if (val === null) return '';           // parent-unchanged marker — render nothing
     if (val === undefined) return '—';
     if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : '—';
-    const str = String(val).trim();
+    const str = toPlainText(val).trim();
     return str || '—';
+  }
+  /** Read-only HTML for a field value: rich text kept, links clickable (arrays joined). */
+  displayHtml(val: any): string {
+    return toDisplayHtml(Array.isArray(val) ? val.join(', ') : val);
   }
   // Confirm modal state
   showConfirmModal = false;

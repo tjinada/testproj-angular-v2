@@ -372,9 +372,39 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* Multi-line fields show multi-line examples ("one per line") */
-  textarea::placeholder {
-    white-space: pre-line;
+  /* Rich-text editor (ngx-quill) for every multi-line field.
+     Base theme is quill/dist/quill.snow.css (global styles); these only size it to match the form. */
+  .rich-text {
+    display: block;
+    ::ng-deep {
+      .ql-toolbar.ql-snow {
+        border-color: var(--bmo-grey-300, #ccc);
+        border-radius: 6px 6px 0 0;
+        padding: 4px 6px;
+      }
+      .ql-container.ql-snow {
+        border-color: var(--bmo-grey-300, #ccc);
+        border-radius: 0 0 6px 6px;
+        font: inherit;
+        font-size: 0.875rem;
+      }
+      .ql-editor {
+        min-height: 72px;
+        max-height: 320px;
+        overflow-y: auto;
+        line-height: 1.5;
+      }
+      /* Placeholders can show multi-line examples ("one per line") */
+      .ql-editor.ql-blank::before {
+        color: var(--bmo-grey-400, #999);
+        font-style: normal;
+        font-size: 0.8125rem;
+        white-space: pre-line;
+      }
+    }
+  }
+  .sub-fields .rich-text ::ng-deep .ql-editor {
+    min-height: 48px;
   }
 
 /* .history-changes-table removed — replaced by compact card layout styles below */

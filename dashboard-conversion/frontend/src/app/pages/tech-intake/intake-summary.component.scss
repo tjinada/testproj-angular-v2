@@ -68,7 +68,7 @@
   font-size: 14px;
   color: #172b4d;
   word-break: break-word;
-  white-space: pre-line; // keep line breaks from multi-line fields
+  white-space: pre-line; // keep line breaks in plain values
   flex: 1;
   a {
     color: #0052cc;
@@ -86,8 +86,24 @@
   border-left: 2px solid #ebecf0;
 }
 .sub-value-item {
+  display: flex;
+  align-items: baseline;
   margin-bottom: 4px;
   font-size: 13px;
+}
+// ─── Rich text from multi-line fields (set via [innerHTML], so ::ng-deep reaches it) ───
+.rich-value {
+  white-space: normal;
+  min-width: 0;
+  ::ng-deep {
+    p { margin: 0 0 4px; }
+    p:last-child { margin-bottom: 0; }
+    ul, ol { margin: 0 0 4px; padding-left: 20px; }
+    pre { white-space: pre-wrap; background: #f4f5f7; padding: 6px 8px; border-radius: 4px; font-size: 12px; margin: 0 0 4px; }
+    code { background: #f4f5f7; padding: 0 3px; border-radius: 3px; font-size: 12px; }
+    a { color: #0052cc; text-decoration: none; word-break: break-all; }
+    a:hover { text-decoration: underline; }
+  }
 }
 .sub-label {
   font-weight: 500;

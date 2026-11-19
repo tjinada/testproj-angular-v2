@@ -1,5 +1,6 @@
 import { loadIntakeTemplate, IntakeFieldDef, IntakeTemplate } from './intake-template-loader';
 import config from '../config';
+import sanitizeHtml from 'sanitize-html';
 
 export interface IntakeStep1 {
   daTeam: string;
@@ -30,22 +31,77 @@ function escapeHtml(s: string | undefined | null): string {
     .replaceAll("'", '&#39;');
 }
 
-const URL_PATTERN = /https?:\/\/[^\s<>"']+/g;
-const URL_TRAILING_PUNCTUATION = /[.,;:!?)\]]+$/;
+// ─── Multi-line (rich text) values ────────────────────────────────
+// Bare URL inside already-escaped text (stops at whitespace, quotes and escaped < >)
+const URL_PATTERN = /https?:\/\/(?:(?!&lt;|&gt;)[^\s<>"'])+/g;
+const URL_TRAILING_PUNCTUATION = /[.,:!?)\]]+$/;
+const NBSP = String.fromCharCode(0xa0);
+// The form's rich-text editor always produces a block tag first; anything else is plain text
+const RICH_TEXT_PATTERN = /^\s*<(p|ol|ul|pre|blockquote|h[1-6]|div)[\s>]/i;
+// Elements kept from the editor; everything else (scripts, styles, classes, ids) is stripped
+const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'a', 'code', 'pre'],
+  allowedAttributes: { a: ['href'] },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  // Quill emits non-breaking spaces between words; also turn bare URLs into links (not inside links or code)
+  textFilter: (text: string, tagName: string) => {
+    const spaced = text.replaceAll(NBSP, ' ');
+    return ['a', 'code', 'pre'].includes(tagName) ? spaced : linkifyEscaped(spaced);
+  },
+};
 
-/** Multi-line user text → escaped HTML with clickable http(s) links and <br/> line breaks. */
-function renderMultiline(text: string | undefined | null): string {
-  const raw = String(text ?? '').replaceAll(/\r\n?/g, '\n');
-  const parts: string[] = [];
-  let last = 0;
-  for (const match of raw.matchAll(URL_PATTERN)) {
-    const url = match[0].replace(URL_TRAILING_PUNCTUATION, '');
-    const start = match.index ?? 0;
-    parts.push(escapeHtml(raw.slice(last, start)), `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`);
-    last = start + url.length;
+/** Text-node escaping (attribute quotes are not needed inside element content). */
+function escapeText(s: string): string {
+  return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+/** Wrap bare http(s) URLs in already-escaped text with <a> tags; trailing punctuation stays outside. */
+function linkifyEscaped(escaped: string): string {
+  return escaped.replace(URL_PATTERN, (match) => {
+    const url = match.replace(URL_TRAILING_PUNCTUATION, '');
+    return `<a href="${url}">${url}</a>${match.slice(url.length)}`;
+  });
+}
+
+/** Hosts whose links Confluence can show as inline smart links (title, icon, status). */
+function smartLinkHosts(): Set<string> {
+  const hosts = new Set<string>();
+  for (const base of [config.jira?.baseUrl, config.confluence?.baseUrl]) {
+    try {
+      if (base) hosts.add(new URL(String(base)).hostname.toLowerCase());
+    } catch {
+      // ignore malformed config values
+    }
   }
-  parts.push(escapeHtml(raw.slice(last)));
-  return parts.join('').replaceAll('\n', '<br/>');
+  return hosts;
+}
+
+/** Bare Jira/Confluence links (link text = URL) become inline smart links so Confluence shows the title. */
+function applySmartLinks(html: string): string {
+  const hosts = smartLinkHosts();
+  return html.replace(/<a href="([^"]+)">([^<]+)<\/a>/g, (whole, href: string, text: string) => {
+    if (href !== text) return whole;
+    try {
+      const host = new URL(href.replaceAll('&amp;', '&')).hostname.toLowerCase();
+      return hosts.has(host) ? `<a href="${href}" data-card-appearance="inline">${text}</a>` : whole;
+    } catch {
+      return whole;
+    }
+  });
+}
+
+/**
+ * Multi-line field value → Confluence block HTML (<p>, lists, code) with clickable links.
+ * Rich text from the editor is sanitized to an allowlist; plain text keeps its line breaks.
+ * Returns '' for an empty value.
+ */
+function renderMultiline(value: string | undefined | null): string {
+  const raw = String(value ?? '').replaceAll(/\r\n?/g, '\n');
+  if (!raw.trim()) return '';
+  const html = RICH_TEXT_PATTERN.test(raw)
+    ? sanitizeHtml(raw, RICH_TEXT_OPTIONS)
+    : `<p>${linkifyEscaped(escapeText(raw)).replaceAll('\n', '<br/>')}</p>`;
+  return applySmartLinks(html);
 }
 
 /** YAML `visibleWhen`: sub-field shows only while a sibling checkbox includes an option. */
@@ -118,8 +174,8 @@ function renderSubFieldsHtml(subs: any[] = [], formData?: IntakeFormData): strin
       const labelPrefix = sub.label ? `<p><strong>${escapeHtml(sub.label)}</strong></p>` : '';
       parts.push(labelPrefix + renderTaskListOptions(sub.options || [], new Set(Array.isArray(subVal) ? subVal.map(String) : [])));
     } else if (sub.type === 'textarea' || sub.type === 'text') {
-      if (sub.label) parts.push(`<p>${escapeHtml(sub.label)}${subVal ? '<br/>' + renderMultiline(subVal) : ''}</p>`);
-      else if (subVal) parts.push(`<p>${renderMultiline(subVal)}</p>`);
+      if (sub.label) parts.push(`<p>${escapeHtml(sub.label)}</p>`);
+      parts.push(renderMultiline(subVal));
     } else if (sub.type === 'link') {
       parts.push(`<p><strong>${escapeHtml(sub.label || sub.field)}</strong>: ${renderLinkValue(subVal)}</p>`);
     } else {
@@ -138,7 +194,7 @@ function renderFieldValue(field: IntakeFieldDef, value: any, formData: IntakeFor
     case 'link':
       return renderLinkValue(value);
     case 'textarea':
-      return `<p>${renderMultiline(value)}</p>`;
+      return renderMultiline(value) || '<p></p>';
     default:
       return `<div>${escapeHtml(value)}</div>`;
   }
@@ -213,13 +269,7 @@ function renderRadioFieldTwoRow(field: IntakeFieldDef, val: any, formData: Intak
   const hintText = field.hint ? escapeHtml(field.hint) : '';
   const defaultDetailPrompt = field.hasDetails ? 'Add details' : '';
   const detailPrompt = hintText || defaultDetailPrompt;
-  let detailContent = '';
-  if (detailPrompt) {
-    detailContent = detailPrompt + (detailVal ? '<br/>' + renderMultiline(detailVal) : '');
-  } else if (detailVal) {
-    detailContent = renderMultiline(detailVal);
-  }
-  const detailHtml = detailContent ? `<p>${detailContent}</p>` : '<p></p>';
+  const detailHtml = ((detailPrompt ? `<p>${detailPrompt}</p>` : '') + renderMultiline(detailVal)) || '<p></p>';
   const result: string[] = [];
   result.push(`<tr><td rowspan="2" data-highlight-colour="#f4f5f7">${labelHtml}</td><td><ac:task-list>${activeTasks}</ac:task-list></td><td colspan="2">${detailHtml}</td><td rowspan="2"><p></p></td></tr>`, `<tr><td colspan="3">${noTask}</td></tr>`);
   return result;
@@ -276,8 +326,8 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
 
   const wrap = (html: string) => {
     if (!html) return '<p></p>';
-    const trimmed = html.trim();
-    if (trimmed.startsWith('<ac:')) return html;
+    // Block markup (Confluence macros, <p>, lists, <div>) goes in as-is; inline content gets a <p>
+    if (/^<(ac:|p[\s>]|ul|ol|pre|div|table)/.test(html.trim())) return html;
     return `<p>${html}</p>`;
   };
   // Build field lookup from general + all scopeDetails
@@ -297,8 +347,7 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
   // Jira Board Key (first data row — sets column widths), followed by the Intake Scope text
   const jiraKey = formData.step1.jiraBoardKey || '';
   const intakeScope = formData.generalValues?.intakeScope || '';
-  const intakeScopeHtml = intakeScope ? `<p>${renderMultiline(intakeScope)}</p>` : '';
-  rows.push(`<tr><td data-colwidth="420"><p><strong>Jira Board Key (e.g. RELMAN, PCI, PBT)</strong></p></td><td data-colwidth="200" colspan="3"><p>${renderLinkValue(jiraKey)}</p>${intakeScopeHtml}</td><td data-colwidth="300"><p></p></td></tr>`);
+  rows.push(`<tr><td data-colwidth="420"><p><strong>Jira Board Key (e.g. RELMAN, PCI, PBT)</strong></p></td><td data-colwidth="200" colspan="3"><p>${renderLinkValue(jiraKey)}</p>${renderMultiline(intakeScope)}</td><td data-colwidth="300"><p></p></td></tr>`);
 
   // Change Scope row: render selected scopes as a task list (checked per selectedScopes)
   const scopeSections = Object.entries((template as any).scopeDetails || {});
@@ -341,26 +390,26 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
     if (field.field === 'akamaiChangeType') {
       const akamaiDetails = formData.scopeValues?.['akamaiDetails'] || formData.generalValues?.['akamaiDetails'] || '';
       if (akamaiDetails) {
-        const detailHtml = `<p>${renderMultiline(akamaiDetails)}</p>`;
+        const detailHtml = renderMultiline(akamaiDetails);
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>Akamai change details</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
     }
     if (field.field === 'isamChangeType') {
       const isamDetails = formData.scopeValues?.['isamDetails'] || formData.generalValues?.['isamDetails'] || '';
       if (isamDetails) {
-        const detailHtml = `<p>${renderMultiline(isamDetails)}</p>`;
+        const detailHtml = renderMultiline(isamDetails);
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>ISAM Details</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
     }
     if (field.field === 'newNavigation') {
       const newRouteDetails = formData.scopeValues?.['newRouteDetails'] || '';
       if (newRouteDetails) {
-        const detailHtml = `<p>${renderMultiline(newRouteDetails)}</p>`;
+        const detailHtml = renderMultiline(newRouteDetails);
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>New Route Path(s)</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
       const beyondAppDetails = formData.scopeValues?.['beyondAppDetails'] || '';
       if (beyondAppDetails) {
-        const detailHtml = `<p>${renderMultiline(beyondAppDetails)}</p>`;
+        const detailHtml = renderMultiline(beyondAppDetails);
         rows.push(`<tr><td data-highlight-colour="#f4f5f7"><p><strong>Beyond App Details</strong></p></td><td colspan="3">${detailHtml}</td><td><p></p></td></tr>`);
       }
     }
@@ -480,13 +529,12 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
       if (isSelected) anySelected = true;
       const checked = isSelected ? 'complete' : 'incomplete';
       const task = `<ac:task-list><ac:task><ac:task-status>${checked}</ac:task-status><ac:task-body>${escapeHtml(opt.label)}</ac:task-body></ac:task></ac:task-list>`;
-      const entries = isSelected ? renderMultiline(String(formData.scopeValues?.[opt.valueKey] || '').trim()) : '';
-      const promptHtml = escapeHtml(opt.prompt || '');
-      const contentHtml = entries ? `${promptHtml}<br/>${entries}` : promptHtml;
+      const entries = isSelected ? renderMultiline(formData.scopeValues?.[opt.valueKey]) : '';
+      const contentHtml = `<p>${escapeHtml(opt.prompt || '')}</p>${entries}`;
       if (idx === 0) {
-        rows.push(`<tr><td rowspan="${numRows}" data-highlight-colour="#f4f5f7"><p><strong>${escapeHtml(def.label)}</strong></p></td><td>${task}</td><td colspan="2"><p>${contentHtml}</p></td><td rowspan="${numRows}"><p></p></td></tr>`);
+        rows.push(`<tr><td rowspan="${numRows}" data-highlight-colour="#f4f5f7"><p><strong>${escapeHtml(def.label)}</strong></p></td><td>${task}</td><td colspan="2">${contentHtml}</td><td rowspan="${numRows}"><p></p></td></tr>`);
       } else {
-        rows.push(`<tr><td>${task}</td><td colspan="2"><p>${contentHtml}</p></td></tr>`);
+        rows.push(`<tr><td>${task}</td><td colspan="2">${contentHtml}</td></tr>`);
       }
     });
     return rows.join('');

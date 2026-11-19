@@ -58,6 +58,8 @@
             <span class="summary-value">
               @if (field.type === 'link' && generalValues[field.field]) {
                 <a [href]="generalValues[field.field]" target="_blank" rel="noopener noreferrer">{{ generalValues[field.field] }}</a>
+              } @else if (field.type === 'textarea' && generalValues[field.field]) {
+                <div class="rich-value" [innerHTML]="displayHtml(generalValues[field.field])"></div>
               } @else if (isArray(generalValues[field.field])) {
                 {{ generalValues[field.field].join(', ') || '—' }}
               } @else {
@@ -69,7 +71,7 @@
                     @if (generalValues[sub.field]) {
                       <div class="sub-value-item">
                         @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
-                        <span>{{ isArray(generalValues[sub.field]) ? generalValues[sub.field].join(', ') : generalValues[sub.field] }}</span>
+                        <div class="rich-value" [innerHTML]="displayHtml(generalValues[sub.field])"></div>
                       </div>
                     }
                   }
@@ -77,7 +79,7 @@
               }
               @if (field.type === 'radio' && field.hasDetails && field.detailField && generalValues[field.detailField]) {
                 <div class="sub-values">
-                  <span>{{ generalValues[field.detailField] }}</span>
+                  <div class="rich-value" [innerHTML]="displayHtml(generalValues[field.detailField])"></div>
                 </div>
               }
               @if (field.type === 'radio-with-link' && generalValues[field.field + '_link']) {
@@ -91,7 +93,7 @@
                     @if (generalValues[sub.field]) {
                       <div class="sub-value-item">
                         @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
-                        <span>{{ isArray(generalValues[sub.field]) ? generalValues[sub.field].join(', ') : generalValues[sub.field] }}</span>
+                        <div class="rich-value" [innerHTML]="displayHtml(generalValues[sub.field])"></div>
                       </div>
                     }
                   }
@@ -103,7 +105,7 @@
                     @if (generalValues[sub.field]) {
                       <div class="sub-value-item">
                         @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
-                        <span>{{ generalValues[sub.field] }}</span>
+                        <div class="rich-value" [innerHTML]="displayHtml(generalValues[sub.field])"></div>
                       </div>
                     }
                   }
@@ -129,6 +131,8 @@
             <span class="summary-value">
               @if (field.type === 'link' && scopeValues[field.field]) {
                 <a [href]="scopeValues[field.field]" target="_blank" rel="noopener noreferrer">{{ scopeValues[field.field] }}</a>
+              } @else if (field.type === 'textarea' && scopeValues[field.field]) {
+                <div class="rich-value" [innerHTML]="displayHtml(scopeValues[field.field])"></div>
               } @else if (isArray(scopeValues[field.field])) {
                 {{ scopeValues[field.field].join(', ') || '—' }}
               } @else {
@@ -140,7 +144,7 @@
                     @if (scopeValues[sub.field]) {
                       <div class="sub-value-item">
                         @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
-                        <span>{{ isArray(scopeValues[sub.field]) ? scopeValues[sub.field].join(', ') : scopeValues[sub.field] }}</span>
+                        <div class="rich-value" [innerHTML]="displayHtml(scopeValues[sub.field])"></div>
                       </div>
                     }
                   }
@@ -148,7 +152,7 @@
               }
               @if (field.type === 'radio' && field.hasDetails && field.detailField && scopeValues[field.detailField]) {
                 <div class="sub-values">
-                  <span>{{ scopeValues[field.detailField] }}</span>
+                  <div class="rich-value" [innerHTML]="displayHtml(scopeValues[field.detailField])"></div>
                 </div>
               }
               @if (field.type === 'radio-with-link' && scopeValues[field.field + '_link']) {
@@ -162,7 +166,7 @@
                     @if (scopeValues[sub.field]) {
                       <div class="sub-value-item">
                         @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
-                        <span>{{ isArray(scopeValues[sub.field]) ? scopeValues[sub.field].join(', ') : scopeValues[sub.field] }}</span>
+                        <div class="rich-value" [innerHTML]="displayHtml(scopeValues[sub.field])"></div>
                       </div>
                     }
                   }
@@ -174,7 +178,7 @@
                     @if (scopeValues[sub.field]) {
                       <div class="sub-value-item">
                         @if (sub.label) { <span class="sub-label">{{ sub.label }}:</span> }
-                        <span>{{ scopeValues[sub.field] }}</span>
+                        <div class="rich-value" [innerHTML]="displayHtml(scopeValues[sub.field])"></div>
                       </div>
                     }
                   }

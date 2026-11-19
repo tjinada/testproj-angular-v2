@@ -16,8 +16,10 @@ export interface SubFieldChange {
   newValue: any;
 }
 import { FormsModule } from '@angular/forms';
+import { QuillEditorComponent } from 'ngx-quill';
 import { IntakeSummaryComponent } from './intake-summary.component';
 import { ApiService } from '../../services/api.service';
+import { toPlainText } from '../../utils/rich-text.util';
 
 export type StepId = 'general' | 'scope' | 'details' | 'review';
 const STEP_ORDER: StepId[] = ['general', 'scope', 'details', 'review'];
@@ -45,7 +47,7 @@ interface FieldIssue {
 @Component({
   selector: 'app-tech-intake',
   standalone: true,
-  imports: [CommonModule, FormsModule, IntakeSummaryComponent],
+  imports: [CommonModule, FormsModule, QuillEditorComponent, IntakeSummaryComponent],
   templateUrl: './tech-intake.component.html',
   styleUrls: [
     './tech-intake.component.scss',
@@ -65,6 +67,17 @@ export class TechIntakeComponent implements OnInit {
 
   // Template loaded from backend
   template: any = null;
+
+  // Rich-text editor (every multi-line field). `formats` also limits what survives a paste.
+  readonly richTextModules = {
+    toolbar: [
+      ['bold', 'italic', 'underline'],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      ['link', 'code', 'code-block'],
+      ['clean'],
+    ],
+  };
+  readonly richTextFormats = ['bold', 'italic', 'underline', 'list', 'link', 'code', 'code-block'];
 
   // Identity (collected in the Create / Modify modals)
   // All releases, newest first (Modify modal)
@@ -1376,7 +1389,7 @@ export class TechIntakeComponent implements OnInit {
   // ─── Validation (single rule: YAML `required` / `detailRequired` + currently visible) ───
   private isBlank(value: any): boolean {
     return value === undefined || value === null
-      || (typeof value === 'string' && value.trim() === '')
+      || (typeof value === 'string' && toPlainText(value).trim() === '')
       || (Array.isArray(value) && value.length === 0);
   }
 
@@ -1956,7 +1969,7 @@ export class TechIntakeComponent implements OnInit {
   formatChangeValue(val: any): string {
     if (val === null || val === undefined) return '—';
     if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : '—';
-    const str = String(val).trim();
+    const str = toPlainText(val).trim();
     return str || '—';
   }
 
@@ -1967,7 +1980,7 @@ export class TechIntakeComponent implements OnInit {
   formatChangeValueAsArray(val: any): string[] {
     if (Array.isArray(val)) return val.filter(v => v !== null && v !== undefined && String(v).trim() !== '');
     if (val === null || val === undefined) return [];
-    const str = String(val).trim();
+    const str = toPlainText(val).trim();
     return str ? [str] : [];
   }
 

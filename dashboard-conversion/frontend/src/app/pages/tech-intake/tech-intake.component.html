@@ -335,7 +335,7 @@
           @if (isInvalidLink(getFieldValue('general', field.field))) { <span class="field-error">Must start with http:// or https://</span> }
         }
         @if (field.type === 'textarea') {
-          <textarea rows="3" [placeholder]="field.placeholder || ''" [value]="getFieldValue('general', field.field) || ''" (input)="setFieldValue('general', field.field, $any($event.target).value)"></textarea>
+          <ng-container *ngTemplateOutlet="richText; context: { store: 'general', key: field.field, placeholder: field.placeholder }"></ng-container>
         }
         @if (field.type === 'yes-no') {
           <div class="radio-group">
@@ -364,7 +364,7 @@
                     <input type="text" [value]="getFieldValue('general', sub.field) || ''" (input)="setFieldValue('general', sub.field, $any($event.target).value)" [placeholder]="sub.placeholder || ''" />
                   }
                   @if (sub.type === 'textarea') {
-                    <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('general', sub.field) || ''" (input)="setFieldValue('general', sub.field, $any($event.target).value)"></textarea>
+                    <ng-container *ngTemplateOutlet="richText; context: { store: 'general', key: sub.field, placeholder: sub.placeholder }"></ng-container>
                   }
                 </div>
               }
@@ -381,7 +381,7 @@
           </div>
             @if (field.hasDetails && field.detailField && getFieldValue('general', field.field) && (field.alwaysShowDetails || getFieldValue('general', field.field) !== field.options[field.options.length - 1])) {
             <div class="sub-fields">
-              <textarea rows="2" [placeholder]="field.detailPlaceholder || 'Details...'" [value]="getFieldValue('general', field.detailField) || ''" (input)="setFieldValue('general', field.detailField, $any($event.target).value)"></textarea>
+              <ng-container *ngTemplateOutlet="richText; context: { store: 'general', key: field.detailField, placeholder: field.detailPlaceholder || 'Details...' }"></ng-container>
               @if (field.detailRequiredWhen && getFieldValue('general', field.field) === field.detailRequiredWhen && !getFieldValue('general', field.detailField)) {
                 <span class="field-hint" style="color: #de350b;">Required when {{ field.detailRequiredWhen }} is selected</span>
               }
@@ -436,7 +436,7 @@
                     <input type="text" [value]="getFieldValue('general', sub.field) || ''" (input)="setFieldValue('general', sub.field, $any($event.target).value)" [placeholder]="sub.placeholder || ''" />
                   }
                   @if (sub.type === 'textarea') {
-                    <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('general', sub.field) || ''" (input)="setFieldValue('general', sub.field, $any($event.target).value)"></textarea>
+                    <ng-container *ngTemplateOutlet="richText; context: { store: 'general', key: sub.field, placeholder: sub.placeholder }"></ng-container>
                   }
                 </div>
               }
@@ -448,7 +448,7 @@
                 <div class="sub-field">
                   @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                   @if (sub.type === 'textarea') {
-                    <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('general', sub.field) || ''" (input)="setFieldValue('general', sub.field, $any($event.target).value)"></textarea>
+                    <ng-container *ngTemplateOutlet="richText; context: { store: 'general', key: sub.field, placeholder: sub.placeholder }"></ng-container>
                   }
                 </div>
               }
@@ -504,7 +504,7 @@
         <div class="field-row">
           <div class="field-label">Describe your change</div>
           <div class="field-control">
-            <textarea rows="4" placeholder="Describe the changes being made for this scope..." [value]="getFieldValue('scope', entry.key + '_description') || ''" (input)="setFieldValue('scope', entry.key + '_description', $any($event.target).value)"></textarea>
+            <ng-container *ngTemplateOutlet="richText; context: { store: 'scope', key: entry.key + '_description', placeholder: 'Describe the changes being made for this scope...' }"></ng-container>
           </div>
         </div>
       }
@@ -531,7 +531,7 @@
           @if (isInvalidLink(getFieldValue('scope', field.field))) { <span class="field-error">Must start with http:// or https://</span> }
             }
             @if (field.type === 'textarea') {
-              <textarea rows="3" [placeholder]="field.placeholder || ''" [value]="getFieldValue('scope', field.field) || ''" (input)="setFieldValue('scope', field.field, $any($event.target).value)"></textarea>
+              <ng-container *ngTemplateOutlet="richText; context: { store: 'scope', key: field.field, placeholder: field.placeholder }"></ng-container>
             }
             @if (field.type === 'yes-no') {
               <div class="radio-group">
@@ -560,7 +560,7 @@
                         <input type="text" [value]="getFieldValue('scope', sub.field) || ''" (input)="setFieldValue('scope', sub.field, $any($event.target).value)" [placeholder]="sub.placeholder || ''" />
                       }
                       @if (sub.type === 'textarea') {
-                        <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('scope', sub.field) || ''" (input)="setFieldValue('scope', sub.field, $any($event.target).value)"></textarea>
+                        <ng-container *ngTemplateOutlet="richText; context: { store: 'scope', key: sub.field, placeholder: sub.placeholder }"></ng-container>
                       }
                     </div>
                   }
@@ -577,7 +577,7 @@
               </div>
               @if (field.hasDetails && field.detailField && getFieldValue('scope', field.field) && (field.alwaysShowDetails || getFieldValue('scope', field.field) !== field.options[field.options.length - 1])) {
                 <div class="sub-fields">
-                  <textarea rows="2" [placeholder]="field.detailPlaceholder || 'Details...'" [value]="getFieldValue('scope', field.detailField) || ''" (input)="setFieldValue('scope', field.detailField, $any($event.target).value)"></textarea>
+                  <ng-container *ngTemplateOutlet="richText; context: { store: 'scope', key: field.detailField, placeholder: field.detailPlaceholder || 'Details...' }"></ng-container>
                   @if (field.detailRequiredWhen && getFieldValue('scope', field.field) === field.detailRequiredWhen && !getFieldValue('scope', field.detailField)) {
                     <span class="field-hint" style="color: #de350b;">Required when {{ field.detailRequiredWhen }} is selected</span>
                   }
@@ -632,7 +632,7 @@
                         <input type="text" [value]="getFieldValue('scope', sub.field) || ''" (input)="setFieldValue('scope', sub.field, $any($event.target).value)" [placeholder]="sub.placeholder || ''" />
                       }
                       @if (sub.type === 'textarea') {
-                        <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('scope', sub.field) || ''" (input)="setFieldValue('scope', sub.field, $any($event.target).value)"></textarea>
+                        <ng-container *ngTemplateOutlet="richText; context: { store: 'scope', key: sub.field, placeholder: sub.placeholder }"></ng-container>
                       }
                     </div>
                   }
@@ -644,7 +644,7 @@
                     <div class="sub-field">
                       @if (sub.label) { <label class="field-label">{{ sub.label }}@if (sub.required) { <span class="required-mark"> *</span> }</label> }
                       @if (sub.type === 'textarea') {
-                        <textarea rows="2" [placeholder]="sub.placeholder || ''" [value]="getFieldValue('scope', sub.field) || ''" (input)="setFieldValue('scope', sub.field, $any($event.target).value)"></textarea>
+                        <ng-container *ngTemplateOutlet="richText; context: { store: 'scope', key: sub.field, placeholder: sub.placeholder }"></ng-container>
                       }
                     </div>
                   }
@@ -779,6 +779,13 @@
       <span class="step-hint step-hint--ready"><i class="bi bi-check-circle-fill"></i> Ready</span>
     }
   }
+</ng-template>
+
+<!-- Rich-text editor shared by every multi-line field (value stored as HTML) -->
+<ng-template #richText let-store="store" let-key="key" let-placeholder="placeholder">
+  <quill-editor class="rich-text" format="html" theme="snow"
+                [modules]="richTextModules" [formats]="richTextFormats" [placeholder]="placeholder || ''"
+                [ngModel]="getFieldValue(store, key)" (ngModelChange)="setFieldValue(store, key, $event)"></quill-editor>
 </ng-template>
 
 <!-- Shared "Requestor name" Jira user search — used by both the Create and Modify modals -->
