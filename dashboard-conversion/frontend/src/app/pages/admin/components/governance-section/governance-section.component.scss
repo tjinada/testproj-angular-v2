@@ -145,6 +145,223 @@
   strong { font-weight: 600; color: var(--text-secondary); }
 }
 
+.intake-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.filter-chip {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+
+  strong { font-weight: 700; }
+
+  &--active {
+    background: #214a73;
+    border-color: #214a73;
+    color: #fff;
+  }
+}
+
+.filters-note {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ---- Tech Governance status badge ---- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &--approved { background: #e7f6e7; color: #2e7d32; }
+  &--grace { background: #fff4d6; color: #8a5a00; }
+  &--blocking { background: #ffe7e7; color: #b71c1c; }
+  &--veto-allow { background: #fff; color: #2e7d32; border: 1px solid #9fd3a1; }
+  &--veto-block { background: #fff; color: #b71c1c; border: 1px solid #f1a5a5; }
+  &--unknown { color: var(--text-secondary); }
+}
+
+.status-detail {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* ---- Awaiting discussion panel ---- */
+.awaiting-error {
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--error);
+}
+
+.awaiting-panel {
+  margin-bottom: 20px;
+  border: 1px solid #f0d48a;
+  border-radius: 6px;
+  background: #fffaf0;
+}
+
+.awaiting-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.awaiting-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.awaiting-scope {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.awaiting-body {
+  padding: 0 16px 16px;
+}
+
+.governance-table.awaiting-table {
+  border-color: #f0dfb5;
+}
+
+.awaiting-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* ---- Approve / revoke ---- */
+.btn-approve {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  color: #2e7d32;
+  border: 1px solid #9fd3a1;
+
+  &:hover:not(:disabled) { background: #e7f6e7; }
+}
+
+.btn-revoke {
+  background: var(--error);
+  color: #fff;
+  border: 1px solid var(--error);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { color: var(--error); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.approval-popover {
+  position: fixed;
+  z-index: 1100; // above the intakes modal (1000)
+  width: 320px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  text-align: left;
+
+  h4 {
+    margin: 0 0 10px;
+    font-size: 14px;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  input[type='date'] {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+  }
+
+  .preview {
+    margin: 10px 0 12px;
+    padding: 8px 10px;
+    border-left: 3px solid #6b4fd6;
+    background: #f6f3ff;
+    color: #3b2d80;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  &--danger .preview {
+    border-left-color: #b71c1c;
+    background: #ffe7e7;
+    color: #b71c1c;
+  }
+}
+
+.popover-error {
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--error);
+}
+
+.popover-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
 .veto-input { width: 80px !important; }
 
 .veto-select {

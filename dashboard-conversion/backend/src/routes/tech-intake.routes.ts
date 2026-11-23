@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import jiraService from '../services/jira.service';
 import releaseWorkflowService from '../services/release-workflow.service';
 import { techGovernanceReleasesIntakeService } from '../services';
+import { evaluateIntakeGate, toGovernanceStatus } from '../services/tech-governance-releases-intake.service';
 import { resolveDATeamsByCodes, codesFromIntakes } from '../services/da-team-resolver.service';
 import confluenceExportService, { buildIntakeTitle } from '../services/confluence-export.service';
 import ConfluenceService, { ConfluenceChildPage } from '../services/confluence.service';
@@ -27,6 +28,17 @@ function badRequest(res: Response, msg: string): Response {
 
 function notFound(res: Response, msg: string): Response {
   return res.status(404).json({ error: msg });
+}
+
+/**
+ * techGovernanceDate is owned by Tech Governance approval: teams can't set or clear it,
+ * so whatever the client sends is replaced by the stored value (if any).
+ */
+function withGovernanceDate(generalValues: unknown, storedDate: unknown): Record<string, any> {
+  const values: Record<string, any> = { ...(generalValues && typeof generalValues === 'object' ? generalValues : {}) };
+  delete values.techGovernanceDate;
+  if (storedDate) values.techGovernanceDate = storedDate;
+  return values;
 }
 
 class MissingIntakePropertyValueError extends Error {
@@ -294,6 +306,26 @@ router.get('/intake/:pageId/pull', async (req: Request<{ pageId: string }>, res:
 });
 
 /**
+ * GET /api/tech-intake/intake/:pageId/governance-status
+ * Team-facing Tech Governance status of one intake: 'approved' | 'pending' | 'rejected'.
+ * Deliberately exposes nothing else (no veto value, dates or other teams' intakes).
+ */
+router.get('/intake/:pageId/governance-status', (req: Request<{ pageId: string }>, res: Response) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const found = techGovernanceReleasesIntakeService.findIntake(String(req.params.pageId));
+    // Not in the governance cache yet (e.g. just created) means nobody has approved it
+    const status = found
+      ? toGovernanceStatus(evaluateIntakeGate(found.intake, found.release.gracePeriodInDays))
+      : 'pending';
+    res.json({ status });
+  } catch (err: any) {
+    console.error('Error resolving intake governance status:', err?.message ?? err);
+    res.status(500).json({ error: 'Failed to resolve governance status' });
+  }
+});
+
+/**
  * GET /api/tech-intake/intakes-by-team/:boardKey
  * Returns all intakes across all releases for a specific DA team (by board key).
  * Used by the Duplicate Intake modal to show previous intakes.
@@ -421,7 +453,7 @@ router.post('/export', async (req: Request, res: Response) => {
           jiraBoardKey: String(body.step1?.jiraBoardKey || body.jiraBoardKey || ''),
           intakeTitle: String(body.step1?.intakeTitle || body.intakeTitle || ''),
         },
-        generalValues: (body.generalValues || {}),
+        generalValues: withGovernanceDate(body.generalValues, null),
         selectedScopes: Array.isArray(body.selectedScopes) ? body.selectedScopes.map(String) : [],
         scopeValues: (body.scopeValues || {}),
       };
@@ -549,7 +581,9 @@ router.post('/intake/:pageId/push', async (req: Request<{ pageId: string }>, res
     const currentProperty = await ConfluenceService.getIntakeProperty(pageId);
     const propertyVersion = currentProperty?.version?.number || 1;
 
-    const formData = { step1, generalValues, selectedScopes, scopeValues };
+    // Keep any Tech Governance approval across team edits
+    const mergedGeneralValues = withGovernanceDate(generalValues, currentProperty?.value?.generalValues?.techGovernanceDate);
+    const formData = { step1, generalValues: mergedGeneralValues, selectedScopes, scopeValues };
     // Preserve original creator from stored property where possible (do NOT fall back to editor)
     const preservedCreatedBy = currentProperty?.value?.createdBy ?? null;
     // Determine lastUpdatedBy only when the editor differs from the original creator AND both have accountIds
@@ -608,7 +642,7 @@ router.post('/intake/:pageId/push', async (req: Request<{ pageId: string }>, res
       exportedBy: currentProperty?.value?.exportedBy ?? null,
       createdBy: currentProperty?.value?.createdBy ?? null,
       step1: step1,
-      generalValues: generalValues || {},
+      generalValues: mergedGeneralValues,
       selectedScopes: Array.isArray(selectedScopes) ? selectedScopes : [],
       scopeValues: scopeValues || {},
       // persist lastUpdatedBy for downstream consumers

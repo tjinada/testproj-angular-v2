@@ -219,6 +219,11 @@
       </div>
       <div class="intake-header-actions">
         <span class="status-pill" [class.status-pill--edit]="editMode">{{ editMode ? 'Editing' : 'New intake' }}</span>
+        @if (editMode && governanceStatus) {
+          <span class="status-pill governance-pill" [class]="'governance-pill--' + governanceStatus">
+            {{ governanceStatusLabels[governanceStatus] }}
+          </span>
+        }
         @if (editingPageUrl) {
           <a class="header-link" [href]="editingPageUrl" target="_blank" rel="noopener noreferrer">Open in Confluence <i class="bi bi-box-arrow-up-right"></i></a>
         }

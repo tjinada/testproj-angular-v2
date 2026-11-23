@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import techGovernanceReleasesIntakeService, {
-  TechGovernanceRelease,
-  TechGovernanceReleaseIntake,
+  evaluateIntakeGate,
 } from '../services/tech-governance-releases-intake.service';
 import appDataService from '../services/app-data.service';
 import daTeamsService from '../services/da-teams.service';
@@ -66,15 +65,11 @@ router.get('/', async (req: Request, res: Response) => {
     try {
       intakes = await techGovernanceReleasesIntakeService.fetchConfluenceChildPagesDetails(intakePageId);
       if (intakes && intakes.length) {
-        intakes = intakes.map(intake => {
-          const updatedIntake = releaseData.intakes.find(i => i.id === intake.id);
-          if (updatedIntake && typeof updatedIntake.platformVeto === 'number') {
-            return { ...intake, platformVeto: updatedIntake.platformVeto };
-          }
-          return intake;
-        })
-        releaseData.intakes = intakes;
-        techGovernanceReleasesIntakeService.update(branch, releaseData);
+        intakes = techGovernanceReleasesIntakeService.mergeStoredIntakeFields(intakes, releaseData.intakes);
+        // update() swaps the cache synchronously; the Artifactory write isn't awaited to keep the PR check fast
+        techGovernanceReleasesIntakeService.update(branch, { ...releaseData, intakes }).catch((err) =>
+          console.error('Failed to persist refreshed intakes for', branch, err?.message ?? err),
+        );
       }
     } catch (err) {
     }
@@ -86,33 +81,14 @@ router.get('/', async (req: Request, res: Response) => {
       return res.status(404).json({ error: `PRs are not allowed until your team creates an intake under page https://bmo.atlassian.net/wiki/spaces/CHNLTECH/pages/${intakePageId} and discusses it within 7 days of creating the intake in Tech Governance Meeting.` });
     }
     const now = new Date();
-    const gracePeriod = updatedReleaseData?.gracePeriodInDays;
-    const withinXDays = (intake: TechGovernanceReleaseIntake) => {
-      if (!gracePeriod || !intake.createdDate) return false;
-      // Compare only the date part (ignore time)
-      const created = new Date(intake.createdDate);
-      const nowDate = new Date();
-      const createdDateOnly: Date = new Date(created.getFullYear(), created.getMonth(), created.getDate());
-      const nowDateOnly: Date = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
-      const diffDays = Math.floor((nowDateOnly.getTime() - createdDateOnly.getTime()) / (1000 * 60 * 60 * 24));
-      return diffDays <= gracePeriod;
-    };
+    const gracePeriod = updatedReleaseData?.gracePeriodInDays ?? 0;
+    const gates = teamReleaseIntakes.map((intake) => evaluateIntakeGate(intake, gracePeriod, now));
 
-    let allow = false;
-    for (const intake of teamReleaseIntakes) {
-      if (intake.platformVeto === 1) {
-        return res.status(404).json({ error: 'Your team is not allowed to raise PRs for this release. Check with Platform Release Team.' });
-      }
-      if (intake.platformVeto === 2 || intake.discussedOn) {
-        allow = true;
-        break;
-      }
-      if (withinXDays(intake)) {
-        allow = true;
-        break;
-      }
+    // Always Block on any of the team's intakes wins, regardless of order on the Confluence page
+    if (gates.some((gate) => gate.state === 'veto-block')) {
+      return res.status(404).json({ error: 'Your team is not allowed to raise PRs for this release. Check with Platform Release Team.' });
     }
-    if (!allow) {
+    if (!gates.some((gate) => gate.allowsPRs)) {
       return res.status(404).json({ error: `PRs are not allowed until your team discuss intake https://bmo.atlassian.net/wiki/spaces/CHNLTECH/pages/${teamReleaseIntakes[0].id} in Tech Governance Meeting.` });
     }
     return res.json(teamReleaseIntakes[0]);

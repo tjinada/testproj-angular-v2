@@ -964,6 +964,22 @@
   background: #fff7e6;
   color: #8a5300;
 }
+// Tech Governance status of the intake being edited
+.governance-pill--pending {
+  border-color: #f0d48a;
+  background: #fff4d6;
+  color: #8a5a00;
+}
+.governance-pill--approved {
+  border-color: #b5dfb7;
+  background: #e7f6e7;
+  color: #2e7d32;
+}
+.governance-pill--rejected {
+  border-color: #f1a5a5;
+  background: #ffe7e7;
+  color: #b71c1c;
+}
 .header-link i {
   margin-left: 2px;
   font-size: 0.72rem;

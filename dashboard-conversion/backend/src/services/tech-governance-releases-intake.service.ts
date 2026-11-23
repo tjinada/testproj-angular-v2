@@ -16,6 +16,8 @@ export interface TechGovernanceReleaseIntake {
   // Optional Confluence-sourced dev lead contact info (preferred over DA tab)
   confluenceDevLeadName?: string;
   confluenceDevLeadEmail?: string;
+  // Who marked the intake discussed from the dashboard. Absent when the line was added on the page by hand.
+  approvedBy?: string;
 }
 
 export interface TechGovernanceRelease {
@@ -27,6 +29,72 @@ export interface TechGovernanceRelease {
 }
 
 export type TechGovernanceReleasesIntakeData = Record<string, TechGovernanceRelease>;
+
+export const PLATFORM_VETO = { DEFAULT: 0, ALWAYS_BLOCK: 1, ALWAYS_ALLOW: 2 } as const;
+
+export const DEFAULT_GRACE_PERIOD_DAYS = 7;
+
+export type IntakeGateState = 'approved' | 'grace' | 'blocking' | 'veto-allow' | 'veto-block';
+
+export interface IntakeGateStatus {
+  state: IntakeGateState;
+  allowsPRs: boolean;
+  /** Last day (YYYY-MM-DD) PRs are allowed without discussion. Set for 'grace' and for 'blocking' with a grace period. */
+  graceEndsOn?: string;
+  /** Whole days of grace left (0 = last day). Set for 'grace' only. */
+  graceDaysLeft?: number;
+}
+
+/** Team-facing summary of the gate, shown on the Tech Intake page. */
+export type IntakeGovernanceStatus = 'approved' | 'pending' | 'rejected';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function toLocalIsoDate(date: Date): string {
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${mm}-${dd}`;
+}
+
+/**
+ * Single source of truth for whether one intake lets its team raise PRs.
+ * Used by the ADO PR check, the admin intakes modal and the Tech Intake page.
+ */
+export function evaluateIntakeGate(
+  intake: TechGovernanceReleaseIntake,
+  gracePeriodInDays: number,
+  now: Date = new Date(),
+): IntakeGateStatus {
+  if (intake.platformVeto === PLATFORM_VETO.ALWAYS_BLOCK) return { state: 'veto-block', allowsPRs: false };
+  if (intake.platformVeto === PLATFORM_VETO.ALWAYS_ALLOW) return { state: 'veto-allow', allowsPRs: true };
+  if (intake.discussedOn) return { state: 'approved', allowsPRs: true };
+  if (!gracePeriodInDays || !intake.createdDate) return { state: 'blocking', allowsPRs: false };
+
+  // Compare calendar days only (round absorbs DST shifts between the two midnights)
+  const createdDay = startOfLocalDay(new Date(intake.createdDate));
+  const elapsedDays = Math.round((startOfLocalDay(now).getTime() - createdDay.getTime()) / MS_PER_DAY);
+  const graceEnd = new Date(createdDay);
+  graceEnd.setDate(graceEnd.getDate() + gracePeriodInDays);
+  const graceEndsOn = toLocalIsoDate(graceEnd);
+  const graceDaysLeft = gracePeriodInDays - elapsedDays;
+
+  return graceDaysLeft >= 0
+    ? { state: 'grace', allowsPRs: true, graceEndsOn, graceDaysLeft }
+    : { state: 'blocking', allowsPRs: false, graceEndsOn };
+}
+
+export function toGovernanceStatus(gate: IntakeGateStatus): IntakeGovernanceStatus {
+  if (gate.state === 'veto-block') return 'rejected';
+  if (gate.state === 'approved' || gate.state === 'veto-allow') return 'approved';
+  return 'pending';
+}
+
+export type IntakeWithGateStatus = TechGovernanceReleaseIntake & { gateStatus: IntakeGateStatus };
+export type ReleaseWithGateStatus = Omit<TechGovernanceRelease, 'intakes'> & { intakes: IntakeWithGateStatus[] };
 
 class TechGovernanceReleasesIntakeService {
   private readonly dataFilePath = '/tech_governance_releases_intake_data.json';
@@ -104,7 +172,7 @@ class TechGovernanceReleasesIntakeService {
       intakePageId: '',
       branch: key,
       intakes: [],
-      gracePeriodInDays: 0,
+      gracePeriodInDays: DEFAULT_GRACE_PERIOD_DAYS,
     });
   }
 
@@ -119,20 +187,69 @@ class TechGovernanceReleasesIntakeService {
 
     const intakes = await this.fetchConfluenceChildPagesDetails(intakePageId);
 
-    // Preserve existing platformVeto values when refreshing intakes.
-    const prevById = new Map(existing.intakes.map((i) => [i.id, i]));
-    const mergedIntakes = intakes.map((intake) => {
-      const prev = prevById.get(intake.id);
-      if (prev && prev.platformVeto) {
-        return { ...intake, platformVeto: prev.platformVeto };
-      }
-      return intake;
-    });
-
     return this.update(key, {
       ...existing,
       intakePageId,
-      intakes: mergedIntakes,
+      intakes: this.mergeStoredIntakeFields(intakes, existing.intakes),
+    });
+  }
+
+  /**
+   * Carry dashboard-owned fields (platformVeto, approvedBy) from stored intakes onto
+   * intakes freshly parsed from Confluence, which don't contain them.
+   */
+  mergeStoredIntakeFields(
+    fresh: TechGovernanceReleaseIntake[],
+    stored: TechGovernanceReleaseIntake[],
+  ): TechGovernanceReleaseIntake[] {
+    const storedById = new Map(stored.map((i) => [i.id, i]));
+    return fresh.map((intake) => {
+      const prev = storedById.get(intake.id);
+      if (!prev) return intake;
+      return {
+        ...intake,
+        platformVeto: typeof prev.platformVeto === 'number' ? prev.platformVeto : intake.platformVeto,
+        // Attribution only holds while the page still carries the date that was approved
+        approvedBy: prev.approvedBy && prev.discussedOn === intake.discussedOn ? prev.approvedBy : undefined,
+      };
+    });
+  }
+
+  withGateStatus(release: TechGovernanceRelease, now: Date = new Date()): ReleaseWithGateStatus {
+    return {
+      ...release,
+      intakes: release.intakes.map((intake) => ({
+        ...intake,
+        gateStatus: evaluateIntakeGate(intake, release.gracePeriodInDays, now),
+      })),
+    };
+  }
+
+  /** Locate an intake by Confluence page ID across all releases. */
+  findIntake(intakeId: string): { key: string; release: TechGovernanceRelease; intake: TechGovernanceReleaseIntake } | undefined {
+    for (const [key, release] of Object.entries(this.releases)) {
+      const intake = release.intakes.find((i) => i.id === intakeId);
+      if (intake) return { key, release, intake };
+    }
+    return undefined;
+  }
+
+  /** Update the approval fields of one intake without refetching the release from Confluence. */
+  async patchIntakeApproval(
+    key: string,
+    intakeId: string,
+    patch: { discussedOn?: string; approvedBy?: string },
+  ): Promise<TechGovernanceRelease> {
+    const existing = this.releases[key];
+    if (!existing) throw new Error(`Release '${key}' not found`);
+    if (!existing.intakes.some((i) => i.id === intakeId)) {
+      throw new Error(`Intake '${intakeId}' not found in release '${key}'`);
+    }
+    return this.update(key, {
+      ...existing,
+      intakes: existing.intakes.map((i) =>
+        i.id === intakeId ? { ...i, discussedOn: patch.discussedOn, approvedBy: patch.approvedBy } : i,
+      ),
     });
   }
 

@@ -20,6 +20,7 @@ import { QuillEditorComponent } from 'ngx-quill';
 import type Quill from 'quill';
 import { IntakeSummaryComponent } from './intake-summary.component';
 import { ApiService } from '../../services/api.service';
+import { IntakeGovernanceStatus } from '../../models/tech-governance.models';
 import { toPlainText } from '../../utils/rich-text.util';
 import { enableAutoLink } from '../../utils/quill-autolink';
 
@@ -217,7 +218,23 @@ export class TechIntakeComponent implements OnInit {
   editModalSelectedPageId = '';
   editModalLoading = false;
   editMode = false;
-  editPageId = '';
+  // Switching to another intake page also fetches its Tech Governance status for the header pill
+  private _editPageId = '';
+  get editPageId(): string {
+    return this._editPageId;
+  }
+  set editPageId(pageId: string) {
+    if (pageId === this._editPageId) return;
+    this._editPageId = pageId;
+    this.governanceStatus = null;
+    if (pageId) void this.loadGovernanceStatus(pageId);
+  }
+  governanceStatus: IntakeGovernanceStatus | null = null;
+  readonly governanceStatusLabels: Record<IntakeGovernanceStatus, string> = {
+    pending: 'Pending Platform approval',
+    approved: 'Approved by Platform',
+    rejected: 'Rejected by Platform',
+  };
   // Edit history loaded from Confluence content property
   editHistory: Array<{
     editedBy: { name: string; email: string; accountId?: string };
@@ -236,6 +253,19 @@ export class TechIntakeComponent implements OnInit {
 
   ngOnInit(): void {
     void this.loadData();
+  }
+
+  private async loadGovernanceStatus(pageId: string): Promise<void> {
+    try {
+      const res = await this.apiService.request<{ status: IntakeGovernanceStatus }>(
+        'GET',
+        `/api/tech-intake/intake/${encodeURIComponent(pageId)}/governance-status`,
+      );
+      // Ignore a late answer for a page the user has already left
+      if (this._editPageId === pageId) this.governanceStatus = res?.status ?? null;
+    } catch {
+      // Informational only: no pill if the status can't be loaded
+    }
   }
 
   toggleHistoryDrawer(): void {

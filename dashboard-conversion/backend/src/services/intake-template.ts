@@ -560,9 +560,11 @@ export function renderFullIntakeTemplate(formData: IntakeFormData): string {
   }
 
   // Footer
-  const govDate = formData.generalValues?.techGovernanceDate ?? '';
+  // Set only by Tech Governance approval; read back by the governance intake parser (prefers the <time> tag)
+  const govDate = String(formData.generalValues?.techGovernanceDate ?? '');
   if (govDate) {
-    rows.push(`<tr><td colspan="5"><p>Discussed in Tech Governance Meeting on ${escapeHtml(govDate)}</p></td></tr>`);
+    const dateHtml = /^\d{4}-\d{2}-\d{2}$/.test(govDate) ? `<time datetime="${govDate}" />` : escapeHtml(govDate);
+    rows.push(`<tr><td colspan="5"><p>Discussed in Tech Governance Meeting on ${dateHtml}</p></td></tr>`);
   }
 
   return `<table data-layout="full-width">${rows.join('')}</table>`;

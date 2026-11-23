@@ -6,6 +6,70 @@
     <div class="success-banner">{{ success() }}</div>
   }
 
+  <!-- Awaiting discussion: pending intakes across releases still open in Release Workflow -->
+  @if (awaitingError()) {
+    <div class="awaiting-error">{{ awaitingError() }}</div>
+  } @else if (awaitingItems().length > 0) {
+    <section class="awaiting-panel">
+      <button
+        type="button"
+        class="awaiting-head"
+        [attr.aria-expanded]="!awaitingCollapsed()"
+        (click)="toggleAwaitingCollapsed()">
+        <span class="awaiting-title">
+          <i class="bi" [class.bi-chevron-down]="!awaitingCollapsed()" [class.bi-chevron-right]="awaitingCollapsed()" aria-hidden="true"></i>
+          Awaiting discussion ({{ awaitingItems().length }})
+        </span>
+        @if (awaitingBlockingCount() > 0) {
+          <span class="status-badge status-badge--blocking"><span class="dot"></span>{{ awaitingBlockingCount() }} blocking PRs</span>
+        }
+        @if (awaitingGraceCount() > 0) {
+          <span class="status-badge status-badge--grace"><span class="dot"></span>{{ awaitingGraceCount() }} in grace</span>
+        }
+        <span class="awaiting-scope">Active releases: {{ awaitingReleaseNames() }}</span>
+      </button>
+
+      @if (!awaitingCollapsed()) {
+        <div class="awaiting-body">
+          <div class="table-wrapper">
+            <table class="governance-table awaiting-table">
+              <thead>
+                <tr>
+                  <th>Release</th>
+                  <th>Intake</th>
+                  <th>Team</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Author</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of awaitingItems(); track item.intake.id) {
+                  <tr>
+                    <td class="nowrap">{{ item.branch }}</td>
+                    <td>
+                      <a [href]="getIntakeUrl(item.intake.id)" target="_blank" rel="noopener noreferrer">{{ item.intake.title }}</a>
+                    </td>
+                    <td>{{ item.intake.jira || '—' }}</td>
+                    <td><ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: item.intake }" /></td>
+                    <td class="nowrap">{{ item.intake.createdDate | date: 'mediumDate' }}</td>
+                    <td>{{ item.intake.author }}</td>
+                    <td class="actions-col">
+                      <ng-container
+                        *ngTemplateOutlet="approvalButtons; context: { $implicit: item.intake, branch: item.branch, disabled: awaitingLoading() }" />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="awaiting-note">Intakes with a platform veto aren't listed: the veto decides their PRs, not the discussion.</p>
+        </div>
+      }
+    </section>
+  }
+
   <div class="releases-header">
     <h3>Releases ({{ releases().length }})</h3>
     <button
@@ -139,11 +203,25 @@
         @if (modalRelease.intakes.length === 0) {
           <div class="empty-state">No intakes available for this release.</div>
         } @else {
+          <div class="intake-filters" role="group" aria-label="Filter intakes by governance status">
+            @for (option of intakeFilters; track option.value) {
+              <button
+                type="button"
+                class="filter-chip"
+                [class.filter-chip--active]="intakeFilter() === option.value"
+                [attr.aria-pressed]="intakeFilter() === option.value"
+                (click)="intakeFilter.set(option.value)">
+                {{ option.label }} <strong>{{ intakeFilterCount(option.value) }}</strong>
+              </button>
+            }
+            <span class="filters-note">Grace period: {{ modalRelease.gracePeriodInDays }} days</span>
+          </div>
           <div class="table-wrapper">
             <table class="intakes-table">
               <thead>
                 <tr>
                   <th>Title</th>
+                  <th>Governance Status</th>
                   <th>Scope</th>
                   <th>Dates</th>
                   <th>Author</th>
@@ -153,7 +231,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (intake of modalRelease.intakes; track trackByIntakeId($index, intake)) {
+                @for (intake of modalIntakes(); track trackByIntakeId($index, intake)) {
                   <tr
                     [class.veto-row-block]="(intakesEditingId() === intake.id && intakeEditBuffer ? intakeEditBuffer.platformVeto : intake.platformVeto) === 1"
                     [class.veto-row-allow]="(intakesEditingId() === intake.id && intakeEditBuffer ? intakeEditBuffer.platformVeto : intake.platformVeto) === 2">
@@ -162,10 +240,10 @@
                         {{ intake.title }}
                       </a>
                     </td>
+                    <td><ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: intake }" /></td>
                     <td>{{ intake.scope || '—' }}</td>
                     <td class="dates-cell">
                       <div><strong>Created:</strong> {{ intake.createdDate | date: 'mediumDate' }}</div>
-                      <div><strong>Discussed:</strong> {{ intake.discussedOn ? (intake.discussedOn | date: 'mediumDate') : '—' }}</div>
                       <div><strong>Updated:</strong> {{ intake.updatedDate | date: 'mediumDate' }}</div>
                     </td>
                     <td>{{ intake.author }}</td>
@@ -192,6 +270,8 @@
                           Cancel
                         </button>
                       } @else {
+                        <ng-container
+                          *ngTemplateOutlet="approvalButtons; context: { $implicit: intake, branch: modalRelease.branch, disabled: !!intakesEditingId() }" />
                         <button
                           class="icon-btn"
                           title="Edit Platform Veto"
@@ -202,12 +282,98 @@
                       }
                     </td>
                   </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="8" class="empty-state">No intakes match this filter.</td>
+                  </tr>
                 }
               </tbody>
             </table>
           </div>
         }
       </div>
+    </div>
+  </div>
+}
+
+<!-- Governance status of one intake, as the ADO PR check sees it -->
+<ng-template #statusBadge let-intake>
+  @if (statusView(intake); as v) {
+    <span class="status-badge" [class]="'status-badge--' + v.tone">
+      @if (v.tone !== 'veto-allow' && v.tone !== 'veto-block') {
+        <span class="dot" aria-hidden="true"></span>
+      }
+      {{ v.label }}
+    </span>
+    @if (v.detail) {
+      <span class="status-detail">{{ v.detail }}</span>
+    }
+  }
+</ng-template>
+
+<!-- Approve (not yet discussed) or Revoke (discussed) trigger for one intake -->
+<ng-template #approvalButtons let-intake let-branch="branch" let-disabled="disabled">
+  @if (intake.discussedOn) {
+    <button
+      type="button"
+      class="link-btn approval-trigger"
+      [disabled]="disabled || approvalSaving()"
+      (click)="openApproval('revoke', branch, intake, $event)">
+      Revoke
+    </button>
+  } @else {
+    <button
+      type="button"
+      class="btn btn-approve btn-sm approval-trigger"
+      [disabled]="disabled || approvalSaving()"
+      (click)="openApproval('approve', branch, intake, $event)">
+      <i class="bi bi-check-lg" aria-hidden="true"></i>
+      Approve
+    </button>
+  }
+</ng-template>
+
+<!-- One approve / revoke popover, fixed to the viewport so table and modal scrolling can't clip it -->
+@if (approvalTarget(); as target) {
+  <div
+    class="approval-popover"
+    [class.approval-popover--danger]="target.action === 'revoke'"
+    [style.top.px]="target.top"
+    [style.bottom.px]="target.bottom"
+    [style.right.px]="target.right"
+    role="dialog"
+    [attr.aria-label]="target.action === 'approve' ? 'Mark intake as discussed' : 'Revoke approval'">
+    @if (target.action === 'approve') {
+      <h4>Mark as discussed</h4>
+      <label for="governance-meeting-date">Tech Governance meeting date</label>
+      <input id="governance-meeting-date" type="date" [(ngModel)]="meetingDate" [disabled]="approvalSaving()" />
+      <div class="preview">
+        Adds to the Confluence page:<br />
+        <strong>"Discussed in Tech Governance Meeting on {{ approvalPreviewDate }}"</strong>
+      </div>
+    } @else {
+      <h4>Revoke approval?</h4>
+      <div class="preview">
+        Removes the "Discussed in Tech Governance Meeting" line from the Confluence page. PRs for this team will be
+        blocked unless the grace period or a veto allows them.
+      </div>
+    }
+
+    @if (approvalError()) {
+      <div class="popover-error">{{ approvalError() }}</div>
+    }
+
+    <div class="popover-foot">
+      <button type="button" class="btn btn-secondary btn-sm" [disabled]="approvalSaving()" (click)="closeApproval()">Cancel</button>
+      <button
+        type="button"
+        class="btn btn-sm"
+        [class.btn-primary]="target.action === 'approve'"
+        [class.btn-revoke]="target.action === 'revoke'"
+        [disabled]="approvalSaving()"
+        (click)="confirmApproval()">
+        {{ approvalSaving() ? 'Saving...' : target.action === 'approve' ? 'Approve' : 'Revoke' }}
+      </button>
     </div>
   </div>
 }
