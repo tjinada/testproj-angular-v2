@@ -1,8 +1,4 @@
 <div class="content-section">
-  <div class="section-header">
-    <h2>Tech Governance Intake Management</h2>
-  </div>
-
   @if (error()) {
     <div class="error-banner">{{ error() }}</div>
   }
@@ -10,14 +6,22 @@
     <div class="success-banner">{{ success() }}</div>
   }
 
-  <div class="card">
+  <div class="releases-header">
     <h3>Releases ({{ releases().length }})</h3>
+    <button
+      class="btn btn-primary"
+      [disabled]="!!editingKey()"
+      (click)="startAdd()">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>
+      Add Release
+    </button>
+  </div>
 
-    @if (loading()) {
-      <div class="loading">Loading releases...</div>
-    } @else {
-      <div class="table-wrapper">
-        <table class="governance-table">
+  @if (loading()) {
+    <div class="loading">Loading releases...</div>
+  } @else {
+    <div class="table-wrapper">
+      <table class="governance-table">
           <thead>
             <tr>
               <th>Branch</th>
@@ -111,23 +115,13 @@
 
             @if (releases().length === 0 && !isEditing(null, '__new__')) {
               <tr>
-                <td colspan="5" class="empty-state">No releases found. Click "Add Release" below to create one.</td>
+                <td colspan="5" class="empty-state">No releases found. Click "Add Release" to create one.</td>
               </tr>
             }
           </tbody>
-        </table>
-      </div>
-
-      <div class="add-row-container">
-        <button
-          class="btn btn-primary"
-          [disabled]="!!editingKey()"
-          (click)="startAdd()">
-          <i class="bi bi-plus-lg"></i> Add Release
-        </button>
-      </div>
-    }
-  </div>
+      </table>
+    </div>
+  }
 </div>
 
 <!-- Intakes Modal -->

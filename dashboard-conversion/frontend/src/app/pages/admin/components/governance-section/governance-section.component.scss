@@ -1,5 +1,3 @@
-.content-section { animation: fadeIn 0.3s ease-in; }
-
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -11,6 +9,24 @@
   h2 { margin: 0; }
 }
 
+.releases-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  h3 {
+    margin: 0;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
 .table-wrapper {
   overflow-x: auto;
 }
@@ -19,24 +35,32 @@
 .intakes-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 13px;
+  background: #fff;
+  border: 1px solid #c9ddf1;
+  border-radius: 4px;
+  overflow: hidden;
 
   th, td {
-    padding: 10px 12px;
+    padding: 14px 16px;
     text-align: left;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid #f0f0f0;
     vertical-align: middle;
   }
 
   th {
-    background: var(--bg);
-    font-weight: 600;
-    font-size: 13px;
+    background: #edf5fc;
+    font-weight: 500;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    color: #214a73;
+    border-bottom: 1px solid #d6e6f5;
   }
 
-  tbody tr:hover { background: rgba(0, 0, 0, 0.02); }
+  tbody tr:hover { background: #f7f8fa; }
+
+  tbody tr:last-child td { border-bottom: none; }
 
   input, textarea {
     width: 100%;
@@ -113,14 +137,6 @@
   }
 }
 
-.add-row-container {
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-start;
-
-  .btn i { margin-right: 6px; }
-}
-
 .dates-cell {
   font-size: 13px;
   line-height: 1.5;
@@ -151,14 +167,6 @@
   color: var(--text-secondary);
 }
 
-.error-banner {
-  background: #ffebee;
-  color: #c62828;
-  padding: 10px 16px;
-  border-radius: 4px;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
 
 .success-banner {
   background: #e8f5e9;
@@ -222,6 +230,14 @@
 
 @media (max-width: 768px) {
   .section-header { flex-direction: column; align-items: flex-start; }
+  .releases-header {
+    flex-direction: column;
+    align-items: flex-start;
+
+    .btn {
+      width: 100%;
+    }
+  }
   .actions-col { text-align: left; }
   .modal-dialog {
     width: 95vw;
