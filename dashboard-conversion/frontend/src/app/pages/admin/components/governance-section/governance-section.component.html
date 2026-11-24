@@ -96,7 +96,31 @@
             </tr>
           </thead>
           <tbody>
-            @for (release of releases(); track trackByBranch($index, release)) {
+            @if (isEditing(null, '__new__') && editBuffer) {
+              <tr class="editing-row new-row">
+                <td>
+                  <input type="text" [(ngModel)]="editBuffer.branch" placeholder="Branch" />
+                </td>
+                <td>
+                  <textarea [(ngModel)]="editBuffer.details" placeholder="Details" rows="3"></textarea>
+                </td>
+                <td>
+                  <input type="number" min="0" [(ngModel)]="editBuffer.gracePeriodInDays" />
+                </td>
+                <td>
+                  <input type="text" [(ngModel)]="editBuffer.intakePageId" placeholder="Intake Page ID" />
+                </td>
+                <td class="actions-col">
+                  <button class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveEdit()">
+                    {{ saving() ? 'Saving...' : 'Save' }}
+                  </button>
+                  <button class="btn btn-secondary btn-sm" [disabled]="saving()" (click)="cancelEdit()">
+                    Cancel
+                  </button>
+                </td>
+              </tr>
+            }
+            @for (release of sortedReleases(); track trackByBranch($index, release)) {
               @if (isEditing(release)) {
                 <tr class="editing-row">
                   <td>
@@ -150,31 +174,6 @@
                   </td>
                 </tr>
               }
-            }
-
-            @if (isEditing(null, '__new__') && editBuffer) {
-              <tr class="editing-row new-row">
-                <td>
-                  <input type="text" [(ngModel)]="editBuffer.branch" placeholder="Branch" />
-                </td>
-                <td>
-                  <textarea [(ngModel)]="editBuffer.details" placeholder="Details" rows="3"></textarea>
-                </td>
-                <td>
-                  <input type="number" min="0" [(ngModel)]="editBuffer.gracePeriodInDays" />
-                </td>
-                <td>
-                  <input type="text" [(ngModel)]="editBuffer.intakePageId" placeholder="Intake Page ID" />
-                </td>
-                <td class="actions-col">
-                  <button class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveEdit()">
-                    {{ saving() ? 'Saving...' : 'Save' }}
-                  </button>
-                  <button class="btn btn-secondary btn-sm" [disabled]="saving()" (click)="cancelEdit()">
-                    Cancel
-                  </button>
-                </td>
-              </tr>
             }
 
             @if (releases().length === 0 && !isEditing(null, '__new__')) {

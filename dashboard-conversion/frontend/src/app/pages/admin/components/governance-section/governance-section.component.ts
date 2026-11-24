@@ -90,6 +90,16 @@ export class GovernanceSectionComponent implements OnInit, OnDestroy {
   ];
 
   releases = signal<TechGovernanceRelease[]>([]);
+  sortedReleases = computed(() => {
+    const list = this.releases();
+    return [...list].sort((a, b) =>
+       b.branch.trim().replace(/^release\//i, '').localeCompare(
+         a.branch.trim().replace(/^release\//i, ''),
+         undefined,
+         { numeric: true, sensitivity: 'base' },
+       ),
+     );
+  });
   loading = signal(false);
   error = signal('');
   success = signal('');
