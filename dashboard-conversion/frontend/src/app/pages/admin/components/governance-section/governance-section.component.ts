@@ -60,18 +60,30 @@ function formatShortDate(value: string | undefined | null): string {
   return date ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : value;
 }
 
-function todayIsoDate(): string {
-  const now = new Date();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${mm}-${dd}`;
+function toIsoDate(date: Date): string {
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${mm}-${dd}`;
 }
 
+function todayIsoDate(): string {
+  return toIsoDate(new Date());
+}
+
+/** The day after a YYYY-MM-DD date (first day PRs are blocked once grace ends). */
+function nextDay(isoDate: string): string {
+  const date = parseDate(isoDate);
+  if (!date) return isoDate;
+  date.setDate(date.getDate() + 1);
+  return toIsoDate(date);
+}
+
+/** Collapsed unless the user expanded it before in this browser. */
 function readAwaitingCollapsed(): boolean {
   try {
-    return localStorage.getItem(AWAITING_COLLAPSED_STORAGE_KEY) === 'true';
+    return localStorage.getItem(AWAITING_COLLAPSED_STORAGE_KEY) !== 'false';
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -348,16 +360,14 @@ export class GovernanceSectionComponent implements OnInit, OnDestroy {
           label: `Approved · ${discussed}`,
           detail: intake.approvedBy ? `by ${intake.approvedBy}` : 'from Confluence page',
         };
-      case 'grace': {
-        const daysLeft = gate.graceDaysLeft ?? 0;
-        const left = daysLeft <= 0 ? 'last day of grace' : daysLeft === 1 ? '1 day grace left' : `${daysLeft} days grace left`;
-        return { tone: 'grace', label: `Pending · ${left}`, detail: `PRs block after ${formatShortDate(gate.graceEndsOn)}` };
-      }
+      // Both are "not discussed yet"; the detail line says whether the team's PRs still pass the ADO check
+      case 'grace':
+        return { tone: 'grace', label: 'Pending', detail: `PRs allowed until ${formatShortDate(gate.graceEndsOn)}` };
       case 'blocking':
         return {
           tone: 'blocking',
-          label: 'Pending · PRs blocked',
-          detail: gate.graceEndsOn ? `Grace ended ${formatShortDate(gate.graceEndsOn)}` : 'No grace period',
+          label: 'Pending',
+          detail: gate.graceEndsOn ? `PRs blocked since ${formatShortDate(nextDay(gate.graceEndsOn))}` : 'PRs blocked',
         };
       case 'veto-allow':
         return {
