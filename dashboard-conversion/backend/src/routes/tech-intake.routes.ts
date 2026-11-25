@@ -310,10 +310,18 @@ router.get('/intake/:pageId/pull', async (req: Request<{ pageId: string }>, res:
  * Team-facing Tech Governance status of one intake: 'approved' | 'pending' | 'rejected'.
  * Deliberately exposes nothing else (no veto value, dates or other teams' intakes).
  */
-router.get('/intake/:pageId/governance-status', (req: Request<{ pageId: string }>, res: Response) => {
+router.get('/intake/:pageId/governance-status', async (req: Request<{ pageId: string }>, res: Response) => {
   res.set('Cache-Control', 'no-store');
   try {
-    const found = techGovernanceReleasesIntakeService.findIntake(String(req.params.pageId));
+    const pageId = String(req.params.pageId);
+    const cached = techGovernanceReleasesIntakeService.findIntake(pageId);
+    if (cached) {
+      // Re-read the intake's release so a hand-edited Confluence page shows up; stored copy if that fails
+      await techGovernanceReleasesIntakeService.refreshIntakes(cached.key).catch((err: any) =>
+        console.error('Governance status: failed to refresh', cached.key, err?.message ?? err),
+      );
+    }
+    const found = techGovernanceReleasesIntakeService.findIntake(pageId);
     // Not in the governance cache yet (e.g. just created) means nobody has approved it
     const status = found
       ? toGovernanceStatus(evaluateIntakeGate(found.intake, found.release.gracePeriodInDays))

@@ -50,6 +50,25 @@ router.get('/', requireAuth, (_req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/tech-governance-releases-intake/release?branch=release/r95
+ * One release, with its intakes re-read from Confluence first so status is current.
+ */
+router.get('/release', requireAuth, async (req: Request, res: Response) => {
+  const branch = typeof req.query.branch === 'string' ? req.query.branch : '';
+  if (!branch) return res.status(400).json({ error: 'Query param "branch" is required' });
+  if (!techGovernanceReleasesIntakeService.getByBranch(branch)) {
+    return res.status(404).json({ error: `Release '${branch}' not found` });
+  }
+  try {
+    const release = await techGovernanceReleasesIntakeService.refreshIntakes(branch);
+    return res.json(techGovernanceReleasesIntakeService.withGateStatus(release));
+  } catch (error: any) {
+    console.error('Error refreshing tech governance release', branch, error?.message ?? error);
+    return res.status(502).json({ error: 'Failed to refresh intakes from Confluence' });
+  }
+});
+
+/**
  * Shared handler for POST (create) and PUT (update). Validates the body,
  * fetches the latest intakes from Confluence, builds a filtered
  * TechGovernanceRelease, and delegates to the service.
@@ -224,15 +243,21 @@ router.post('/intakes/revoke', requireAuth, async (req: Request, res: Response) 
 router.get('/awaiting-discussion', requireAuth, async (_req: Request, res: Response) => {
   try {
     const workflowReleases = Object.values(await releaseWorkflowService.getAll());
-    const now = new Date();
-    const seen = new Set<string>();
-    const items: Array<{ branch: string; intake: IntakeWithGateStatus }> = [];
-
+    const branches = new Set<string>();
     for (const workflowRelease of workflowReleases) {
       if (CLOSED_RELEASE_STATUSES.includes(workflowRelease.status)) continue;
       const release = techGovernanceReleasesIntakeService.findByBranch(workflowRelease.releaseId);
-      if (!release || seen.has(release.branch)) continue;
-      seen.add(release.branch);
+      if (release) branches.add(release.branch);
+    }
+
+    // Re-read each active release from Confluence; any that fail are listed from the stored copy
+    await Promise.allSettled([...branches].map((branch) => techGovernanceReleasesIntakeService.refreshIntakes(branch)));
+
+    const now = new Date();
+    const items: Array<{ branch: string; intake: IntakeWithGateStatus }> = [];
+    for (const branch of branches) {
+      const release = techGovernanceReleasesIntakeService.getByBranch(branch);
+      if (!release) continue;
       for (const intake of techGovernanceReleasesIntakeService.withGateStatus(release, now).intakes) {
         if (intake.gateStatus.state === 'grace' || intake.gateStatus.state === 'blocking') {
           items.push({ branch: release.branch, intake });

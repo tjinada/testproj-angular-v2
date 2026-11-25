@@ -145,6 +145,14 @@
   strong { font-weight: 600; color: var(--text-secondary); }
 }
 
+.refresh-note {
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  &--error { color: var(--error); }
+}
+
 .intake-filters {
   display: flex;
   align-items: center;

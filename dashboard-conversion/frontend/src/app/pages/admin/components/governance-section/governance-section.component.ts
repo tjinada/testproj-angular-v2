@@ -126,6 +126,8 @@ export class GovernanceSectionComponent implements OnInit, OnDestroy {
   intakesEditingId = signal<string | null>(null);
   intakeEditBuffer: TechGovernanceReleaseIntake | null = null;
   intakesSaving = signal(false);
+  intakesRefreshing = signal(false);
+  intakesRefreshError = signal('');
   private previousBodyOverflow = '';
 
   readonly intakeFilters: Array<{ value: IntakeFilter; label: string }> = [
@@ -291,11 +293,37 @@ export class GovernanceSectionComponent implements OnInit, OnDestroy {
     this.intakesEditingId.set(null);
     this.intakeEditBuffer = null;
     this.lockBodyScroll();
+    void this.refreshModalRelease(release.branch);
+  }
+
+  /** Show the stored intakes at once, then swap in a fresh read from Confluence. */
+  private async refreshModalRelease(branch: string): Promise<void> {
+    this.intakesRefreshing.set(true);
+    this.intakesRefreshError.set('');
+    try {
+      const fresh = await this.api.request<TechGovernanceRelease>(
+        'GET',
+        `/api/tech-governance-releases-intake/release?branch=${encodeURIComponent(branch)}`,
+      );
+      this.releases.update((list) => list.map((r) => (r.branch === fresh.branch ? fresh : r)));
+      // Only if the user is still looking at this release
+      if (this.intakesModalRelease()?.branch === branch) this.intakesModalRelease.set(fresh);
+    } catch (err: any) {
+      if (this.intakesModalRelease()?.branch === branch) {
+        this.intakesRefreshError.set(
+          (err?.error?.error || 'Could not refresh from Confluence') + ' — showing the last stored data.',
+        );
+      }
+    } finally {
+      if (this.intakesModalRelease()?.branch === branch) this.intakesRefreshing.set(false);
+    }
   }
 
   closeIntakes(): void {
     this.closeApproval();
     this.intakesModalRelease.set(null);
+    this.intakesRefreshing.set(false);
+    this.intakesRefreshError.set('');
     this.intakesEditingId.set(null);
     this.intakeEditBuffer = null;
     this.unlockBodyScroll();

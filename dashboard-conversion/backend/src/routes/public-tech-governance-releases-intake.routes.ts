@@ -61,17 +61,11 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     const intakePageId = releaseData.intakePageId;
-    let intakes;
     try {
-      intakes = await techGovernanceReleasesIntakeService.fetchConfluenceChildPagesDetails(intakePageId);
-      if (intakes && intakes.length) {
-        intakes = techGovernanceReleasesIntakeService.mergeStoredIntakeFields(intakes, releaseData.intakes);
-        // update() swaps the cache synchronously; the Artifactory write isn't awaited to keep the PR check fast
-        techGovernanceReleasesIntakeService.update(branch, { ...releaseData, intakes }).catch((err) =>
-          console.error('Failed to persist refreshed intakes for', branch, err?.message ?? err),
-        );
-      }
-    } catch (err) {
+      await techGovernanceReleasesIntakeService.refreshIntakes(branch);
+    } catch (err: any) {
+      // Fall back to the stored intakes if Confluence can't be read
+      console.error('PR check: failed to refresh intakes for', branch, err?.message ?? err);
     }
     const updatedReleaseData = techGovernanceReleasesIntakeService.getByBranch(branch);
     const teamReleaseIntakes = updatedReleaseData?.intakes.filter(intake => {

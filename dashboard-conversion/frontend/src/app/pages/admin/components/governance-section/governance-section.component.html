@@ -199,6 +199,11 @@
         </button>
       </div>
       <div class="modal-body">
+        @if (intakesRefreshing()) {
+          <div class="refresh-note"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Refreshing from Confluence…</div>
+        } @else if (intakesRefreshError()) {
+          <div class="refresh-note refresh-note--error">{{ intakesRefreshError() }}</div>
+        }
         @if (modalRelease.intakes.length === 0) {
           <div class="empty-state">No intakes available for this release.</div>
         } @else {
@@ -270,7 +275,7 @@
                         </button>
                       } @else {
                         <ng-container
-                          *ngTemplateOutlet="approvalButtons; context: { $implicit: intake, branch: modalRelease.branch, disabled: !!intakesEditingId() }" />
+                          *ngTemplateOutlet="approvalButtons; context: { $implicit: intake, branch: modalRelease.branch, disabled: !!intakesEditingId() || intakesRefreshing() }" />
                         <button
                           class="icon-btn"
                           title="Edit Platform Veto"

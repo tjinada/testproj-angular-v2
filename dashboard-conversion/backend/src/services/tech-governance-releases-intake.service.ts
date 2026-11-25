@@ -215,6 +215,27 @@ class TechGovernanceReleasesIntakeService {
     });
   }
 
+  /**
+   * Re-read a release's intakes from Confluence so status is current when it's viewed or checked.
+   * Writes to Artifactory only when something changed. Throws if Confluence can't be read.
+   */
+  async refreshIntakes(key: string): Promise<TechGovernanceRelease> {
+    const existing = this.releases[key];
+    if (!existing) throw new Error(`Release '${key}' not found`);
+    if (!existing.intakePageId) return existing;
+
+    const fresh = await this.fetchConfluenceChildPagesDetails(existing.intakePageId);
+    // Merge against the latest cache: an approval or veto edit may have landed during the fetch
+    const current = this.releases[key];
+    if (!current) throw new Error(`Release '${key}' not found`);
+    // An empty child list is more likely a Confluence hiccup than every intake being deleted
+    if (fresh.length === 0 && current.intakes.length > 0) return current;
+
+    const intakes = this.mergeStoredIntakeFields(fresh, current.intakes);
+    if (JSON.stringify(intakes) === JSON.stringify(current.intakes)) return current;
+    return this.update(key, { ...current, intakes });
+  }
+
   withGateStatus(release: TechGovernanceRelease, now: Date = new Date()): ReleaseWithGateStatus {
     return {
       ...release,
